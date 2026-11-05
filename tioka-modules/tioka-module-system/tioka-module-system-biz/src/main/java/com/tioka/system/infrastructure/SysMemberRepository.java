@@ -19,7 +19,7 @@ public class SysMemberRepository {
     }
 
     public void advisoryLockBootstrap() {
-        mapper.advisoryLockBootstrap(); // 阻塞直至拿到事务级咨询锁
+        mapper.advisoryLockBootstrap();
     }
 
     public void upsert(String workspaceId, String userId, String roleCode) {
@@ -28,5 +28,30 @@ public class SysMemberRepository {
 
     public List<SysMemberDO> findByUserId(String userId) {
         return mapper.listByUserId(userId);
+    }
+
+    public boolean isMember(String workspaceId, String userId) {
+        return mapper.isMember(workspaceId, userId);
+    }
+
+    public List<SysMemberDO> listByWorkspace(String workspaceId, int offset, int limit) {
+        return mapper.listByWorkspace(workspaceId, offset, limit);
+    }
+
+    public long countByWorkspace(String workspaceId) {
+        return mapper.countByWorkspace(workspaceId);
+    }
+
+    public long countWorkspaceAdmins(String workspaceId) {
+        return mapper.countWorkspaceAdmins(workspaceId);
+    }
+
+    public void removeUser(String workspaceId, String userId) {
+        mapper.softDeleteUser(workspaceId, userId);
+    }
+
+    public void replaceWorkspaceRole(String workspaceId, String userId, String roleCode) {
+        mapper.softDeleteWorkspaceRoles(workspaceId, userId);
+        mapper.upsertMember(workspaceId, userId, roleCode);
     }
 }

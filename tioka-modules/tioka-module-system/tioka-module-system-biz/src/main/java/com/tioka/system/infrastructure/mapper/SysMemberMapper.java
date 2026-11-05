@@ -6,6 +6,7 @@ import org.apache.ibatis.annotations.Insert;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
+import org.apache.ibatis.annotations.Update;
 
 @Mapper
 public interface SysMemberMapper extends BaseMapper<SysMemberDO> {
@@ -40,4 +41,50 @@ public interface SysMemberMapper extends BaseMapper<SysMemberDO> {
             WHERE user_id = #{userId} AND deleted = FALSE
             """)
     java.util.List<SysMemberDO> listByUserId(@Param("userId") String userId);
+
+    @Select("""
+            SELECT EXISTS(
+              SELECT 1 FROM sys_member
+              WHERE workspace_id = #{workspaceId} AND user_id = #{userId} AND deleted = FALSE
+            )
+            """)
+    boolean isMember(@Param("workspaceId") String workspaceId, @Param("userId") String userId);
+
+    @Select("""
+            SELECT workspace_id AS workspaceId, user_id AS userId, role_code AS roleCode, deleted AS deleted
+            FROM sys_member
+            WHERE workspace_id = #{workspaceId} AND deleted = FALSE
+              AND role_code <> 'tenant_admin'
+            ORDER BY user_id, role_code
+            LIMIT #{limit} OFFSET #{offset}
+            """)
+    java.util.List<SysMemberDO> listByWorkspace(@Param("workspaceId") String workspaceId,
+                                                @Param("offset") int offset,
+                                                @Param("limit") int limit);
+
+    @Select("""
+            SELECT COUNT(*) FROM sys_member
+            WHERE workspace_id = #{workspaceId} AND deleted = FALSE
+              AND role_code <> 'tenant_admin'
+            """)
+    long countByWorkspace(@Param("workspaceId") String workspaceId);
+
+    @Select("""
+            SELECT COUNT(*) FROM sys_member
+            WHERE workspace_id = #{workspaceId} AND role_code = 'workspace_admin' AND deleted = FALSE
+            """)
+    long countWorkspaceAdmins(@Param("workspaceId") String workspaceId);
+
+    @Update("""
+            UPDATE sys_member SET deleted = TRUE, update_at = now()
+            WHERE workspace_id = #{workspaceId} AND user_id = #{userId} AND deleted = FALSE
+            """)
+    int softDeleteUser(@Param("workspaceId") String workspaceId, @Param("userId") String userId);
+
+    @Update("""
+            UPDATE sys_member SET deleted = TRUE, update_at = now()
+            WHERE workspace_id = #{workspaceId} AND user_id = #{userId}
+              AND role_code <> 'tenant_admin' AND deleted = FALSE
+            """)
+    int softDeleteWorkspaceRoles(@Param("workspaceId") String workspaceId, @Param("userId") String userId);
 }
