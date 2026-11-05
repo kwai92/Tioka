@@ -1,7 +1,6 @@
 -- M0 契约迁移 3/3：模型调用收口、配额与审计（ADR-017；定案 ADR-029 第 7、8、13 条）
 
--- 轮次冻结，替代 model_session_freeze
-DROP TABLE IF EXISTS model_session_freeze;
+-- 轮次冻结，替代 model_session_freeze（旧表由 V120 在 MH-01 合入时删除）
 CREATE TABLE model_turn_freeze (
     session_id     VARCHAR(64)  NOT NULL,
     turn_id        VARCHAR(64)  NOT NULL,
@@ -16,7 +15,7 @@ CREATE TABLE model_turn_freeze (
 );
 
 -- 用量明细，替代 cost_event；只增不改
-DROP TABLE IF EXISTS cost_event;
+-- cost_event 由 V121 在 MH-05 合入时删除
 CREATE TABLE model_usage (
     id                VARCHAR(32)  PRIMARY KEY,
     tenant_id         VARCHAR(64)  NOT NULL,
@@ -40,7 +39,7 @@ CREATE INDEX idx_usage_ws_ts    ON model_usage (workspace_id, create_at);
 CREATE INDEX idx_usage_agent_ts ON model_usage (agent_id, create_at);
 
 -- 配额，替代 sys_quota；Redis 计数，60 秒落库
-DROP TABLE IF EXISTS sys_quota;
+-- sys_quota 由 V122 在 GOV-03 合入时删除
 CREATE TABLE gov_quota (
     scope_type   VARCHAR(16)  NOT NULL,                      -- workspace / agent / user / tool
     scope_id     VARCHAR(64)  NOT NULL,

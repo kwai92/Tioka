@@ -66,3 +66,11 @@ ADR 入库与 M0 契约编写时又统一了以下五处，编号续接上表。
 | 33 | ADR-016、V101 | V101 直接删除 `parts_json`，历史会话会丢 | V101 不删列；`V104__BackfillRuntimeItems`（Java 迁移）把旧 parts 转为 item，`V105` 再删 `parts_json`、`cancelled`、`steer_text` 与 `runtime_idem`。V101 尚未在任何环境执行，允许修改 |
 | 34 | ADR-016、第 3 条 | 事件 ID 规则不完整 | `item.created` 为 `{seq}.0`，`item.delta` 为 `{seq}.{i}`（i 从 1 起），`item.completed`、`item.discarded` 为 `{seq}`；比较时先比 seq，同 seq 带小数的在前；`turn.*` 事件不带 ID，重连时服务端先补发当前 Turn 状态。Redis 键统一为 `rt:events:{threadId}`、`rt:turns`、`rt:lock:{threadId}`、`rt:signal:{turnId}:cancel|steer` |
 | 35 | ADR-019、ADR-020 | 重建 `orch_run`、`flow_run` 等表时旧数据如何处理 | 仓库无生产数据：`orch_run`、`orch_attention`、`orch_why`、`orch_idem`、`flow_run` 直接删除重建，不做数据迁移；`orch_rule` 保留为规则头 |
+
+### 修订（2026-11-05，M0 编码前复核）
+
+M0 编码线程开工前复核施工设计，发现以下问题。按 ADR-030 直接修订原定案，不新增编号。
+
+- **第 33 条扩展为「删除旧表和旧列的时机」**：契约迁移只要包含删除表或列、或改写现有数据，就必须和替代旧实现的工作项在同一个 PR 合入，不得提前。V100 中的 `DROP auth_token` 移到 V106（随 FND-02）；V102 中删除 `model_session_freeze`、`cost_event`、`sys_quota` 移到 V120、V121、V122（分别随 MH-01、MH-05、GOV-03）；V130 中删除 `im_outbox` 移到 V142（随 CON-02）；V104、V105 随 M0「旧接口适配与下线」（W4）。V101 放开 `runtime_session.parts_json` 的非空约束，使过渡期新旧内核可以并存。因合入顺序可能与版本号不同，Flyway 开启 `out-of-order`。完整对照表见施工设计 M0-01 ENG-11「迁移随工作项落地」。
+- **第 10、20 条补充 DO 层约定**：DO 字段的时间类型沿用现有基类的 `LocalDateTime`，语义为 UTC（JVM `-Duser.timezone=UTC`，JDBC 会话 `TimeZone=UTC`），领域对象与 API 用 `Instant`；DO 中禁止 `OffsetDateTime`。新增两个约定基类：`MutableRecordDO`（四个审计列、无逻辑删除，用于 `runtime_turn` 等有状态机的表）与 `TechnicalRecordDO`（无审计列，只用于列出的技术表），`PersistenceArchTest` 同步放行。表与基类的对照见施工设计 M0-01 ENG-11「DO 基类与时间类型」。
+

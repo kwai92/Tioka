@@ -24,8 +24,7 @@ ALTER TABLE auth_user ADD COLUMN external_subject VARCHAR(255);
 ALTER TABLE auth_user ADD COLUMN default_workspace_id VARCHAR(64);
 CREATE UNIQUE INDEX uk_auth_user_idp_subject ON auth_user (tenant_id, idp, external_subject)
     WHERE external_subject IS NOT NULL;
--- password_hash 改存 bcrypt 由 FND-02 的数据迁移完成；auth_token 迁到 Redis 后删除
-DROP TABLE IF EXISTS auth_token;
+-- password_hash 改存 bcrypt 由 FND-02 的数据迁移完成；auth_token 由 V106 在 FND-02 合入时删除（现有 AuthService 仍在使用）
 
 CREATE TABLE sys_member (
     workspace_id VARCHAR(64) NOT NULL,
