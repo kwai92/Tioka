@@ -13,6 +13,7 @@ import com.tioka.orchestration.infrastructure.persistence.OrchIdemDO;
 import com.tioka.orchestration.infrastructure.persistence.OrchRuleDO;
 import com.tioka.orchestration.infrastructure.persistence.OrchRunDO;
 import com.tioka.orchestration.infrastructure.persistence.OrchWhyDO;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
@@ -20,6 +21,8 @@ import java.util.*;
 
 @Service
 public class OrchService implements OrchApi {
+    private static final long CLAIM_LEASE_MS = 30_000L;
+
     private final OrchRepository repo;
     private final OrchRuleService ruleService;
     private final ObjectMapper mapper;
@@ -31,7 +34,7 @@ public class OrchService implements OrchApi {
     }
 
     @Override
-    public synchronized String ingestEvent(String eventType, String idempotencyKey, Map<String, Object> payload) {
+    public String ingestEvent(String eventType, String idempotencyKey, Map<String, Object> payload) {
         if (idempotencyKey != null) {
             String existing = repo.findRunIdByIdem(idempotencyKey);
             if (existing != null) return existing;
@@ -44,14 +47,18 @@ public class OrchService implements OrchApi {
         String type = String.valueOf(action.getOrDefault("type", "create_run"));
 
         if ("ignore".equalsIgnoreCase(type)) {
-            // 不建业务 Run；记一条哨兵 why（runId=ignored）便于排查
             appendWhy("ignored", "ignore", "eventType=" + eventType
                     + (rule == null ? "" : " rule=" + rule.getId()));
             if (idempotencyKey != null) {
-                OrchIdemDO idem = new OrchIdemDO();
-                idem.setIdempotencyKey(idempotencyKey);
-                idem.setRunId("");
-                repo.insertIdem(idem);
+                try {
+                    OrchIdemDO idem = new OrchIdemDO();
+                    idem.setIdempotencyKey(idempotencyKey);
+                    idem.setRunId("");
+                    repo.insertIdem(idem);
+                } catch (DuplicateKeyException e) {
+                    String existing = repo.findRunIdByIdem(idempotencyKey);
+                    return existing == null ? "" : existing;
+                }
             }
             return "";
         }
@@ -79,26 +86,29 @@ public class OrchService implements OrchApi {
         repo.insertRun(run);
         appendWhy(runId, "event", eventType);
         if (idempotencyKey != null) {
-            OrchIdemDO idem = new OrchIdemDO();
-            idem.setIdempotencyKey(idempotencyKey);
-            idem.setRunId(runId);
-            repo.insertIdem(idem);
+            try {
+                OrchIdemDO idem = new OrchIdemDO();
+                idem.setIdempotencyKey(idempotencyKey);
+                idem.setRunId(runId);
+                repo.insertIdem(idem);
+            } catch (DuplicateKeyException e) {
+                String existing = repo.findRunIdByIdem(idempotencyKey);
+                if (existing != null) {
+                    return existing;
+                }
+                throw e;
+            }
         }
         return runId;
     }
 
     @Override
-    public synchronized RunView claim(String workerId) {
-        List<OrchRunDO> ready = repo.listClaimable(System.currentTimeMillis());
-        if (ready.isEmpty()) return null;
-        OrchRunDO r = ready.get(0);
-        long lease = System.currentTimeMillis() + 30_000;
-        r.setStatus("LEASED");
-        r.setWorkerId(workerId);
-        r.setLeaseUntil(lease);
-        repo.updateRun(r);
+    public RunView claim(String workerId) {
+        String id = repo.claimOne(workerId, CLAIM_LEASE_MS);
+        if (id == null) return null;
+        OrchRunDO r = repo.findRun(id);
         appendWhy(r.getId(), "claim", workerId);
-        return new RunView(r.getId(), "LEASED", r.getEventId(), workerId, lease);
+        return new RunView(r.getId(), "LEASED", r.getEventId(), r.getWorkerId(), r.getLeaseUntil());
     }
 
     @Override
