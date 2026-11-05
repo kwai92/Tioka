@@ -102,3 +102,7 @@ CREATE TABLE flow_publication (
   created_by VARCHAR(32), created_at TIMESTAMP NOT NULL,
   UNIQUE (workspace_id, kind, name));                -- 取代 flow_tool_pub
 ```
+
+## 修订（2026-11-05）
+
+Agent 工具形态的 Flow Run 携带调用方的委派授予（`flow_run.grant_id`），发布时计算 `requiredCapabilities`，见 [ADR-029](ADR-029-design-rulings.md) 第 47 条与 [ADR-039](ADR-039-delegation-grant.md)。
