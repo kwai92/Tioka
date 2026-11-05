@@ -43,7 +43,7 @@ public class QuotaService {
         ensureRow(workspaceId);
         Limits l = limitsOf(workspaceId);
         if (quotas.tryAcquire(workspaceId, l.concurrentLimit()) == 0) {
-            throw new BizException(ErrorCode.RATE_LIMITED, "并发超限");
+            throw new BizException(ErrorCode.QUOTA_EXCEEDED, "并发超限");
         }
     }
 
@@ -56,7 +56,7 @@ public class QuotaService {
         ensureRow(workspaceId);
         Limits l = limitsOf(workspaceId);
         if (quotas.consumeTokens(workspaceId, tokens, l.tokenLimit()) == 0) {
-            throw new BizException(ErrorCode.RATE_LIMITED, "Token 配额超限");
+            throw new BizException(ErrorCode.QUOTA_EXCEEDED, "Token 配额超限");
         }
     }
 

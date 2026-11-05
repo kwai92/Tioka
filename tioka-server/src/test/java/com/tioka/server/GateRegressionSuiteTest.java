@@ -318,7 +318,7 @@ class GateRegressionSuiteTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"tokens\":3}"))
                 .andExpect(status().isTooManyRequests())
-                .andExpect(jsonPath("$.code").value(42900));
+                .andExpect(jsonPath("$.code").value(42901));
 
         mockMvc.perform(get("/api/ops/audit/recent"))
                 .andExpect(status().isOk())

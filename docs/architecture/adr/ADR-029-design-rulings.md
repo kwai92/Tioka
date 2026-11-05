@@ -1,0 +1,39 @@
+# ADR-029 — 设计定案
+
+- 状态：Accepted（设计定案，待实现）
+- 日期：2026-11-05
+- 覆盖工作项：全局
+- 阅读版：[Tioka 推进规划与详细设计](https://claude.ai/artifact/V3wtabWCVSwAC3ewNerFNi)
+- 约束：本 ADR 优先于 ADR-015〜028；修改本 ADR 走 [ADR-030](ADR-030-anti-drift-process.md) 的变更流程。
+
+审查设计 A–E 后，发现 1 处矛盾和 14 处留白。留白的地方不同开发者会做出不同选择，所以在这里统一定案；实现时以本表为准，改动需走下一节的变更流程。第 1 处矛盾已在设计 B 的表结构里改正。
+
+| # | 涉及 | 问题 | 定案 |
+| --- | --- | --- | --- |
+| 1 | B、E、ORC | **矛盾**：`runtime_approval` 原先 `turn_id` 必填，但 Flow 人工节点和编排 Attention 没有 Turn | 改为通用审批表：`subject_type` + `subject_id`（turn / flow\_node\_run / orch\_run），`kind` 区分工具审批与卡片。审批提交后发 `approval.decided` 事件，由各 subject 的处理器负责续跑 |
+| 2 | B、C | 流式已经输出一半时主模型故障，故障接力会不会产生重复文字 | 首个 delta 发出前可以直接切备用；已发出 delta 后，本步 item 标记作废并发 `item.discarded`，整步用备用模型重跑。前端收到 discarded 即移除该 item |
+| 3 | B | 断线续传时 delta 不入库，怎么补 | 断点 item 已完成：从库补完整 item。仍在流式：从 Redis Stream 补该 item 的全部 delta。Stream 保留到 Turn 结束后 10 分钟、上限 1 万条，过期则全部从库补。客户端按 item id 幂等渲染 |
+| 4 | B | 会话锁续期失败时 worker 怎么做 | 立即停止该 Turn 的一切写入并放弃，由回收器接管；不尝试重新拿锁继续。所有 Turn 与 item 写入在同一事务内校验 `lease_version` |
+| 5 | B | 同一会话正在运行时又来一条消息 | 默认排队（FIFO，最多 5 条，超出返回 429）。想插话用 steer，插话内容在下一次模型调用前作为用户 item 注入 |
+| 6 | A、B | 异步任务运行中用户权限被收回 | `run_as` 只存身份，不存权限集。每个 Turn 开始和每次工具调用前重新加载权限（缓存 60 秒）；用户被禁用则进行中的 Turn 在下一步取消 |
+| 7 | C | 配额预检要不要估算本次 token | 不估算。预检只看「已用 < 上限」；单次调用允许超出，照常记账，下一次被拒。并发配额以 Turn 计，`WAITING_APPROVAL` 不占并发 |
+| 8 | C | 业务回滚时审计会不会一起丢 | 成功操作的审计与业务同事务；DENIED 和 ERROR 审计用独立事务（`REQUIRES_NEW`），不随业务回滚；工具调用审计在调用返回后单独写 |
+| 9 | 全局 | ID 格式与列宽不一致（32 与 64 混用） | 新表主键统一 ULID（26 字符，列宽 `VARCHAR(32)`）；引用其他表的外键列统一 `VARCHAR(64)` 以兼容旧 ID；禁止截断 UUID |
+| 10 | 全局 | 时间与时区 | 时间列一律 `TIMESTAMPTZ`，按 UTC 存；API 用带时区的 ISO-8601 |
+| 11 | E | Flow 的 Agent 节点用哪个 Runtime 会话 | 每个节点运行新建一个 thread（Loop 的每轮也各自新建），thread 元数据记录 runId 与 nodeId；不复用 Chat 会话 |
+| 12 | D | 文档切换版本时，引用了旧版本的回答怎么办 | 旧版本分块在切换后 5 分钟再删；之后引用解析失败时显示「来源已更新」，不报错 |
+| 13 | 全局 | 删除语义 | 业务实体软删（沿用 `deleted` 列）；`runtime_item`、`model_usage`、`audit_event` 只增不改不删，按保留策略归档 |
+| 14 | 全局 | 错误码与 HTTP 状态 | 沿用 `ApiResponse` 与 `ErrorCode`；新增错误码统一在 framework 登记：`UNAUTHENTICATED`→401、`FORBIDDEN`→403、`STALE_REVISION`→409、`QUOTA_EXCEEDED`→429、`LEASE_LOST` 仅内部使用 |
+| 15 | 全局 | 事件命名与版本 | Runtime 的 SSE 事件用小写点分（`item.completed`）；跨域 MQ 事件用 `tioka.{domain}.{event}.v1`，payload 带 `schemaVersion`，不兼容变更必须升版本号 |
+
+## 入库时的补充定案（2026-11-05）
+
+ADR 入库与 M0 契约编写时又统一了以下五处，编号续接上表。
+
+| # | 涉及 | 问题 | 定案 |
+| --- | --- | --- | --- |
+| 16 | ADR-016、ADR-027 | 子 Agent 与后台 Job 等待期间 Turn 处于什么状态 | Turn 状态机增加 `WAITING_CHILD`，与 `WAITING_APPROVAL` 一样释放会话锁和 worker、不占并发配额；子 Turn 或 Job 结束时由事件唤醒 |
+| 17 | ADR-015〜019 | 早期设计 SQL 中的 `TIMESTAMP` 与第 10 条冲突 | 一律按 `TIMESTAMPTZ` 实现；契约目录 `docs/contracts/db/` 中的迁移脚本已按此改写，以契约脚本为准 |
+| 18 | 第 14 条 | 错误码具体取值 | 不新增 `UNAUTHENTICATED`，沿用已有 `UNAUTHORIZED(40100)` 表示 401。新增 `STALE_REVISION(40901)`→409、`QUOTA_EXCEEDED(42901)`→429、`NOT_IMPLEMENTED(50100)`→501（M0 下线的假实现 API 使用）、`LEASE_LOST(50001)` 仅内部使用、不对外返回。HTTP 状态登记在 `com.tioka.framework.error.ErrorCode` 的 `httpStatus` 字段，异常处理器不再自行映射。现有配额超限改用 `QUOTA_EXCEEDED`，`RATE_LIMITED` 只用于限流 |
+| 19 | ADR-009、ADR-015 | ADR-009 第 3 条「不引入 tenantId」与 ADR-015 冲突 | ADR-015 取代 ADR-009 第 3 条：业务表加 `tenant_id`。多租户是否为硬需求尚待确认，确认前单租户部署固定 `tenant_id = 'default'`，租户拦截器照常生效 |
+| 20 | ADR-009、ADR-015〜019 | 行级审计列名：设计里写的 `created_at` 与 BaseDO 的 `create_at` 不一致 | 沿用 ADR-009 的 BaseDO 列名 `create_at / update_at / create_by / update_by / deleted`；设计文中的 `created_at`、`updated_at` 一律读作 BaseDO 列；新表这些列用 `TIMESTAMPTZ` |

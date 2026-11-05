@@ -1,0 +1,86 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tioka.dev/schema/runtime-event-v1.json",
+  "title": "Runtime SSE event v1 (ADR-016, ADR-028, ADR-029)",
+  "description": "SSE data payload of GET /api/runtime/threads/{id}/events. The SSE id field is {itemSeq} or {itemSeq}.{deltaIndex}.",
+  "type": "object",
+  "required": ["schemaVersion", "type", "threadId", "ts"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "type": {
+      "enum": [
+        "turn.started", "turn.waiting", "turn.completed", "turn.failed", "turn.cancelled",
+        "item.created", "item.delta", "item.completed", "item.discarded",
+        "approval.requested", "approval.decided"
+      ]
+    },
+    "threadId": { "type": "string", "minLength": 1 },
+    "turnId": { "type": "string" },
+    "ts": { "type": "string", "format": "date-time" },
+    "turn": { "$ref": "#/$defs/turn" },
+    "item": { "$ref": "#/$defs/item" },
+    "delta": { "$ref": "#/$defs/delta" },
+    "approval": { "$ref": "#/$defs/approval" }
+  },
+  "allOf": [
+    { "if": { "properties": { "type": { "pattern": "^turn\\." } } }, "then": { "required": ["turnId", "turn"] } },
+    { "if": { "properties": { "type": { "enum": ["item.created", "item.completed", "item.discarded"] } } }, "then": { "required": ["turnId", "item"] } },
+    { "if": { "properties": { "type": { "const": "item.delta" } } }, "then": { "required": ["turnId", "delta"] } },
+    { "if": { "properties": { "type": { "pattern": "^approval\\." } } }, "then": { "required": ["approval"] } }
+  ],
+  "$defs": {
+    "turn": {
+      "type": "object",
+      "required": ["status"],
+      "properties": {
+        "status": { "enum": ["QUEUED", "RUNNING", "WAITING_APPROVAL", "WAITING_CHILD", "INTERRUPTED", "COMPLETED", "FAILED", "CANCELLED"] },
+        "reason": { "type": "string" },
+        "errorCode": { "type": "string" },
+        "errorMessage": { "type": "string" },
+        "promptTokens": { "type": "integer" },
+        "completionTokens": { "type": "integer" }
+      }
+    },
+    "item": {
+      "type": "object",
+      "required": ["itemId", "seq", "itemType"],
+      "properties": {
+        "itemId": { "type": "string" },
+        "seq": { "type": "integer", "minimum": 1 },
+        "step": { "type": "integer", "minimum": 0 },
+        "itemType": {
+          "description": "Unknown values must render as a generic placeholder on the client.",
+          "type": "string",
+          "examples": ["message", "reasoning", "tool_call", "tool_result", "file_ref", "citation", "card", "compaction", "child_thread", "status", "error"]
+        },
+        "role": { "enum": ["user", "assistant", "tool", "system"] },
+        "content": { "type": "object" }
+      }
+    },
+    "delta": {
+      "type": "object",
+      "required": ["itemId", "index"],
+      "properties": {
+        "itemId": { "type": "string" },
+        "index": { "type": "integer", "minimum": 0 },
+        "text": { "type": "string" },
+        "reasoning": { "type": "string" }
+      }
+    },
+    "approval": {
+      "type": "object",
+      "required": ["approvalId", "subjectType", "subjectId", "kind", "status"],
+      "properties": {
+        "approvalId": { "type": "string" },
+        "subjectType": { "enum": ["turn", "flow_node_run", "orch_run"] },
+        "subjectId": { "type": "string" },
+        "kind": { "enum": ["tool", "card"] },
+        "status": { "enum": ["PENDING", "APPROVED", "REJECTED", "EXPIRED"] },
+        "toolName": { "type": "string" },
+        "args": { "type": "object" },
+        "card": { "type": "object" },
+        "expiresAt": { "type": "string", "format": "date-time" }
+      }
+    }
+  }
+}

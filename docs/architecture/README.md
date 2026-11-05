@@ -15,6 +15,24 @@
 
 ### 近期 ADR
 
+ADR-015〜030 是 M0〜M4 的权威设计，推进计划见 [34-M0至M4推进规划与工作项](implementation/34-M0至M4推进规划与工作项.md)，契约见 [docs/contracts](../contracts/README.md)。
+
 | ADR | 主题 |
 | --- | --- |
 | [ADR-014](adr/ADR-014-agentcore-alignment-package.md) | AgentCore 对齐补强包（工作盘 A / ToolGateway C / Skill / 多模态 / 凭证） |
+| [ADR-015](adr/ADR-015-identity-tenant-rbac.md) | 身份、租户与权限（覆盖 FND-01〜05、FND-07、GOV-01、CHT-01） |
+| [ADR-016](adr/ADR-016-runtime-kernel.md) | Runtime 内核（thread / turn / item）（覆盖 RT-01〜08、HCI-02） |
+| [ADR-017](adr/ADR-017-model-gateway-quota-audit.md) | 模型调用收口、配额与审计（覆盖 MH-01、MH-02、MH-04、MH-05、GOV-02、GOV-03、CON-01） |
+| [ADR-018](adr/ADR-018-knowledge-ingest-retrieval.md) | Knowledge 入库、检索与数据源（覆盖 KNW-01〜08） |
+| [ADR-019](adr/ADR-019-flow-engine-publication.md) | Flow 执行引擎与发布（覆盖 FLW-01〜07） |
+| [ADR-020](adr/ADR-020-orchestration.md) | Orchestration 编排（覆盖 ORC-01〜07） |
+| [ADR-021](adr/ADR-021-connector-im-mcp.md) | Connector、IM 与 MCP 管理（覆盖 CON-02〜07） |
+| [ADR-022](adr/ADR-022-chat.md) | Chat 对话（覆盖 CHT-02〜07） |
+| [ADR-023](adr/ADR-023-agent-skill-assets.md) | Agent 与 Skill 资产管理（覆盖 AST-01〜06） |
+| [ADR-024](adr/ADR-024-model-hub-routing.md) | Model Hub 供应商、路由与决策（覆盖 MH-03、MH-06、MH-07） |
+| [ADR-025](adr/ADR-025-governance.md) | Governance 余项（覆盖 GOV-06〜11） |
+| [ADR-026](adr/ADR-026-foundation.md) | Foundation 余项（覆盖 FND-08〜11） |
+| [ADR-027](adr/ADR-027-runtime-sandbox-subagent.md) | Runtime 沙箱、子 Agent、上下文压缩与后台 Job（覆盖 RT-09〜12） |
+| [ADR-028](adr/ADR-028-hci-frontend.md) | HCI 前端架构与各工作台（覆盖 HCI-03〜08） |
+| [ADR-029](adr/ADR-029-design-rulings.md) | 设计定案（20 条，全局） |
+| [ADR-030](adr/ADR-030-anti-drift-process.md) | 防偏差机制与设计变更流程（ENG-08〜10） |
