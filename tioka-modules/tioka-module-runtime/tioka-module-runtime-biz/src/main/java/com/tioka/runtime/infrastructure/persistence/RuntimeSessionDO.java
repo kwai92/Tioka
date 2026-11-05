@@ -1,6 +1,7 @@
 package com.tioka.runtime.infrastructure.persistence;
 
 import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import com.tioka.framework.persistence.BaseDO;
@@ -13,9 +14,19 @@ public class RuntimeSessionDO extends BaseDO {
     private String agentVersionId;
     private String routingPlanId;
     private String workspaceId;
+    /** V105 已删列；仅热状态内存字段 */
+    @TableField(exist = false)
     private Boolean cancelled;
+    @TableField(exist = false)
     private String steerText;
+    @TableField(exist = false)
     private String partsJson;
+    private Long lastItemSeq;
+    private String origin;
+    private String originRef;
+    private String metadataJson;
+    private String parentTurnId;
+    private Integer depth;
 
     public String getId() { return id; }
     public void setId(String id) { this.id = id; }
@@ -33,4 +44,16 @@ public class RuntimeSessionDO extends BaseDO {
     public void setSteerText(String steerText) { this.steerText = steerText; }
     public String getPartsJson() { return partsJson; }
     public void setPartsJson(String partsJson) { this.partsJson = partsJson; }
+    public Long getLastItemSeq() { return lastItemSeq; }
+    public void setLastItemSeq(Long lastItemSeq) { this.lastItemSeq = lastItemSeq; }
+    public String getOrigin() { return origin; }
+    public void setOrigin(String origin) { this.origin = origin; }
+    public String getOriginRef() { return originRef; }
+    public void setOriginRef(String originRef) { this.originRef = originRef; }
+    public String getMetadataJson() { return metadataJson; }
+    public void setMetadataJson(String metadataJson) { this.metadataJson = metadataJson; }
+    public String getParentTurnId() { return parentTurnId; }
+    public void setParentTurnId(String parentTurnId) { this.parentTurnId = parentTurnId; }
+    public Integer getDepth() { return depth; }
+    public void setDepth(Integer depth) { this.depth = depth; }
 }

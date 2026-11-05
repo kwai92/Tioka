@@ -1,4 +1,5 @@
--- M0：删除 runtime_session 旧列与 runtime_idem（ADR-029 第 33 条）
--- ENG-11：占位版本，保证 Flyway 版本链完整；真正 DROP 由 RT-02 在 V104 回填完成后写入本文件。
--- 施工设计：M0-03-Runtime内核.md（RT-02）
-SELECT 1;
+-- RT-02：回填完成后删除 runtime_session 旧列与 runtime_idem（ADR-029 第 33 条；施工 M0-03）
+ALTER TABLE runtime_session DROP COLUMN IF EXISTS parts_json;
+ALTER TABLE runtime_session DROP COLUMN IF EXISTS cancelled;
+ALTER TABLE runtime_session DROP COLUMN IF EXISTS steer_text;
+DROP TABLE IF EXISTS runtime_idem;
