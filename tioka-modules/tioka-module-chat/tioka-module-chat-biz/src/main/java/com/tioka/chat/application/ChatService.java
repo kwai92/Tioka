@@ -1,13 +1,13 @@
 package com.tioka.chat.application;
 
-import com.tioka.framework.id.Ids;
-
 import com.tioka.agent.api.AgentQueryApi;
 import com.tioka.chat.domain.ChatStore;
 import com.tioka.chat.domain.ChatStore.Conversation;
 import com.tioka.chat.domain.ChatStore.Message;
 import com.tioka.framework.error.BizException;
 import com.tioka.framework.error.ErrorCode;
+import com.tioka.framework.id.Ids;
+import com.tioka.framework.security.PrincipalHolder;
 import com.tioka.runtime.api.RuntimeSessionApi;
 import org.springframework.stereotype.Service;
 
@@ -20,11 +20,16 @@ public class ChatService {
     private final AgentQueryApi agentQueryApi;
     private final RuntimeSessionApi runtime;
     private final ChatStore store;
+    private final PrincipalHolder principals;
 
-    public ChatService(AgentQueryApi agentQueryApi, RuntimeSessionApi runtime, ChatStore store) {
+    public ChatService(AgentQueryApi agentQueryApi,
+                       RuntimeSessionApi runtime,
+                       ChatStore store,
+                       PrincipalHolder principals) {
         this.agentQueryApi = agentQueryApi;
         this.runtime = runtime;
         this.store = store;
+        this.principals = principals;
     }
 
     public Conversation create(String title, String agentVersionId) {
@@ -33,9 +38,10 @@ public class ChatService {
                 .map(s -> new RuntimeSessionApi.SkillInstallInput(
                         s.skillId(), s.name(), s.mode(), s.description(), s.skillMd()))
                 .toList();
+        String workspaceId = principals.current().workspaceId();
         var session = runtime.create(new RuntimeSessionApi.CreateSessionRequest(
                 v.id(), v.routingPlanId(),
-                Map.of("agentVersionId", v.id(), "workspaceId", "ws_default"),
+                Map.of("agentVersionId", v.id(), "workspaceId", workspaceId == null ? "" : workspaceId),
                 skills));
         String id = Ids.newId("conv");
         Conversation c = new Conversation(id, title == null ? "新会话" : title, agentVersionId, session.id());
@@ -47,9 +53,21 @@ public class ChatService {
         return store.listConversations();
     }
 
-    public Message send(String conversationId, String text, String clientMsgId) {
+    public Conversation get(String conversationId) {
         Conversation c = store.getConversation(conversationId);
-        if (c == null) throw new BizException(ErrorCode.NOT_FOUND, "会话不存在");
+        if (c == null) {
+            throw new BizException(ErrorCode.NOT_FOUND, "会话不存在");
+        }
+        return c;
+    }
+
+    public void delete(String conversationId) {
+        get(conversationId);
+        store.deleteConversation(conversationId);
+    }
+
+    public Message send(String conversationId, String text, String clientMsgId) {
+        Conversation c = get(conversationId);
         String mid = Ids.newId("msg");
         Message user = new Message(mid, conversationId, "user", text, List.of(Map.of("type", "text", "text", text)));
         store.addMessage(user);
@@ -77,6 +95,7 @@ public class ChatService {
     }
 
     public List<Message> messages(String conversationId) {
+        get(conversationId);
         return store.messages(conversationId);
     }
 }

@@ -50,6 +50,13 @@ public class ChatRepository {
         return conversations.selectList(q);
     }
 
+    public void deleteConversation(String id) {
+        if (findConversation(id) == null) {
+            return;
+        }
+        conversations.deleteById(id);
+    }
+
     public void insertMessage(ChatMessageDO row) { messages.insert(row); }
 
     public List<ChatMessageDO> listMessages(String conversationId) {

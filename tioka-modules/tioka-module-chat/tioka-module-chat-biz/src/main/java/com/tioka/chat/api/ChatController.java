@@ -1,9 +1,9 @@
-
 package com.tioka.chat.api;
 
 import com.tioka.chat.application.ChatService;
 import com.tioka.chat.domain.ChatStore;
 import com.tioka.framework.error.ApiResponse;
+import com.tioka.framework.security.RequirePermission;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -11,6 +11,7 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/chat")
+@RequirePermission("chat:use")
 public class ChatController {
     private final ChatService chatService;
 
@@ -26,6 +27,17 @@ public class ChatController {
     @PostMapping("/conversations")
     public ApiResponse<ChatStore.Conversation> create(@RequestBody Map<String, String> body) {
         return ApiResponse.ok(chatService.create(body.get("title"), body.get("agentVersionId")));
+    }
+
+    @GetMapping("/conversations/{id}")
+    public ApiResponse<ChatStore.Conversation> get(@PathVariable String id) {
+        return ApiResponse.ok(chatService.get(id));
+    }
+
+    @DeleteMapping("/conversations/{id}")
+    public ApiResponse<Void> delete(@PathVariable String id) {
+        chatService.delete(id);
+        return ApiResponse.ok(null);
     }
 
     @PostMapping("/conversations/{id}/messages")

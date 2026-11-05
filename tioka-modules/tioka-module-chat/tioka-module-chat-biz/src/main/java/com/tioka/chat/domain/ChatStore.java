@@ -48,6 +48,10 @@ public class ChatStore {
                 .toList();
     }
 
+    public void deleteConversation(String id) {
+        repo.deleteConversation(id);
+    }
+
     public void addMessage(Message m) {
         ChatMessageDO row = new ChatMessageDO();
         row.setId(m.id());
