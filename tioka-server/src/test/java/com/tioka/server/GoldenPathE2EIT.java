@@ -89,6 +89,7 @@ class GoldenPathE2EIT {
 
         mockMvc.perform(post("/api/mcp/servers/" + serverId + "/refresh-tools"))
                 .andExpect(status().isOk())
+                // ordered: 按名称过滤后的 MCP 工具列表，断言本用例写入的 echo
                 .andExpect(jsonPath("$.data[0].name").value("mcp_echo"));
 
         mockMvc.perform(post("/api/mcp/grants")

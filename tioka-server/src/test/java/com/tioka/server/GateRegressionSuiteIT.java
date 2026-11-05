@@ -197,7 +197,9 @@ class GateRegressionSuiteIT {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"query\":\"retrieval\",\"topK\":2}"))
                 .andExpect(status().isOk())
+                // ordered: 检索结果默认按 score 降序，取第一条
                 .andExpect(jsonPath("$.data[0].citationId").isNotEmpty())
+                // ordered: 同上
                 .andExpect(jsonPath("$.data[0].score").isNumber())
                 .andReturn();
         String citationId = MAPPER.readTree(search.getResponse().getContentAsString())

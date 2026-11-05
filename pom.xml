@@ -59,6 +59,7 @@
                         <!-- Java 24：Mockito inline / Byte Buddy 需 experimental -->
                         <argLine>-Dnet.bytebuddy.experimental=true</argLine>
                         <excludedGroups>gate</excludedGroups>
+                        <runOrder>random</runOrder>
                         <excludes>
                             <exclude>**/*IT.java</exclude>
                         </excludes>
@@ -71,6 +72,7 @@
                     <configuration>
                         <argLine>-Dnet.bytebuddy.experimental=true</argLine>
                         <excludedGroups>gate</excludedGroups>
+                        <runOrder>random</runOrder>
                     </configuration>
                 </plugin>
                 <plugin>
@@ -87,6 +89,10 @@
                 <configuration>
                     <argLine>-Dnet.bytebuddy.experimental=true</argLine>
                     <excludedGroups>gate</excludedGroups>
+                    <runOrder>random</runOrder>
+                    <excludes>
+                        <exclude>**/*IT.java</exclude>
+                    </excludes>
                 </configuration>
             </plugin>
             <plugin>
