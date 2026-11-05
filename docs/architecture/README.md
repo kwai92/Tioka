@@ -15,7 +15,7 @@
 
 ### 近期 ADR
 
-ADR-015〜031 是 M0〜M4 的权威设计，推进计划见 [34-M0至M4推进规划与工作项](implementation/34-M0至M4推进规划与工作项.md)，契约见 [docs/contracts](../contracts/README.md)。
+ADR-015〜031 是 M0〜M4 的权威设计，推进计划见 [34-M0至M4推进规划与工作项](implementation/34-M0至M4推进规划与工作项.md)，契约见 [docs/contracts](../contracts/README.md)。M0〜M2 的施工设计（逐工作项的改动清单、关键代码、迁移、接口、测试与完成标准）见 [construction/00-施工总纲](construction/00-施工总纲.md)。
 
 | ADR | 主题 |
 | --- | --- |
@@ -34,6 +34,6 @@ ADR-015〜031 是 M0〜M4 的权威设计，推进计划见 [34-M0至M4推进规
 | [ADR-026](adr/ADR-026-foundation.md) | Foundation 余项（覆盖 FND-08〜11） |
 | [ADR-027](adr/ADR-027-runtime-sandbox-subagent.md) | Runtime 沙箱、子 Agent、上下文压缩与后台 Job（覆盖 RT-09〜12） |
 | [ADR-028](adr/ADR-028-hci-frontend.md) | HCI 前端架构与各工作台（覆盖 HCI-03〜08） |
-| [ADR-029](adr/ADR-029-design-rulings.md) | 设计定案（25 条，全局） |
+| [ADR-029](adr/ADR-029-design-rulings.md) | 设计定案（35 条，全局） |
 | [ADR-030](adr/ADR-030-anti-drift-process.md) | 防偏差机制与设计变更流程（ENG-08〜10） |
 | [ADR-031](adr/ADR-031-agent-eval-experience.md) | Agent 观测、评测与经验自进化，对标阿里云 AgentLoop（EVO-01〜06） |
