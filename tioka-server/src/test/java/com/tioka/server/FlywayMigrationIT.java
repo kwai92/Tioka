@@ -37,7 +37,7 @@ class FlywayMigrationIT {
                 (rs, i) -> rs.getString(1));
         Set<String> set = Set.copyOf(versions);
         assertTrue(set.contains("1"), "missing V1: " + versions);
-        for (String v : List.of("100", "101", "102", "103", "104", "105")) {
+        for (String v : List.of("100", "101", "102", "103", "104", "105", "106")) {
             assertTrue(set.contains(v), "missing V" + v + ": " + versions);
         }
     }

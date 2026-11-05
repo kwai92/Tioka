@@ -42,13 +42,13 @@ class HealthIT {
     }
 
     @Test
-    void localLoginOk() throws Exception {
-        // FND-02 前仍可用种子 admin；登录本身不依赖空间隔离
+    void bootstrapAdminLoginOk() throws Exception {
         mockMvc.perform(post("/api/system/auth/login")
                         .contentType("application/json")
-                        .content("{\"username\":\"admin\",\"password\":\"admin123\"}"))
+                        .content("{\"username\":\"admin\",\"password\":\""
+                                + IntegrationTestSupport.BOOTSTRAP_ADMIN_PASSWORD + "\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(0))
-                .andExpect(jsonPath("$.data.token").isNotEmpty());
+                .andExpect(jsonPath("$.data.accessToken").isNotEmpty());
     }
 }

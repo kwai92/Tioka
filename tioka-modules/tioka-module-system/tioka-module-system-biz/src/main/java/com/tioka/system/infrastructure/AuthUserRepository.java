@@ -6,5 +6,6 @@ public interface AuthUserRepository {
     AuthUserDO findByUsername(String username);
     AuthUserDO findById(Long id);
     void insert(AuthUserDO user);
+    void update(AuthUserDO user);
     long nextId();
 }

@@ -35,8 +35,15 @@ management:
 tioka:
   env:
     name: local
+  home: ${TIOKA_HOME:${user.home}/.tioka}
   auth:
     local-enabled: true
+    access-ttl: 8h
+    refresh-ttl: 7d
+    login-max-failures: 10
+    cookie-secure: false
+  bootstrap:
+    admin-username: admin
   model:
     # local/slice 默认 mock；保真请叠加 profile=fidelity（见 application-fidelity.yml）
     mock: true

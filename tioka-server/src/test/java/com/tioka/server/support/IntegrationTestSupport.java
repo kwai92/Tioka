@@ -6,10 +6,15 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 public final class IntegrationTestSupport {
     private IntegrationTestSupport() {}
 
+    /** 集成测试固定初始管理员密码（经 BootstrapAdminRunner） */
+    public static final String BOOTSTRAP_ADMIN_PASSWORD = "TestAdmin!23456";
+
     public static void register(DynamicPropertyRegistry registry) {
         TestContainers.register(registry);
         registry.add("spring.datasource.driver-class-name", () -> "org.postgresql.Driver");
         registry.add("spring.flyway.enabled", () -> "true");
         registry.add("spring.sql.init.mode", () -> "never");
+        registry.add("tioka.bootstrap.admin-password", () -> BOOTSTRAP_ADMIN_PASSWORD);
+        registry.add("tioka.home", () -> System.getProperty("java.io.tmpdir") + "/tioka-it-home");
     }
 }

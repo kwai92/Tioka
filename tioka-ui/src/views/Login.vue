@@ -19,7 +19,7 @@ import { useSessionStore } from '../stores/session'
 const router = useRouter()
 const session = useSessionStore()
 const username = ref('admin')
-const password = ref('admin123')
+const password = ref('')
 const loading = ref(false)
 const error = ref('')
 
@@ -29,12 +29,14 @@ async function onSubmit() {
   try {
     const res = await fetch('/api/system/auth/login', {
       method: 'POST',
+      credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username: username.value, password: password.value })
     })
     const body = await res.json()
     if (body.code !== 0) throw new Error(body.message || '登录失败')
-    session.setSession(body.data.token, body.data.displayName || body.data.username)
+    const display = body.data.user?.displayName || body.data.user?.username || username.value
+    session.setSession(body.data.accessToken, display)
     router.push('/')
   } catch (e) {
     error.value = e.message || String(e)
