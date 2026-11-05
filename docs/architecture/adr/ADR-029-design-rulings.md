@@ -37,3 +37,15 @@ ADR 入库与 M0 契约编写时又统一了以下五处，编号续接上表。
 | 18 | 第 14 条 | 错误码具体取值 | 不新增 `UNAUTHENTICATED`，沿用已有 `UNAUTHORIZED(40100)` 表示 401。新增 `STALE_REVISION(40901)`→409、`QUOTA_EXCEEDED(42901)`→429、`NOT_IMPLEMENTED(50100)`→501（M0 下线的假实现 API 使用）、`LEASE_LOST(50001)` 仅内部使用、不对外返回。HTTP 状态登记在 `com.tioka.framework.error.ErrorCode` 的 `httpStatus` 字段，异常处理器不再自行映射。现有配额超限改用 `QUOTA_EXCEEDED`，`RATE_LIMITED` 只用于限流 |
 | 19 | ADR-009、ADR-015 | ADR-009 第 3 条「不引入 tenantId」与 ADR-015 冲突 | ADR-015 取代 ADR-009 第 3 条：业务表加 `tenant_id`。多租户是否为硬需求尚待确认，确认前单租户部署固定 `tenant_id = 'default'`，租户拦截器照常生效 |
 | 20 | ADR-009、ADR-015〜019 | 行级审计列名：设计里写的 `created_at` 与 BaseDO 的 `create_at` 不一致 | 沿用 ADR-009 的 BaseDO 列名 `create_at / update_at / create_by / update_by / deleted`；设计文中的 `created_at`、`updated_at` 一律读作 BaseDO 列；新表这些列用 `TIMESTAMPTZ` |
+
+## 待确认事项答复后的定案（2026-11-05）
+
+以下各条来自用户对推进规划「需要你确认」清单的答复，第 22 条取代第 19 条中「尚待确认」的部分。
+
+| # | 涉及 | 问题 | 定案 |
+| --- | --- | --- | --- |
+| 21 | ADR-016、ADR-017 | 不升级 Java 21，长连接和阻塞式模型调用怎么扛 100 并发会话 | 保持 Java 17。SSE 用异步 `SseEmitter`，不占 Servlet 线程；每个实例只开一个 Redis `XREAD` 多路复用线程，把各会话的事件分发给本机订阅者，不按连接开线程。模型流式调用用 JDK `HttpClient.sendAsync` 加流式 `BodySubscriber`，回调里写 Redis Stream；Turn worker 线程池有界，大小等于本实例的并发 Turn 上限。ArchUnit 禁止在请求线程里同步调模型 |
+| 22 | ADR-015 | 多租户是否为硬需求 | 不是。每家企业独立部署，一套部署只有一个租户 `default`。保留 `tenant_id` 列与租户拦截器（成本很低，日后可开），但不做租户开通、租户管理界面和跨租户隔离测试；内置角色 `tenant_admin` 在界面上显示为「系统管理员」 |
+| 23 | ADR-018 | 知识库统一向量维度；新增数据源与文档级权限 | 全部知识库统一一种向量维度，可接受。数据源不再指定 Confluence、GitLab 两家，而是做通用适配：`DataSourceConnector` SPI 之上提供通用连接器 SDK 与三类通用连接器（HTTP/REST 拉取、S3/MinIO/NAS 文件、JDBC 表），企业自有系统按 SDK 写插件接入（ADR-026 插件宿主）。`ChangeEvent` 增加可选 `aclPrincipals`，连接器能拿到源权限就带上，检索时与知识库级权限取交集；拿不到则退回知识库级权限 |
+| 24 | 推进计划 | 权威计划与人力 | 34 号文档取代 33 号文档的 R0–R6 计划，成为权威计划。工期按 2–3 名后端 + 1 名前端，M0–M4 约 42 周 |
+| 25 | ADR-027、ADR-031 | 经验库条目放在上下文的什么位置 | 组装顺序修订为：平台安全指令 → Agent 指令 → always Skill → auto Skill 索引 → 用户记忆 → 经验 → 知识自动检索结果 → 压缩摘要 → 历史 item → 本轮输入。经验最多 3 条、合计不超过 800 token |

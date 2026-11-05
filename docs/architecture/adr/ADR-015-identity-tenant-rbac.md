@@ -88,3 +88,7 @@ ALTER TABLE auth_user ADD COLUMN external_subject VARCHAR(255);
 **对外 API**：`POST /api/system/auth/login|refresh|logout`、`GET /api/system/auth/oidc/{idp}/authorize|callback`、`GET /api/system/auth/me`；管理端 `/api/system/members`、`/roles`、`/api-keys`。
 
 **落地顺序**：先加列并回填默认租户和空间 → 上过滤器与 Principal → 持久层拦截器 → 逐个 Controller 加 `@RequirePermission`（用 ArchUnit 检查所有 Controller 方法都有注解或显式 `@PublicApi`）。仓库没有生产数据，可以直接强制启用，不需要宽松模式。
+
+## 修订（2026-11-05）
+
+见 [ADR-029](ADR-029-design-rulings.md) 第 22 条：多租户不是硬需求，每家企业独立部署，`tenant_id` 固定为 `default`，不做租户开通与租户管理界面。

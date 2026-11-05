@@ -71,3 +71,7 @@ CREATE TABLE runtime_job (id VARCHAR(32) PRIMARY KEY, thread_id VARCHAR(64) NOT 
   started_at TIMESTAMPTZ NOT NULL, ended_at TIMESTAMPTZ);
 -- automation_job、agent_sandbox 废弃
 ```
+
+## 修订（2026-11-05）
+
+上下文组装顺序加入「经验」，见 [ADR-029](ADR-029-design-rulings.md) 第 25 条与 [ADR-031](ADR-031-agent-eval-experience.md)。

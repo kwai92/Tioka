@@ -102,3 +102,7 @@ CREATE TABLE kb_eval_run (id VARCHAR(32) PRIMARY KEY, set_id VARCHAR(32) NOT NUL
 ```
 
 向量维度按部署统一（示例 1024）。更换嵌入模型即触发整库重建任务；如果需要不同知识库用不同维度的模型，就要按维度分表，复杂度明显上升。
+
+## 修订（2026-11-05）
+
+见 [ADR-029](ADR-029-design-rulings.md) 第 23 条：统一向量维度；数据源不再指定 Confluence、GitLab，改为通用连接器 SDK 加 HTTP/REST、S3/MinIO/NAS、JDBC 三类通用连接器；`ChangeEvent` 增加可选 `aclPrincipals`，有源权限时检索取知识库级与文档级权限的交集。
