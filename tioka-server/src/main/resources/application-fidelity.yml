@@ -1,0 +1,8 @@
+# Depth P0 fidelity profile：关默认玩具路径。
+# 用法：SPRING_PROFILES_ACTIVE=local,fidelity
+# 无真实 Key 时业务应显式失败，禁止用 mock 回声冒充成功。
+tioka:
+  model:
+    mock: false
+  mcp:
+    mock: false

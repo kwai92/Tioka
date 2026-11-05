@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.tioka</groupId>
+        <artifactId>tioka</artifactId>
+        <version>${revision}</version>
+    </parent>
+
+    <artifactId>tioka-modules</artifactId>
+    <packaging>pom</packaging>
+    <name>tioka-modules</name>
+
+    <modules>
+        <module>tioka-module-system</module>
+        <module>tioka-module-infra</module>
+        <module>tioka-module-runtime</module>
+        <module>tioka-module-orchestration</module>
+        <module>tioka-module-chat</module>
+        <module>tioka-module-knowledge</module>
+        <module>tioka-module-flow</module>
+        <module>tioka-module-connector</module>
+        <module>tioka-module-model</module>
+        <module>tioka-module-agent</module>
+        <module>tioka-module-mcp</module>
+        <module>tioka-module-skill</module>
+    </modules>
+</project>

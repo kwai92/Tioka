@@ -1,0 +1,30 @@
+---
+description: tioka-module-*-biz 持久化规范（MyBatis-Plus + BaseDO）
+globs: "**/tioka-module-*-biz/**/*.java"
+alwaysApply: false
+---
+
+# Biz 持久化
+
+## 禁止
+
+```java
+// ❌
+import org.springframework.jdbc.core.JdbcTemplate;
+import java.sql.DriverManager;
+```
+
+- `application` 包 **禁止** 注入 / 依赖 `*Mapper` 或 `com.baomidou.mybatisplus.core.mapper`
+- 主数据 **禁止** 物理 `DELETE`（用逻辑删 `removeById`）
+
+## 必须
+
+```java
+// ✅
+// application.XxxService → infrastructure.XxxRepository → infrastructure.mapper.XxxMapper
+@TableName("auth_user")
+public class AuthUserDO extends BaseDO { /* ... */ }
+```
+
+- Entity 继承：`BaseDO` | `WorkspaceAwareDO` | `ImmutableSnapshotDO` | `AppendOnlyDO`
+- Mapper 包名：`com.tioka.<domain>.infrastructure.mapper`

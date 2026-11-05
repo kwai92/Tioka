@@ -1,0 +1,403 @@
+{
+  "name": "Tioka",
+  "slug": "Tioka",
+  "space_id": "7700906347700702486",
+  "space_name": "",
+  "created_at": "2026-11-04T17:16:01.346Z",
+  "docs": {
+    "index": {
+      "title": "Tioka",
+      "node_token": "OcHFwLWu3iogTPkqgQOch4P0nHd",
+      "document_id": "KPjedHawboPIaYxJYz3cF5Wonmd",
+      "url": "https://f14xxdwpelm.feishu.cn/wiki/OcHFwLWu3iogTPkqgQOch4P0nHd",
+      "last_revision": "35"
+    },
+    "requirements": {
+      "title": "需求文档",
+      "node_token": "BfXxwg71YiIACIkeIN2cmxGXn2m",
+      "document_id": "KBywdX9hhoJRmExNcaZc2KQcngg",
+      "url": "https://f14xxdwpelm.feishu.cn/wiki/BfXxwg71YiIACIkeIN2cmxGXn2m",
+      "last_revision": "19",
+      "group": "mgmt",
+      "subgroup": null
+    },
+    "tech": {
+      "title": "技术方案总览",
+      "node_token": "NKwfw9B8CiMXEqkf6gCc1XGPn5g",
+      "document_id": "FWFIdGdkkoaahixpbNycfo7EnPg",
+      "url": "https://f14xxdwpelm.feishu.cn/wiki/NKwfw9B8CiMXEqkf6gCc1XGPn5g",
+      "last_revision": "30",
+      "group": "mgmt",
+      "subgroup": null
+    },
+    "api": {
+      "title": "接口与数据总表",
+      "node_token": "OlrJwlh0aiqKSfk0lNdcm735nEo",
+      "document_id": "VRKJdjcSSovNI2xWYoecIA48nvr",
+      "url": "https://f14xxdwpelm.feishu.cn/wiki/OlrJwlh0aiqKSfk0lNdcm735nEo",
+      "last_revision": "21",
+      "group": "mgmt",
+      "subgroup": null
+    },
+    "adr": {
+      "title": "决策记录",
+      "node_token": "Dnumwr0fViCr0LkLbcicWIwrnQh",
+      "document_id": "QndHdBW83oDUsgx1bCCcU2ukn4g",
+      "url": "https://f14xxdwpelm.feishu.cn/wiki/Dnumwr0fViCr0LkLbcicWIwrnQh",
+      "last_revision": "24",
+      "group": "mgmt",
+      "subgroup": null
+    },
+    "ops": {
+      "title": "发布与运维",
+      "node_token": "BtRVwT0kYiFk5dkQmUBcMbS3nmd",
+      "document_id": "L7Hmd21Loo6Wlxx8DjYcCSLRnlg",
+      "url": "https://f14xxdwpelm.feishu.cn/wiki/BtRVwT0kYiFk5dkQmUBcMbS3nmd",
+      "last_revision": "15",
+      "group": "mgmt",
+      "subgroup": null
+    },
+    "sys-overview": {
+      "title": "S0-体系总览与边界",
+      "node_token": "H23WwQSamikHKRkRKbnczm9mnFe",
+      "document_id": "Vbbud07rqojbgbx24g9cp4CQnqh",
+      "url": "https://f14xxdwpelm.feishu.cn/wiki/H23WwQSamikHKRkRKbnczm9mnFe",
+      "last_revision": "29",
+      "group": "systems",
+      "subgroup": "sys-core"
+    },
+    "sys-runtime": {
+      "title": "S1-Runtime执行内核",
+      "node_token": "U7QdwQxfziUgyJkoEvEc6aYDnTg",
+      "document_id": "ZzFfdUqqBoX4RjxOyPjcyWJKnEf",
+      "url": "https://f14xxdwpelm.feishu.cn/wiki/U7QdwQxfziUgyJkoEvEc6aYDnTg",
+      "last_revision": "17",
+      "group": "systems",
+      "subgroup": "sys-exec"
+    },
+    "sys-orch": {
+      "title": "S2-Orchestration编排",
+      "node_token": "CqWkwPXeUi01fTkAQv1cj7KYnxh",
+      "document_id": "YboxdtRbdoN80Yx1hmbc2sU9n4c",
+      "url": "https://f14xxdwpelm.feishu.cn/wiki/CqWkwPXeUi01fTkAQv1cj7KYnxh",
+      "last_revision": "13",
+      "group": "systems",
+      "subgroup": "sys-exec"
+    },
+    "sys-chat": {
+      "title": "S3-Chat对话域",
+      "node_token": "WpnmwLv3si4smck2dLdcBFsxnKf",
+      "document_id": "RJuSde7IroccKhxyuQScSq7TnTh",
+      "url": "https://f14xxdwpelm.feishu.cn/wiki/WpnmwLv3si4smck2dLdcBFsxnKf",
+      "last_revision": "13",
+      "group": "systems",
+      "subgroup": "sys-product"
+    },
+    "sys-knowledge": {
+      "title": "S4-Knowledge知识域",
+      "node_token": "XCmkwCMani4FkKkLKvMcPCABnAf",
+      "document_id": "PPxfdXMk8oLlwAxvofPc6Iknnxd",
+      "url": "https://f14xxdwpelm.feishu.cn/wiki/XCmkwCMani4FkKkLKvMcPCABnAf",
+      "last_revision": "13",
+      "group": "systems",
+      "subgroup": "sys-product"
+    },
+    "sys-flow": {
+      "title": "S5-Flow工作流",
+      "node_token": "PfDSwk8LaivHRGkDzU5ceJ5Fnuh",
+      "document_id": "BAtddfx4wob4fbxIEhBcnJKmnad",
+      "url": "https://f14xxdwpelm.feishu.cn/wiki/PfDSwk8LaivHRGkDzU5ceJ5Fnuh",
+      "last_revision": "15",
+      "group": "systems",
+      "subgroup": "sys-product"
+    },
+    "sys-connector": {
+      "title": "S6-Connector连接器",
+      "node_token": "Bv5swK5OGig6L2kb22ZcXnvJnqg",
+      "document_id": "RsQjdbbXGo9tiWxCuUQcsvLxnec",
+      "url": "https://f14xxdwpelm.feishu.cn/wiki/Bv5swK5OGig6L2kb22ZcXnvJnqg",
+      "last_revision": "15",
+      "group": "systems",
+      "subgroup": "sys-conn"
+    },
+    "sys-hci": {
+      "title": "S7-HCI人机交互",
+      "node_token": "OtbSwHGRYi8RZokZUDmch1STntd",
+      "document_id": "SW40dyTLsokFO6xEa6TceNI3nOI",
+      "url": "https://f14xxdwpelm.feishu.cn/wiki/OtbSwHGRYi8RZokZUDmch1STntd",
+      "last_revision": "13",
+      "group": "systems",
+      "subgroup": "sys-product"
+    },
+    "sys-eng": {
+      "title": "S8-工程部署与依赖",
+      "node_token": "ANQJw3I3MiJDfHkJYC0cqmJ4nWh",
+      "document_id": "WHwWdds8OoOh9Yxx241cF5xJngh",
+      "url": "https://f14xxdwpelm.feishu.cn/wiki/ANQJw3I3MiJDfHkJYC0cqmJ4nWh",
+      "last_revision": "15",
+      "group": "systems",
+      "subgroup": "sys-core"
+    },
+    "sys-foundation": {
+      "title": "S9-平台基座与企业接入",
+      "node_token": "E7fNw3nsDi5uSek4fZvcCbIRn4g",
+      "document_id": "IMXkduE9powNEjxJMuycOWICndb",
+      "url": "https://f14xxdwpelm.feishu.cn/wiki/E7fNw3nsDi5uSek4fZvcCbIRn4g",
+      "last_revision": "11",
+      "group": "systems",
+      "subgroup": "sys-core"
+    },
+    "sys-model": {
+      "title": "S10-模型管理与智能路由",
+      "node_token": "AhtYw3YDJiCexQkmwilcRGoPnne",
+      "document_id": "IHhLdml8GoRzRKxZVbbcYycVnug",
+      "url": "https://f14xxdwpelm.feishu.cn/wiki/AhtYw3YDJiCexQkmwilcRGoPnne",
+      "last_revision": "17",
+      "group": "systems",
+      "subgroup": "sys-asset"
+    },
+    "sys-agent-mgmt": {
+      "title": "S11-Agent资产管理",
+      "node_token": "EHpSwHgD7iu4VJkDUyWcmKGVnJh",
+      "document_id": "UzDxdqF3Xo6WLDxIMr4cwzPnn1c",
+      "url": "https://f14xxdwpelm.feishu.cn/wiki/EHpSwHgD7iu4VJkDUyWcmKGVnJh",
+      "last_revision": "11",
+      "group": "systems",
+      "subgroup": "sys-asset"
+    },
+    "sys-mcp-mgmt": {
+      "title": "S12-MCP管理",
+      "node_token": "ORhewjD2kixOmxkD9OrcwXnUnig",
+      "document_id": "VWgFdBm91ofIqHxMGh5ckpSInqc",
+      "url": "https://f14xxdwpelm.feishu.cn/wiki/ORhewjD2kixOmxkD9OrcwXnUnig",
+      "last_revision": "11",
+      "group": "systems",
+      "subgroup": "sys-asset"
+    },
+    "sys-skill-mgmt": {
+      "title": "S13-Skill资产管理",
+      "node_token": "TFQFwwgzQiKFGUk9VhmcEylLn0f",
+      "document_id": "JilFdk0Kno0ZhqxLwEtc0bPGnKc",
+      "url": "https://f14xxdwpelm.feishu.cn/wiki/TFQFwwgzQiKFGUk9VhmcEylLn0f",
+      "last_revision": "11",
+      "group": "systems",
+      "subgroup": "sys-asset"
+    },
+    "sys-flow-mgmt": {
+      "title": "S14-工作流编排管理",
+      "node_token": "KcDwwUGlUiz0zEk8r97caFjdnud",
+      "document_id": "AsmodVCFBolDGYxw7cycBBownge",
+      "url": "https://f14xxdwpelm.feishu.cn/wiki/KcDwwUGlUiz0zEk8r97caFjdnud",
+      "last_revision": "11",
+      "group": "systems",
+      "subgroup": "sys-asset"
+    },
+    "impl-program": {
+      "title": "全局实施方案",
+      "node_token": "Du6NwU4aRibawtkhZVrcNaAHnmg",
+      "document_id": "N1ovdQe6VonVaBxRL7JcazVDn3g",
+      "url": "https://f14xxdwpelm.feishu.cn/wiki/Du6NwU4aRibawtkhZVrcNaAHnmg",
+      "last_revision": "17",
+      "group": "impl",
+      "subgroup": null
+    },
+    "impl-plan": {
+      "title": "W0至W5实施计划",
+      "node_token": "AOcEwBK1TihFBLkrQ3ncw3g0nOe",
+      "document_id": "Fnrzd3h5CoGe7QxOx1UcgBikndd",
+      "url": "https://f14xxdwpelm.feishu.cn/wiki/AOcEwBK1TihFBLkrQ3ncw3g0nOe",
+      "last_revision": "13",
+      "group": "impl",
+      "subgroup": null
+    },
+    "impl-review": {
+      "title": "实施多轮评审记录",
+      "node_token": "S1pawrDm1ifzXvkZP2RcvIoknNe",
+      "document_id": "NdqzdKPcaorcGSxsi4Ecwt3CnQc",
+      "url": "https://f14xxdwpelm.feishu.cn/wiki/S1pawrDm1ifzXvkZP2RcvIoknNe",
+      "last_revision": "12",
+      "group": "impl",
+      "subgroup": null
+    },
+    "arch-ba": {
+      "title": "BA-业务架构",
+      "node_token": "TgCDwLtDTisfhwkgwFEcEimtnVg",
+      "document_id": "HA8idnKJyosmDFxFQcucUVWQngh",
+      "url": "https://f14xxdwpelm.feishu.cn/wiki/TgCDwLtDTisfhwkgwFEcEimtnVg",
+      "last_revision": "15",
+      "group": "enterprise",
+      "subgroup": null
+    },
+    "arch-ta": {
+      "title": "TA-技术架构",
+      "node_token": "QsSRweEDHiIaK8kRpj0cFiwIngc",
+      "document_id": "WyOLdjYl3oAMpVxksDAcpCSFneb",
+      "url": "https://f14xxdwpelm.feishu.cn/wiki/QsSRweEDHiIaK8kRpj0cFiwIngc",
+      "last_revision": "17",
+      "group": "enterprise",
+      "subgroup": null
+    },
+    "arch-da": {
+      "title": "DA-数据架构",
+      "node_token": "Yhb9wjuamiRDwikotCTcU0OrnSe",
+      "document_id": "Z3HPdePEcoxl2xxISricKj6InBH",
+      "url": "https://f14xxdwpelm.feishu.cn/wiki/Yhb9wjuamiRDwikotCTcU0OrnSe",
+      "last_revision": "15",
+      "group": "enterprise",
+      "subgroup": null
+    },
+    "arch-aa": {
+      "title": "AA-应用与集成架构",
+      "node_token": "IOI7wdaV2iHQogk0sDkcbONvnqg",
+      "document_id": "Ffrsd3bjyogNDpx8pr9caK7Cnae",
+      "url": "https://f14xxdwpelm.feishu.cn/wiki/IOI7wdaV2iHQogk0sDkcbONvnqg",
+      "last_revision": "13",
+      "group": "enterprise",
+      "subgroup": null
+    },
+    "arch-ea": {
+      "title": "EA-Java工程架构",
+      "node_token": "JM6qwSgpYimsPpkgo5zcFSNGnTc",
+      "document_id": "B2ZjdRMN7on7IWxJQNlcif63nCb",
+      "url": "https://f14xxdwpelm.feishu.cn/wiki/JM6qwSgpYimsPpkgo5zcFSNGnTc",
+      "last_revision": "13",
+      "group": "enterprise",
+      "subgroup": null
+    },
+    "arch-fe": {
+      "title": "FE-前端架构",
+      "node_token": "BbGfwiEEWiuy8vkD2ZtcKBrTnad",
+      "document_id": "Rv41d2JkCoeyL1xPXRqc6NYznqb",
+      "url": "https://f14xxdwpelm.feishu.cn/wiki/BbGfwiEEWiuy8vkD2ZtcKBrTnad",
+      "last_revision": "19",
+      "group": "enterprise",
+      "subgroup": null
+    },
+    "arch-review": {
+      "title": "架构多轮评审记录",
+      "node_token": "Oo7bwKArGiGwcZkeTEbcKZisnOd",
+      "document_id": "AWUPdxwBboHgvZxLc4Rc63Arnpg",
+      "url": "https://f14xxdwpelm.feishu.cn/wiki/Oo7bwKArGiGwcZkeTEbcKZisnOd",
+      "last_revision": "10",
+      "group": "enterprise",
+      "subgroup": null
+    },
+    "arch-diagram-review": {
+      "title": "图形多轮评审记录",
+      "node_token": "RLwOwiUrbiPgrDkTiwncUIednwD",
+      "document_id": "Js9pdVH4won807xOGdecvgahn3c",
+      "url": "https://f14xxdwpelm.feishu.cn/wiki/RLwOwiUrbiPgrDkTiwncUIednwD",
+      "group": "enterprise",
+      "subgroup": null,
+      "last_revision": "8"
+    },
+    "diagrams-index": {
+      "title": "图形索引-drawio",
+      "node_token": "SMTMwT2hFiGZQqkOW5Xc7FJ8nef",
+      "document_id": "U9UidmBbcoAOW5xkIP4cTMTGnXe",
+      "url": "https://f14xxdwpelm.feishu.cn/wiki/SMTMwT2hFiGZQqkOW5Xc7FJ8nef",
+      "group": "enterprise",
+      "subgroup": null,
+      "last_revision": "10"
+    }
+  },
+  "last_sync": {
+    "index": "2026-11-05T01:07:38.241Z",
+    "requirements": "2026-11-05T01:07:42.962Z",
+    "tech": "2026-11-05T01:07:49.088Z",
+    "api": "2026-11-05T01:07:54.918Z",
+    "adr": "2026-11-05T01:07:58.399Z",
+    "ops": "2026-11-05T01:08:03.069Z",
+    "sys-overview": "2026-11-05T01:08:58.565Z",
+    "sys-runtime": "2026-11-05T01:09:14.152Z",
+    "sys-orch": "2026-11-05T01:09:18.974Z",
+    "sys-chat": "2026-11-05T01:09:23.453Z",
+    "sys-knowledge": "2026-11-05T01:09:28.291Z",
+    "sys-flow": "2026-11-05T01:09:33.043Z",
+    "sys-connector": "2026-11-05T01:09:42.381Z",
+    "sys-hci": "2026-11-05T01:09:37.663Z",
+    "sys-eng": "2026-11-05T01:09:03.080Z",
+    "sys-foundation": "2026-11-05T01:09:09.140Z",
+    "sys-model": "2026-11-05T01:09:48.875Z",
+    "sys-agent-mgmt": "2026-11-05T01:09:53.861Z",
+    "sys-mcp-mgmt": "2026-11-05T01:09:59.377Z",
+    "sys-skill-mgmt": "2026-11-05T01:10:03.917Z",
+    "sys-flow-mgmt": "2026-11-05T01:10:09.127Z",
+    "impl-program": "2026-11-05T01:10:15.709Z",
+    "impl-plan": "2026-11-05T01:11:03.878Z",
+    "impl-review": "2026-11-05T01:10:22.339Z",
+    "arch-ba": "2026-11-05T01:08:09.549Z",
+    "arch-ta": "2026-11-05T01:08:17.448Z",
+    "arch-da": "2026-11-05T01:08:23.993Z",
+    "arch-aa": "2026-11-05T01:08:28.563Z",
+    "arch-ea": "2026-11-05T01:08:33.572Z",
+    "arch-fe": "2026-11-05T01:08:41.875Z",
+    "arch-review": "2026-11-05T01:08:44.994Z",
+    "arch-diagram-review": "2026-11-05T01:08:48.028Z",
+    "diagrams-index": "2026-11-05T01:08:51.203Z"
+  },
+  "updated_at": "2026-11-05T01:11:03.879Z",
+  "groups": {
+    "mgmt": {
+      "title": "01-管理文档",
+      "node_token": "Xi0dwUdT3ieFslkMiszc88LOnWg",
+      "document_id": "IZhddpTRmoH8wMxYUDLcGrZFnge",
+      "url": "https://f14xxdwpelm.feishu.cn/wiki/Xi0dwUdT3ieFslkMiszc88LOnWg"
+    },
+    "enterprise": {
+      "title": "02-企业架构",
+      "node_token": "WRsfwCcfqi5tMNkuyOvcLzKenEh",
+      "document_id": "C546dxewJoCY9xxOApEcUXz6nGe",
+      "url": "https://f14xxdwpelm.feishu.cn/wiki/WRsfwCcfqi5tMNkuyOvcLzKenEh"
+    },
+    "systems": {
+      "title": "03-能力域详设",
+      "node_token": "L1TcwZHdUifYxTkSTATcO9RTn8g",
+      "document_id": "FpmFd0sfdotz0ux9kUPcPpuAnfg",
+      "url": "https://f14xxdwpelm.feishu.cn/wiki/L1TcwZHdUifYxTkSTATcO9RTn8g"
+    },
+    "impl": {
+      "title": "04-实施交付",
+      "node_token": "EzIZwmboPiKEExkYFfxcuME6nmg",
+      "document_id": "QmhjddAvEo99NKxvNzBc45vbnXe",
+      "url": "https://f14xxdwpelm.feishu.cn/wiki/EzIZwmboPiKEExkYFfxcuME6nmg"
+    }
+  },
+  "subgroups": {
+    "sys-core": {
+      "title": "总览与基座",
+      "group": "systems",
+      "node_token": "VG8iwUp1RiqLKBkC5QocS1WKn2e",
+      "document_id": "BtpBd0XEkowB5BxhidFczAXpnZc",
+      "url": "https://f14xxdwpelm.feishu.cn/wiki/VG8iwUp1RiqLKBkC5QocS1WKn2e"
+    },
+    "sys-exec": {
+      "title": "执行与编排",
+      "group": "systems",
+      "node_token": "DSUGwfdT4ijcsnkfbEGcGq1Enkc",
+      "document_id": "W8dBdCDjEoY0YMxGSWBcGdF9npf",
+      "url": "https://f14xxdwpelm.feishu.cn/wiki/DSUGwfdT4ijcsnkfbEGcGq1Enkc"
+    },
+    "sys-product": {
+      "title": "产品与交互",
+      "group": "systems",
+      "node_token": "ZCeWwJXBsi6zG4klG6bcV7R7n8e",
+      "document_id": "MiPYdFe3Moc0BsxDp9wc3b6YnCf",
+      "url": "https://f14xxdwpelm.feishu.cn/wiki/ZCeWwJXBsi6zG4klG6bcV7R7n8e"
+    },
+    "sys-conn": {
+      "title": "连接器",
+      "group": "systems",
+      "node_token": "OuTSwhxJ0imkqOkV5VeceVBenPd",
+      "document_id": "B6Zld4wNToaN9Ix95YxcJVU4nQb",
+      "url": "https://f14xxdwpelm.feishu.cn/wiki/OuTSwhxJ0imkqOkV5VeceVBenPd"
+    },
+    "sys-asset": {
+      "title": "模型与资产控制面",
+      "group": "systems",
+      "node_token": "Xirtw8I8iij8Z0krK50cX2s0nMf",
+      "document_id": "HPFadYB2Bo9syuxjWW0chEY6nbe",
+      "url": "https://f14xxdwpelm.feishu.cn/wiki/Xirtw8I8iij8Z0krK50cX2s0nMf"
+    }
+  }
+}

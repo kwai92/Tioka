@@ -1,0 +1,46 @@
+package com.tioka.chat.api;
+
+import com.tioka.chat.application.CardPartService;
+import com.tioka.chat.domain.ChatStore;
+import com.tioka.framework.error.ApiResponse;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.Map;
+
+@RestController
+@RequestMapping("/api/chat/cards")
+public class CardController {
+    private final CardPartService cards;
+
+    public CardController(CardPartService cards) {
+        this.cards = cards;
+    }
+
+    @PostMapping("/continue")
+    public ApiResponse<ChatStore.Message> continueCard(@RequestBody Map<String, String> body) {
+        return ApiResponse.ok(cards.emitContinueCard(body.get("conversationId"), body.get("prompt")));
+    }
+
+    @PostMapping("/approval")
+    public ApiResponse<ChatStore.Message> approval(@RequestBody Map<String, String> body) {
+        return ApiResponse.ok(cards.emitApprovalCard(body.get("conversationId"), body.get("runId"), body.get("title")));
+    }
+
+    @PostMapping("/continue/submit")
+    public ApiResponse<ChatStore.Message> submitContinue(@RequestBody Map<String, String> body) {
+        return ApiResponse.ok(cards.submitContinue(
+                body.get("conversationId"),
+                body.get("messageIdOrPartHint"),
+                body.get("answerText")));
+    }
+
+    @PostMapping("/approval/submit")
+    public ApiResponse<ChatStore.Message> submitApproval(@RequestBody Map<String, Object> body) {
+        String conversationId = body.get("conversationId") == null ? null : String.valueOf(body.get("conversationId"));
+        String attentionId = body.get("attentionId") == null ? null : String.valueOf(body.get("attentionId"));
+        boolean approved = Boolean.TRUE.equals(body.get("approved"))
+                || "true".equalsIgnoreCase(String.valueOf(body.get("approved")));
+        String comment = body.get("comment") == null ? null : String.valueOf(body.get("comment"));
+        return ApiResponse.ok(cards.submitApproval(conversationId, attentionId, approved, comment));
+    }
+}

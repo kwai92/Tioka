@@ -1,0 +1,14 @@
+spring:
+  config:
+    activate:
+      on-profile: prod
+tioka:
+  model:
+    mock: false
+  airgap:
+    enabled: false
+  audit:
+    sink: file
+  secret:
+    require-external-key: true
+    master-key: ${TIOKA_SECRET_MASTER_KEY:}

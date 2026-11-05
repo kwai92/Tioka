@@ -1,0 +1,49 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:tioka;MODE=PostgreSQL;DB_CLOSE_DELAY=-1
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:schema.sql
+
+tioka:
+  model:
+    mock: true
+  mcp:
+    mock: true
+  secret:
+    master-key: ${TIOKA_SECRET_MASTER_KEY:}
+    require-external-key: false
+  airgap:
+    enabled: false
+  feishu:
+    # OpenAPI（优先）：填 app-id/app-secret 后走 tenant_access_token + im/v1/messages
+    app-id: ""
+    app-secret: ""
+    api-base: https://open.feishu.cn
+    receive-id-type: chat_id
+    # 自定义机器人（次选）；空则仅写 im_outbox
+    webhook-url: ""
+  auth:
+    oidc-enabled: false
+  knowledge:
+    vector-backend: local
+    # embedding：默认 hash 32 维；配置 base-url 后走 OpenAI 兼容 /embeddings（失败回退 hash）
+    embedding:
+      base-url: ""
+      api-key-ref: ""
+      model: text-embedding-3-small
+      dim: 32
+
+
+mybatis-plus:
+  global-config:
+    db-config:
+      logic-delete-field: deleted
+      logic-delete-value: true
+      logic-not-delete-value: false
+  configuration:
+    map-underscore-to-camel-case: true

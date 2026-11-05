@@ -1,0 +1,21 @@
+target/
+.idea/
+*.iml
+.classpath
+.project
+.settings/
+.DS_Store
+node_modules/
+tioka-ui/dist/
+.flattened-pom.xml
+**/pom.xml.tag
+**/pom.xml.releaseBackup
+.env
+*.log
+
+# Session workdisk / local object store (ADR-014)
+data/workspaces/
+data/objects/
+
+# Diagram export temp files (scripts/export-diagram-pngs.mjs)
+.tmp-mmd/

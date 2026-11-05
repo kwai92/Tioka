@@ -1,0 +1,19 @@
+---
+description: Tioka 架构硬约束（权威文档与模块边界）
+alwaysApply: true
+---
+
+# Tioka 架构约束
+
+权威文档（冲突时以更新后的 ADR/spec 为准）：
+- `docs/architecture/enterprise/41-TA-技术架构.md`
+- `docs/architecture/enterprise/42-DA-数据架构.md`
+- `docs/architecture/enterprise/44-EA-Java工程架构.md`
+- `docs/superpowers/specs/2026-11-05-persistence-guardrails-mybatis-plus-design.md`
+
+## 硬规则
+
+- `*-biz` **禁止**依赖其他 `*-biz`；只依赖 `*-api` + `tioka-framework` + 中间件 starter
+- ORM **仅** MyBatis-Plus；**禁止**新增 `JdbcTemplate` / 直接 JDBC 写业务
+- 行级字段：`createAt`/`updateAt`/`createBy`/`updateBy`/`deleted`；**禁止** `tenantId`
+- 分层：`application` → `infrastructure.Repository` → `infrastructure.mapper.Mapper`

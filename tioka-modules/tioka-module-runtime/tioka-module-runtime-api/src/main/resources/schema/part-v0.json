@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tioka.local/schema/part-v0.json",
+  "title": "Tioka Part Schema v0",
+  "type": "object",
+  "required": [
+    "type",
+    "id"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "text",
+        "markdown",
+        "thinking",
+        "reasoning_summary",
+        "tool_call",
+        "tool_result",
+        "citation",
+        "artifact",
+        "code_interpreter",
+        "interactive_card",
+        "approval_card",
+        "form_wizard",
+        "status",
+        "error",
+        "image",
+        "audio",
+        "file_ref",
+        "agent_handoff"
+      ]
+    },
+    "role": {
+      "type": "string",
+      "enum": [
+        "assistant",
+        "user",
+        "system",
+        "tool"
+      ]
+    },
+    "text": {
+      "type": "string"
+    },
+    "payload": {
+      "type": "object"
+    },
+    "meta": {
+      "type": "object"
+    }
+  },
+  "additionalProperties": true
+}
