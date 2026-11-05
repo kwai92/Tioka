@@ -3,6 +3,8 @@ package com.tioka.server.runtime;
 import com.tioka.framework.error.BizException;
 import com.tioka.framework.error.ErrorCode;
 import com.tioka.framework.id.Ids;
+import com.tioka.framework.security.SystemPrincipals;
+import com.tioka.framework.security.TiokaAuthentication;
 import com.tioka.server.support.IntegrationTestSupport;
 import com.tioka.runtime.infrastructure.RuntimeSessionRepository;
 import com.tioka.runtime.infrastructure.persistence.RuntimeSessionDO;
@@ -10,11 +12,13 @@ import com.tioka.runtime.kernel.infrastructure.ItemRepository;
 import com.tioka.runtime.kernel.infrastructure.TurnRepository;
 import com.tioka.runtime.kernel.infrastructure.persistence.RuntimeItemDO;
 import com.tioka.runtime.kernel.infrastructure.persistence.RuntimeTurnDO;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 
@@ -42,12 +46,14 @@ class ItemRepositoryIT {
 
     @BeforeEach
     void seed() {
+        SecurityContextHolder.getContext().setAuthentication(new TiokaAuthentication(SystemPrincipals.system()));
         sessionId = Ids.newId("thr");
         RuntimeSessionDO s = new RuntimeSessionDO();
         s.setId(sessionId);
         s.setStatus("OPEN");
         s.setAgentVersionId("agent_v1");
         s.setWorkspaceId("ws_default");
+        s.setOwnerId("0");
         s.setLastItemSeq(0L);
         s.setOrigin("chat");
         s.setDepth(0);
@@ -66,6 +72,11 @@ class ItemRepositoryIT {
         t.setLeaseVersion(0L);
         turns.insert(t);
         leaseVersion = turns.acquire(turnId, "worker-1", Instant.now().plusSeconds(60)).orElseThrow();
+    }
+
+    @AfterEach
+    void clearPrincipal() {
+        SecurityContextHolder.clearContext();
     }
 
     @Test

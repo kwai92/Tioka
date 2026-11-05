@@ -4,16 +4,15 @@ import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
-import com.tioka.framework.persistence.BaseDO;
+import com.tioka.framework.persistence.WorkspaceAwareDO;
 
 @TableName("runtime_session")
-public class RuntimeSessionDO extends BaseDO {
+public class RuntimeSessionDO extends WorkspaceAwareDO {
     @TableId(type = IdType.INPUT)
     private String id;
     private String status;
     private String agentVersionId;
     private String routingPlanId;
-    private String workspaceId;
     /** V105 已删列；仅热状态内存字段 */
     @TableField(exist = false)
     private Boolean cancelled;
@@ -36,8 +35,6 @@ public class RuntimeSessionDO extends BaseDO {
     public void setAgentVersionId(String agentVersionId) { this.agentVersionId = agentVersionId; }
     public String getRoutingPlanId() { return routingPlanId; }
     public void setRoutingPlanId(String routingPlanId) { this.routingPlanId = routingPlanId; }
-    public String getWorkspaceId() { return workspaceId; }
-    public void setWorkspaceId(String workspaceId) { this.workspaceId = workspaceId; }
     public Boolean getCancelled() { return cancelled; }
     public void setCancelled(Boolean cancelled) { this.cancelled = cancelled; }
     public String getSteerText() { return steerText; }

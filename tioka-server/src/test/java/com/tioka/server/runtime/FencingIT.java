@@ -9,12 +9,17 @@ import com.tioka.runtime.infrastructure.persistence.RuntimeSessionDO;
 import com.tioka.runtime.kernel.infrastructure.ItemRepository;
 import com.tioka.runtime.kernel.infrastructure.TurnRepository;
 import com.tioka.runtime.kernel.infrastructure.persistence.RuntimeTurnDO;
+import com.tioka.framework.security.SystemPrincipals;
+import com.tioka.framework.security.TiokaAuthentication;
 import com.tioka.server.support.IntegrationTestSupport;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 
@@ -36,20 +41,31 @@ class FencingIT {
     @Autowired RuntimeSessionRepository sessions;
     @Autowired JdbcTemplate jdbc;
 
+    @BeforeEach
+    void asSystem() {
+        SecurityContextHolder.getContext().setAuthentication(new TiokaAuthentication(SystemPrincipals.system()));
+    }
+
+    @AfterEach
+    void clearPrincipal() {
+        SecurityContextHolder.clearContext();
+    }
+
     @Test
     void staleWorkerWritesFail() {
         String sessionId = Ids.newId("thr");
+        String turnId = Ids.newId("turn");
         RuntimeSessionDO s = new RuntimeSessionDO();
         s.setId(sessionId);
         s.setStatus("OPEN");
         s.setAgentVersionId("agent_v1");
         s.setWorkspaceId("ws_default");
+        s.setOwnerId("0");
         s.setLastItemSeq(0L);
         s.setOrigin("chat");
         s.setDepth(0);
         sessions.upsert(s);
 
-        String turnId = Ids.newId("turn");
         RuntimeTurnDO t = new RuntimeTurnDO();
         t.setId(turnId);
         t.setSessionId(sessionId);
@@ -61,7 +77,6 @@ class FencingIT {
         t.setStepCount(0);
         t.setLeaseVersion(0L);
         turns.insert(t);
-
         long staleLv = turns.acquire(turnId, "worker-old", Instant.now().plusSeconds(60)).orElseThrow();
 
         // 模拟被接管：lease_version +1

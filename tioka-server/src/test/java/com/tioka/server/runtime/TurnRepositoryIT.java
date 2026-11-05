@@ -1,17 +1,21 @@
 package com.tioka.server.runtime;
 
 import com.tioka.framework.id.Ids;
+import com.tioka.framework.security.SystemPrincipals;
+import com.tioka.framework.security.TiokaAuthentication;
 import com.tioka.server.support.IntegrationTestSupport;
 import com.tioka.runtime.infrastructure.RuntimeSessionRepository;
 import com.tioka.runtime.infrastructure.persistence.RuntimeSessionDO;
 import com.tioka.runtime.kernel.infrastructure.TurnRepository;
 import com.tioka.runtime.kernel.infrastructure.persistence.RuntimeTurnDO;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.dao.DuplicateKeyException;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 
@@ -41,16 +45,23 @@ class TurnRepositoryIT {
 
     @BeforeEach
     void seedSession() {
+        SecurityContextHolder.getContext().setAuthentication(new TiokaAuthentication(SystemPrincipals.system()));
         sessionId = Ids.newId("thr");
         RuntimeSessionDO s = new RuntimeSessionDO();
         s.setId(sessionId);
         s.setStatus("OPEN");
         s.setAgentVersionId("agent_v1");
         s.setWorkspaceId("ws_default");
+        s.setOwnerId("0");
         s.setLastItemSeq(0L);
         s.setOrigin("chat");
         s.setDepth(0);
         sessions.upsert(s);
+    }
+
+    @AfterEach
+    void clearPrincipal() {
+        SecurityContextHolder.clearContext();
     }
 
     @Test

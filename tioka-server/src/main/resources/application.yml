@@ -36,6 +36,17 @@ tioka:
   env:
     name: local
   home: ${TIOKA_HOME:${user.home}/.tioka}
+  persistence:
+    workspace-scoped-tables:
+      - agent_agent
+      - kb_base
+      - flow_draft
+      - mcp_server
+      - skill_package
+      - orch_run
+      - chat_conversation
+      - runtime_session
+      - runtime_approval
   auth:
     local-enabled: true
     access-ttl: 8h
