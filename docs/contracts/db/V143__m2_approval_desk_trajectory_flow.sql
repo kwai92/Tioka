@@ -19,7 +19,6 @@ CREATE INDEX idx_usage_turn ON model_usage (turn_id);
 DROP TABLE IF EXISTS flow_run;
 CREATE TABLE flow_run (
     id             VARCHAR(32) PRIMARY KEY,
-    tenant_id      VARCHAR(64) NOT NULL DEFAULT 'default',
     workspace_id   VARCHAR(64),
     version_id     VARCHAR(64) NOT NULL,
     status         VARCHAR(16) NOT NULL CHECK (status IN ('RUNNING','WAITING','SUCCEEDED','FAILED','CANCELLED')),

@@ -66,3 +66,9 @@ ADR 入库与 M0 契约编写时又统一了以下五处，编号续接上表。
 | 33 | ADR-016、V101 | V101 直接删除 `parts_json`，历史会话会丢 | V101 不删列；`V104__BackfillRuntimeItems`（Java 迁移）把旧 parts 转为 item，`V105` 再删 `parts_json`、`cancelled`、`steer_text` 与 `runtime_idem`。V101 尚未在任何环境执行，允许修改 |
 | 34 | ADR-016、第 3 条 | 事件 ID 规则不完整 | `item.created` 为 `{seq}.0`，`item.delta` 为 `{seq}.{i}`（i 从 1 起），`item.completed`、`item.discarded` 为 `{seq}`；比较时先比 seq，同 seq 带小数的在前；`turn.*` 事件不带 ID，重连时服务端先补发当前 Turn 状态。Redis 键统一为 `rt:events:{threadId}`、`rt:turns`、`rt:lock:{threadId}`、`rt:signal:{turnId}:cancel|steer` |
 | 35 | ADR-019、ADR-020 | 重建 `orch_run`、`flow_run` 等表时旧数据如何处理 | 仓库无生产数据：`orch_run`、`orch_attention`、`orch_why`、`orch_idem`、`flow_run` 直接删除重建，不做数据迁移；`orch_rule` 保留为规则头 |
+
+## 实施前权威冲突裁定（2026-11-05）
+
+| # | 涉及 | 问题 | 定案 |
+| --- | --- | --- | --- |
+| 36 | 第 19、22 条；ADR-009；persistence-guardrails；Cursor 架构规则 | 第 19/22 条要求业务表加 `tenant_id` 并保留租户拦截器，与护栏「禁止 tenantId」及单企业独立部署现实冲突 | **废止第 19、22 条中「加 `tenant_id` / 保留租户拦截器」的要求。** 禁止在 DO、迁移、API 引入 `tenant_id` / `sys_tenant`；隔离边界为空间（`workspace_id`）+ 私有资源的 `owner_id`。持久层只用 workspace 行级过滤。角色 `tenant_admin` 保留历史角色码，界面显示「系统管理员」，`sys_role.scope` 取值 `SYSTEM` / `WORKSPACE`。`Principal` 不再含 `tenantId`。未落地的契约脚本（V100 起）按本条改写；M1/M2 契约同步去掉 `tenant_id` |

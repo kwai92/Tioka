@@ -61,7 +61,6 @@ CREATE INDEX idx_item_turn ON runtime_item (turn_id, seq);
 -- 通用审批表（定案 1）
 CREATE TABLE runtime_approval (
     id           VARCHAR(32)  PRIMARY KEY,
-    tenant_id    VARCHAR(64)  NOT NULL DEFAULT 'default',
     workspace_id VARCHAR(64),
     subject_type VARCHAR(16)  NOT NULL CHECK (subject_type IN ('turn','flow_node_run','orch_run')),
     subject_id   VARCHAR(64)  NOT NULL,

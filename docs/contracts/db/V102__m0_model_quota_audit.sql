@@ -19,7 +19,6 @@ CREATE TABLE model_turn_freeze (
 DROP TABLE IF EXISTS cost_event;
 CREATE TABLE model_usage (
     id                VARCHAR(32)  PRIMARY KEY,
-    tenant_id         VARCHAR(64)  NOT NULL,
     workspace_id      VARCHAR(64),
     user_id           VARCHAR(64),
     agent_id          VARCHAR(64),
@@ -60,7 +59,6 @@ CREATE TABLE gov_quota (
 CREATE TABLE audit_event (
     id            VARCHAR(32)  PRIMARY KEY,
     ts            TIMESTAMPTZ  NOT NULL,
-    tenant_id     VARCHAR(64)  NOT NULL,
     workspace_id  VARCHAR(64),
     actor_type    VARCHAR(16),
     actor_id      VARCHAR(64),
