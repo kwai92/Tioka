@@ -44,6 +44,11 @@ public final class LoopPorts {
     public interface SignalPort {
         /** 取消时抛 CancelledSignal；租约丢失抛 LeaseLost。 */
         void checkpoint(LoopContext ctx);
+
+        /** 取出并清空本 Turn 待注入的插话文本。 */
+        default List<String> pollSteers(LoopContext ctx) {
+            return List.of();
+        }
     }
 
     public record ToolCall(String callId, String name, String argumentsJson) {}

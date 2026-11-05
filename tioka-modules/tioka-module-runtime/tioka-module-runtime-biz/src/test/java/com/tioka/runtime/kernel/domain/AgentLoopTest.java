@@ -108,6 +108,48 @@ class AgentLoopTest {
         assertTrue(sink.toolResults.get(0).output().contains("不是合法 JSON"));
     }
 
+    @Test
+    void steerAppliedBeforeNextStep() {
+        java.util.concurrent.CopyOnWriteArrayList<String> pending =
+                new java.util.concurrent.CopyOnWriteArrayList<>();
+        LoopPorts.ToolPort tool = new LoopPorts.ToolPort() {
+            @Override
+            public List<Map<String, Object>> describe(LoopContext ctx) {
+                return List.of(Map.of("type", "function", "function", Map.of("name", "echo")));
+            }
+
+            @Override
+            public List<LoopPorts.ToolOutcome> invokeAll(LoopContext ctx, List<LoopPorts.ToolCall> calls) {
+                pending.add("prefer short answers");
+                return calls.stream()
+                        .map(c -> new LoopPorts.ToolOutcome(c.callId(), c.name(), true, "ok", 1L))
+                        .toList();
+            }
+        };
+        LoopPorts.SignalPort signals = new LoopPorts.SignalPort() {
+            @Override
+            public void checkpoint(LoopContext ctx) {}
+
+            @Override
+            public List<String> pollSteers(LoopContext ctx) {
+                List<String> out = List.copyOf(pending);
+                pending.clear();
+                return out;
+            }
+        };
+        TurnRepository turns = mock(TurnRepository.class);
+        when(turns.incrementStep(anyString(), anyLong())).thenReturn(1);
+        AgentLoop steered = new AgentLoop(model, tool, sink,
+                new ContextBuilder(mapper), turns, tid -> List.copyOf(items), mapper);
+        model.script(tools("echo", "{}"), text("final"));
+        LoopResult r = steered.run(new LoopContext("thr_1", "turn_1", 1L, 20, 3, 0, signals));
+        assertEquals(TurnStatus.COMPLETED, r.status());
+        assertTrue(statuses.contains("steer_applied"));
+        assertTrue(items.stream().anyMatch(i ->
+                "user".equals(i.getRole()) && i.getContentJson() != null && i.getContentJson().contains("prefer short")));
+        assertEquals(2, modelCalls.get());
+    }
+
     private LoopContext ctx(int maxSteps, int repeat) {
         return new LoopContext("thr_1", "turn_1", 1L, maxSteps, repeat, 0, c -> {});
     }

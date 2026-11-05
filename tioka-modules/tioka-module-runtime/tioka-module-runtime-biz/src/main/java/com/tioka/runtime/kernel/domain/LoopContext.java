@@ -1,5 +1,7 @@
 package com.tioka.runtime.kernel.domain;
 
+import java.util.List;
+
 public final class LoopContext {
     private final String threadId;
     private final String turnId;
@@ -31,6 +33,10 @@ public final class LoopContext {
 
     public void checkpoint() {
         signals.checkpoint(this);
+    }
+
+    public List<String> pollSteers() {
+        return signals.pollSteers(this);
     }
 
     public void forceFinalAnswer() {

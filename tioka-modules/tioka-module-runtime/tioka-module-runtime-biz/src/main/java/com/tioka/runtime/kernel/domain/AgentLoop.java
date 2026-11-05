@@ -48,10 +48,14 @@ public final class AgentLoop {
         try {
             for (int step = ctx.startStep(); ; step++) {
                 ctx.checkpoint();
+                applySteers(ctx, step);
                 boolean last = step >= ctx.maxSteps() || ctx.isForceFinalAnswer();
                 List<Map<String, Object>> messages = contextBuilder.build(itemLoader.apply(ctx.threadId()));
                 LoopPorts.ModelPort.Result r = modelPort.chat(ctx, messages, last ? List.of() : tools,
-                        delta -> sink.delta(ctx, delta));
+                        delta -> {
+                            ctx.checkpoint();
+                            sink.delta(ctx, delta);
+                        });
                 promptTokens += r.promptTokens();
                 completionTokens += r.completionTokens();
                 if (r.reasoning() != null && !r.reasoning().isBlank()) {
@@ -89,6 +93,18 @@ public final class AgentLoop {
         } catch (CancelledSignal e) {
             sink.status(ctx, 0, "cancelled");
             return LoopResult.cancelled(promptTokens, completionTokens);
+        }
+    }
+
+    private void applySteers(LoopContext ctx, int step) {
+        List<String> steers = ctx.pollSteers();
+        for (String text : steers) {
+            if (text == null || text.isBlank()) {
+                continue;
+            }
+            sink.complete(ctx, step, ItemType.MESSAGE.wire(), "user",
+                    json(Map.of("text", text, "steer", true)));
+            sink.status(ctx, step, "steer_applied");
         }
     }
 

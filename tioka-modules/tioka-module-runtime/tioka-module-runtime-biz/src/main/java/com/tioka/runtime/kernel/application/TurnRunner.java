@@ -8,10 +8,12 @@ import com.tioka.runtime.kernel.domain.AgentLoop;
 import com.tioka.runtime.kernel.domain.CancelledSignal;
 import com.tioka.runtime.kernel.domain.LeaseLost;
 import com.tioka.runtime.kernel.domain.LoopContext;
+import com.tioka.runtime.kernel.domain.LoopPorts;
 import com.tioka.runtime.kernel.domain.LoopResult;
 import com.tioka.runtime.kernel.infrastructure.TurnRepository;
 import com.tioka.runtime.kernel.infrastructure.persistence.RuntimeTurnDO;
 import com.tioka.runtime.kernel.infrastructure.redis.SessionLock;
+import com.tioka.runtime.kernel.infrastructure.redis.SignalBus;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -34,6 +36,8 @@ public class TurnRunner {
     private final KernelProperties props;
     private final ScheduledExecutorService renewScheduler;
     private final TurnScheduler scheduler;
+    private final SignalBus signalBus;
+    private final LoopPorts.SignalPort signalPort;
 
     public TurnRunner(TurnRepository turns,
                       SessionLock sessionLock,
@@ -41,7 +45,9 @@ public class TurnRunner {
                       PrincipalHolder principals,
                       KernelProperties props,
                       ScheduledExecutorService turnLeaseRenewScheduler,
-                      TurnScheduler scheduler) {
+                      TurnScheduler scheduler,
+                      SignalBus signalBus,
+                      LoopPorts.SignalPort signalPort) {
         this.turns = turns;
         this.sessionLock = sessionLock;
         this.agentLoop = agentLoop;
@@ -49,6 +55,8 @@ public class TurnRunner {
         this.props = props;
         this.renewScheduler = turnLeaseRenewScheduler;
         this.scheduler = scheduler;
+        this.signalBus = signalBus;
+        this.signalPort = signalPort;
     }
 
     public void run(String turnId) {
@@ -80,12 +88,14 @@ public class TurnRunner {
                 }
             }, props.getLeaseRenewInterval().toMillis(), props.getLeaseRenewInterval().toMillis(), TimeUnit.MILLISECONDS);
 
+            signalBus.register(turnId);
             LoopContext ctx = new LoopContext(threadId, turnId, lv,
                     props.getLoop().getMaxSteps(), props.getLoop().getRepeatCallLimit(), 0,
                     c -> {
                         if (lost.get()) {
                             throw new LeaseLost();
                         }
+                        signalPort.checkpoint(c);
                     });
             try {
                 long finalLv = lv;
@@ -109,6 +119,8 @@ public class TurnRunner {
                 } catch (RuntimeException ignored) {
                     // ignore
                 }
+            } finally {
+                signalBus.unregister(turnId);
             }
         } finally {
             if (renewFuture != null) {

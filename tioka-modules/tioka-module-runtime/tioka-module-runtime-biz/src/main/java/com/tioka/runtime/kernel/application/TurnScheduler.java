@@ -7,6 +7,8 @@ import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Component;
 
 import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.Semaphore;
@@ -20,6 +22,8 @@ public class TurnScheduler {
     private final TurnRunner runner;
     private final ExecutorService executor;
     private final Semaphore concurrency;
+    /** 本实例正在执行的 Turn（RT-05 SignalBus 本地路由）。 */
+    private final Set<String> running = ConcurrentHashMap.newKeySet();
 
     public TurnScheduler(TurnRepository turns,
                          @Lazy TurnRunner runner,
@@ -37,15 +41,21 @@ public class TurnScheduler {
                 if (!concurrency.tryAcquire()) {
                     return;
                 }
+                running.add(turnId);
                 try {
                     runner.run(turnId);
                 } finally {
+                    running.remove(turnId);
                     concurrency.release();
                 }
             });
         } catch (RejectedExecutionException ignored) {
             // 队列满：保持 QUEUED，由后续 onTurnFinished 再捞
         }
+    }
+
+    public boolean isRunningLocally(String turnId) {
+        return running.contains(turnId);
     }
 
     public void onTurnFinished(String threadId) {
