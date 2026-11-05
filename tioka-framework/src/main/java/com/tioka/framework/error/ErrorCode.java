@@ -9,10 +9,16 @@ public enum ErrorCode {
     /** 未登录或令牌无效，HTTP 401。 */
     UNAUTHORIZED(40100, 401, "未登录或令牌无效"),
     FORBIDDEN(40300, 403, "无权限"),
+    /** 请求头中的空间不是当前用户所属空间（FND-01）。 */
+    WORKSPACE_FORBIDDEN(40302, 403, "不是该空间成员"),
+    /** 出网守卫拒绝（FND-07）。 */
+    EGRESS_DENIED(40303, 403, "目标地址不在出网白名单"),
     NOT_FOUND(40400, 404, "资源不存在"),
     CONFLICT(40900, 409, "资源冲突"),
     /** 乐观锁版本已过期，HTTP 409。 */
     STALE_REVISION(40901, 409, "数据已被修改，请刷新后重试"),
+    /** 不能移除空间的最后一个管理员（GOV-01）。 */
+    LAST_ADMIN(40902, 409, "空间至少需要一名管理员"),
     RATE_LIMITED(42900, 429, "请求过于频繁"),
     /** 配额用尽（ADR-017、ADR-029 第 7 条），HTTP 429。 */
     QUOTA_EXCEEDED(42901, 429, "配额已用尽"),
@@ -21,7 +27,11 @@ public enum ErrorCode {
     LEASE_LOST(50001, 500, "执行租约已失效"),
     /** M0 下线的假实现 API，HTTP 501。 */
     NOT_IMPLEMENTED(50100, 501, "功能尚未实现"),
-    DEPENDENCY(50200, 502, "下游依赖失败");
+    DEPENDENCY(50200, 502, "下游依赖失败"),
+    /** 模型返回不可重试的错误（MH-02）。 */
+    MODEL_ERROR(50201, 502, "模型调用失败"),
+    /** 故障接力链全部失败（MH-02）。 */
+    MODEL_UNAVAILABLE(50301, 503, "模型暂不可用");
 
     private final int code;
     private final int httpStatus;

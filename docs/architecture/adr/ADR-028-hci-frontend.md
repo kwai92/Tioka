@@ -13,10 +13,10 @@
 
 | 项 | 定案 |
 | --- | --- |
-| 框架 | 保留现有 React + TypeScript + Vite，单一应用按路由分区：/chat、/studio、/console、/admin |
+| 框架 | 保留现有 Vue 3 + TypeScript + Vite + Element Plus + Pinia（vue-flow 画布），单一应用按路由分区：/chat、/studio、/console、/admin（ADR-029 第 26 条更正） |
 | 接口类型 | 后端 OpenAPI 生成 TS 客户端（CI 校验生成物无差异），禁止手写请求类型 |
-| 状态 | 服务端数据用 TanStack Query；流状态用每个 thread 一个 store，由事件归并得出 |
-| 鉴权 | OIDC 授权码 + PKCE，access token 只在内存，刷新走后端会话 Cookie |
+| 状态 | 服务端数据用 TanStack Query（`@tanstack/vue-query`）；流状态用每个 thread 一个 Pinia store，由事件归并得出 |
+| 鉴权 | OIDC 授权码 + PKCE 由后端完成（ADR-029 第 32 条）；access token 只在内存，刷新令牌放 HttpOnly Cookie |
 | 权限显隐 | 登录后拉取 `/me/permissions`，菜单与按钮按权限码隐藏；后端仍做最终校验 |
 | 国际化 | 中英双语，文案统一放 i18n 资源 |
 
@@ -48,3 +48,9 @@
 - 首屏 JS 不超过 300KB（gzip），Studio 与 Flow 画布按路由懒加载。
 - 可访问性：键盘可操作，审批与表单符合 WCAG AA 对比度。
 - 现有按页面手写的 SSE 解析和 mock 数据在 HCI-03 完成后删除。
+
+
+## 修订（2026-11-05）
+
+- 前端技术栈为 Vue 3，不是 React（ADR-029 第 26 条）。
+- 工作项编号以 34 号计划为准：HCI-03 管理后台、HCI-04 渲染快照、HCI-05 审批台、HCI-06 AG-UI 映射、HCI-07 轨迹视图、HCI-08 工作台与产物中心；上表「各工作台」只作功能划分（ADR-029 第 27 条）。

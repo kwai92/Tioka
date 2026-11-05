@@ -49,3 +49,20 @@ ADR 入库与 M0 契约编写时又统一了以下五处，编号续接上表。
 | 23 | ADR-018 | 知识库统一向量维度；新增数据源与文档级权限 | 全部知识库统一一种向量维度，可接受。数据源不再指定 Confluence、GitLab 两家，而是做通用适配：`DataSourceConnector` SPI 之上提供通用连接器 SDK 与三类通用连接器（HTTP/REST 拉取、S3/MinIO/NAS 文件、JDBC 表），企业自有系统按 SDK 写插件接入（ADR-026 插件宿主）。`ChangeEvent` 增加可选 `aclPrincipals`，连接器能拿到源权限就带上，检索时与知识库级权限取交集；拿不到则退回知识库级权限 |
 | 24 | 推进计划 | 权威计划与人力 | 34 号文档取代 33 号文档的 R0–R6 计划，成为权威计划。工期按 2–3 名后端 + 1 名前端，M0–M4 约 42 周 |
 | 25 | ADR-027、ADR-031 | 经验库条目放在上下文的什么位置 | 组装顺序修订为：平台安全指令 → Agent 指令 → always Skill → auto Skill 索引 → 用户记忆 → 经验 → 知识自动检索结果 → 压缩摘要 → 历史 item → 本轮输入。经验最多 3 条、合计不超过 800 token |
+
+## 施工设计深化时的定案（2026-11-05）
+
+以下各条来自 M0〜M2 施工设计（`docs/architecture/construction/`）的编写，更正或补全了 ADR-015〜028 中的留白。
+
+| # | 涉及 | 问题 | 定案 |
+| --- | --- | --- | --- |
+| 26 | ADR-028 | ADR-028 写「保留现有 React」，实际前端是 Vue 3 + Element Plus + Pinia + vue-flow | 保留 Vue 3 技术栈；服务端数据用 `@tanstack/vue-query`，流状态用每个 thread 一个 Pinia store |
+| 27 | ADR-028、34 号计划 | 两处 HCI 编号不一致 | 工作项编号以 34 号计划为准；ADR-028 的工作台表只作功能划分 |
+| 28 | ADR-015 | 依赖中有未使用的 sa-token | 认证授权只用 Spring Security 6，删除 sa-token 依赖 |
+| 29 | ADR-008、ADR-009 | 本地 profile 用 H2，新迁移脚本用到部分索引、CHECK、`TIMESTAMPTZ`，H2 不兼容 | 删除 H2 与 `schema.sql`，数据库结构只由 Flyway 管理；本地开发用 `deploy/compose.yml`，测试用 Testcontainers（PostgreSQL 16 + pgvector、Redis 7）；新增工作项 ENG-11 |
+| 30 | ADR-016、34 号计划 | M0 要求双实例流式与跨实例取消，但异步派发 RT-06 在 M1 | M0 的 Turn 在接收实例的有界线程池执行，事件、取消、插话全部经 Redis，因此双实例订阅与取消在 M0 成立；M1 RT-06 补 `rt:turns` 跨实例派发与崩溃续跑。M0 的回收器只把过期 Turn 标为 `FAILED(LEASE_LOST)` |
+| 31 | ADR-015、第 9 条 | `auth_user.id` 是 BIGINT，与字符串 ID 约定不一致 | `auth_user.id` 保持 BIGINT，新用户取序列 `auth_user_id_seq`；`Principal.userId` 及所有引用列存十进制字符串；不使用 `usr_` 前缀 |
+| 32 | ADR-015、ADR-028 | ADR-028 的前端 PKCE 与 ADR-015 的后端令牌两套做法 | OIDC 授权码 + PKCE 由后端完成，登录后签发 Tioka 自己的不透明令牌（与本地登录同一套，访问 8 小时、刷新 7 天）；访问令牌只在前端内存，刷新令牌放 `HttpOnly; SameSite=Strict; Secure` Cookie；URL 中不出现令牌；SSE 用 fetch 读流并以请求头传令牌，服务端不接受查询参数令牌。另提供 JWT 资源服务器路径供持有 IdP 令牌的系统调用 |
+| 33 | ADR-016、V101 | V101 直接删除 `parts_json`，历史会话会丢 | V101 不删列；`V104__BackfillRuntimeItems`（Java 迁移）把旧 parts 转为 item，`V105` 再删 `parts_json`、`cancelled`、`steer_text` 与 `runtime_idem`。V101 尚未在任何环境执行，允许修改 |
+| 34 | ADR-016、第 3 条 | 事件 ID 规则不完整 | `item.created` 为 `{seq}.0`，`item.delta` 为 `{seq}.{i}`（i 从 1 起），`item.completed`、`item.discarded` 为 `{seq}`；比较时先比 seq，同 seq 带小数的在前；`turn.*` 事件不带 ID，重连时服务端先补发当前 Turn 状态。Redis 键统一为 `rt:events:{threadId}`、`rt:turns`、`rt:lock:{threadId}`、`rt:signal:{turnId}:cancel|steer` |
+| 35 | ADR-019、ADR-020 | 重建 `orch_run`、`flow_run` 等表时旧数据如何处理 | 仓库无生产数据：`orch_run`、`orch_attention`、`orch_why`、`orch_idem`、`flow_run` 直接删除重建，不做数据迁移；`orch_rule` 保留为规则头 |
