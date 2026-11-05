@@ -1,5 +1,7 @@
 package com.tioka.skill.application;
 
+import com.tioka.framework.id.Ids;
+
 import com.tioka.framework.error.BizException;
 import com.tioka.framework.error.ErrorCode;
 import com.tioka.skill.infrastructure.SkillPackageRepository;
@@ -38,7 +40,7 @@ public class SkillService {
         if (!files.containsKey("SKILL.md")) {
             throw new BizException(ErrorCode.BAD_REQUEST, "缺少 SKILL.md");
         }
-        String id = "sk_" + UUID.randomUUID().toString().replace("-", "").substring(0, 8);
+        String id = Ids.newId("sk");
         SkillPackage pkg = new SkillPackage(id, extractName(manifest), false, files.get("SKILL.md"));
         SkillPackageDO row = new SkillPackageDO();
         row.setId(pkg.id()); row.setName(pkg.name()); row.setPublished(pkg.published()); row.setSkillMd(pkg.skillMd());

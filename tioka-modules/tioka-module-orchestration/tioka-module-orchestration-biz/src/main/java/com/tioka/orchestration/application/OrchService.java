@@ -1,5 +1,7 @@
 package com.tioka.orchestration.application;
 
+import com.tioka.framework.id.Ids;
+
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tioka.framework.error.BizException;
@@ -20,9 +22,10 @@ import java.util.*;
 public class OrchService implements OrchApi {
     private final OrchRepository repo;
     private final OrchRuleService ruleService;
-    private final ObjectMapper mapper = new ObjectMapper();
+    private final ObjectMapper mapper;
 
-    public OrchService(OrchRepository repo, OrchRuleService ruleService) {
+    public OrchService(OrchRepository repo, OrchRuleService ruleService, ObjectMapper mapper) {
+        this.mapper = mapper;
         this.repo = repo;
         this.ruleService = ruleService;
     }
@@ -65,8 +68,8 @@ public class OrchService implements OrchApi {
     }
 
     private String createReadyRun(String eventType, String idempotencyKey) {
-        String eventId = "evt_" + UUID.randomUUID().toString().replace("-", "").substring(0, 8);
-        String runId = "run_" + UUID.randomUUID().toString().replace("-", "").substring(0, 8);
+        String eventId = Ids.newId("evt");
+        String runId = Ids.newId("run");
         OrchRunDO run = new OrchRunDO();
         run.setId(runId);
         run.setStatus("READY");
@@ -110,7 +113,7 @@ public class OrchService implements OrchApi {
     @Override
     public AttentionView openAttention(String runId, String title, Map<String, Object> card) {
         getRun(runId);
-        String id = "att_" + UUID.randomUUID().toString().replace("-", "").substring(0, 8);
+        String id = Ids.newId("att");
         AttentionView a = new AttentionView(id, runId, "OPEN", title, card, null);
         OrchAttentionDO row = new OrchAttentionDO();
         row.setId(id);
@@ -169,7 +172,7 @@ public class OrchService implements OrchApi {
     private void appendWhy(String runId, String kind, String detail) {
         int ord = repo.nextWhyOrd(runId);
         OrchWhyDO row = new OrchWhyDO();
-        row.setId("why_" + UUID.randomUUID().toString().replace("-", "").substring(0, 10));
+        row.setId(Ids.newId("why"));
         row.setRunId(runId);
         row.setAtTs(Instant.now().toString());
         row.setKind(kind);
@@ -191,7 +194,8 @@ public class OrchService implements OrchApi {
         try {
             return mapper.readValue(json, new TypeReference<>() {});
         } catch (Exception e) {
-            return Map.of();
+            throw new com.tioka.framework.error.BizException(
+                    com.tioka.framework.error.ErrorCode.BAD_REQUEST, "JSON 解析失败");
         }
     }
 }

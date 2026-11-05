@@ -81,6 +81,6 @@ final class KnowledgeInMemorySupport {
     }
 
     static KnowledgeService service(KnowledgeRepository repo) {
-        return new KnowledgeService(repo, new HashEmbeddingClient(32), new DocumentParser(), "local");
+        return new KnowledgeService(repo, new HashEmbeddingClient(32), new DocumentParser(), "local", new com.fasterxml.jackson.databind.ObjectMapper());
     }
 }

@@ -32,14 +32,16 @@ public class LocalOidcIdPAdapter implements IdPAdapter {
     private final String clientSecret;
     private final String tokenUrl;
     private final String redirectUri;
-    private final ObjectMapper mapper = new ObjectMapper();
+    private final ObjectMapper mapper;
     private final HttpClient http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build();
 
     public LocalOidcIdPAdapter(@Value("${tioka.auth.oidc-issuer:mock://oidc}") String issuer,
                                @Value("${tioka.auth.oidc-client-id:tioka}") String clientId,
                                @Value("${tioka.auth.oidc-client-secret:}") String clientSecret,
                                @Value("${tioka.auth.oidc-token-url:}") String tokenUrl,
-                               @Value("${tioka.auth.oidc-redirect-uri:http://localhost:5173/login}") String redirectUri) {
+                               @Value("${tioka.auth.oidc-redirect-uri:http://localhost:5173/login}") String redirectUri,
+                                  ObjectMapper mapper) {
+        this.mapper = mapper;
         this.issuer = issuer;
         this.clientId = clientId;
         this.clientSecret = clientSecret == null ? "" : clientSecret;

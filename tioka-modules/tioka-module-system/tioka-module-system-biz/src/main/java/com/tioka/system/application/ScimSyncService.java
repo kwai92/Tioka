@@ -12,9 +12,10 @@ import java.util.Map;
 @Service
 public class ScimSyncService {
     private final ScimUserRepository users;
-    private final ObjectMapper mapper = new ObjectMapper();
+    private final ObjectMapper mapper;
 
-    public ScimSyncService(ScimUserRepository users) {
+    public ScimSyncService(ScimUserRepository users, ObjectMapper mapper) {
+        this.mapper = mapper;
         this.users = users;
     }
 

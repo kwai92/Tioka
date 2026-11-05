@@ -55,11 +55,17 @@ class TiokaArchitectureTest {
                     .should().haveModifier(JavaModifier.SYNCHRONIZED)
                     .because("应用/领域层禁止 synchronized，用 DB/Redis 锁（ADR-016）"));
 
-    /** 现存 new ObjectMapper 由 ENG-05 清除；此处冻结库存，禁止新增。 */
+    /** ENG-05：生产代码不得 new ObjectMapper，统一注入 Spring Bean。 */
     @ArchTest
-    static final ArchRule noNewObjectMapper = FreezingArchRule.freeze(
+    static final ArchRule noNewObjectMapper =
             noClasses().should().callConstructor(ObjectMapper.class)
-                    .because("统一注入 Spring ObjectMapper（ENG-05）"));
+                    .because("统一注入 Spring ObjectMapper（ENG-05）");
+
+    /** ENG-05：业务 ID 禁止截断 UUID，统一 Ids.newId。 */
+    @ArchTest
+    static final ArchRule noTruncatedUuid = FreezingArchRule.freeze(
+            noClasses().should().callMethod(java.util.UUID.class, "randomUUID")
+                    .because("业务 ID 使用 Ids.newId；随机口令/令牌等非 ID 场景可留在冻结库存（ENG-05）"));
 
     @ArchTest
     static final ArchRule onlyRuntimeApiExecutesAgents = FreezingArchRule.freeze(

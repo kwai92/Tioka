@@ -15,10 +15,11 @@ import java.util.concurrent.atomic.AtomicLong;
 @Repository
 public class ChatStore {
     private final ChatRepository repo;
-    private final ObjectMapper mapper = new ObjectMapper();
+    private final ObjectMapper mapper;
     private final AtomicLong ord = new AtomicLong(System.currentTimeMillis());
 
-    public ChatStore(ChatRepository repo) {
+    public ChatStore(ChatRepository repo, ObjectMapper mapper) {
+        this.mapper = mapper;
         this.repo = repo;
     }
 
@@ -76,7 +77,8 @@ public class ChatStore {
         try {
             return mapper.readValue(json, new TypeReference<>() {});
         } catch (Exception e) {
-            return new ArrayList<>();
+            throw new com.tioka.framework.error.BizException(
+                    com.tioka.framework.error.ErrorCode.BAD_REQUEST, "partsJson 解析失败");
         }
     }
 

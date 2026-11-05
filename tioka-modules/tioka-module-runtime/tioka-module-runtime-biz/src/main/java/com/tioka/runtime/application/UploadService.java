@@ -1,5 +1,7 @@
 package com.tioka.runtime.application;
 
+import com.tioka.framework.id.Ids;
+
 import com.tioka.framework.error.BizException;
 import com.tioka.framework.error.ErrorCode;
 import com.tioka.infra.api.ObjectStorageApi;
@@ -7,7 +9,6 @@ import com.tioka.runtime.api.spi.WorkspaceFs;
 import org.springframework.stereotype.Service;
 
 import java.util.Map;
-import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Service
@@ -24,7 +25,7 @@ public class UploadService {
     }
 
     public PresignResult presign(String filename, String contentType, String sessionId) {
-        String uploadId = "up_" + UUID.randomUUID().toString().replace("-", "").substring(0, 10);
+        String uploadId = Ids.newId("up");
         String objectKey = "uploads/" + uploadId + "/" + sanitize(filename);
         pending.put(uploadId, new UploadMeta(objectKey, sessionId, filename, contentType, false));
         return new PresignResult(uploadId, objectKey, "/api/uploads/" + uploadId + "/content");

@@ -1,5 +1,6 @@
 package com.tioka.flow.application.exec;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tioka.flow.application.CredentialPolicy;
 import com.tioka.flow.infrastructure.FlowSecretBridge;
 import com.tioka.system.api.spi.EgressGuard;
@@ -18,12 +19,15 @@ import java.util.Map;
 public class HttpNodeExecutor implements NodeExecutor {
     private final ObjectProvider<FlowSecretBridge> secrets;
     private final ObjectProvider<EgressGuard> egressGuard;
+    private final ObjectMapper mapper;
     private final HttpClient http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build();
 
     public HttpNodeExecutor(ObjectProvider<FlowSecretBridge> secrets,
-                            ObjectProvider<EgressGuard> egressGuard) {
+                            ObjectProvider<EgressGuard> egressGuard,
+                            ObjectMapper mapper) {
         this.secrets = secrets;
         this.egressGuard = egressGuard;
+        this.mapper = mapper;
     }
 
     @Override
@@ -70,12 +74,13 @@ public class HttpNodeExecutor implements NodeExecutor {
         return out;
     }
 
-    private static String toJsonish(Object input) {
+    private String toJsonish(Object input) {
         if (input instanceof Map || input instanceof java.util.List) {
             try {
-                return new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(input);
+                return mapper.writeValueAsString(input);
             } catch (Exception e) {
-                return String.valueOf(input);
+                throw new com.tioka.framework.error.BizException(
+                        com.tioka.framework.error.ErrorCode.BAD_REQUEST, "HTTP body JSON 序列化失败");
             }
         }
         return String.valueOf(input);

@@ -28,13 +28,15 @@ import java.util.function.Consumer;
 public class OpenAiCompatibleClient implements LlmClientApi {
     private final SecretStore secretStore;
     private final EgressGuard egressGuard;
-    private final ObjectMapper mapper = new ObjectMapper();
+    private final ObjectMapper mapper;
     private final HttpClient http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build();
     private final boolean mock;
 
     public OpenAiCompatibleClient(SecretStore secretStore,
                                   EgressGuard egressGuard,
-                                  @Value("${tioka.model.mock:true}") boolean mock) {
+                                  @Value("${tioka.model.mock:true}") boolean mock,
+                                  ObjectMapper mapper) {
+        this.mapper = mapper;
         this.secretStore = secretStore;
         this.egressGuard = egressGuard;
         this.mock = mock;

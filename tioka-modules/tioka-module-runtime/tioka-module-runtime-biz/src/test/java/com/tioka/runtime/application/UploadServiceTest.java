@@ -32,7 +32,8 @@ class UploadServiceTest {
         RuntimeSessionService sessions = new RuntimeSessionService(
                 mock(ModelRouterApi.class), mock(LlmClientApi.class),
                 new DefaultToolGateway(new ToolRegistry(List.of())),
-                fs, new SkillInstallService(fs), e -> {}, repo);
+                fs, new SkillInstallService(fs), e -> {}, repo,
+                new com.fasterxml.jackson.databind.ObjectMapper());
         var session = sessions.create(new RuntimeSessionApi.CreateSessionRequest("av", "rp", Map.of("workspaceId", "ws1")));
 
         UploadService uploads = new UploadService(new LocalObjectStoreAdapter(store), fs, sessions);

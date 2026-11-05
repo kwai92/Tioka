@@ -1,5 +1,7 @@
 package com.tioka.mcp.application;
 
+import com.tioka.framework.id.Ids;
+
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tioka.framework.error.BizException;
@@ -22,19 +24,21 @@ import java.util.*;
 public class McpAdminService implements McpToolCallApi {
     private final SecretStore secretStore;
     private final McpStore store;
-    private final ObjectMapper mapper = new ObjectMapper();
+    private final ObjectMapper mapper;
     private final HttpClient http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build();
     private final boolean mockDiscovery;
 
     public McpAdminService(SecretStore secretStore, McpStore store,
-                           @Value("${tioka.mcp.mock:true}") boolean mockDiscovery) {
+                           @Value("${tioka.mcp.mock:true}") boolean mockDiscovery,
+                                  ObjectMapper mapper) {
+        this.mapper = mapper;
         this.secretStore = secretStore;
         this.store = store;
         this.mockDiscovery = mockDiscovery;
     }
 
     public McpServer register(String name, String baseUrl, String bearerToken) {
-        String id = "mcp_" + UUID.randomUUID().toString().replace("-", "").substring(0, 8);
+        String id = Ids.newId("mcp");
         String secretRef = null;
         if (bearerToken != null && !bearerToken.isBlank()) {
             secretRef = secretStore.put("mcp-header", id, bearerToken);
@@ -226,7 +230,7 @@ public class McpAdminService implements McpToolCallApi {
 
     public Grant grant(String agentId, String serverId, List<String> allowlist) {
         if (store.getServer(serverId).isEmpty()) throw new BizException(ErrorCode.NOT_FOUND, "server 不存在");
-        String id = "gr_" + UUID.randomUUID().toString().replace("-", "").substring(0, 8);
+        String id = Ids.newId("gr");
         Grant g = new Grant(id, agentId, serverId, allowlist == null ? List.of() : allowlist);
         store.putGrant(g);
         return g;

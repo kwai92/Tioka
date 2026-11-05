@@ -45,7 +45,8 @@ class RuntimeTurnBehaviorTest {
 
         RuntimeSessionService svc = new RuntimeSessionService(
                 router, llm, gateway, mock(WorkspaceFs.class), skills,
-                mock(ApplicationEventPublisher.class), new FakeIdemRepo());
+                mock(ApplicationEventPublisher.class), new FakeIdemRepo(),
+                new com.fasterxml.jackson.databind.ObjectMapper());
 
         var session = svc.create(new RuntimeSessionApi.CreateSessionRequest("av", "rp", Map.of()));
         var t1 = svc.append(session.id(), new RuntimeSessionApi.AppendRequest("c1", "hi"));
@@ -82,7 +83,8 @@ class RuntimeTurnBehaviorTest {
 
         RuntimeSessionService svc = new RuntimeSessionService(
                 router, llm, gateway, mock(WorkspaceFs.class), skills,
-                mock(ApplicationEventPublisher.class), new FakeIdemRepo());
+                mock(ApplicationEventPublisher.class), new FakeIdemRepo(),
+                new com.fasterxml.jackson.databind.ObjectMapper());
         var session = svc.create(new RuntimeSessionApi.CreateSessionRequest("av", "rp", Map.of()));
         svc.append(session.id(), new RuntimeSessionApi.AppendRequest("c2", "use tool"));
         assertEquals(1, selects.get());
@@ -110,7 +112,8 @@ class RuntimeTurnBehaviorTest {
 
         RuntimeSessionService svc = new RuntimeSessionService(
                 router, llm, gateway, mock(WorkspaceFs.class), skills,
-                mock(ApplicationEventPublisher.class), new FakeIdemRepo());
+                mock(ApplicationEventPublisher.class), new FakeIdemRepo(),
+                new com.fasterxml.jackson.databind.ObjectMapper());
         box[0] = svc;
         var session = svc.create(new RuntimeSessionApi.CreateSessionRequest("av", "rp", Map.of()));
         sid[0] = session.id();

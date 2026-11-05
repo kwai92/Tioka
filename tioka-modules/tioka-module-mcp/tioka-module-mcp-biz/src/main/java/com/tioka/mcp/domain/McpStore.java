@@ -15,9 +15,10 @@ import java.util.Optional;
 @Repository
 public class McpStore {
     private final McpRepository repo;
-    private final ObjectMapper mapper = new ObjectMapper();
+    private final ObjectMapper mapper;
 
-    public McpStore(McpRepository repo) {
+    public McpStore(McpRepository repo, ObjectMapper mapper) {
+        this.mapper = mapper;
         this.repo = repo;
     }
 
@@ -95,7 +96,8 @@ public class McpStore {
         try {
             return mapper.readValue(json, new TypeReference<>() {});
         } catch (Exception e) {
-            return Map.of();
+            throw new com.tioka.framework.error.BizException(
+                    com.tioka.framework.error.ErrorCode.BAD_REQUEST, "JSON 解析失败");
         }
     }
 
@@ -111,7 +113,8 @@ public class McpStore {
         try {
             return mapper.readValue(json, new TypeReference<>() {});
         } catch (Exception e) {
-            return List.of();
+            throw new com.tioka.framework.error.BizException(
+                    com.tioka.framework.error.ErrorCode.BAD_REQUEST, "JSON 解析失败");
         }
     }
 

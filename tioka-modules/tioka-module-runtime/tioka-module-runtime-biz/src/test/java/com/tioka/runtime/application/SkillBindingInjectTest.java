@@ -70,7 +70,7 @@ class SkillBindingInjectTest {
         RuntimeSessionService svc = new RuntimeSessionService(
                 router, llm, new DefaultToolGateway(new ToolRegistry(List.of())),
                 fs, new SkillInstallService(fs),
-                event -> {}, repo);
+                event -> {}, repo, new com.fasterxml.jackson.databind.ObjectMapper());
 
         var session = svc.create(new RuntimeSessionApi.CreateSessionRequest(
                 "av_x", "rp_x", Map.of("workspaceId", "ws_sk"),

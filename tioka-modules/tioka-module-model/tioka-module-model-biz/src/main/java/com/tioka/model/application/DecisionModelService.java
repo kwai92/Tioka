@@ -1,12 +1,13 @@
 package com.tioka.model.application;
 
+import com.tioka.framework.id.Ids;
+
 import com.tioka.model.domain.DecisionBinding;
 import com.tioka.model.domain.ModelEntities;
 import com.tioka.model.infrastructure.DecisionBindingRepository;
 import com.tioka.model.infrastructure.persistence.DecisionBindingDO;
 import org.springframework.stereotype.Service;
 
-import java.util.UUID;
 
 @Service
 public class DecisionModelService {
@@ -22,7 +23,7 @@ public class DecisionModelService {
         if (!entities.hasBinding(bindingId)) {
             throw new IllegalArgumentException("binding 不存在");
         }
-        DecisionBinding d = new DecisionBinding("dec_" + UUID.randomUUID().toString().substring(0, 8), bindingId, "DIFFICULTY");
+        DecisionBinding d = new DecisionBinding(Ids.newId("dec"), bindingId, "DIFFICULTY");
         DecisionBindingDO row = new DecisionBindingDO();
         row.setId(d.id());
         row.setBindingId(d.bindingId());

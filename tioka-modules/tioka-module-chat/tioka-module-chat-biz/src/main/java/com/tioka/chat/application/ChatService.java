@@ -1,5 +1,7 @@
 package com.tioka.chat.application;
 
+import com.tioka.framework.id.Ids;
+
 import com.tioka.agent.api.AgentQueryApi;
 import com.tioka.chat.domain.ChatStore;
 import com.tioka.chat.domain.ChatStore.Conversation;
@@ -12,7 +14,6 @@ import org.springframework.stereotype.Service;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 
 @Service
 public class ChatService {
@@ -36,7 +37,7 @@ public class ChatService {
                 v.id(), v.routingPlanId(),
                 Map.of("agentVersionId", v.id(), "workspaceId", "ws_default"),
                 skills));
-        String id = "conv_" + UUID.randomUUID().toString().replace("-", "").substring(0, 8);
+        String id = Ids.newId("conv");
         Conversation c = new Conversation(id, title == null ? "新会话" : title, agentVersionId, session.id());
         store.saveConversation(c);
         return c;
@@ -49,7 +50,7 @@ public class ChatService {
     public Message send(String conversationId, String text, String clientMsgId) {
         Conversation c = store.getConversation(conversationId);
         if (c == null) throw new BizException(ErrorCode.NOT_FOUND, "会话不存在");
-        String mid = "msg_" + UUID.randomUUID().toString().replace("-", "").substring(0, 8);
+        String mid = Ids.newId("msg");
         Message user = new Message(mid, conversationId, "user", text, List.of(Map.of("type", "text", "text", text)));
         store.addMessage(user);
 
@@ -69,7 +70,7 @@ public class ChatService {
                 assistantText.append("\n[tool] ").append(p.text());
             }
         }
-        Message asst = new Message("msg_" + UUID.randomUUID().toString().replace("-", "").substring(0, 8),
+        Message asst = new Message(Ids.newId("msg"),
                 conversationId, "assistant", assistantText.toString().trim(), parts);
         store.addMessage(asst);
         return asst;

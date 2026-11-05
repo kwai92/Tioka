@@ -45,7 +45,8 @@ class FlowEngineTest {
                 new LlmNodeExecutor(llmProvider),
                 new AgentNodeExecutor(llmProvider),
                 new RetrieveNodeExecutor(provider(null)),
-                new HttpNodeExecutor(provider(null), provider(null)),
+                new HttpNodeExecutor(provider(null), provider(null),
+                        new com.fasterxml.jackson.databind.ObjectMapper()),
                 new McpNodeExecutor(provider(null)),
                 new HumanCardNodeExecutor(provider(null))
         );

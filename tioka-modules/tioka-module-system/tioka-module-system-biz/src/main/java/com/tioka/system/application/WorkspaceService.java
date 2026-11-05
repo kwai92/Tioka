@@ -1,12 +1,13 @@
 package com.tioka.system.application;
 
+import com.tioka.framework.id.Ids;
+
 import com.tioka.framework.error.BizException;
 import com.tioka.framework.error.ErrorCode;
 import com.tioka.system.infrastructure.SysWorkspaceRepository;
 import com.tioka.system.infrastructure.persistence.SysWorkspaceDO;
 import org.springframework.stereotype.Service;
 
-import java.util.UUID;
 
 @Service
 public class WorkspaceService {
@@ -24,7 +25,7 @@ public class WorkspaceService {
     }
 
     public Workspace create(String name, Long ownerUserId) {
-        String id = "ws_" + UUID.randomUUID().toString().replace("-", "").substring(0, 8);
+        String id = Ids.newId("ws");
         SysWorkspaceDO row = new SysWorkspaceDO();
         row.setId(id);
         row.setName(name);

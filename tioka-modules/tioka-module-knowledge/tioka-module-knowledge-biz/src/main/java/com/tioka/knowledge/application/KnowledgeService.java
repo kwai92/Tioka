@@ -1,5 +1,7 @@
 package com.tioka.knowledge.application;
 
+import com.tioka.framework.id.Ids;
+
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tioka.framework.error.BizException;
@@ -23,13 +25,15 @@ public class KnowledgeService implements KnowledgeSearchApi {
     private final KnowledgeRepository repo;
     private final EmbeddingClient embeddingClient;
     private final DocumentParser documentParser;
-    private final ObjectMapper mapper = new ObjectMapper();
+    private final ObjectMapper mapper;
     private final boolean pgvector;
 
     public KnowledgeService(KnowledgeRepository repo,
                             EmbeddingClient embeddingClient,
                             DocumentParser documentParser,
-                            @Value("${tioka.knowledge.vector-backend:local}") String vectorBackend) {
+                            @Value("${tioka.knowledge.vector-backend:local}") String vectorBackend,
+                                  ObjectMapper mapper) {
+        this.mapper = mapper;
         this.repo = repo;
         this.embeddingClient = embeddingClient;
         this.documentParser = documentParser;
@@ -37,7 +41,7 @@ public class KnowledgeService implements KnowledgeSearchApi {
     }
 
     public KnowledgeBase createBase(String workspaceId, String name) {
-        String id = "kb_" + UUID.randomUUID().toString().replace("-", "").substring(0, 8);
+        String id = Ids.newId("kb");
         KbBaseDO row = new KbBaseDO();
         row.setId(id);
         row.setWorkspaceId(workspaceId);
@@ -68,7 +72,7 @@ public class KnowledgeService implements KnowledgeSearchApi {
     }
 
     private Document indexDocument(String kbId, String title, String normalized, String sourceType, String format) {
-        String id = "doc_" + UUID.randomUUID().toString().replace("-", "").substring(0, 8);
+        String id = Ids.newId("doc");
         String fmt = format == null ? "txt" : format;
         KbDocumentDO doc = new KbDocumentDO();
         doc.setId(id);
@@ -161,7 +165,7 @@ public class KnowledgeService implements KnowledgeSearchApi {
                 .limit(limit)
                 .map(e -> {
                     ScoredChunk sc = byKey.get(e.getKey());
-                    String citationId = "cit_" + UUID.randomUUID().toString().replace("-", "").substring(0, 10);
+                    String citationId = Ids.newId("cit");
                     KbCitationDO cit = new KbCitationDO();
                     cit.setId(citationId);
                     cit.setDocId(sc.docId());
@@ -242,7 +246,7 @@ public class KnowledgeService implements KnowledgeSearchApi {
             for (int i = 0; i < list.size(); i++) v[i] = list.get(i);
             return v;
         } catch (Exception e) {
-            return new double[embeddingClient.dimension()];
+            throw new BizException(ErrorCode.BAD_REQUEST, "embedding JSON 解析失败");
         }
     }
 

@@ -1,5 +1,7 @@
 package com.tioka.runtime.application;
 
+import com.tioka.framework.id.Ids;
+
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tioka.framework.error.BizException;
@@ -29,7 +31,7 @@ public class RuntimeSessionService implements RuntimeSessionApi {
     private final SkillInstallService skillInstall;
     private final ApplicationEventPublisher events;
     private final RuntimeSessionRepository sessions;
-    private final ObjectMapper mapper = new ObjectMapper();
+    private final ObjectMapper mapper;
     private final Map<String, SessionState> hot = new ConcurrentHashMap<>();
 
     public RuntimeSessionService(ModelRouterApi modelRouter,
@@ -38,7 +40,8 @@ public class RuntimeSessionService implements RuntimeSessionApi {
                                  WorkspaceFs workspaceFs,
                                  SkillInstallService skillInstall,
                                  ApplicationEventPublisher events,
-                                 RuntimeSessionRepository sessions) {
+                                 RuntimeSessionRepository sessions, ObjectMapper mapper) {
+        this.mapper = mapper;
         this.modelRouter = modelRouter;
         this.llm = llm;
         this.toolGateway = toolGateway;
@@ -50,7 +53,7 @@ public class RuntimeSessionService implements RuntimeSessionApi {
 
     @Override
     public SessionView create(CreateSessionRequest request) {
-        String id = "sess_" + UUID.randomUUID().toString().replace("-", "").substring(0, 10);
+        String id = Ids.newId("sess");
         String workspaceId = workspaceIdOf(request.meta());
         List<SkillInstallService.SkillSnapshot> skills = toSnapshots(request.skills());
         SessionState s = new SessionState(id, "RUNNING", request.agentVersionId(), request.routingPlanId(),
@@ -85,7 +88,7 @@ public class RuntimeSessionService implements RuntimeSessionApi {
                 return getTurn(s, existing);
             }
         }
-        String turnId = "turn_" + UUID.randomUUID().toString().replace("-", "").substring(0, 8);
+        String turnId = Ids.newId("turn");
         if (request.clientMsgId() != null) {
             RuntimeIdemDO idem = new RuntimeIdemDO();
             idem.setId(sessionId + ":" + request.clientMsgId());
@@ -277,7 +280,7 @@ public class RuntimeSessionService implements RuntimeSessionApi {
     }
 
     private PartView part(String type, String text, Map<String, Object> payload) {
-        return new PartView("part_" + UUID.randomUUID().toString().replace("-", "").substring(0, 8), type, text, payload);
+        return new PartView(Ids.newId("part"), type, text, payload);
     }
 
     private void publishPart(String sessionId, String turnId, PartView part) {

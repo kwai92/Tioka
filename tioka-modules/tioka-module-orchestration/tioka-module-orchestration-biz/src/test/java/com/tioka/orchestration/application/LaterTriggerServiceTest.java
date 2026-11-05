@@ -42,7 +42,9 @@ class LaterTriggerServiceTest {
 
         RecordingOrch() {
             super(new OrchRuleIngestTest.FakeOrchRepository(),
-                    new OrchRuleService(new OrchRuleIngestTest.FakeOrchRepository()));
+                    new OrchRuleService(new OrchRuleIngestTest.FakeOrchRepository(),
+                            new com.fasterxml.jackson.databind.ObjectMapper()),
+                    new com.fasterxml.jackson.databind.ObjectMapper());
         }
 
         @Override

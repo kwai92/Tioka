@@ -45,7 +45,8 @@ class RuntimeSessionPinVersionTest {
                 });
 
         RuntimeSessionService svc = new RuntimeSessionService(
-                router, llm, gateway, fs, skills, events, sessions);
+                router, llm, gateway, fs, skills, events, sessions,
+                new com.fasterxml.jackson.databind.ObjectMapper());
 
         var view = svc.create(new RuntimeSessionApi.CreateSessionRequest(
                 "av_v1", "rp_1", Map.of("workspaceId", "ws_1")));
