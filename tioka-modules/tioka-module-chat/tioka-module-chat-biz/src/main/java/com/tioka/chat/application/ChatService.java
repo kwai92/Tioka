@@ -10,6 +10,8 @@ import com.tioka.framework.id.Ids;
 import com.tioka.framework.security.PrincipalHolder;
 import com.tioka.runtime.api.RuntimeSessionApi;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -21,15 +23,18 @@ public class ChatService {
     private final RuntimeSessionApi runtime;
     private final ChatStore store;
     private final PrincipalHolder principals;
+    private final TransactionTemplate tx;
 
     public ChatService(AgentQueryApi agentQueryApi,
                        RuntimeSessionApi runtime,
                        ChatStore store,
-                       PrincipalHolder principals) {
+                       PrincipalHolder principals,
+                       PlatformTransactionManager transactionManager) {
         this.agentQueryApi = agentQueryApi;
         this.runtime = runtime;
         this.store = store;
         this.principals = principals;
+        this.tx = new TransactionTemplate(transactionManager);
     }
 
     public Conversation create(String title, String agentVersionId) {
@@ -70,7 +75,8 @@ public class ChatService {
         Conversation c = get(conversationId);
         String mid = Ids.newId("msg");
         Message user = new Message(mid, conversationId, "user", text, List.of(Map.of("type", "text", "text", text)));
-        store.addMessage(user);
+        // GOV-04：用户消息先落库提交；模型调用不在事务内。与 startTurn 同事务待 RuntimeApi 适配后合并。
+        tx.executeWithoutResult(status -> store.addMessage(user));
 
         RuntimeSessionApi.TurnView turn = runtime.append(c.runtimeSessionId(),
                 new RuntimeSessionApi.AppendRequest(clientMsgId, text));

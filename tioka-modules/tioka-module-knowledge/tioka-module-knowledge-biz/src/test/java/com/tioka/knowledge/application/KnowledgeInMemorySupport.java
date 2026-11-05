@@ -32,6 +32,7 @@ final class KnowledgeInMemorySupport {
             @Override public void insertBase(KbBaseDO row) { bases.put(row.getId(), row); }
             @Override public boolean hasBase(String id) { return bases.containsKey(id); }
             @Override public void insertDocument(KbDocumentDO row) { docs.put(row.getId(), row); }
+            @Override public void updateDocument(KbDocumentDO row) { docs.put(row.getId(), row); }
             @Override public KbDocumentDO findDocument(String id) { return docs.get(id); }
             @Override public void insertChunk(KbChunkDO row) { chunks.put(row.getId(), row); }
             @Override public void insertChunkWithVector(String id, String docId, String kbId, String text, int ordinal, String embedding, String vectorLiteral) {
@@ -81,6 +82,22 @@ final class KnowledgeInMemorySupport {
     }
 
     static KnowledgeService service(KnowledgeRepository repo) {
-        return new KnowledgeService(repo, new HashEmbeddingClient(32), new DocumentParser(), "local", new com.fasterxml.jackson.databind.ObjectMapper());
+        return new KnowledgeService(repo, new HashEmbeddingClient(32), new DocumentParser(), "local",
+                new com.fasterxml.jackson.databind.ObjectMapper(), new PassthroughTxManager());
+    }
+
+    /** 单测无真实事务：回调直接执行。 */
+    static final class PassthroughTxManager implements org.springframework.transaction.PlatformTransactionManager {
+        @Override
+        public org.springframework.transaction.TransactionStatus getTransaction(
+                org.springframework.transaction.TransactionDefinition definition) {
+            return new org.springframework.transaction.support.SimpleTransactionStatus();
+        }
+
+        @Override
+        public void commit(org.springframework.transaction.TransactionStatus status) {}
+
+        @Override
+        public void rollback(org.springframework.transaction.TransactionStatus status) {}
     }
 }
