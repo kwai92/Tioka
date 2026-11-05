@@ -32,6 +32,8 @@
 
 `V104__BackfillRuntimeItems` 是 Java 迁移（M0-03 RT-02），不在本目录；`V119` 使用 Flyway 占位符 `${embeddingDim}`。
 
+**迁移不是一次性全部生效**：删除表或列、改写现有数据的迁移（V103〜V106、V110、V115、V119〜V122、V132、V142、V143 等）随替代旧实现的工作项 PR 一起移入 `db/migration`，对照表见施工设计 M0-01 ENG-11「迁移随工作项落地」（ADR-029 第 33 条修订）。
+
 ## 迁移脚本
 
 `db/` 下的脚本以 `tioka-server/src/main/resources/schema-pg.sql` 为基线，按版本号顺序执行，已在 PostgreSQL 16 + pgvector 上验证可依次执行成功（含旧数据回填语句）。仓库目前用 `spring.sql.init` 加载整份 schema，尚未引入 Flyway；ENG-11（M0-01）引入 Flyway 时把 `schema-pg.sql` 作为 `V1__baseline.sql`，本目录脚本原样移入 `tioka-server/src/main/resources/db/migration`，届时删除本目录副本。

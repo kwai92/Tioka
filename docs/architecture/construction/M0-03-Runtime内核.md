@@ -84,27 +84,27 @@ V101 已建 `runtime_turn`、`runtime_item` 并删除 `parts_json`。为保住�
 | --- | --- |
 | `V101__m0_runtime_kernel.sql`（改） | 去掉 `DROP COLUMN parts_json`、`cancelled`、`steer_text` 三句（V101 尚未在任何环境执行，允许修改） |
 | `V104__BackfillRuntimeItems.java`（新，`db/migration` 包下的 Flyway `JavaMigration`） | 逐会话读 `parts_json`，按顺序转成 item：`text` 且 role=user → `message/user`；role=assistant 且 `delta=false` → `message/assistant`；`tool_call`、`tool_result`、`error` 同名映射；delta 片段丢弃。每个旧 turnId 生成一条 `runtime_turn(status=COMPLETED, origin=chat, run_as_json='{"tenantId":"default","userId":"1","type":"USER"}')`。批量 500 会话一批 |
-| `V105__m0_drop_parts_json.sql`（新） | 上面三句 `DROP COLUMN` |
+| `V105__m0_drop_legacy_runtime.sql`（新） | 上面三句 `DROP COLUMN` 与 `DROP TABLE runtime_idem` |
+
+V104、V105 不随本项（RT-02，W1）合入，而是随本文末尾「旧接口适配与下线」（W4）与删除 `RuntimeSessionService` 的 PR 一起合入；在此之前新旧两套表并存，旧 Chat 路径继续可用（M0-01 ENG-11「迁移随工作项落地」）。
 
 ### DO 与仓储
 
 ```java
 @TableName("runtime_turn")
-public class RuntimeTurnDO {                       // 不继承 BaseDO：无逻辑删除
+public class RuntimeTurnDO extends MutableRecordDO {   // 无逻辑删除；审计列由基类提供
     @TableId private String id;
     private String sessionId; private Integer seq; private String status;
     private String origin; private String originRef; private String clientMsgId;
     private String runAsJson; private String optionsJson; private Integer stepCount;
-    private String workerId; private Long leaseVersion; private OffsetDateTime leaseUntil;
+    private String workerId; private Long leaseVersion; private LocalDateTime leaseUntil;
     private String errorCode; private String errorMessage;
     private Integer promptTokens; private Integer completionTokens;
-    private OffsetDateTime startedAt; private OffsetDateTime endedAt;
-    @TableField(fill = FieldFill.INSERT) private OffsetDateTime createAt;
-    @TableField(fill = FieldFill.INSERT_UPDATE) private OffsetDateTime updateAt;
+    private LocalDateTime startedAt; private LocalDateTime endedAt;      // UTC
 }
 ```
 
-`RuntimeItemDO` 继承 `AppendOnlyDO`。新表 DO 的时间字段一律 `OffsetDateTime`（PG 驱动对 `TIMESTAMPTZ` 的原生映射），对外视图转 `Instant`。
+`RuntimeItemDO` 继承 `AppendOnlyDO`，`RuntimeThreadDO` 沿用现有 `runtime_session` 的 DO（`WorkspaceAwareDO`）。时间字段一律 `LocalDateTime`（UTC），对外视图用 `toInstant(ZoneOffset.UTC)` 转 `Instant`（M0-01 ENG-11「DO 基类与时间类型」）。
 
 `TurnRepository` 必须提供以下方法，全部带 `lease_version` 条件的写入返回影响行数，调用方为 0 时抛 `BizException(LEASE_LOST)`：
 

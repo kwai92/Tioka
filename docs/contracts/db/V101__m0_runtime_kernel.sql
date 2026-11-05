@@ -1,7 +1,10 @@
 -- M0 契约迁移 2/3：Runtime 内核 thread / turn / item（ADR-016、ADR-027；定案 ADR-029 第 1、4、9、10、13、16 条）
 -- runtime_session 即 thread。仓库无生产数据，parts_json 直接删除。
 
--- parts_json、cancelled、steer_text 不在此删除：先由 V104 回填为 runtime_item，再在 V105 删除（ADR-029 第 33 条）
+-- parts_json、cancelled、steer_text 不在此删除：先由 V104 回填为 runtime_item，再在 V105 删除（ADR-029 第 33 条）。
+-- 过渡期新内核建的 thread 不写这些列，因此放开非空约束
+ALTER TABLE runtime_session ALTER COLUMN parts_json DROP NOT NULL;
+ALTER TABLE runtime_session ALTER COLUMN cancelled SET DEFAULT FALSE;
 ALTER TABLE runtime_session ADD COLUMN last_item_seq  BIGINT      NOT NULL DEFAULT 0;
 ALTER TABLE runtime_session ADD COLUMN origin         VARCHAR(16) NOT NULL DEFAULT 'chat';  -- chat / flow / orch / im / job
 ALTER TABLE runtime_session ADD COLUMN origin_ref     VARCHAR(64);
