@@ -122,4 +122,37 @@
             </plugin>
         </plugins>
     </build>
+
+    <!-- ENG-04：闸门流水线；默认 verify 排除 @Tag("gate")，本 profile 只跑 gate -->
+    <profiles>
+        <profile>
+            <id>gate</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <argLine>-Dnet.bytebuddy.experimental=true</argLine>
+                            <groups>gate</groups>
+                            <excludedGroups combine.self="override"/>
+                            <includes>
+                                <include>**/*IT.java</include>
+                            </includes>
+                            <excludes combine.self="override"/>
+                        </configuration>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-failsafe-plugin</artifactId>
+                        <configuration>
+                            <argLine>-Dnet.bytebuddy.experimental=true</argLine>
+                            <groups>gate</groups>
+                            <excludedGroups combine.self="override"/>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 </project>

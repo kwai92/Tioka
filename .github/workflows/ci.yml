@@ -18,6 +18,19 @@ jobs:
       - name: Verify (unit + IT)
         run: mvn -B verify
 
+  gate:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+      - name: Gate (dual-instance + LLM stub)
+        run: mvn -B verify -Pgate
+
   frontend:
     runs-on: ubuntu-latest
     defaults:
