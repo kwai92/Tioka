@@ -15,11 +15,10 @@ class RequestContextHolderTest {
     }
 
     @Test
-    void injectsTenantAndTrace() {
+    void injectsUserAndTrace() {
         RequestContextHolder.begin("trace-abc", 1L, 2L, 3L);
         assertEquals("trace-abc", TraceContext.getTraceId());
-        assertEquals(1L, TenantContext.getTenantId());
+        assertNull(TenantContext.getTenantId());
         assertEquals(2L, TenantContext.getUserId());
-        assertEquals(3L, TenantContext.getWorkspaceId());
     }
 }
