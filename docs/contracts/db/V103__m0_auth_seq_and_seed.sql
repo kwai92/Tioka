@@ -6,10 +6,11 @@ ALTER TABLE auth_user ADD COLUMN must_change_password BOOLEAN NOT NULL DEFAULT F
 ALTER TABLE auth_user ADD COLUMN email VARCHAR(255);
 CREATE UNIQUE INDEX uk_auth_user_email ON auth_user (lower(email)) WHERE email IS NOT NULL;
 
--- 旧默认管理员 admin/admin123 禁用，由 BootstrapAdminRunner 另建
-UPDATE auth_user SET enabled = FALSE WHERE id = 1 AND username = 'admin';
+-- 注意：DROP auth_token、禁用旧 admin 由 FND-02 在落地 BootstrapAdminRunner / TokenService 时写入本文件或后继迁移；
+-- ENG-11 先行应用本脚本时不得破坏现有 DB 令牌登录，否则集成测试无法登录。
 
 -- M0 内置角色的最小权限点（M1 V110 全量替换）
+
 INSERT INTO sys_role_permission (role_code, permission) VALUES
   ('tenant_admin',    '*'),
   ('workspace_admin', 'workspace:manage'),

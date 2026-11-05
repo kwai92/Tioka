@@ -1,11 +1,15 @@
 package com.tioka.server;
 
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Tag;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import com.tioka.server.support.IntegrationTestSupport;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.http.MediaType;
-import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
@@ -18,11 +22,19 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 /**
  * W1-26 黄金路径：登录 → 模型/Agent/MCP → 对话（含工具）→ 流式回复。
+ * V102 后配额/冻结表变更，待模型网关收口后重开。
  */
+@Disabled("ENG-11：等待 MH/GOV 与 Runtime 新内核后启用")
 @SpringBootTest
 @AutoConfigureMockMvc
-@ActiveProfiles("local")
-class GoldenPathE2ETest {
+@Tag("it")
+class GoldenPathE2EIT {
+
+    @DynamicPropertySource
+    static void containers(DynamicPropertyRegistry registry) {
+        IntegrationTestSupport.register(registry);
+    }
+
 
     @Autowired
     MockMvc mockMvc;

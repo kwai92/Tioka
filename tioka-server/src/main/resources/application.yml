@@ -6,6 +6,19 @@ spring:
     name: tioka-server
   profiles:
     active: local
+  datasource:
+    url: jdbc:postgresql://${TIOKA_DB_HOST:localhost}:${TIOKA_DB_PORT:5432}/${TIOKA_DB_NAME:tioka}
+    username: ${TIOKA_DB_USER:tioka}
+    password: ${TIOKA_DB_PASSWORD:tioka}
+    driver-class-name: org.postgresql.Driver
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: false
+  data:
+    redis:
+      host: ${TIOKA_REDIS_HOST:localhost}
+      port: ${TIOKA_REDIS_PORT:6379}
 
 management:
   endpoints:
@@ -15,6 +28,9 @@ management:
   endpoint:
     health:
       show-details: when_authorized
+  health:
+    redis:
+      enabled: false
 
 tioka:
   env:

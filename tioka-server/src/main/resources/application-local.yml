@@ -1,15 +1,18 @@
+# 本地开发：先 docker compose -f deploy/compose.yml up -d postgres redis
 spring:
   datasource:
-    url: jdbc:h2:mem:tioka;MODE=PostgreSQL;DB_CLOSE_DELAY=-1
-    driver-class-name: org.h2.Driver
-    username: sa
-    password:
-  sql:
-    init:
-      mode: always
-      schema-locations: classpath:schema.sql
+    url: jdbc:postgresql://${TIOKA_DB_HOST:localhost}:${TIOKA_DB_PORT:5432}/${TIOKA_DB_NAME:tioka}
+    username: ${TIOKA_DB_USER:tioka}
+    password: ${TIOKA_DB_PASSWORD:tioka}
+    driver-class-name: org.postgresql.Driver
+  data:
+    redis:
+      host: ${TIOKA_REDIS_HOST:localhost}
+      port: ${TIOKA_REDIS_PORT:6379}
 
 tioka:
+  env:
+    name: local
   model:
     mock: true
   mcp:
@@ -20,24 +23,21 @@ tioka:
   airgap:
     enabled: false
   feishu:
-    # OpenAPI（优先）：填 app-id/app-secret 后走 tenant_access_token + im/v1/messages
     app-id: ""
     app-secret: ""
     api-base: https://open.feishu.cn
     receive-id-type: chat_id
-    # 自定义机器人（次选）；空则仅写 im_outbox
     webhook-url: ""
   auth:
+    local-enabled: true
     oidc-enabled: false
   knowledge:
     vector-backend: local
-    # embedding：默认 hash 32 维；配置 base-url 后走 OpenAI 兼容 /embeddings（失败回退 hash）
     embedding:
       base-url: ""
       api-key-ref: ""
       model: text-embedding-3-small
       dim: 32
-
 
 mybatis-plus:
   global-config:

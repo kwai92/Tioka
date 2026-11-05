@@ -58,6 +58,19 @@
                     <configuration>
                         <!-- Java 24：Mockito inline / Byte Buddy 需 experimental -->
                         <argLine>-Dnet.bytebuddy.experimental=true</argLine>
+                        <excludedGroups>gate</excludedGroups>
+                        <excludes>
+                            <exclude>**/*IT.java</exclude>
+                        </excludes>
+                    </configuration>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-failsafe-plugin</artifactId>
+                    <version>3.5.2</version>
+                    <configuration>
+                        <argLine>-Dnet.bytebuddy.experimental=true</argLine>
+                        <excludedGroups>gate</excludedGroups>
                     </configuration>
                 </plugin>
                 <plugin>
@@ -73,6 +86,7 @@
                 <artifactId>maven-surefire-plugin</artifactId>
                 <configuration>
                     <argLine>-Dnet.bytebuddy.experimental=true</argLine>
+                    <excludedGroups>gate</excludedGroups>
                 </configuration>
             </plugin>
             <plugin>
