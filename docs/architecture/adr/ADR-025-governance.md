@@ -63,3 +63,10 @@ ALTER TABLE sys_workspace ADD COLUMN env VARCHAR(16) NOT NULL DEFAULT 'prod';
 ALTER TABLE sys_workspace ADD COLUMN promotes_to VARCHAR(64);
 -- 通用审批表的 subject_type 增加 asset_version
 ```
+
+## 修订：可信放权（2026-11-05）
+
+- GOV-07 提前到 M3 并升为 P0（ADR-029 第 39 条）。策略结果在 ALLOW / DENY 之外正式增加 ESCALATE（转审批），用 `@effect` 注解区分两组 forbid 策略。
+- 岗位授权书（[ADR-032](ADR-032-agent-charter.md)）发布时编译成 Cedar 策略写入 `gov_policy`，`source = charter:{agentVersionId}`。
+- resource 优先取预演变更单的汇总（金额、记录数、对象类型），见 [ADR-033](ADR-033-reversible-actions.md) 的工具调用管线。
+- GOV-11 多环境延后到 M4 之后（ADR-029 第 42 条）。

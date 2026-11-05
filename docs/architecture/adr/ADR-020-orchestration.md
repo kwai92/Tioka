@@ -140,3 +140,10 @@ ALTER TABLE orch_rule_version ADD COLUMN accept_mode VARCHAR(16) NOT NULL DEFAUL
 ALTER TABLE orch_rule_version ADD COLUMN tell VARCHAR(16) NOT NULL DEFAULT 'needed';
 ALTER TABLE orch_rule_version ADD COLUMN emits_json TEXT;
 ```
+
+## 修订：可信放权（2026-11-05）
+
+- `orch_mandate` 增加 `agent_version_id`；派工复验时同时检查该 Agent 的授权书状态为 ACTIVE，否则决定记为 UNAVAILABLE（[ADR-032](ADR-032-agent-charter.md)、ADR-029 第 36 条）。
+- 规则增加 `shadow` 与 `actual_mapping_json`：`accept_mode = observe` 下的推断事件除记 `WOULD_ACCEPT` 外，可创建影子 Run（`origin = shadow`），结案后用 `actual_mapping` 取人工实际处理结果做比对（[ADR-034](ADR-034-autonomy-ladder.md)）。
+- Run 进入终态时发 `tioka.orch.run_finished.v1`（与 `orch_fact` 同事务写 outbox），供价值账本记账（[ADR-035](ADR-035-value-ledger.md)）。
+- 一个 Run 内的写操作组成一个撤销组，撤销产生的「无法撤销」清单与补偿失败以 Attention 交给 Agent 负责人（[ADR-033](ADR-033-reversible-actions.md)）。

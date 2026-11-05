@@ -66,3 +66,17 @@ ADR 入库与 M0 契约编写时又统一了以下五处，编号续接上表。
 | 33 | ADR-016、V101 | V101 直接删除 `parts_json`，历史会话会丢 | V101 不删列；`V104__BackfillRuntimeItems`（Java 迁移）把旧 parts 转为 item，`V105` 再删 `parts_json`、`cancelled`、`steer_text` 与 `runtime_idem`。V101 尚未在任何环境执行，允许修改 |
 | 34 | ADR-016、第 3 条 | 事件 ID 规则不完整 | `item.created` 为 `{seq}.0`，`item.delta` 为 `{seq}.{i}`（i 从 1 起），`item.completed`、`item.discarded` 为 `{seq}`；比较时先比 seq，同 seq 带小数的在前；`turn.*` 事件不带 ID，重连时服务端先补发当前 Turn 状态。Redis 键统一为 `rt:events:{threadId}`、`rt:turns`、`rt:lock:{threadId}`、`rt:signal:{turnId}:cancel|steer` |
 | 35 | ADR-019、ADR-020 | 重建 `orch_run`、`flow_run` 等表时旧数据如何处理 | 仓库无生产数据：`orch_run`、`orch_attention`、`orch_why`、`orch_idem`、`flow_run` 直接删除重建，不做数据迁移；`orch_rule` 保留为规则头 |
+
+## 可信放权定案（2026-11-05）
+
+2026-11-05 选定差异化方向「可信放权」（D0〜D3），新增 ADR-032〜035 与工作项 TRU-01〜15。以下各条统一这几篇与已有设计的接缝，编号续接上表。
+
+| # | 涉及 | 问题 | 定案 |
+| --- | --- | --- | --- |
+| 36 | ADR-020、ADR-032 | 「授权」一词已被编排的 `orch_mandate` 占用 | Agent 级的岗位授权书叫 Charter，存于 AgentSpec 的 `charter` 段；`orch_mandate` 仍是工单级授权记录，增加 `agent_version_id`，派工复验时同时检查授权书状态为 ACTIVE |
+| 37 | M1-02 RT-07、ADR-033 | 已有 `ToolRisk`，可撤销性放在哪里 | 保留 `ToolRisk`（错了有多严重），新增正交的 `Reversibility`（NONE / REVERSIBLE / COMPENSABLE / IRREVERSIBLE）。未声明的写工具按 IRREVERSIBLE；MCP 工具仅 `readOnlyHint=true` 时为 NONE |
+| 38 | M1-02 RT-07、ADR-034 | 默认审批策略 | M3 起默认审批策略由 `agent-config` 改为 `autonomy`（按自治等级判定）。Agent 版本的 `toolPolicies` 继续有效但只能收紧：`approve`、`deny` 照办，`auto` 不能越过等级 |
+| 39 | ADR-025、34 号计划 | 授权书要编译为 Cedar，而 GOV-07 在 M4 | GOV-07 提前到 M3，升为 P0。M3 交付求值器、DENY / ESCALATE 两组策略、授权书编译和 DRYRUN / ENFORCE 切换；空间级策略编辑界面仍在 M4 |
+| 40 | ADR-033、ADR-034 | 影子运行如何保证不产生副作用 | `origin = shadow` 的 Turn 在 ToolGateway 只允许 `prepare` 和 READ 工具，`commit` 一律拒绝；不向 IM 外发；用量走评测预算。由 ArchUnit 规则与 `ShadowNeverCommitsIT` 守护，不提供配置开关 |
+| 41 | ADR-035 | 价值数字的口径 | 报表只从 `trust_ledger` 汇总；只有绑定任务类型的执行记账；撤销生成冲销；失败与转人工同样计成本和人工；基线必须标注来源（MEASURED / SURVEY / ESTIMATE），修改不回溯 |
+| 42 | 34 号计划 | 新增约 95 人日从哪里来 | CON-06（钉钉、企微）、CON-07（OpenAPI 转工具）、GOV-11（多环境）、HCI-08 的工作台与产物中心延后到 M4 之后；M3、M4 施工设计编写时核算净影响，仍不足则 M4 顺延，不压缩 TRU 的 P0 项 |
