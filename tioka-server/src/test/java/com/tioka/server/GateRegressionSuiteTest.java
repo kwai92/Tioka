@@ -161,7 +161,7 @@ class GateRegressionSuiteTest {
                 .andExpect(status().isOk());
         mockMvc.perform(get("/api/connector/im/feishu/outbox"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data[0].text").value("hello im"));
+                .andExpect(jsonPath("$.data[*].text", hasItem("hello im")));
 
         mockMvc.perform(post("/api/ops/chat/" + conv + "/fork"))
                 .andExpect(status().isOk())

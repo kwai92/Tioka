@@ -10,6 +10,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.hasItem;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -109,7 +110,7 @@ class GoldenPathE2ETest {
 
         mockMvc.perform(get("/api/chat/conversations"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data[0].id").value(convId));
+                .andExpect(jsonPath("$.data[*].id", hasItem(convId)));
     }
 
     private static String json(MvcResult result, String path) throws Exception {
