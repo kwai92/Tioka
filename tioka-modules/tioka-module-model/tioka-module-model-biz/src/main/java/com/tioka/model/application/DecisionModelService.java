@@ -10,13 +10,10 @@ import java.util.UUID;
 
 @Service
 public class DecisionModelService {
-    private final DifficultyRouter difficultyRouter;
     private final ModelEntities entities;
     private final DecisionBindingRepository decisions;
 
-    public DecisionModelService(DifficultyRouter difficultyRouter, ModelEntities entities,
-                                DecisionBindingRepository decisions) {
-        this.difficultyRouter = difficultyRouter;
+    public DecisionModelService(ModelEntities entities, DecisionBindingRepository decisions) {
         this.entities = entities;
         this.decisions = decisions;
     }
@@ -32,9 +29,5 @@ public class DecisionModelService {
         row.setPurpose(d.purpose());
         decisions.insert(row);
         return d;
-    }
-
-    public DifficultyRouter.Tier decideOnly(String text) {
-        return difficultyRouter.decide(text);
     }
 }

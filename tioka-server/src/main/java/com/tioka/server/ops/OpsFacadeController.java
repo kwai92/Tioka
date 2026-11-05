@@ -1,14 +1,11 @@
 package com.tioka.server.ops;
 
 import com.tioka.agent.application.AgentShareService;
-import com.tioka.chat.application.ChatDensityService;
 import com.tioka.connector.application.FeishuDocSyncService;
 import com.tioka.framework.error.ApiResponse;
+import com.tioka.framework.error.NotImplemented;
 import com.tioka.knowledge.application.DataSourceService;
-import com.tioka.knowledge.application.GraphRagService;
 import com.tioka.knowledge.application.WikiService;
-import com.tioka.runtime.application.AutomationJobService;
-import com.tioka.runtime.application.CodeInterpreterService;
 import com.tioka.system.api.spi.BizSystemAdapter;
 import com.tioka.system.api.spi.ImChannelAdapter;
 import com.tioka.system.application.AirGapService;
@@ -28,12 +25,8 @@ public class OpsFacadeController {
     private final DataSourceService dataSourceService;
     private final FeishuDocSyncService feishuDocSyncService;
     private final WikiService wikiService;
-    private final GraphRagService graphRagService;
     private final AirGapService airGapService;
     private final ScimSyncService scimSyncService;
-    private final CodeInterpreterService codeInterpreterService;
-    private final AutomationJobService automationJobService;
-    private final ChatDensityService chatDensityService;
     private final AgentShareService agentShareService;
     private final FileAuditSink auditSink;
     private final List<ImChannelAdapter> imAdapters;
@@ -41,21 +34,16 @@ public class OpsFacadeController {
     private final String envName;
 
     public OpsFacadeController(DataSourceService dataSourceService, FeishuDocSyncService feishuDocSyncService,
-                               WikiService wikiService, GraphRagService graphRagService, AirGapService airGapService,
-                               ScimSyncService scimSyncService, CodeInterpreterService codeInterpreterService,
-                               AutomationJobService automationJobService, ChatDensityService chatDensityService,
+                               WikiService wikiService, AirGapService airGapService,
+                               ScimSyncService scimSyncService,
                                AgentShareService agentShareService, FileAuditSink auditSink,
                                List<ImChannelAdapter> imAdapters, List<BizSystemAdapter> bizAdapters,
                                @Value("${tioka.env.name:${spring.profiles.active:local}}") String envName) {
         this.dataSourceService = dataSourceService;
         this.feishuDocSyncService = feishuDocSyncService;
         this.wikiService = wikiService;
-        this.graphRagService = graphRagService;
         this.airGapService = airGapService;
         this.scimSyncService = scimSyncService;
-        this.codeInterpreterService = codeInterpreterService;
-        this.automationJobService = automationJobService;
-        this.chatDensityService = chatDensityService;
         this.agentShareService = agentShareService;
         this.auditSink = auditSink;
         this.imAdapters = imAdapters;
@@ -80,7 +68,7 @@ public class OpsFacadeController {
 
     @GetMapping("/graph")
     public ApiResponse<?> graph(@RequestParam String kbId, @RequestParam String entity) {
-        return ApiResponse.ok(graphRagService.query(kbId, entity));
+        throw NotImplemented.of("graph-rag", "M4");
     }
 
     @GetMapping("/airgap")
@@ -91,16 +79,18 @@ public class OpsFacadeController {
 
     @PostMapping("/interpreter")
     public ApiResponse<?> interp(@RequestBody Map<String, String> body) {
-        return ApiResponse.ok(codeInterpreterService.execute(body.get("language"), body.get("code")));
+        throw NotImplemented.of("code-interpreter", "ADR-027");
     }
 
     @PostMapping("/jobs")
     public ApiResponse<?> jobs(@RequestBody Map<String, Object> body) {
-        return ApiResponse.ok(automationJobService.submit(String.valueOf(body.get("type")), body));
+        throw NotImplemented.of("automation-jobs", "ADR-027");
     }
 
     @PostMapping("/chat/{id}/fork")
-    public ApiResponse<?> fork(@PathVariable String id) { return ApiResponse.ok(chatDensityService.fork(id)); }
+    public ApiResponse<?> fork(@PathVariable String id) {
+        throw NotImplemented.of("chat-fork", "ADR-022");
+    }
 
     @PostMapping("/agents/{id}/share")
     public ApiResponse<?> share(@PathVariable String id, @RequestBody Map<String, String> body) {

@@ -2,6 +2,7 @@ package com.tioka.model.application;
 
 import com.tioka.framework.error.BizException;
 import com.tioka.framework.error.ErrorCode;
+import com.tioka.framework.error.NotImplemented;
 import com.tioka.model.api.FailoverEvent;
 import com.tioka.model.api.ModelRouterApi;
 import com.tioka.model.domain.ModelEntities;
@@ -15,13 +16,11 @@ import java.util.concurrent.ConcurrentHashMap;
 
 @Service
 public class ModelRouterService implements ModelRouterApi {
-    private final DifficultyRouter difficultyRouter;
     private final ApplicationEventPublisher events;
     private final ModelEntities entities;
     private final Map<String, RouteView> lastRoutes = new ConcurrentHashMap<>();
 
-    public ModelRouterService(DifficultyRouter difficultyRouter, ApplicationEventPublisher events, ModelEntities entities) {
-        this.difficultyRouter = difficultyRouter;
+    public ModelRouterService(ApplicationEventPublisher events, ModelEntities entities) {
         this.events = events;
         this.entities = entities;
     }
@@ -44,18 +43,11 @@ public class ModelRouterService implements ModelRouterApi {
         if (!plan.published()) {
             throw new BizException(ErrorCode.BAD_REQUEST, "路由计划未发布或不存在");
         }
+        if ("DIFFICULTY".equalsIgnoreCase(plan.type())) {
+            throw NotImplemented.of("routing-plan-DIFFICULTY", "ADR-024");
+        }
         String chosen = plan.primaryBindingId();
         String reason = "primary";
-        if ("DIFFICULTY".equalsIgnoreCase(plan.type())
-                && plan.hardBindingId() != null) {
-            DifficultyRouter.Tier tier = difficultyRouter.decide(userText);
-            if (tier == DifficultyRouter.Tier.HARD) {
-                chosen = plan.hardBindingId();
-                reason = "difficulty=hard → " + chosen;
-            } else {
-                reason = "difficulty=normal → " + chosen;
-            }
-        }
         entities.putFreeze(sessionId, chosen);
         ModelSelection sel = resolveBinding(chosen, reason);
         remember(sessionId, sel);

@@ -48,6 +48,10 @@ public class ModelAdminService {
     }
 
     public RoutingPlanView createPlan(CreateRoutingPlanRequest req) {
+        String type = req.type() == null ? "FIXED" : req.type();
+        if ("DIFFICULTY".equalsIgnoreCase(type)) {
+            throw com.tioka.framework.error.NotImplemented.of("routing-plan-DIFFICULTY", "ADR-024");
+        }
         if (!entities.hasBinding(req.primaryBindingId())) {
             throw new BizException(ErrorCode.NOT_FOUND, "binding 不存在");
         }
@@ -58,7 +62,6 @@ public class ModelAdminService {
             throw new BizException(ErrorCode.NOT_FOUND, "hard binding 不存在");
         }
         String id = "rp_" + UUID.randomUUID().toString().replace("-", "").substring(0, 8);
-        String type = req.type() == null ? "FIXED" : req.type();
         RoutingPlan plan = new RoutingPlan(
                 id, req.name(), type, req.primaryBindingId(),
                 req.fallbackBindingId(), req.hardBindingId(), false, null);
@@ -69,6 +72,9 @@ public class ModelAdminService {
     public RoutingPlanView publish(String planId) {
         RoutingPlan plan = entities.getPlan(planId)
                 .orElseThrow(() -> new BizException(ErrorCode.NOT_FOUND, "routing plan 不存在"));
+        if ("DIFFICULTY".equalsIgnoreCase(plan.type())) {
+            throw com.tioka.framework.error.NotImplemented.of("routing-plan-DIFFICULTY", "ADR-024");
+        }
         String hash = sha256(plan.id() + ":" + plan.primaryBindingId() + ":" + plan.type()
                 + ":" + plan.fallbackBindingId() + ":" + plan.hardBindingId());
         RoutingPlan published = new RoutingPlan(
