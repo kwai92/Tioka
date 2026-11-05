@@ -8,7 +8,7 @@ import com.tioka.knowledge.application.DataSourceService;
 import com.tioka.knowledge.application.WikiService;
 import com.tioka.system.api.spi.BizSystemAdapter;
 import com.tioka.system.api.spi.ImChannelAdapter;
-import com.tioka.system.application.AirGapService;
+import com.tioka.system.config.EgressProperties;
 import com.tioka.system.application.ScimSyncService;
 import com.tioka.system.infrastructure.spi.FileAuditSink;
 import org.springframework.beans.factory.annotation.Value;
@@ -25,7 +25,7 @@ public class OpsFacadeController {
     private final DataSourceService dataSourceService;
     private final FeishuDocSyncService feishuDocSyncService;
     private final WikiService wikiService;
-    private final AirGapService airGapService;
+    private final EgressProperties egressProperties;
     private final ScimSyncService scimSyncService;
     private final AgentShareService agentShareService;
     private final FileAuditSink auditSink;
@@ -34,7 +34,7 @@ public class OpsFacadeController {
     private final String envName;
 
     public OpsFacadeController(DataSourceService dataSourceService, FeishuDocSyncService feishuDocSyncService,
-                               WikiService wikiService, AirGapService airGapService,
+                               WikiService wikiService, EgressProperties egressProperties,
                                ScimSyncService scimSyncService,
                                AgentShareService agentShareService, FileAuditSink auditSink,
                                List<ImChannelAdapter> imAdapters, List<BizSystemAdapter> bizAdapters,
@@ -42,7 +42,7 @@ public class OpsFacadeController {
         this.dataSourceService = dataSourceService;
         this.feishuDocSyncService = feishuDocSyncService;
         this.wikiService = wikiService;
-        this.airGapService = airGapService;
+        this.egressProperties = egressProperties;
         this.scimSyncService = scimSyncService;
         this.agentShareService = agentShareService;
         this.auditSink = auditSink;
@@ -72,7 +72,10 @@ public class OpsFacadeController {
     }
 
     @GetMapping("/airgap")
-    public ApiResponse<?> airgap() { return ApiResponse.ok(Map.of("enabled", airGapService.enabled())); }
+    public ApiResponse<?> airgap() {
+        return ApiResponse.ok(Map.of(
+                "enabled", egressProperties.getMode() != EgressProperties.Mode.OPEN));
+    }
 
     @PostMapping("/scim/sync")
     public ApiResponse<?> scim(@RequestBody List<Map<String, String>> delta) { return ApiResponse.ok(scimSyncService.sync(delta)); }

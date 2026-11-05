@@ -6,6 +6,6 @@ import org.springframework.context.annotation.Configuration;
 
 @Configuration
 @ComponentScan("com.tioka.system")
-@EnableConfigurationProperties({AuthProperties.class, BootstrapProperties.class})
+@EnableConfigurationProperties({AuthProperties.class, BootstrapProperties.class, EgressProperties.class})
 public class SystemAutoConfiguration {
 }

@@ -22,6 +22,11 @@ tioka:
     require-external-key: false
   airgap:
     enabled: false
+  egress:
+    mode: OPEN
+    allow-hosts: []
+    allow-private: true
+    deny-cidrs: ["169.254.0.0/16", "100.100.100.200/32"]
   feishu:
     app-id: ""
     app-secret: ""
