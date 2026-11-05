@@ -1,0 +1,8 @@
+# 契约目录必须由架构负责人审批（ADR-030 第 2 条）。实现 PR 不得修改这些文件；
+# 确需修改时，同一 PR 必须同步修改对应 ADR。
+
+/docs/architecture/adr/                      @kwai92
+/docs/contracts/                             @kwai92
+/tioka-framework/src/main/java/com/tioka/framework/security/   @kwai92
+/tioka-framework/src/main/java/com/tioka/framework/error/      @kwai92
+/tioka-modules/*/*-api/                      @kwai92
