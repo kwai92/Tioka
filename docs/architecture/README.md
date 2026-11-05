@@ -15,7 +15,7 @@
 
 ### 近期 ADR
 
-ADR-015〜040 是 M0〜M4 的权威设计（ADR-032〜035 为可信放权，ADR-038〜040 为多智能体与运行时权限，见下表；ADR-036、ADR-037 留给商业租赁合同场景），推进计划见 [34-M0至M4推进规划与工作项](implementation/34-M0至M4推进规划与工作项.md)，契约见 [docs/contracts](../contracts/README.md)。M0〜M2 的施工设计（逐工作项的改动清单、关键代码、迁移、接口、测试与完成标准）见 [construction/00-施工总纲](construction/00-施工总纲.md)。
+ADR-015〜040 是 M0〜M4 的权威设计（ADR-032〜035 为可信放权，ADR-038〜040 为多智能体与运行时权限，见下表；ADR-036、ADR-037 为业务本体与结构化输出，来自商业租赁合同场景），推进计划见 [34-M0至M4推进规划与工作项](implementation/34-M0至M4推进规划与工作项.md)，契约见 [docs/contracts](../contracts/README.md)。M0〜M2 的施工设计（逐工作项的改动清单、关键代码、迁移、接口、测试与完成标准）见 [construction/00-施工总纲](construction/00-施工总纲.md)。
 
 | ADR | 主题 |
 | --- | --- |
@@ -41,6 +41,8 @@ ADR-015〜040 是 M0〜M4 的权威设计（ADR-032〜035 为可信放权，ADR-
 | [ADR-033](adr/ADR-033-reversible-actions.md) | 可信放权 D1：可撤销执行，动作契约、变更单与撤销（TRU-05〜08） |
 | [ADR-034](adr/ADR-034-autonomy-ladder.md) | 可信放权 D2：自治阶梯与影子上岗（TRU-09〜12） |
 | [ADR-035](adr/ADR-035-value-ledger.md) | 可信放权 D3：价值账本与数字员工经营报表（TRU-13〜15） |
+| [ADR-036](adr/ADR-036-business-ontology-domain-pack.md) | 业务本体与领域包：文档层、合同模型投影、读模型工具、`rule.evaluate`、@model.build（DOC-01〜03、ONT-01〜09） |
+| [ADR-037](adr/ADR-037-structured-outputs.md) | 结构化输出：Schema 登记表、AgentSpec 输出契约、`data` item、字段级评测（SCH-01〜05） |
 | [ADR-038](adr/ADR-038-multi-agent-team.md) | 多智能体团队：规划、分派、协商、汇总，子 Agent 生命周期（MAS-03〜07） |
 | [ADR-039](adr/ADR-039-delegation-grant.md) | 委派授予与权限收窄，Skills / MCP / Workflow 的三道门（MAS-01、MAS-02、DAT-04〜06） |
 | [ADR-040](adr/ADR-040-dataset-policy-data-label.md) | 数据集行列策略与数据标签（DAT-01〜03） |
