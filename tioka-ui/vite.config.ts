@@ -10,8 +10,8 @@ export default defineConfig({
     }
   },
   test: {
-    environment: 'node',
-    include: ['src/**/*.test.ts']
+    environment: 'happy-dom',
+    include: ['src/**/*.test.ts', 'src/**/*.spec.ts']
   },
   server: {
     port: 5173,

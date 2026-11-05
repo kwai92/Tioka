@@ -11,13 +11,14 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref } from 'vue'
-import { useRouter } from 'vue-router'
-import { useSessionStore } from '../stores/session'
+import { useRoute, useRouter } from 'vue-router'
+import { useAuthStore } from '@/stores/auth'
 
 const router = useRouter()
-const session = useSessionStore()
+const route = useRoute()
+const auth = useAuthStore()
 const username = ref('admin')
 const password = ref('')
 const loading = ref(false)
@@ -27,19 +28,15 @@ async function onSubmit() {
   loading.value = true
   error.value = ''
   try {
-    const res = await fetch('/api/system/auth/login', {
-      method: 'POST',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username: username.value, password: password.value })
-    })
-    const body = await res.json()
-    if (body.code !== 0) throw new Error(body.message || '登录失败')
-    const display = body.data.user?.displayName || body.data.user?.username || username.value
-    session.setSession(body.data.accessToken, display)
-    router.push('/')
-  } catch (e) {
-    error.value = e.message || String(e)
+    const data = await auth.login(username.value, password.value)
+    if (data.user?.mustChangePassword) {
+      await router.replace('/account/password')
+      return
+    }
+    const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '/'
+    await router.replace(redirect || '/')
+  } catch (e: unknown) {
+    error.value = e instanceof Error ? e.message : String(e)
   } finally {
     loading.value = false
   }
