@@ -63,6 +63,11 @@ public class ItemRepository {
         return mapper.listBySession(sessionId);
     }
 
+    public List<RuntimeItemDO> listAfterSeq(String sessionId, long afterSeq, int limit) {
+        int lim = Math.min(Math.max(limit, 1), 500);
+        return mapper.listAfterSeq(sessionId, afterSeq, lim);
+    }
+
     private static RuntimeItemDO newItem(String sessionId, String turnId, long seq, int step,
                                          String type, String role, String contentJson, Integer tokenCount) {
         RuntimeItemDO item = new RuntimeItemDO();

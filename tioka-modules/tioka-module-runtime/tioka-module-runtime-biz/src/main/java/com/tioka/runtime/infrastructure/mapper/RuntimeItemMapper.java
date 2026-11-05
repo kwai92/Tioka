@@ -39,4 +39,16 @@ public interface RuntimeItemMapper {
             ORDER BY seq
             """)
     java.util.List<RuntimeItemDO> listBySession(String sessionId);
+
+    @Select("""
+            SELECT session_id AS sessionId, seq, id, turn_id AS turnId, step, type, role,
+                   content_json AS contentJson, token_count AS tokenCount, discarded
+            FROM runtime_item
+            WHERE session_id = #{sessionId} AND seq > #{afterSeq}
+            ORDER BY seq
+            LIMIT #{limit}
+            """)
+    java.util.List<RuntimeItemDO> listAfterSeq(@Param("sessionId") String sessionId,
+                                               @Param("afterSeq") long afterSeq,
+                                               @Param("limit") int limit);
 }

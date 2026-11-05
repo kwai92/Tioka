@@ -140,4 +140,19 @@ public interface RuntimeTurnMapper {
             LIMIT 1
             """)
     RuntimeTurnDO nextQueued(String sessionId);
+
+    @Select("""
+            SELECT id, session_id AS sessionId, seq, status, origin, origin_ref AS originRef,
+                   client_msg_id AS clientMsgId, run_as_json AS runAsJson, options_json AS optionsJson,
+                   step_count AS stepCount, worker_id AS workerId, lease_version AS leaseVersion,
+                   lease_until AS leaseUntil, error_code AS errorCode, error_message AS errorMessage,
+                   prompt_tokens AS promptTokens, completion_tokens AS completionTokens,
+                   started_at AS startedAt, ended_at AS endedAt, create_at AS createAt, update_at AS updateAt
+            FROM runtime_turn
+            WHERE session_id = #{sessionId}
+              AND status IN ('RUNNING', 'WAITING_APPROVAL', 'WAITING_CHILD', 'QUEUED')
+            ORDER BY seq DESC
+            LIMIT 1
+            """)
+    RuntimeTurnDO findActive(String sessionId);
 }
