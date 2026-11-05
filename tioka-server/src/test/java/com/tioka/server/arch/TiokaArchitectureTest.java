@@ -1,0 +1,79 @@
+package com.tioka.server.arch;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.tioka.framework.security.PublicApi;
+import com.tioka.framework.security.RequirePermission;
+import com.tioka.model.api.gateway.ModelGateway;
+import com.tioka.model.application.OpenAiCompatibleClient;
+import com.tngtech.archunit.core.domain.JavaModifier;
+import com.tngtech.archunit.core.importer.ImportOption;
+import com.tngtech.archunit.junit.AnalyzeClasses;
+import com.tngtech.archunit.junit.ArchTest;
+import com.tngtech.archunit.lang.ArchRule;
+import com.tngtech.archunit.library.freeze.FreezingArchRule;
+import org.springframework.web.bind.annotation.RestController;
+
+import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.methods;
+import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
+import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noMethods;
+
+/**
+ * ENG-10：全仓架构守护。M0 尚未满足的规则用 FreezingArchRule 冻结现存违例。
+ */
+@AnalyzeClasses(packages = "com.tioka", importOptions = ImportOption.DoNotIncludeTests.class)
+class TiokaArchitectureTest {
+
+    @ArchTest
+    static final ArchRule controllersMustDeclarePermission = FreezingArchRule.freeze(
+            methods().that().areDeclaredInClassesThat().areAnnotatedWith(RestController.class)
+                    .and().arePublic()
+                    .should().beAnnotatedWith(RequirePermission.class)
+                    .orShould().beAnnotatedWith(PublicApi.class)
+                    .orShould().beDeclaredInClassesThat().areAnnotatedWith(RequirePermission.class)
+                    .because("Controller 方法必须声明 @RequirePermission 或 @PublicApi（ADR-015）"));
+
+    @ArchTest
+    static final ArchRule onlyModelBizTalksToModelHttp = FreezingArchRule.freeze(
+            noClasses().that().resideOutsideOfPackage("com.tioka.model..")
+                    .should().dependOnClassesThat().areAssignableTo(OpenAiCompatibleClient.class)
+                    .because("仅 model-biz 可直接依赖模型 HTTP 客户端（ADR-017）"));
+
+    @ArchTest
+    static final ArchRule serverDependsOnlyOnApi = FreezingArchRule.freeze(
+            noClasses().that().resideInAPackage("com.tioka.server..")
+                    .should().dependOnClassesThat().resideInAnyPackage(
+                            "com.tioka..application..",
+                            "com.tioka..infrastructure..",
+                            "com.tioka..domain..")
+                    .because("tioka-server 只应依赖各域 api 与 framework（ADR-030）"));
+
+    /** 现存 synchronized 由 ORC-01 / RT 新内核清除；此处冻结库存，禁止新增。 */
+    @ArchTest
+    static final ArchRule noSynchronizedInApplication = FreezingArchRule.freeze(
+            noMethods().that().areDeclaredInClassesThat()
+                    .resideInAnyPackage("..application..", "..domain..")
+                    .should().haveModifier(JavaModifier.SYNCHRONIZED)
+                    .because("应用/领域层禁止 synchronized，用 DB/Redis 锁（ADR-016）"));
+
+    /** 现存 new ObjectMapper 由 ENG-05 清除；此处冻结库存，禁止新增。 */
+    @ArchTest
+    static final ArchRule noNewObjectMapper = FreezingArchRule.freeze(
+            noClasses().should().callConstructor(ObjectMapper.class)
+                    .because("统一注入 Spring ObjectMapper（ENG-05）"));
+
+    @ArchTest
+    static final ArchRule onlyRuntimeApiExecutesAgents = FreezingArchRule.freeze(
+            noClasses().that().resideInAnyPackage(
+                            "com.tioka.chat..",
+                            "com.tioka.flow..",
+                            "com.tioka.orchestration..",
+                            "com.tioka.connector..")
+                    .should().dependOnClassesThat().resideInAnyPackage("com.tioka.runtime.application..")
+                    .because("一个内核：非 runtime 不得直接依赖 runtime.application（ADR-016）"));
+
+    @ArchTest
+    static final ArchRule noModelCallOnRequestThread = FreezingArchRule.freeze(
+            noClasses().that().areAnnotatedWith(RestController.class)
+                    .should().dependOnClassesThat().areAssignableTo(ModelGateway.class)
+                    .because("请求线程不得直接依赖 ModelGateway（ADR-029 第 21 条）"));
+}
