@@ -70,3 +70,5 @@ ALTER TABLE sys_workspace ADD COLUMN promotes_to VARCHAR(64);
 - 岗位授权书（[ADR-032](ADR-032-agent-charter.md)）发布时编译成 Cedar 策略写入 `gov_policy`，`source = charter:{agentVersionId}`。
 - resource 优先取预演变更单的汇总（金额、记录数、对象类型），见 [ADR-033](ADR-033-reversible-actions.md) 的工具调用管线。
 - GOV-11 多环境延后到 M4 之后（ADR-029 第 42 条）。
+- Cedar context 增加委派链 `chain`、`depth`、`onBehalfOf`（[ADR-039](ADR-039-delegation-grant.md)，ADR-029 第 46 条）；行列级数据权限用 CEL，在连接器执行（[ADR-040](ADR-040-dataset-policy-data-label.md)，第 48 条）。
+- GOV-10 的内置正则 PII 脱敏提前到 M3，供数据标签的对外去向许可使用（ADR-029 第 49 条）。

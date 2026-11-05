@@ -80,3 +80,17 @@ ADR 入库与 M0 契约编写时又统一了以下五处，编号续接上表。
 | 40 | ADR-033、ADR-034 | 影子运行如何保证不产生副作用 | `origin = shadow` 的 Turn 在 ToolGateway 只允许 `prepare` 和 READ 工具，`commit` 一律拒绝；不向 IM 外发；用量走评测预算。由 ArchUnit 规则与 `ShadowNeverCommitsIT` 守护，不提供配置开关 |
 | 41 | ADR-035 | 价值数字的口径 | 报表只从 `trust_ledger` 汇总；只有绑定任务类型的执行记账；撤销生成冲销；失败与转人工同样计成本和人工；基线必须标注来源（MEASURED / SURVEY / ESTIMATE），修改不回溯 |
 | 42 | 34 号计划 | 新增约 95 人日从哪里来 | CON-06（钉钉、企微）、CON-07（OpenAPI 转工具）、GOV-11（多环境）、HCI-08 的工作台与产物中心延后到 M4 之后；M3、M4 施工设计编写时核算净影响，仍不足则 M4 顺延，不压缩 TRU 的 P0 项 |
+
+## 多智能体与运行时权限定案（2026-11-05）
+
+2026-11-05 新增 ADR-038（多智能体团队）、ADR-039（委派授予与权限收窄）、ADR-040（数据集策略与数据标签）与工作项 MAS-01〜07、DAT-01〜06。ADR-036、ADR-037 留给商业租赁合同场景（业务本体、结构化产物）。以下各条统一这几篇与已有设计的接缝，编号续接上表。
+
+| # | 涉及 | 问题 | 定案 |
+| --- | --- | --- | --- |
+| 43 | ADR-027、34 号计划 | 子 Agent（RT-12）在 M4，而多 Agent 场景与委派权限都依赖它 | RT-12 提前到 M3、升为 P0，并与 MAS-01〜03 同期交付：**委派与权限收窄必须同时上线**，不允许出现「能委派但子 Agent 权限等于父 Agent」的版本。ADR-027 中「深度上限 2、并行 3」改为缺省值，由 TeamSpec 配置，平台上限深度 3、并行 8 |
+| 44 | ADR-015、ADR-020、ADR-032 | 编排以服务账号运行时，可能检索到经办人无权看的数据 | `run_as_json` 增加 `onBehalfOf`。SERVICE 模式下根权限 = 服务账号角色 ∩ 经办人权限；名义在委派链上不可改变，确需换名义只能经编排 `emit` 开新工单 |
+| 45 | ADR-032 | 主管自己只读、把写操作派给专家时，授权书交集会把写操作全部挡掉 | `Charter` 增加 `delegable`（可下放的动作类别，缺省为空）。链上祖先只检查禁区与 `delegable`，执行者检查完整授权书。`CharterCompiler` 编译禁区用 `context.chain.contains(X)`，额度与范围类策略仍用 `context.agentVersion == X` |
+| 46 | ADR-033、M1-04 | 授予在工具调用管线哪一步检查 | `prepare` 第 2 步（白名单）之后插入第 2.5 步「授予」；`listTools` 同样按授予过滤。第 9 步 Cedar context 增加 `chain`、`depth`、`onBehalfOf` |
+| 47 | ADR-019 | Flow 作为 Agent 工具时只带 Principal，Flow 内部调用会绕过委派收窄 | Agent 工具形态的 Flow Run 携带调用方 `grant_id`，内部每次模型与工具调用都用它；发布时计算 `requiredCapabilities`，超出授予时启动即拒。API 形态仍以 API Key 的服务账号签发根授予 |
+| 48 | ADR-025、ADR-040 | 行列级权限用 Cedar 还是 CEL | 行谓词与列掩码用 CEL 子集，在连接器数据平面执行；Cedar 只管能否访问数据集。cedar-java 部分求值稳定后再评估统一 |
+| 49 | ADR-024、ADR-025、ADR-031、34 号计划 | 数据标签与模型路由、内容安全、经验库的关系 | 标签四档 PUBLIC / INTERNAL / CONFIDENTIAL / SECRET，可映射到客户自有分级。去向许可由空间配置：CONFIDENTIAL 能否进云端模型是客户合规决定，平台默认不放行。经验库只收 INTERNAL 及以下。DAT-02 依赖内容安全钩子，GOV-10 的内置正则 PII 脱敏因此提前到 M3（P1），客户审核服务适配器仍在 M4 |

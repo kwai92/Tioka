@@ -180,3 +180,7 @@ ID 前缀：`chev` 授权书事件。
 | TRU-02 | 有效权限交集、授权书编译为 Cedar、当日累计计数、四眼 | M3 | P0 | 6 | GOV-07（提前到 M3） | G3：超额度调用转审批，越范围调用被拒并记录策略 ID |
 | TRU-03 | 负责人失效自动暂停与交接 | M3 | P1 | 3 | FND-04 | G3：负责人被禁用后，新 Turn 返回 423，编排决定为 UNAVAILABLE |
 | TRU-04 | 复核提醒与逾期暂停 | M4 | P2 | 2 | TRU-03、TRU-13 | — |
+
+## 修订（2026-11-05）
+
+授权书增加 `delegable`；禁区按委派链编译；SERVICE 模式增加 `on_behalf_of`。见 [ADR-029](ADR-029-design-rulings.md) 第 44、45 条与 [ADR-039](ADR-039-delegation-grant.md)。
