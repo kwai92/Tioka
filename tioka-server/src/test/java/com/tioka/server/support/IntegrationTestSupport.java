@@ -16,5 +16,8 @@ public final class IntegrationTestSupport {
         registry.add("spring.sql.init.mode", () -> "never");
         registry.add("tioka.bootstrap.admin-password", () -> BOOTSTRAP_ADMIN_PASSWORD);
         registry.add("tioka.home", () -> System.getProperty("java.io.tmpdir") + "/tioka-it-home");
+        // 多 Spring 上下文会各自建池；限制池大小避免打满 Testcontainers PG
+        registry.add("spring.datasource.hikari.maximum-pool-size", () -> "4");
+        registry.add("spring.datasource.hikari.minimum-idle", () -> "1");
     }
 }

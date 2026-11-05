@@ -15,7 +15,8 @@ public final class TestContainers {
                             .asCompatibleSubstituteFor("postgres"))
                     .withDatabaseName("tioka")
                     .withUsername("tioka")
-                    .withPassword("tioka");
+                    .withPassword("tioka")
+                    .withCommand("postgres", "-c", "max_connections=200");
 
     public static final RedisContainer REDIS =
             new RedisContainer(DockerImageName.parse("redis:7-alpine"));
