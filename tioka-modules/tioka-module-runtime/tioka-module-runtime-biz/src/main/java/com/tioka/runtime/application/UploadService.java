@@ -1,11 +1,12 @@
 package com.tioka.runtime.application;
 
-import com.tioka.framework.id.Ids;
-
 import com.tioka.framework.error.BizException;
 import com.tioka.framework.error.ErrorCode;
+import com.tioka.framework.id.Ids;
 import com.tioka.infra.api.ObjectStorageApi;
 import com.tioka.runtime.api.spi.WorkspaceFs;
+import com.tioka.runtime.infrastructure.RuntimeSessionRepository;
+import com.tioka.runtime.infrastructure.persistence.RuntimeSessionDO;
 import org.springframework.stereotype.Service;
 
 import java.util.Map;
@@ -15,10 +16,10 @@ import java.util.concurrent.ConcurrentHashMap;
 public class UploadService {
     private final ObjectStorageApi objects;
     private final WorkspaceFs workspaceFs;
-    private final RuntimeSessionService sessions;
+    private final RuntimeSessionRepository sessions;
     private final Map<String, UploadMeta> pending = new ConcurrentHashMap<>();
 
-    public UploadService(ObjectStorageApi objects, WorkspaceFs workspaceFs, RuntimeSessionService sessions) {
+    public UploadService(ObjectStorageApi objects, WorkspaceFs workspaceFs, RuntimeSessionRepository sessions) {
         this.objects = objects;
         this.workspaceFs = workspaceFs;
         this.sessions = sessions;
@@ -47,7 +48,7 @@ public class UploadService {
         }
         String sid = sessionId != null ? sessionId : meta.sessionId();
         if (sid == null) throw new BizException(ErrorCode.BAD_REQUEST, "缺少 sessionId");
-        String workspaceId = sessions.workspaceId(sid);
+        String workspaceId = workspaceId(sid);
         String logical = "uploads/" + uploadId + "/" + sanitize(meta.filename());
         workspaceFs.materializeFromObject(workspaceId, sid, meta.objectKey(), logical);
         return new ConfirmResult(uploadId, logical, Map.of(
@@ -59,12 +60,20 @@ public class UploadService {
     }
 
     public WorkspaceFs.PublishedArtifact publish(String sessionId, String logicalSrc, String contentType) {
-        String workspaceId = sessions.workspaceId(sessionId);
+        String workspaceId = workspaceId(sessionId);
         return workspaceFs.publishArtifact(workspaceId, sessionId, logicalSrc, contentType);
     }
 
     public byte[] downloadByTicket(String ticket) {
         return objects.redeemTicket(ticket);
+    }
+
+    private String workspaceId(String sessionId) {
+        RuntimeSessionDO row = sessions.find(sessionId);
+        if (row == null || row.getWorkspaceId() == null || row.getWorkspaceId().isBlank()) {
+            throw new BizException(ErrorCode.NOT_FOUND, "会话不存在");
+        }
+        return row.getWorkspaceId();
     }
 
     private static String sanitize(String name) {

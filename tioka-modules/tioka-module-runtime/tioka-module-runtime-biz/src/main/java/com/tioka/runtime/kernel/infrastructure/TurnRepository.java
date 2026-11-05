@@ -83,6 +83,10 @@ public class TurnRepository {
         return Optional.ofNullable(mapper.nextQueued(sessionId));
     }
 
+    public Optional<RuntimeTurnDO> findActive(String sessionId) {
+        return Optional.ofNullable(mapper.findActive(sessionId));
+    }
+
     public void requireLeaseWrite(int affected) {
         if (affected == 0) {
             throw new BizException(ErrorCode.LEASE_LOST);

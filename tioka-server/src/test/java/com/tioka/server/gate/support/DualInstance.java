@@ -28,21 +28,39 @@ public final class DualInstance implements AutoCloseable {
     }
 
     public static DualInstance start() {
+        return start("three-tools", Map.of(), true);
+    }
+
+    public static DualInstance start(String llmScript, Map<String, Object> extraProps) {
+        return start(llmScript, extraProps, true);
+    }
+
+    /** @param dual 为 false 时只启实例 A（并发闸门用，避免双池压垮 PG） */
+    public static DualInstance start(String llmScript, Map<String, Object> extraProps, boolean dual) {
         TestContainers.PG.getJdbcUrl();
+        System.setProperty("tioka.llm.script", llmScript == null ? "three-tools" : llmScript);
         LlmStubServer llm = LlmStubServer.start();
         Map<String, Object> shared = baseProps(llm.baseUrl());
+        if (extraProps != null) {
+            shared.putAll(extraProps);
+        }
         ConfigurableApplicationContext ctxA = run(withInstance(shared, "A"));
-        ConfigurableApplicationContext ctxB = run(withInstance(shared, "B"));
+        ConfigurableApplicationContext ctxB = dual ? run(withInstance(shared, "B")) : null;
         return new DualInstance(ctxA, ctxB, llm);
     }
 
     public ConfigurableApplicationContext a() { return a; }
 
-    public ConfigurableApplicationContext b() { return b; }
+    public ConfigurableApplicationContext b() {
+        if (b == null) {
+            throw new IllegalStateException("单实例模式无 B");
+        }
+        return b;
+    }
 
     public int portA() { return portOf(a); }
 
-    public int portB() { return portOf(b); }
+    public int portB() { return portOf(b()); }
 
     public LlmStubServer llm() { return llm; }
 
@@ -53,12 +71,15 @@ public final class DualInstance implements AutoCloseable {
     @Override
     public void close() {
         try {
-            b.close();
+            if (b != null) {
+                b.close();
+            }
         } finally {
             try {
                 a.close();
             } finally {
                 llm.close();
+                System.clearProperty("tioka.llm.script");
             }
         }
     }
@@ -84,8 +105,9 @@ public final class DualInstance implements AutoCloseable {
         m.put("spring.datasource.username", TestContainers.PG.getUsername());
         m.put("spring.datasource.password", TestContainers.PG.getPassword());
         m.put("spring.datasource.driver-class-name", "org.postgresql.Driver");
-        m.put("spring.datasource.hikari.maximum-pool-size", "4");
-        m.put("spring.datasource.hikari.minimum-idle", "1");
+        // 双实例共享 Testcontainers PG，默认 max_connections≈100，两池合计须留余量
+        m.put("spring.datasource.hikari.maximum-pool-size", "24");
+        m.put("spring.datasource.hikari.minimum-idle", "2");
         m.put("spring.data.redis.host", TestContainers.REDIS.getHost());
         m.put("spring.data.redis.port", TestContainers.REDIS.getMappedPort(6379));
         m.put("spring.flyway.enabled", true);
@@ -93,7 +115,10 @@ public final class DualInstance implements AutoCloseable {
         m.put("tioka.bootstrap.admin-password", IntegrationTestSupport.BOOTSTRAP_ADMIN_PASSWORD);
         m.put("tioka.home", System.getProperty("java.io.tmpdir") + "/tioka-gate-home");
         m.put("tioka.model.mock", false);
+        m.put("tioka.egress.mode", "OPEN");
         m.put("tioka.gate.llm-base-url", llmBaseUrl);
+        m.put("tioka.runtime.executor.max-concurrent-turns", 128);
+        m.put("tioka.runtime.executor.queue-capacity", 512);
         return m;
     }
 

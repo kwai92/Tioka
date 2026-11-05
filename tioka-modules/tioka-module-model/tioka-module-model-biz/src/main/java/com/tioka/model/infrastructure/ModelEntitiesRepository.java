@@ -17,6 +17,6 @@ public interface ModelEntitiesRepository {
     void putPlan(ModelRoutingPlanDO row);
     Optional<ModelRoutingPlanDO> getPlan(String id);
     List<ModelRoutingPlanDO> plans();
-    Optional<String> getFreeze(String sessionId);
-    void putFreeze(String sessionId, String bindingId);
+    Optional<String> getFreeze(String sessionId, String turnId);
+    void putFreeze(String sessionId, String turnId, String bindingId);
 }

@@ -11,8 +11,6 @@ import com.tioka.runtime.kernel.infrastructure.TurnRepository;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-import java.util.List;
-import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -27,8 +25,9 @@ public class KernelLoopConfiguration {
     ExecutorService turnExecutor(KernelProperties props) {
         int n = props.getExecutor().getMaxConcurrentTurns();
         int q = props.getExecutor().getQueueCapacity();
+        // 固定池：队列未满时也必须能拉满 maxConcurrentTurns（否则闸门并发会被 core 卡住）
         return TiokaExecutors.wrap(new ThreadPoolExecutor(
-                Math.min(8, n), n, 60, TimeUnit.SECONDS,
+                n, n, 60, TimeUnit.SECONDS,
                 new LinkedBlockingQueue<>(q),
                 r -> {
                     Thread t = new Thread(r, "rt-turn");
@@ -50,29 +49,6 @@ public class KernelLoopConfiguration {
     @Bean
     ContextBuilder contextBuilder(ObjectMapper mapper) {
         return new ContextBuilder(mapper);
-    }
-
-    /** M0 桩：无工具、直接返回固定文本；RT-03 后续换 LegacyModelPort / ToolGateway。 */
-    @Bean
-    LoopPorts.ModelPort stubModelPort() {
-        return (ctx, messages, tools, onDelta) ->
-                new LoopPorts.ModelPort.Result("ok", null, List.of(), 1, 1, "stub");
-    }
-
-    @Bean
-    LoopPorts.ToolPort stubToolPort() {
-        return new LoopPorts.ToolPort() {
-            @Override
-            public List<Map<String, Object>> describe(com.tioka.runtime.kernel.domain.LoopContext ctx) {
-                return List.of();
-            }
-
-            @Override
-            public List<LoopPorts.ToolOutcome> invokeAll(
-                    com.tioka.runtime.kernel.domain.LoopContext ctx, List<LoopPorts.ToolCall> calls) {
-                return List.of();
-            }
-        };
     }
 
     @Bean

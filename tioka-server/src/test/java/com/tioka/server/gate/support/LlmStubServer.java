@@ -38,6 +38,7 @@ public final class LlmStubServer implements AutoCloseable {
         try {
             LlmStubServer stub = new LlmStubServer(new MockWebServer());
             stub.loadClasspath("llm-scripts/three-tools.yaml", "three-tools");
+            stub.loadClasspath("llm-scripts/slow-pong.yaml", "slow-pong");
             stub.server.setDispatcher(stub.dispatcher());
             stub.server.start();
             return stub;
@@ -76,10 +77,13 @@ public final class LlmStubServer implements AutoCloseable {
                     return new MockResponse().setResponseCode(500).setBody("unknown script: " + scriptName);
                 }
                 int n = counters.computeIfAbsent(scriptName, k -> new AtomicInteger()).getAndIncrement();
-                if (n >= script.calls.size()) {
+                int idx = Boolean.TRUE.equals(script.loop)
+                        ? Math.floorMod(n, script.calls.size())
+                        : n;
+                if (idx >= script.calls.size()) {
                     return new MockResponse().setResponseCode(500).setBody("script exhausted: " + scriptName);
                 }
-                Call call = script.calls.get(n);
+                Call call = script.calls.get(idx);
                 boolean stream = false;
                 try {
                     JsonNode body = json.readTree(request.getBody().readUtf8());
@@ -188,6 +192,8 @@ public final class LlmStubServer implements AutoCloseable {
 
     public static final class Script {
         public List<Call> calls = new ArrayList<>();
+        /** 耗尽后按模循环（并发闸门用）。 */
+        public Boolean loop;
     }
 
     public static final class Call {

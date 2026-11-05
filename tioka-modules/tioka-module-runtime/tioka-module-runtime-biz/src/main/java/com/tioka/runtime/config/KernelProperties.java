@@ -14,6 +14,8 @@ public class KernelProperties {
     private int maxQueuedPerThread = 5;
     private Loop loop = new Loop();
     private Events events = new Events();
+    /** LegacySessionAdapter.append 等待 Turn 终态超时。 */
+    private Duration legacyAppendTimeout = Duration.ofSeconds(120);
 
     public String getInstanceId() { return instanceId; }
     public void setInstanceId(String instanceId) { this.instanceId = instanceId; }
@@ -29,6 +31,10 @@ public class KernelProperties {
     public void setLoop(Loop loop) { this.loop = loop; }
     public Events getEvents() { return events; }
     public void setEvents(Events events) { this.events = events; }
+    public Duration getLegacyAppendTimeout() { return legacyAppendTimeout; }
+    public void setLegacyAppendTimeout(Duration legacyAppendTimeout) {
+        this.legacyAppendTimeout = legacyAppendTimeout;
+    }
 
     public static class Executor {
         private int maxConcurrentTurns = 64;

@@ -116,12 +116,17 @@ public class OpenAiCompatibleClient implements LlmClientApi {
         if (tools != null && !tools.isEmpty()) body.set("tools", mapper.valueToTree(tools));
         if (stream) body.put("stream", true);
 
-        HttpRequest req = HttpRequest.newBuilder()
+        HttpRequest.Builder reqBuilder = HttpRequest.newBuilder()
                 .uri(URI.create(trimSlash(baseUrl) + "/chat/completions"))
                 .timeout(Duration.ofSeconds(120))
                 .header("Authorization", "Bearer " + apiKey)
                 .header("Content-Type", "application/json")
-                .header("Accept", stream ? "text/event-stream" : "application/json")
+                .header("Accept", stream ? "text/event-stream" : "application/json");
+        String script = System.getProperty("tioka.llm.script");
+        if (script != null && !script.isBlank()) {
+            reqBuilder.header("X-Tioka-Script", script);
+        }
+        HttpRequest req = reqBuilder
                 .POST(HttpRequest.BodyPublishers.ofString(mapper.writeValueAsString(body)))
                 .build();
 

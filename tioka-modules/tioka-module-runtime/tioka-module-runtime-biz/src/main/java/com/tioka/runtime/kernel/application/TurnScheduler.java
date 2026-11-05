@@ -38,15 +38,36 @@ public class TurnScheduler {
     public void submit(String turnId) {
         try {
             executor.execute(() -> {
-                if (!concurrency.tryAcquire()) {
+                try {
+                    concurrency.acquire();
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
                     return;
                 }
                 running.add(turnId);
+                String sessionId = null;
+                boolean stillQueued = false;
                 try {
                     runner.run(turnId);
                 } finally {
                     running.remove(turnId);
                     concurrency.release();
+                    Optional<RuntimeTurnDO> row = turns.findById(turnId);
+                    if (row.isPresent()) {
+                        sessionId = row.get().getSessionId();
+                        stillQueued = "QUEUED".equals(row.get().getStatus());
+                    }
+                    if (stillQueued) {
+                        // 抢锁/acquire 失败提前返回：短暂退避后重新入队，避免永久 QUEUED
+                        try {
+                            Thread.sleep(20);
+                        } catch (InterruptedException e) {
+                            Thread.currentThread().interrupt();
+                        }
+                        submit(turnId);
+                    } else if (sessionId != null) {
+                        onTurnFinished(sessionId);
+                    }
                 }
             });
         } catch (RejectedExecutionException ignored) {

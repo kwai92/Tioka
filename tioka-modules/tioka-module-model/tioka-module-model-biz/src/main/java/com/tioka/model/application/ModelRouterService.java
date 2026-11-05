@@ -26,13 +26,9 @@ public class ModelRouterService implements ModelRouterApi {
     }
 
     @Override
-    public ModelSelection select(String sessionId, String routingPlanId) {
-        return select(sessionId, routingPlanId, null);
-    }
-
-    @Override
-    public ModelSelection select(String sessionId, String routingPlanId, String userText) {
-        var frozen = entities.getFreeze(sessionId);
+    public ModelSelection select(String sessionId, String turnId, String routingPlanId, String userText) {
+        String tid = turnId == null || turnId.isBlank() ? sessionId : turnId;
+        var frozen = entities.getFreeze(sessionId, tid);
         if (frozen.isPresent()) {
             ModelSelection sel = resolveBinding(frozen.get(), "frozen");
             remember(sessionId, sel);
@@ -48,14 +44,15 @@ public class ModelRouterService implements ModelRouterApi {
         }
         String chosen = plan.primaryBindingId();
         String reason = "primary";
-        entities.putFreeze(sessionId, chosen);
+        entities.putFreeze(sessionId, tid, chosen);
         ModelSelection sel = resolveBinding(chosen, reason);
         remember(sessionId, sel);
         return sel;
     }
 
     @Override
-    public ModelSelection failover(String sessionId, String routingPlanId, String reason) {
+    public ModelSelection failover(String sessionId, String turnId, String routingPlanId, String reason) {
+        String tid = turnId == null || turnId.isBlank() ? sessionId : turnId;
         RoutingPlan plan = entities.getPlan(routingPlanId)
                 .orElseThrow(() -> new BizException(ErrorCode.BAD_REQUEST, "路由计划未发布或不存在"));
         if (!plan.published()) {
@@ -64,7 +61,7 @@ public class ModelRouterService implements ModelRouterApi {
         if (plan.fallbackBindingId() == null) {
             throw new BizException(ErrorCode.BAD_REQUEST, "未配置 fallbackBinding");
         }
-        entities.putFreeze(sessionId, plan.fallbackBindingId());
+        entities.putFreeze(sessionId, tid, plan.fallbackBindingId());
         String routeReason = "failover:" + (reason == null ? "unspecified" : reason);
         ModelSelection sel = resolveBinding(plan.fallbackBindingId(), routeReason);
         remember(sessionId, sel);

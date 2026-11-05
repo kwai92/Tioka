@@ -1,6 +1,7 @@
 package com.tioka.runtime.kernel.application;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.tioka.agent.api.AgentQueryApi;
 import com.tioka.framework.error.BizException;
 import com.tioka.framework.error.ErrorCode;
 import com.tioka.framework.error.NotImplemented;
@@ -23,6 +24,8 @@ import com.tioka.runtime.kernel.infrastructure.persistence.RuntimeTurnDO;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.Instant;
 import java.time.OffsetDateTime;
@@ -43,6 +46,7 @@ public class KernelRuntimeService implements RuntimeApi {
     private final EventStream streams;
     private final RuntimeEventFactory events;
     private final ObjectMapper mapper;
+    private final AgentQueryApi agents;
 
     public KernelRuntimeService(RuntimeSessionRepository sessions,
                                 TurnRepository turns,
@@ -53,7 +57,8 @@ public class KernelRuntimeService implements RuntimeApi {
                                 KernelProperties props,
                                 EventStream streams,
                                 RuntimeEventFactory events,
-                                ObjectMapper mapper) {
+                                ObjectMapper mapper,
+                                AgentQueryApi agents) {
         this.sessions = sessions;
         this.turns = turns;
         this.items = items;
@@ -64,17 +69,20 @@ public class KernelRuntimeService implements RuntimeApi {
         this.streams = streams;
         this.events = events;
         this.mapper = mapper;
+        this.agents = agents;
     }
 
     @Override
     @Transactional
     public ThreadView createThread(CreateThreadCmd cmd) {
         Principal p = principals.current();
+        AgentQueryApi.AgentVersionView ver = agents.requirePublished(cmd.agentVersionId());
         String id = Ids.newId("thr");
         RuntimeSessionDO row = new RuntimeSessionDO();
         row.setId(id);
         row.setStatus("OPEN");
-        row.setAgentVersionId(cmd.agentVersionId());
+        row.setAgentVersionId(ver.id());
+        row.setRoutingPlanId(ver.routingPlanId());
         row.setWorkspaceId(p.workspaceId());
         row.setOwnerId(p.userId());
         row.setLastItemSeq(0L);
@@ -138,8 +146,22 @@ public class KernelRuntimeService implements RuntimeApi {
         }
         streams.publish(threadId, null, RuntimeEventType.TURN_STARTED.wire(),
                 events.turnStatus(RuntimeEventType.TURN_STARTED, threadId, turnId, TurnStatus.QUEUED.name()));
-        scheduler.submit(turnId);
+        // 必须在事务提交后再调度，否则 worker 可能读不到刚 insert 的 Turn（永久 QUEUED）
+        submitAfterCommit(turnId);
         return new TurnHandle(turnId, TurnStatus.QUEUED, eventsUrl(threadId));
+    }
+
+    private void submitAfterCommit(String turnId) {
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    scheduler.submit(turnId);
+                }
+            });
+        } else {
+            scheduler.submit(turnId);
+        }
     }
 
     @Override

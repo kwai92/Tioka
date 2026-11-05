@@ -99,10 +99,14 @@ class ModelRouterFreezeTest {
         public List<ModelRoutingPlanDO> plans() { return new ArrayList<>(plans.values()); }
 
         @Override
-        public Optional<String> getFreeze(String sessionId) { return Optional.ofNullable(freezes.get(sessionId)); }
+        public Optional<String> getFreeze(String sessionId, String turnId) {
+            return Optional.ofNullable(freezes.get(sessionId + "|" + turnId));
+        }
 
         @Override
-        public void putFreeze(String sessionId, String bindingId) { freezes.put(sessionId, bindingId); }
+        public void putFreeze(String sessionId, String turnId, String bindingId) {
+            freezes.put(sessionId + "|" + turnId, bindingId);
+        }
     }
 
     static final class MemorySecretStore implements SecretStore {

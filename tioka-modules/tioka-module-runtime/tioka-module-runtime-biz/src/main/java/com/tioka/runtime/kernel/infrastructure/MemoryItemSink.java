@@ -144,16 +144,16 @@ public class MemoryItemSink implements LoopPorts.ItemSink {
     private static final class StreamState {
         final long seq;
         final String itemId;
-        private int deltaIndex;
+        private final java.util.concurrent.atomic.AtomicInteger deltaIndex =
+                new java.util.concurrent.atomic.AtomicInteger();
 
         StreamState(long seq, String itemId) {
             this.seq = seq;
             this.itemId = itemId;
-            this.deltaIndex = 0;
         }
 
-        synchronized int nextDelta() {
-            return ++deltaIndex;
+        int nextDelta() {
+            return deltaIndex.incrementAndGet();
         }
     }
 }
