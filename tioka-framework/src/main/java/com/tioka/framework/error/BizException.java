@@ -25,4 +25,11 @@ public class BizException extends RuntimeException {
     public ErrorCode getErrorCode() { return errorCode; }
 
     public Object getData() { return data; }
+
+    /** 权限/出网等拒绝类错误（GOV-02 审计 outcome=DENIED）。 */
+    public boolean isDenied() {
+        return errorCode == ErrorCode.FORBIDDEN
+                || errorCode == ErrorCode.WORKSPACE_FORBIDDEN
+                || errorCode == ErrorCode.EGRESS_DENIED;
+    }
 }

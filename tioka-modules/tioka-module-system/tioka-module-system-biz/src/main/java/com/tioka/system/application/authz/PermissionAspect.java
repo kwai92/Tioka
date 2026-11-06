@@ -71,12 +71,15 @@ public class PermissionAspect {
                 .map(s -> s.replace(':', '.'))
                 .collect(Collectors.joining(","));
         try {
-            audit.recordIndependent(new AuditEvent(
-                    null, Instant.now(), null, p.workspaceId(),
-                    p.type().name().toLowerCase(), p.userId(),
-                    action.isBlank() ? "permission.denied" : action,
-                    null, null, AuditOutcome.DENIED,
-                    "缺少权限: " + missing, null, null, null));
+            audit.recordIndependent(AuditEvent.builder()
+                    .ts(Instant.now())
+                    .workspaceId(p.workspaceId())
+                    .actorType(p.type().name().toLowerCase())
+                    .actorId(p.userId())
+                    .action(action.isBlank() ? "permission.denied" : action)
+                    .outcome(AuditOutcome.DENIED)
+                    .reason("缺少权限: " + missing)
+                    .build());
         } catch (RuntimeException ignored) {
             // 审计失败不吞权限拒绝
         }

@@ -67,3 +67,9 @@ tioka:
     # 优先环境变量 TIOKA_SECRET_MASTER_KEY；local 缺省用开发密钥并 WARN
     master-key: ${TIOKA_SECRET_MASTER_KEY:}
     require-external-key: false
+  audit:
+    sink: file
+    retention-days: 365
+    forward-batch-size: 100
+    forward-delay-ms: 5000
+    file-relative-path: audit/audit.jsonl

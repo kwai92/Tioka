@@ -1,15 +1,18 @@
 package com.tioka.system.application.audit;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tioka.framework.id.Ids;
 import com.tioka.system.api.audit.AuditApi;
 import com.tioka.system.api.audit.AuditEvent;
 import com.tioka.system.api.audit.AuditOutcome;
 import com.tioka.system.infrastructure.AuditEventRepository;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -17,22 +20,32 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * FND-04 最小审计写入（DENIED）；完整管道见 GOV-02。
+ * 审计管道写入与查询（GOV-02）。
+ *
+ * <p>SUCCESS 与业务同事务（有事务则加入；无事务则 REQUIRES_NEW）；
+ * DENIED/ERROR 经 {@link #recordIndependent} 独立事务落库。
  */
 @Service
 public class AuditService implements AuditApi {
     private final AuditEventRepository repository;
     private final ObjectMapper objectMapper;
+    private final AuditService self;
 
-    public AuditService(AuditEventRepository repository, ObjectMapper objectMapper) {
+    public AuditService(AuditEventRepository repository,
+                        ObjectMapper objectMapper,
+                        @Lazy AuditService self) {
         this.repository = repository;
         this.objectMapper = objectMapper;
+        this.self = self;
     }
 
     @Override
-    @Transactional
     public void record(AuditEvent event) {
-        write(event);
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            self.writeJoining(event);
+        } else {
+            self.writeIndependent(event);
+        }
     }
 
     @Override
@@ -41,29 +54,50 @@ public class AuditService implements AuditApi {
         write(event);
     }
 
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void writeJoining(AuditEvent event) {
+        write(event);
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void writeIndependent(AuditEvent event) {
+        write(event);
+    }
+
     @Override
     public List<AuditEvent> query(AuditQuery query) {
         int limit = query.limit() <= 0 ? 50 : Math.min(query.limit(), 200);
+        int offset = 0;
+        if (query.cursor() != null && !query.cursor().isBlank()) {
+            try {
+                offset = Math.max(0, Integer.parseInt(query.cursor()));
+            } catch (NumberFormatException ignored) {
+                offset = 0;
+            }
+        }
         String outcome = query.outcome() == null ? null : query.outcome().name();
         List<Map<String, Object>> rows = repository.query(
-                query.workspaceId(), query.actorId(), query.action(), outcome, limit);
-        List<AuditEvent> out = new ArrayList<>();
+                query.workspaceId(), query.actorId(), query.action(),
+                query.resourceType(), query.resourceId(), outcome,
+                query.from(), query.to(), limit, offset);
+        List<AuditEvent> out = new ArrayList<>(rows.size());
         for (Map<String, Object> r : rows) {
-            out.add(new AuditEvent(
-                    str(r.get("id")),
-                    toInstant(r.get("ts")),
-                    null,
-                    str(r.get("workspaceId")),
-                    str(r.get("actorType")),
-                    str(r.get("actorId")),
-                    str(r.get("action")),
-                    str(r.get("resourceType")),
-                    str(r.get("resourceId")),
-                    AuditOutcome.valueOf(str(r.get("outcome"))),
-                    str(r.get("reason")),
-                    str(r.get("traceId")),
-                    str(r.get("clientIp")),
-                    Map.of()));
+            out.add(toEvent(r));
+        }
+        return out;
+    }
+
+    /** 导出用：最多 100000 行。 */
+    public List<AuditEvent> queryForExport(AuditQuery query, int maxRows) {
+        int limit = Math.min(Math.max(maxRows, 1), 100_000);
+        String outcome = query.outcome() == null ? null : query.outcome().name();
+        List<Map<String, Object>> rows = repository.query(
+                query.workspaceId(), query.actorId(), query.action(),
+                query.resourceType(), query.resourceId(), outcome,
+                query.from(), query.to(), limit, 0);
+        List<AuditEvent> out = new ArrayList<>(rows.size());
+        for (Map<String, Object> r : rows) {
+            out.add(toEvent(r));
         }
         return out;
     }
@@ -71,10 +105,39 @@ public class AuditService implements AuditApi {
     private void write(AuditEvent event) {
         AuditEvent e = event;
         if (e.id() == null || e.id().isBlank()) {
-            e = new AuditEvent(Ids.newId("aud"), e.ts() == null ? Instant.now() : e.ts(),
-                    e.tenantId(), e.workspaceId(), e.actorType(), e.actorId(), e.action(),
-                    e.resourceType(), e.resourceId(), e.outcome(), e.reason(), e.traceId(),
-                    e.clientIp(), e.details());
+            e = AuditEvent.builder()
+                    .id(Ids.newId("aud"))
+                    .ts(e.ts() == null ? Instant.now() : e.ts())
+                    .tenantId(e.tenantId())
+                    .workspaceId(e.workspaceId())
+                    .actorType(e.actorType())
+                    .actorId(e.actorId())
+                    .action(e.action())
+                    .resourceType(e.resourceType())
+                    .resourceId(e.resourceId())
+                    .outcome(e.outcome())
+                    .reason(e.reason())
+                    .traceId(e.traceId())
+                    .clientIp(e.clientIp())
+                    .details(e.details())
+                    .build();
+        } else if (e.ts() == null) {
+            e = AuditEvent.builder()
+                    .id(e.id())
+                    .ts(Instant.now())
+                    .tenantId(e.tenantId())
+                    .workspaceId(e.workspaceId())
+                    .actorType(e.actorType())
+                    .actorId(e.actorId())
+                    .action(e.action())
+                    .resourceType(e.resourceType())
+                    .resourceId(e.resourceId())
+                    .outcome(e.outcome())
+                    .reason(e.reason())
+                    .traceId(e.traceId())
+                    .clientIp(e.clientIp())
+                    .details(e.details())
+                    .build();
         }
         String detailsJson = null;
         if (e.details() != null && !e.details().isEmpty()) {
@@ -84,9 +147,36 @@ public class AuditService implements AuditApi {
                 detailsJson = "{}";
             }
         }
-        repository.insert(e.id(), e.ts() == null ? Instant.now() : e.ts(), e.workspaceId(),
+        repository.insert(e.id(), e.ts(), e.workspaceId(),
                 e.actorType(), e.actorId(), e.action(), e.resourceType(), e.resourceId(),
                 e.outcome().name(), e.reason(), e.traceId(), e.clientIp(), detailsJson);
+    }
+
+    private AuditEvent toEvent(Map<String, Object> r) {
+        Map<String, Object> details = Map.of();
+        String detailsJson = str(r.get("detailsJson"));
+        if (detailsJson != null && !detailsJson.isBlank()) {
+            try {
+                details = objectMapper.readValue(detailsJson, new TypeReference<>() {});
+            } catch (JsonProcessingException ignored) {
+                details = Map.of();
+            }
+        }
+        return AuditEvent.builder()
+                .id(str(r.get("id")))
+                .ts(toInstant(r.get("ts")))
+                .workspaceId(str(r.get("workspaceId")))
+                .actorType(str(r.get("actorType")))
+                .actorId(str(r.get("actorId")))
+                .action(str(r.get("action")))
+                .resourceType(str(r.get("resourceType")))
+                .resourceId(str(r.get("resourceId")))
+                .outcome(AuditOutcome.valueOf(str(r.get("outcome"))))
+                .reason(str(r.get("reason")))
+                .traceId(str(r.get("traceId")))
+                .clientIp(str(r.get("clientIp")))
+                .details(details)
+                .build();
     }
 
     private static String str(Object o) {

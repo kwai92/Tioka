@@ -23,7 +23,34 @@ public class AuditEventRepository {
     }
 
     public List<Map<String, Object>> query(String workspaceId, String actorId, String action,
+                                           String resourceType, String resourceId, String outcome,
+                                           Instant from, Instant to, int limit, int offset) {
+        return mapper.query(workspaceId, actorId, action, resourceType, resourceId, outcome,
+                from, to, limit, offset);
+    }
+
+    /** 兼容旧调用（FND-04 IT）。 */
+    public List<Map<String, Object>> query(String workspaceId, String actorId, String action,
                                            String outcome, int limit) {
-        return mapper.query(workspaceId, actorId, action, outcome, limit);
+        return query(workspaceId, actorId, action, null, null, outcome, null, null, limit, 0);
+    }
+
+    public List<Map<String, Object>> listUnforwarded(int limit) {
+        return mapper.listUnforwarded(limit);
+    }
+
+    public void markForwarded(List<String> ids) {
+        if (ids == null) {
+            return;
+        }
+        for (String id : ids) {
+            if (id != null && !id.isBlank()) {
+                mapper.markForwardedOne(id);
+            }
+        }
+    }
+
+    public int deleteExpiredForwarded(Instant before) {
+        return mapper.deleteExpiredForwarded(before);
     }
 }

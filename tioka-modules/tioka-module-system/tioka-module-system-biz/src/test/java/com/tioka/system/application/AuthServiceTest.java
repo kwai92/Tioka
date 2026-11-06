@@ -1,6 +1,7 @@
 package com.tioka.system.application;
 
 import com.tioka.framework.error.BizException;
+import com.tioka.system.api.audit.AuditApi;
 import com.tioka.system.application.auth.PasswordService;
 import com.tioka.system.application.auth.TokenService;
 import com.tioka.system.config.AuthProperties;
@@ -87,7 +88,8 @@ class AuthServiceTest {
         when(ops.increment(anyString())).thenReturn(1L);
 
         AuthProperties props = new AuthProperties();
-        svc = new AuthService(users, passwords, tokens, members, workspaces, redis, props);
+        AuditApi audit = mock(AuditApi.class);
+        svc = new AuthService(users, passwords, tokens, members, workspaces, redis, props, audit);
     }
 
     @Test
