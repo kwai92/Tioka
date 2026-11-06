@@ -146,9 +146,8 @@
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-failsafe-plugin</artifactId>
                         <configuration>
-                            <argLine>-Dnet.bytebuddy.experimental=true -Dgate=true</argLine>
-                            <groups>gate</groups>
-                            <excludedGroups combine.self="override"/>
+                            <!-- gate 用例已由 surefire（-Pgate 含 *IT）执行；避免 failsafe 双跑导致时长/抖动 -->
+                            <skipITs>true</skipITs>
                         </configuration>
                     </plugin>
                 </plugins>

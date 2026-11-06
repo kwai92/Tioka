@@ -3,10 +3,12 @@ package com.tioka.system.application;
 import com.tioka.framework.error.BizException;
 import com.tioka.system.api.audit.AuditApi;
 import com.tioka.system.application.auth.PasswordService;
+import com.tioka.system.application.auth.RolePermissionService;
 import com.tioka.system.application.auth.TokenService;
 import com.tioka.system.config.AuthProperties;
 import com.tioka.system.infrastructure.AuthUserRepository;
 import com.tioka.system.infrastructure.SysMemberRepository;
+import com.tioka.system.infrastructure.SysUserRoleRepository;
 import com.tioka.system.infrastructure.SysWorkspaceRepository;
 import com.tioka.system.infrastructure.persistence.AuthUserDO;
 import org.junit.jupiter.api.BeforeEach;
@@ -17,6 +19,7 @@ import org.springframework.data.redis.core.ValueOperations;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -87,6 +90,10 @@ class AuthServiceTest {
         SysMemberRepository members = mock(SysMemberRepository.class);
         when(members.findByUserId(anyString())).thenReturn(List.of());
         SysWorkspaceRepository workspaces = mock(SysWorkspaceRepository.class);
+        SysUserRoleRepository userRoles = mock(SysUserRoleRepository.class);
+        when(userRoles.rolesOfUser(anyString())).thenReturn(List.of());
+        RolePermissionService rolePermissions = mock(RolePermissionService.class);
+        when(rolePermissions.expand(anyCollection())).thenReturn(Set.of());
 
         StringRedisTemplate redis = mock(StringRedisTemplate.class);
         ValueOperations<String, String> ops = mock(ValueOperations.class);
@@ -96,7 +103,8 @@ class AuthServiceTest {
 
         AuthProperties props = new AuthProperties();
         AuditApi audit = mock(AuditApi.class);
-        svc = new AuthService(users, passwords, tokens, members, workspaces, redis, props, audit);
+        svc = new AuthService(users, passwords, tokens, members, workspaces,
+                userRoles, rolePermissions, redis, props, audit);
     }
 
     @Test

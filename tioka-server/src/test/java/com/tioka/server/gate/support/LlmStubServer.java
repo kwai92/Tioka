@@ -40,6 +40,7 @@ public final class LlmStubServer implements AutoCloseable {
             stub.loadClasspath("llm-scripts/three-tools.yaml", "three-tools");
             stub.loadClasspath("llm-scripts/slow-pong.yaml", "slow-pong");
             stub.loadClasspath("llm-scripts/mcp-three-steps.yaml", "mcp-three-steps");
+            stub.loadClasspath("llm-scripts/mcp-slow-cancel.yaml", "mcp-slow-cancel");
             stub.loadClasspath("llm-scripts/write-needs-approval.yaml", "write-needs-approval");
             stub.loadClasspath("llm-scripts/always-write-approval.yaml", "always-write-approval");
             stub.loadClasspath("llm-scripts/reject-then-answer.yaml", "reject-then-answer");

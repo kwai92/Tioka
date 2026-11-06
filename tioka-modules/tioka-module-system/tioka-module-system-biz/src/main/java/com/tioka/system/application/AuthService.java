@@ -9,8 +9,10 @@ import com.tioka.system.api.audit.AuditOutcome;
 import com.tioka.system.application.auth.PasswordService;
 import com.tioka.system.application.auth.TokenService;
 import com.tioka.system.config.AuthProperties;
+import com.tioka.system.application.auth.RolePermissionService;
 import com.tioka.system.infrastructure.AuthUserRepository;
 import com.tioka.system.infrastructure.SysMemberRepository;
+import com.tioka.system.infrastructure.SysUserRoleRepository;
 import com.tioka.system.infrastructure.SysWorkspaceRepository;
 import com.tioka.system.infrastructure.dataobject.SysMemberDO;
 import com.tioka.system.infrastructure.persistence.AuthUserDO;
@@ -22,8 +24,10 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 @Service
 public class AuthService {
@@ -34,6 +38,8 @@ public class AuthService {
     private final TokenService tokens;
     private final SysMemberRepository members;
     private final SysWorkspaceRepository workspaces;
+    private final SysUserRoleRepository userRoles;
+    private final RolePermissionService rolePermissions;
     private final StringRedisTemplate redis;
     private final AuthProperties props;
     private final AuditApi audit;
@@ -43,6 +49,8 @@ public class AuthService {
                        TokenService tokens,
                        SysMemberRepository members,
                        SysWorkspaceRepository workspaces,
+                       SysUserRoleRepository userRoles,
+                       RolePermissionService rolePermissions,
                        StringRedisTemplate redis,
                        AuthProperties props,
                        AuditApi audit) {
@@ -51,6 +59,8 @@ public class AuthService {
         this.tokens = tokens;
         this.members = members;
         this.workspaces = workspaces;
+        this.userRoles = userRoles;
+        this.rolePermissions = rolePermissions;
         this.redis = redis;
         this.props = props;
         this.audit = audit;
@@ -160,11 +170,20 @@ public class AuthService {
             throw new BizException(ErrorCode.UNAUTHORIZED, "未登录");
         }
         List<WorkspaceView> ws = workspacesOf(row);
+        Set<String> roles = new LinkedHashSet<>(userRoles.rolesOfUser(String.valueOf(userId)));
+        for (WorkspaceView w : ws) {
+            if (w.role() != null && !w.role().isBlank()) {
+                roles.add(w.role());
+            }
+        }
+        List<String> roleList = List.copyOf(roles);
+        List<String> permissions = List.copyOf(rolePermissions.expand(roles));
         return new MeResult(
                 userView(row),
                 ws,
                 row.getDefaultWorkspaceId(),
-                List.of()
+                permissions,
+                roleList
         );
     }
 
@@ -247,5 +266,6 @@ public class AuthService {
 
     public record UserView(String id, String username, String displayName, boolean mustChangePassword) {}
     public record WorkspaceView(String id, String name, String role) {}
-    public record MeResult(UserView user, List<WorkspaceView> workspaces, String currentWorkspaceId, List<String> permissions) {}
+    public record MeResult(UserView user, List<WorkspaceView> workspaces, String currentWorkspaceId,
+                           List<String> permissions, List<String> roles) {}
 }

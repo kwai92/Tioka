@@ -24,8 +24,6 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.time.Instant;
-import java.time.OffsetDateTime;
-import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Set;
 
@@ -76,24 +74,28 @@ class GateInfraSmokeIT {
 
             ConfigurableApplicationContext b = cluster.instance(1);
             TurnRepository turns = b.getBean(TurnRepository.class);
-            boolean expired = false;
+            JdbcTemplate jdbcB = b.getBean(JdbcTemplate.class);
+            Instant detectedAt = null;
             long deadline = System.currentTimeMillis() + 10_000;
             while (System.currentTimeMillis() < deadline) {
                 List<String> found = turns.findExpired(Instant.now(), 50);
                 if (found.contains(turnId)) {
-                    expired = true;
+                    detectedAt = Instant.now();
                     break;
                 }
-                RuntimeTurnDO row = turns.findById(turnId).orElseThrow();
-                if (row.getLeaseUntil() != null
-                        && row.getLeaseUntil().toInstant().isBefore(Instant.now())) {
-                    expired = true;
+                // 用 PG now() 判定，避免 JVM/DB 时区漂移导致租约「永不过期」
+                Boolean dbExpired = jdbcB.queryForObject(
+                        "SELECT lease_until IS NOT NULL AND lease_until < now() FROM runtime_turn WHERE id = ?",
+                        Boolean.class, turnId);
+                if (Boolean.TRUE.equals(dbExpired)) {
+                    detectedAt = Instant.now();
                     break;
                 }
                 Thread.sleep(200);
             }
-            assertTrue(expired, "另一实例应在 10 秒内看到租约过期；plantedAt=" + plantedAt);
-            assertTrue(Duration.between(plantedAt, Instant.now()).toMillis() <= 10_000);
+            assertNotNull(detectedAt, "另一实例应在 10 秒内看到租约过期；plantedAt=" + plantedAt);
+            assertTrue(Duration.between(plantedAt, detectedAt).toMillis() <= 10_000,
+                    "检测到过期应在 plant 后 10s 内；plantedAt=" + plantedAt + " detectedAt=" + detectedAt);
         }
     }
 
@@ -131,9 +133,9 @@ class GateInfraSmokeIT {
             turns.insert(t);
         });
 
-        OffsetDateTime until = OffsetDateTime.ofInstant(Instant.now().plusSeconds(5), ZoneOffset.UTC);
-        jdbc.update("UPDATE runtime_turn SET worker_id = ?, lease_until = ? WHERE id = ?",
-                workerId, until, turnId);
+        // 用 PG now() 设 TTL，与判定侧同一时钟
+        jdbc.update("UPDATE runtime_turn SET worker_id = ?, lease_until = now() + interval '5 seconds' WHERE id = ?",
+                workerId, turnId);
         return turnId;
     }
 
