@@ -127,6 +127,23 @@ public interface RuntimeTurnMapper {
             """)
     List<String> findExpired(@Param("now") OffsetDateTime now, @Param("limit") int limit);
 
+    @Update("""
+            UPDATE runtime_turn
+               SET status = 'INTERRUPTED', update_at = now()
+             WHERE id = #{turnId} AND status = 'RUNNING' AND lease_until < now()
+            """)
+    int markInterrupted(String turnId);
+
+    @Update("""
+            UPDATE runtime_turn
+               SET status = 'FAILED', error_code = #{errorCode}, error_message = #{errorMessage},
+                   ended_at = now(), update_at = now()
+             WHERE id = #{turnId} AND status = 'INTERRUPTED'
+            """)
+    int failInterrupted(@Param("turnId") String turnId,
+                         @Param("errorCode") String errorCode,
+                         @Param("errorMessage") String errorMessage);
+
     @Select("""
             SELECT id, session_id AS sessionId, seq, status, origin, origin_ref AS originRef,
                    client_msg_id AS clientMsgId, run_as_json AS runAsJson, options_json AS optionsJson,
