@@ -64,6 +64,6 @@ ADR-015〜040 是 M0〜M4 的权威设计（ADR-032〜035 为可信放权，ADR-
 | [ADR-052](adr/ADR-052-org-account-authz-center.md) | 组织、账号与权限中心 |
 | [ADR-053](adr/ADR-053-foundation-common-services.md) | Foundation 公共服务、安全合规与部署 |
 | [ADR-054](adr/ADR-054-engineering-base-subsystem-microfrontend.md) | Java 工程化底座、子系统授权模式与微前端 |
-| [ADR-060](adr/ADR-060-document-parsing-service.md) | 文档解析服务与解析输出契约 `tioka.parse/v1`（PRS-00〜02、PRS-09，取代 KNW-09） |
+| [ADR-060](adr/ADR-060-document-parsing-service.md) | 文档解析服务与解析输出契约 `tioka.parse/v1`（PRS-00〜02；KNW-09 作废） |
 | [ADR-061](adr/ADR-061-parse-engine-spi-external-ocr.md) | 解析引擎 SPI 与外购 OCR 产品的适配与对接（PRS-03〜05、PRS-10、PRS-12） |
 | [ADR-062](adr/ADR-062-parse-quality-special-elements-security.md) | 解析质量评测、合同特殊元素与解析安全（PRS-06〜08、PRS-11） |

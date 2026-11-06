@@ -3,16 +3,16 @@
 - 状态：Accepted（设计定案，待实现）
 - 日期：2026-11-06
 - 覆盖工作项：PRS-03、PRS-04、PRS-05、FE-36（新增）；M4 之后 PRS-10、PRS-12
-- 来由：[调研 04](../research/04-文档解析与OCR调研.md) 第 4、6 节，选项 Q1、R3；ADR-029 第 71 条
+- 来由：[调研 05](../research/05-文档解析与OCR调研.md) 第 4、6 节，选项 Q1、R3；ADR-029 第 71 条
 - 相关：[ADR-017](ADR-017-model-gateway-quota-audit.md)、[ADR-021](ADR-021-connector-im-mcp.md)、[ADR-024](ADR-024-model-hub-routing.md)、[ADR-026](ADR-026-foundation.md)、[ADR-040](ADR-040-dataset-policy-data-label.md)、[ADR-041](ADR-041-config-versioning-observability.md)、[ADR-042](ADR-042-provider-credentials-model-params.md)、[ADR-060](ADR-060-document-parsing-service.md)、[ADR-062](ADR-062-parse-quality-special-elements-security.md)；M3-06 第 1 节（插件宿主 FND-12）、第 2 节（CON-SDK）
 - 约束：与 [ADR-029](ADR-029-design-rulings.md) 定案冲突时以定案为准；修改本 ADR 走 [ADR-030](ADR-030-anti-drift-process.md) 的变更流程。
 - 写法说明：只用文字和表格，不附代码。
 
 ## 背景
 
-负责人要求考虑「采购外部 OCR 产品的适配与对接」。调研 04 第 4 节比较了阿里云文档解析与读光 OCR、百炼 `qwen-vl-ocr`、百度文档解析（PaddleOCR-VL）、腾讯云文字识别、合合 TextIn：能力项相近，但调用模式（同步 / 异步轮询）、坐标形式、计费单位（页 / 次 / token / 并发）、结果链接有效期、限流、鉴权方式各不相同，且**公开页面都没有写清数据留存与是否用于训练**。
+负责人要求考虑「采购外部 OCR 产品的适配与对接」。调研 05 第 4 节比较了阿里云文档解析与读光 OCR、百炼 `qwen-vl-ocr`、百度文档解析（PaddleOCR-VL）、腾讯云文字识别、合合 TextIn：能力项相近，但调用模式（同步 / 异步轮询）、坐标形式、计费单位（页 / 次 / token / 并发）、结果链接有效期、限流、鉴权方式各不相同，且**公开页面都没有写清数据留存与是否用于训练**。
 
-现有设计只有 M3-03 的 `BailianOcrAdapter`，作为 Model Hub 的 `ocr` 能力；按页计费的非模型产品、异步任务、自部署解析服务都没有位置（调研 04 G9）。
+现有设计只有 M3-03 的 `BailianOcrAdapter`，作为 Model Hub 的 `ocr` 能力；按页计费的非模型产品、异步任务、自部署解析服务都没有位置（调研 05 G9）。
 
 ## 决定
 
