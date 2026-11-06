@@ -15,6 +15,8 @@
 
 2026-11-05 的差距分析、预期目标、推进规划、差异化方向、合同场景与多智能体设计原文归档在 [design-notes/](design-notes/README.md)，仅作背景，执行以 ADR、34 号计划和施工设计为准。
 
+联网调研报告（如 Agent、多 Agent、意图路由、SuperAgent、A2A 调研）放在 [research/](research/README.md)，同样仅作背景。
+
 ### 近期 ADR
 
 ADR-015〜040 是 M0〜M4 的权威设计（ADR-032〜035 为可信放权，ADR-038〜040 为多智能体与运行时权限，见下表；ADR-036、ADR-037 为业务本体与结构化输出，来自商业租赁合同场景），推进计划见 [34-M0至M4推进规划与工作项](implementation/34-M0至M4推进规划与工作项.md)，契约见 [docs/contracts](../contracts/README.md)。M0〜M2 的施工设计（逐工作项的改动清单、关键代码、迁移、接口、测试与完成标准）见 [construction/00-施工总纲](construction/00-施工总纲.md)。
