@@ -64,7 +64,7 @@ public class LocalOidcIdPAdapter implements IdPAdapter {
             return Optional.of(new FederatedIdentity("oidc-" + code, code + "@example.com", "OIDC User"));
         }
         try {
-            return Optional.of(exchangeCode(code));
+            return Optional.of(exchangeCode(code, credentials.get("code_verifier")));
         } catch (Exception e) {
             throw new IllegalStateException("OIDC token exchange failed: " + e.getMessage(), e);
         }
@@ -83,17 +83,20 @@ public class LocalOidcIdPAdapter implements IdPAdapter {
                 + "&state=" + URLEncoder.encode(state == null ? "" : state, StandardCharsets.UTF_8);
     }
 
-    private FederatedIdentity exchangeCode(String code) throws Exception {
+    private FederatedIdentity exchangeCode(String code, String codeVerifier) throws Exception {
         String endpoint = !tokenUrl.isBlank()
                 ? tokenUrl
                 : issuer.replaceAll("/$", "") + "/protocol/openid-connect/token";
-        String form = Map.of(
-                "grant_type", "authorization_code",
-                "code", code,
-                "redirect_uri", redirectUri,
-                "client_id", clientId,
-                "client_secret", clientSecret
-        ).entrySet().stream()
+        Map<String, String> formMap = new java.util.LinkedHashMap<>();
+        formMap.put("grant_type", "authorization_code");
+        formMap.put("code", code);
+        formMap.put("redirect_uri", redirectUri);
+        formMap.put("client_id", clientId);
+        formMap.put("client_secret", clientSecret);
+        if (codeVerifier != null && !codeVerifier.isBlank()) {
+            formMap.put("code_verifier", codeVerifier);
+        }
+        String form = formMap.entrySet().stream()
                 .map(e -> URLEncoder.encode(e.getKey(), StandardCharsets.UTF_8) + "="
                         + URLEncoder.encode(e.getValue(), StandardCharsets.UTF_8))
                 .collect(Collectors.joining("&"));

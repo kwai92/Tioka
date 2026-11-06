@@ -82,6 +82,12 @@
             <artifactId>jackson-dataformat-yaml</artifactId>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>com.github.dasniko</groupId>
+            <artifactId>testcontainers-keycloak</artifactId>
+            <version>3.3.0</version>
+            <scope>test</scope>
+        </dependency>
         <!-- W0 起装入空域模块以便 ArchUnit 扫描全仓包 -->
         <dependency>
             <groupId>com.tioka</groupId>

@@ -20,8 +20,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * ENG-04：OpenAI 兼容 {@code /chat/completions} 录制回放桩。
- * 按请求头 {@code X-Tioka-Script} 选剧本；未匹配返回 500。
+ * ENG-04 / ENG-04b：OpenAI 兼容 {@code /chat/completions} 录制回放桩。
+ * 按请求头 {@code X-Tioka-Script} 选剧本；支持 {@code fail}/{@code delay_ms}/{@code usage}。
  */
 public final class LlmStubServer implements AutoCloseable {
     private final MockWebServer server;
@@ -39,6 +39,10 @@ public final class LlmStubServer implements AutoCloseable {
             LlmStubServer stub = new LlmStubServer(new MockWebServer());
             stub.loadClasspath("llm-scripts/three-tools.yaml", "three-tools");
             stub.loadClasspath("llm-scripts/slow-pong.yaml", "slow-pong");
+            stub.loadClasspath("llm-scripts/mcp-three-steps.yaml", "mcp-three-steps");
+            stub.loadClasspath("llm-scripts/write-needs-approval.yaml", "write-needs-approval");
+            stub.loadClasspath("llm-scripts/failover-mid-stream.yaml", "failover-mid-stream");
+            stub.loadClasspath("llm-scripts/kb-search.yaml", "kb-search");
             stub.server.setDispatcher(stub.dispatcher());
             stub.server.start();
             return stub;
@@ -91,12 +95,36 @@ public final class LlmStubServer implements AutoCloseable {
                 } catch (Exception ignored) {
                 }
                 try {
+                    if (call.delay_ms != null && call.delay_ms > 0) {
+                        Thread.sleep(call.delay_ms);
+                    }
+                    if (call.fail != null) {
+                        return failResponse(call, stream);
+                    }
                     return stream ? streamResponse(call) : jsonResponse(call);
                 } catch (Exception e) {
                     return new MockResponse().setResponseCode(500).setBody(String.valueOf(e.getMessage()));
                 }
             }
         };
+    }
+
+    private MockResponse failResponse(Call call, boolean stream) throws Exception {
+        int status = call.fail.status == null ? 500 : call.fail.status;
+        int after = call.fail.after_chars == null ? 0 : call.fail.after_chars;
+        if (!stream || after <= 0) {
+            return new MockResponse().setResponseCode(status).setBody("{\"error\":\"scripted fail\"}");
+        }
+        Buffer buf = new Buffer();
+        String content = call.content == null ? "x".repeat(after) : call.content;
+        String piece = content.substring(0, Math.min(after, content.length()));
+        ObjectNode root = baseChunk();
+        root.putArray("choices").addObject().putObject("delta").put("content", piece);
+        buf.writeUtf8("data: " + json.writeValueAsString(root) + "\n\n");
+        return new MockResponse()
+                .setResponseCode(status)
+                .setHeader("Content-Type", "text/event-stream")
+                .setBody(buf);
     }
 
     private MockResponse jsonResponse(Call call) throws Exception {
@@ -138,6 +166,9 @@ public final class LlmStubServer implements AutoCloseable {
                 }
             }
         }
+        ObjectNode usageChunk = baseChunk();
+        usageChunk.set("usage", usageNode(call));
+        buf.writeUtf8("data: " + json.writeValueAsString(usageChunk) + "\n\n");
         buf.writeUtf8("data: [DONE]\n\n");
         return new MockResponse()
                 .setHeader("Content-Type", "text/event-stream")
@@ -169,10 +200,36 @@ public final class LlmStubServer implements AutoCloseable {
             message.put("content", call.content == null ? "" : call.content);
             choice.put("finish_reason", "stop");
         }
-        ObjectNode usage = root.putObject("usage");
-        usage.put("prompt_tokens", 1);
-        usage.put("completion_tokens", 1);
+        root.set("usage", usageNode(call));
         return root;
+    }
+
+    private ObjectNode usageNode(Call call) {
+        ObjectNode usage = json.createObjectNode();
+        int prompt;
+        int completion;
+        if (call.usage != null) {
+            prompt = call.usage.prompt == null ? estimateChars(call) : call.usage.prompt;
+            completion = call.usage.completion == null ? estimateChars(call) : call.usage.completion;
+        } else {
+            int est = estimateChars(call);
+            prompt = Math.max(1, est);
+            completion = Math.max(1, est);
+        }
+        usage.put("prompt_tokens", prompt);
+        usage.put("completion_tokens", completion);
+        usage.put("total_tokens", prompt + completion);
+        return usage;
+    }
+
+    private static int estimateChars(Call call) {
+        if (call.content != null && !call.content.isBlank()) {
+            return call.content.length();
+        }
+        if (call.tool_calls != null) {
+            return call.tool_calls.size() * 8;
+        }
+        return 1;
     }
 
     private ObjectNode baseChunk() {
@@ -200,7 +257,20 @@ public final class LlmStubServer implements AutoCloseable {
         public String content;
         public Integer stream_chunk_chars;
         public Long chunk_delay_ms;
+        public Long delay_ms;
+        public FailSpec fail;
+        public UsageSpec usage;
         public List<ToolCallSpec> tool_calls;
+    }
+
+    public static final class FailSpec {
+        public Integer status;
+        public Integer after_chars;
+    }
+
+    public static final class UsageSpec {
+        public Integer prompt;
+        public Integer completion;
     }
 
     public static final class ToolCallSpec {

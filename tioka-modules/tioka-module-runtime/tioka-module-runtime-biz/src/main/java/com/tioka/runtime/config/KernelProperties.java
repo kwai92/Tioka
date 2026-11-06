@@ -16,6 +16,11 @@ public class KernelProperties {
     private Events events = new Events();
     /** LegacySessionAdapter.append 等待 Turn 终态超时。 */
     private Duration legacyAppendTimeout = Duration.ofSeconds(120);
+    /**
+     * 关闭上下文时是否释放 SessionLock / 让 Turn 收尾。
+     * 闸门模拟崩溃时置 false，租约留给 LeaseReaper（ENG-04b）。
+     */
+    private boolean releaseOnShutdown = true;
 
     public String getInstanceId() { return instanceId; }
     public void setInstanceId(String instanceId) { this.instanceId = instanceId; }
@@ -23,6 +28,8 @@ public class KernelProperties {
     public void setLeaseTtl(Duration leaseTtl) { this.leaseTtl = leaseTtl; }
     public Duration getLeaseRenewInterval() { return leaseRenewInterval; }
     public void setLeaseRenewInterval(Duration leaseRenewInterval) { this.leaseRenewInterval = leaseRenewInterval; }
+    public boolean isReleaseOnShutdown() { return releaseOnShutdown; }
+    public void setReleaseOnShutdown(boolean releaseOnShutdown) { this.releaseOnShutdown = releaseOnShutdown; }
     public Executor getExecutor() { return executor; }
     public void setExecutor(Executor executor) { this.executor = executor; }
     public int getMaxQueuedPerThread() { return maxQueuedPerThread; }

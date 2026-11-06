@@ -1,0 +1,134 @@
+{
+  "realm": "tioka",
+  "enabled": true,
+  "sslRequired": "none",
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "resetPasswordAllowed": false,
+  "editUsernameAllowed": false,
+  "clients": [
+    {
+      "clientId": "tioka",
+      "name": "Tioka Web",
+      "enabled": true,
+      "publicClient": false,
+      "secret": "tioka-test-client-secret",
+      "redirectUris": [
+        "http://127.0.0.1:5173/login/callback",
+        "http://localhost:5173/login/callback",
+        "http://127.0.0.1:*/*",
+        "http://localhost:*/*"
+      ],
+      "webOrigins": ["*"],
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "protocol": "openid-connect",
+      "attributes": {
+        "pkce.code.challenge.method": "S256"
+      },
+      "protocolMappers": [
+        {
+          "name": "groups",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-group-membership-mapper",
+          "consentRequired": false,
+          "config": {
+            "full.path": "true",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "claim.name": "groups",
+            "userinfo.token.claim": "true"
+          }
+        },
+        {
+          "name": "audience-tioka-api",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "tioka-api",
+            "id.token.claim": "false",
+            "access.token.claim": "true"
+          }
+        }
+      ]
+    },
+    {
+      "clientId": "tioka-api",
+      "name": "Tioka API Audience",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "protocol": "openid-connect"
+    }
+  ],
+  "groups": [
+    {
+      "name": "tioka",
+      "path": "/tioka",
+      "subGroups": [
+        {
+          "name": "admins",
+          "path": "/tioka/admins"
+        },
+        {
+          "name": "sales",
+          "path": "/tioka/sales"
+        }
+      ]
+    }
+  ],
+  "users": [
+    {
+      "username": "alice",
+      "enabled": true,
+      "email": "alice@tioka.local",
+      "emailVerified": true,
+      "firstName": "Alice",
+      "lastName": "Admin",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "AlicePass1!",
+          "temporary": false
+        }
+      ],
+      "groups": ["/tioka/admins"]
+    },
+    {
+      "username": "bob",
+      "enabled": true,
+      "email": "bob@tioka.local",
+      "emailVerified": true,
+      "firstName": "Bob",
+      "lastName": "Sales",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "BobPass1!",
+          "temporary": false
+        }
+      ],
+      "groups": ["/tioka/sales"]
+    },
+    {
+      "username": "carol",
+      "enabled": true,
+      "email": "carol@tioka.local",
+      "emailVerified": true,
+      "firstName": "Carol",
+      "lastName": "None",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "CarolPass1!",
+          "temporary": false
+        }
+      ],
+      "groups": []
+    }
+  ]
+}

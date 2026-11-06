@@ -1,0 +1,10 @@
+# MH-02：流式中途失败（after_chars>0），备用模型接力
+calls:
+  - content: "primary-partial-then-fail-xxxxxxxx"
+    stream_chunk_chars: 4
+    chunk_delay_ms: 20
+    fail: { status: 503, after_chars: 20 }
+    usage: { prompt: 8, completion: 4 }
+  - content: "failover-complete"
+    stream_chunk_chars: 4
+    usage: { prompt: 10, completion: 18 }

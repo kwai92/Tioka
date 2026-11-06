@@ -1,0 +1,11 @@
+# G1-E2E：3 次 MCP 工具调用后收束
+calls:
+  - tool_calls: [{ name: erp.query, arguments: { q: "step1" } }]
+    usage: { prompt: 12, completion: 8 }
+  - tool_calls: [{ name: erp.query, arguments: { q: "step2" } }]
+    usage: { prompt: 14, completion: 8 }
+  - tool_calls: [{ name: erp.update, arguments: { q: "step3" } }]
+    usage: { prompt: 16, completion: 8 }
+  - content: "done: three mcp steps"
+    stream_chunk_chars: 8
+    usage: { prompt: 20, completion: 24 }

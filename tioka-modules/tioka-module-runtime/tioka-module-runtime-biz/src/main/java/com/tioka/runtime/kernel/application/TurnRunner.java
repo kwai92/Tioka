@@ -28,6 +28,7 @@ import com.tioka.runtime.kernel.infrastructure.redis.SignalBus;
 import com.tioka.system.api.spi.PrincipalLoaderApi;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
@@ -54,6 +55,7 @@ public class TurnRunner {
     private final LoopPorts.SignalPort signalPort;
     private final EventStream streams;
     private final RuntimeEventFactory events;
+    private final ObjectProvider<RuntimeTestHooks> testHooks;
 
     public TurnRunner(TurnRepository turns,
                       RuntimeSessionRepository sessions,
@@ -67,7 +69,8 @@ public class TurnRunner {
                       SignalBus signalBus,
                       LoopPorts.SignalPort signalPort,
                       EventStream streams,
-                      RuntimeEventFactory events) {
+                      RuntimeEventFactory events,
+                      ObjectProvider<RuntimeTestHooks> testHooks) {
         this.turns = turns;
         this.sessions = sessions;
         this.sessionLock = sessionLock;
@@ -81,6 +84,7 @@ public class TurnRunner {
         this.signalPort = signalPort;
         this.streams = streams;
         this.events = events;
+        this.testHooks = testHooks;
     }
 
     public void run(String turnId) {
@@ -105,6 +109,10 @@ public class TurnRunner {
             leaseVersion = acquired.getAsLong();
             long lv = leaseVersion;
             renewFuture = renewScheduler.scheduleAtFixedRate(() -> {
+                RuntimeTestHooks hooks = testHooks.getIfAvailable();
+                if (hooks != null && hooks.isFrozen()) {
+                    return;
+                }
                 boolean ok = lock.renew()
                         && turns.renew(turnId, lv, Instant.now().plus(props.getLeaseTtl())) > 0;
                 if (!ok) {
@@ -160,7 +168,9 @@ public class TurnRunner {
             if (renewFuture != null) {
                 renewFuture.cancel(false);
             }
-            lock.close();
+            if (props.isReleaseOnShutdown()) {
+                lock.close();
+            }
             // 同 thread 下一条 / 失败重试由 TurnScheduler 在 release 后统一调度
         }
     }

@@ -127,7 +127,12 @@ public class AuthController {
                 .filter(a -> a.name().startsWith("oidc:"))
                 .findFirst()
                 .orElseThrow(() -> new BizException(ErrorCode.BAD_REQUEST, "OIDC Adapter 未装配"));
-        Optional<IdPAdapter.FederatedIdentity> identity = adapter.authenticate(Map.of("code", req.code()));
+        Map<String, String> creds = new java.util.HashMap<>();
+        creds.put("code", req.code());
+        if (req.codeVerifier() != null && !req.codeVerifier().isBlank()) {
+            creds.put("code_verifier", req.codeVerifier());
+        }
+        Optional<IdPAdapter.FederatedIdentity> identity = adapter.authenticate(creds);
         if (identity.isEmpty()) {
             throw new BizException(ErrorCode.UNAUTHORIZED, "OIDC 认证失败");
         }
@@ -199,6 +204,6 @@ public class AuthController {
     }
 
     public record LoginRequest(@NotBlank String username, @NotBlank String password) {}
-    public record OidcCallbackRequest(@NotBlank String code, String state) {}
+    public record OidcCallbackRequest(@NotBlank String code, String state, String codeVerifier) {}
     public record PasswordRequest(@NotBlank String oldPassword, @NotBlank String newPassword) {}
 }

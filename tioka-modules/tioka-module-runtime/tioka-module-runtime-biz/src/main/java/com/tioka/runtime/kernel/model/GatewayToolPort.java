@@ -6,9 +6,11 @@ import com.tioka.framework.security.TiokaExecutors;
 import com.tioka.runtime.api.spi.ToolGateway;
 import com.tioka.runtime.api.spi.ToolProvider;
 import com.tioka.runtime.config.KernelProperties;
+import com.tioka.runtime.kernel.application.RuntimeTestHooks;
 import com.tioka.runtime.kernel.domain.LoopContext;
 import com.tioka.runtime.kernel.domain.LoopPorts;
 import com.tioka.runtime.kernel.infrastructure.redis.SignalBus;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -29,16 +31,19 @@ public class GatewayToolPort implements LoopPorts.ToolPort {
     private final ObjectMapper mapper;
     private final KernelProperties props;
     private final SignalBus signals;
+    private final ObjectProvider<RuntimeTestHooks> testHooks;
     private final ExecutorService pool;
 
     public GatewayToolPort(ToolGateway gateway,
                            ObjectMapper mapper,
                            KernelProperties props,
-                           SignalBus signals) {
+                           SignalBus signals,
+                           ObjectProvider<RuntimeTestHooks> testHooks) {
         this.gateway = gateway;
         this.mapper = mapper;
         this.props = props;
         this.signals = signals;
+        this.testHooks = testHooks;
         int n = Math.max(1, props.getLoop().getToolParallelism());
         this.pool = TiokaExecutors.wrap(Executors.newFixedThreadPool(n, r -> {
             Thread t = new Thread(r, "rt-tool");
@@ -86,6 +91,10 @@ public class GatewayToolPort implements LoopPorts.ToolPort {
     private LoopPorts.ToolOutcome invokeOne(ToolGateway.SessionToolContext toolCtx, LoopPorts.ToolCall c) {
         long t0 = System.currentTimeMillis();
         try {
+            RuntimeTestHooks hooks = testHooks.getIfAvailable();
+            if (hooks != null) {
+                hooks.awaitUnfrozenOrInterrupt();
+            }
             Map<String, Object> args = mapper.readValue(
                     c.argumentsJson() == null ? "{}" : c.argumentsJson(), new TypeReference<>() {});
             ToolProvider.ToolResult r = gateway.call(toolCtx, c.name(), args);
