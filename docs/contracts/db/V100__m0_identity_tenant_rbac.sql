@@ -2,14 +2,14 @@
 -- 基线：tioka-server/src/main/resources/schema-pg.sql。Flyway 引入后（ENG-11）原样移入 db/migration。
 -- 约定：新表主键 ULID VARCHAR(32)；外键列 VARCHAR(64)；时间列 TIMESTAMPTZ；
 --       可变表带 BaseDO 列（create_at/update_at/create_by/update_by/deleted），只增表带 create_at/create_by。
---       禁止 tenant_id / sys_tenant（ADR-029 第 36 条；单实例部署，空间为隔离边界）。
+--       禁止 tenant_id / sys_tenant（ADR-029 第 60 条；单实例部署，空间为隔离边界）。
 
 ALTER TABLE auth_user ADD COLUMN idp              VARCHAR(32)  NOT NULL DEFAULT 'local';   -- local / oidc:keycloak
 ALTER TABLE auth_user ADD COLUMN external_subject VARCHAR(255);
 ALTER TABLE auth_user ADD COLUMN default_workspace_id VARCHAR(64);
 CREATE UNIQUE INDEX uk_auth_user_idp_subject ON auth_user (idp, external_subject)
     WHERE external_subject IS NOT NULL;
--- password_hash 改存 bcrypt、auth_token 删表由 FND-02 / V103 完成（ENG-11 与 FND-02 之间仍靠 DB 令牌登录）
+-- password_hash 改存 bcrypt 由 FND-02 的数据迁移完成；auth_token 由 V106 在 FND-02 合入时删除（现有 AuthService 仍在使用）
 
 CREATE TABLE sys_member (
     workspace_id VARCHAR(64) NOT NULL,
@@ -84,7 +84,7 @@ CREATE TABLE sys_api_key (
     deleted      BOOLEAN       NOT NULL DEFAULT FALSE
 );
 
--- 业务表归属列：workspace_id + owner_id（禁止 tenant_id，ADR-029 第 36 条）
+-- 业务表归属列：workspace_id + owner_id（禁止 tenant_id，ADR-029 第 60 条）
 ALTER TABLE chat_conversation ADD COLUMN workspace_id VARCHAR(64);
 ALTER TABLE chat_conversation ADD COLUMN owner_id VARCHAR(64);
 ALTER TABLE agent_agent       ADD COLUMN owner_id VARCHAR(64);

@@ -9,7 +9,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import java.util.Set;
 
 /**
- * 兼容门面：委托 SecurityContext 中的 {@link Principal}（ADR-015；ADR-029 第 36 条无 tenant）。
+ * 兼容门面：委托 SecurityContext 中的 {@link Principal}（ADR-015；ADR-029 第 60 条无 tenant）。
  * 新代码请注入 {@link PrincipalHolder}。
  */
 public final class TenantContext {

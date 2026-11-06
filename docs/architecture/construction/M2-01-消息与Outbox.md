@@ -61,7 +61,7 @@ CREATE TABLE sys_dead_letter (
     handled_at   TIMESTAMPTZ
 );
 CREATE INDEX idx_dead_letter_open ON sys_dead_letter (consumer, create_at) WHERE status = 'OPEN';
-DROP TABLE IF EXISTS im_outbox;                           -- 由 sys_outbox + IM 消费者取代（M2-03）
+-- im_outbox 不在此删除：现有 IM 发送代码仍在用，由 V142 随 CON-02 删除（ADR-029 第 33 条修订）
 ```
 
 ### 生产端

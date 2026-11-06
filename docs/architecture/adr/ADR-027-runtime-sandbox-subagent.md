@@ -75,3 +75,5 @@ CREATE TABLE runtime_job (id VARCHAR(32) PRIMARY KEY, thread_id VARCHAR(64) NOT 
 ## 修订（2026-11-05）
 
 上下文组装顺序加入「经验」，见 [ADR-029](ADR-029-design-rulings.md) 第 25 条与 [ADR-031](ADR-031-agent-eval-experience.md)。
+
+子 Agent（RT-12）提前到 M3，深度与并行数改为缺省值，委派时签发收窄的授予，子任务终态时回收，见 [ADR-029](ADR-029-design-rulings.md) 第 43 条、[ADR-038](ADR-038-multi-agent-team.md)、[ADR-039](ADR-039-delegation-grant.md)。「Agent Team」的设计即 ADR-038。

@@ -67,8 +67,62 @@ ADR 入库与 M0 契约编写时又统一了以下五处，编号续接上表。
 | 34 | ADR-016、第 3 条 | 事件 ID 规则不完整 | `item.created` 为 `{seq}.0`，`item.delta` 为 `{seq}.{i}`（i 从 1 起），`item.completed`、`item.discarded` 为 `{seq}`；比较时先比 seq，同 seq 带小数的在前；`turn.*` 事件不带 ID，重连时服务端先补发当前 Turn 状态。Redis 键统一为 `rt:events:{threadId}`、`rt:turns`、`rt:lock:{threadId}`、`rt:signal:{turnId}:cancel|steer` |
 | 35 | ADR-019、ADR-020 | 重建 `orch_run`、`flow_run` 等表时旧数据如何处理 | 仓库无生产数据：`orch_run`、`orch_attention`、`orch_why`、`orch_idem`、`flow_run` 直接删除重建，不做数据迁移；`orch_rule` 保留为规则头 |
 
-## 实施前权威冲突裁定（2026-11-05）
+### 修订（2026-11-05，M0 编码前复核）
+
+M0 编码线程开工前复核施工设计，发现以下问题。按 ADR-030 直接修订原定案，不新增编号。
+
+- **第 33 条扩展为「删除旧表和旧列的时机」**：契约迁移只要包含删除表或列、或改写现有数据，就必须和替代旧实现的工作项在同一个 PR 合入，不得提前。V100 中的 `DROP auth_token` 移到 V106（随 FND-02）；V102 中删除 `model_session_freeze`、`cost_event`、`sys_quota` 移到 V120、V121、V122（分别随 MH-01、MH-05、GOV-03）；V130 中删除 `im_outbox` 移到 V142（随 CON-02）；V104、V105 随 M0「旧接口适配与下线」（W4）。V101 放开 `runtime_session.parts_json` 的非空约束，使过渡期新旧内核可以并存。因合入顺序可能与版本号不同，Flyway 开启 `out-of-order`。完整对照表见施工设计 M0-01 ENG-11「迁移随工作项落地」。
+- **第 10、20 条补充 DO 层约定**：DO 字段的时间类型沿用现有基类的 `LocalDateTime`，语义为 UTC（JVM `-Duser.timezone=UTC`，JDBC 会话 `TimeZone=UTC`），领域对象与 API 用 `Instant`；DO 中禁止 `OffsetDateTime`。新增两个约定基类：`MutableRecordDO`（四个审计列、无逻辑删除，用于 `runtime_turn` 等有状态机的表）与 `TechnicalRecordDO`（无审计列，只用于列出的技术表），`PersistenceArchTest` 同步放行。表与基类的对照见施工设计 M0-01 ENG-11「DO 基类与时间类型」。
+
+## 可信放权定案（2026-11-05）
+
+2026-11-05 选定差异化方向「可信放权」（D0〜D3），新增 ADR-032〜035 与工作项 TRU-01〜15。以下各条统一这几篇与已有设计的接缝，编号续接上表。
 
 | # | 涉及 | 问题 | 定案 |
 | --- | --- | --- | --- |
-| 36 | 第 19、22 条；ADR-009；persistence-guardrails；Cursor 架构规则 | 第 19/22 条要求业务表加 `tenant_id` 并保留租户拦截器，与护栏「禁止 tenantId」及单企业独立部署现实冲突 | **废止第 19、22 条中「加 `tenant_id` / 保留租户拦截器」的要求。** 禁止在 DO、迁移、API 引入 `tenant_id` / `sys_tenant`；隔离边界为空间（`workspace_id`）+ 私有资源的 `owner_id`。持久层只用 workspace 行级过滤。角色 `tenant_admin` 保留历史角色码，界面显示「系统管理员」，`sys_role.scope` 取值 `SYSTEM` / `WORKSPACE`。`Principal` 不再含 `tenantId`。未落地的契约脚本（V100 起）按本条改写；M1/M2 契约同步去掉 `tenant_id` |
+| 36 | ADR-020、ADR-032 | 「授权」一词已被编排的 `orch_mandate` 占用 | Agent 级的岗位授权书叫 Charter，存于 AgentSpec 的 `charter` 段；`orch_mandate` 仍是工单级授权记录，增加 `agent_version_id`，派工复验时同时检查授权书状态为 ACTIVE |
+| 37 | M1-02 RT-07、ADR-033 | 已有 `ToolRisk`，可撤销性放在哪里 | 保留 `ToolRisk`（错了有多严重），新增正交的 `Reversibility`（NONE / REVERSIBLE / COMPENSABLE / IRREVERSIBLE）。未声明的写工具按 IRREVERSIBLE；MCP 工具仅 `readOnlyHint=true` 时为 NONE |
+| 38 | M1-02 RT-07、ADR-034 | 默认审批策略 | M3 起默认审批策略由 `agent-config` 改为 `autonomy`（按自治等级判定）。Agent 版本的 `toolPolicies` 继续有效但只能收紧：`approve`、`deny` 照办，`auto` 不能越过等级 |
+| 39 | ADR-025、34 号计划 | 授权书要编译为 Cedar，而 GOV-07 在 M4 | GOV-07 提前到 M3，升为 P0。M3 交付求值器、DENY / ESCALATE 两组策略、授权书编译和 DRYRUN / ENFORCE 切换；空间级策略编辑界面仍在 M4 |
+| 40 | ADR-033、ADR-034 | 影子运行如何保证不产生副作用 | `origin = shadow` 的 Turn 在 ToolGateway 只允许 `prepare` 和 READ 工具，`commit` 一律拒绝；不向 IM 外发；用量走评测预算。由 ArchUnit 规则与 `ShadowNeverCommitsIT` 守护，不提供配置开关 |
+| 41 | ADR-035 | 价值数字的口径 | 报表只从 `trust_ledger` 汇总；只有绑定任务类型的执行记账；撤销生成冲销；失败与转人工同样计成本和人工；基线必须标注来源（MEASURED / SURVEY / ESTIMATE），修改不回溯 |
+| 42 | 34 号计划 | 新增约 95 人日从哪里来 | CON-06（钉钉、企微）、CON-07（OpenAPI 转工具）、GOV-11（多环境）、HCI-08 的工作台与产物中心延后到 M4 之后；M3、M4 施工设计编写时核算净影响，仍不足则 M4 顺延，不压缩 TRU 的 P0 项 |
+
+## 多智能体与运行时权限定案（2026-11-05）
+
+2026-11-05 新增 ADR-038（多智能体团队）、ADR-039（委派授予与权限收窄）、ADR-040（数据集策略与数据标签）与工作项 MAS-01〜07、DAT-01〜06。ADR-036、ADR-037 留给商业租赁合同场景（业务本体、结构化产物）。以下各条统一这几篇与已有设计的接缝，编号续接上表。
+
+| # | 涉及 | 问题 | 定案 |
+| --- | --- | --- | --- |
+| 43 | ADR-027、34 号计划 | 子 Agent（RT-12）在 M4，而多 Agent 场景与委派权限都依赖它 | RT-12 提前到 M3、升为 P0，并与 MAS-01〜03 同期交付：**委派与权限收窄必须同时上线**，不允许出现「能委派但子 Agent 权限等于父 Agent」的版本。ADR-027 中「深度上限 2、并行 3」改为缺省值，由 TeamSpec 配置，平台上限深度 3、并行 8 |
+| 44 | ADR-015、ADR-020、ADR-032 | 编排以服务账号运行时，可能检索到经办人无权看的数据 | `run_as_json` 增加 `onBehalfOf`。SERVICE 模式下根权限 = 服务账号角色 ∩ 经办人权限；名义在委派链上不可改变，确需换名义只能经编排 `emit` 开新工单 |
+| 45 | ADR-032 | 主管自己只读、把写操作派给专家时，授权书交集会把写操作全部挡掉 | `Charter` 增加 `delegable`（可下放的动作类别，缺省为空）。链上祖先只检查禁区与 `delegable`，执行者检查完整授权书。`CharterCompiler` 编译禁区用 `context.chain.contains(X)`，额度与范围类策略仍用 `context.agentVersion == X` |
+| 46 | ADR-033、M1-04 | 授予在工具调用管线哪一步检查 | `prepare` 第 2 步（白名单）之后插入第 2.5 步「授予」；`listTools` 同样按授予过滤。第 9 步 Cedar context 增加 `chain`、`depth`、`onBehalfOf` |
+| 47 | ADR-019 | Flow 作为 Agent 工具时只带 Principal，Flow 内部调用会绕过委派收窄 | Agent 工具形态的 Flow Run 携带调用方 `grant_id`，内部每次模型与工具调用都用它；发布时计算 `requiredCapabilities`，超出授予时启动即拒。API 形态仍以 API Key 的服务账号签发根授予 |
+| 48 | ADR-025、ADR-040 | 行列级权限用 Cedar 还是 CEL | 行谓词与列掩码用 CEL 子集，在连接器数据平面执行；Cedar 只管能否访问数据集。cedar-java 部分求值稳定后再评估统一 |
+| 49 | ADR-024、ADR-025、ADR-031、34 号计划 | 数据标签与模型路由、内容安全、经验库的关系 | 标签四档 PUBLIC / INTERNAL / CONFIDENTIAL / SECRET，可映射到客户自有分级。去向许可由空间配置：CONFIDENTIAL 能否进云端模型是客户合规决定，平台默认不放行。经验库只收 INTERNAL 及以下。DAT-02 依赖内容安全钩子，GOV-10 的内置正则 PII 脱敏因此提前到 M3（P1），客户审核服务适配器仍在 M4 |
+
+## 业务本体与合同场景定案（2026-11-05）
+
+2026-11-05 以商业租赁合同风险审查为第一个业务场景，新增 ADR-036（业务本体与领域包）、ADR-037（结构化输出与 data item）与工作项 DOC、SCH、ONT、LSE、BIZ、FLW-08、NTF、CON-07a。业务方规格为《租赁合同模型》v2.3。以下各条统一这两篇与已有设计的接缝，编号续接上表。
+
+| # | 涉及 | 问题 | 定案 |
+| --- | --- | --- | --- |
+| 50 | ADR-036、ADR-018 | 合同模型实例存在哪里、以谁为准 | 已确认版本以业务系统为准；草稿由 Tioka 产生并保存；Tioka 按 `contract.model.confirmed` 拉取完整模型，内容哈希（RFC 8785 + SHA-256）一致才写只读投影，不一致拒收进死信，不做合并。业务系统不向 Tioka 提供修改已确认版本的接口；租约状态是派生数据，由 Tioka 折叠后写回业务系统，可随时重算 |
+| 51 | ADR-036、ADR-018 | 合同原文用 Knowledge 切块还是另建文档层 | 另建文档层（`doc_*`）。合同证据只按证据单元 ID 定位，不做向量召回；Knowledge 只放参考资料（修订案例、正反例、制度）。两者不共用表，避免检索结果混入别的合同原文 |
+| 52 | 34 号计划、ADR-018 | KNW-09（OCR）在 M4，而合同有扫描件与图片 | KNW-09 的 OCR 部分拆成 DOC-02 提前到 M3（P0），OCR 作为 Model Hub 能力 `ocr`，受配额、审计与数据标签路由约束；图片理解与 Excel 解析仍在 M4 |
+| 53 | ADR-036、ADR-040 第 48 条 | 模型上的规则用什么语言、取值未知怎么判 | 与行谓词共用 CEL 运行时。三值语义：适用条件为假 → 不适用；依赖取值未知 → 缺失；空白 → 规则声明的 `onBlank`（缺省不满足）；求值中访问到未知值 → 缺失。求值错误与超时（50 ms）记缺失并告警，不让整轮审查失败 |
+| 54 | ADR-028、ADR-037 | 结构化产出用 card 还是新 item 类型 | 新增 `data` item（本条即 ADR-028 要求的契约变更）。负载必须引用 Schema 登记表中已发布的 `schemaKey@version`；校验失败修复用尽仍写 item（`valid=false`），Turn 以 `COMPLETED(reason=output_invalid)` 结束，不新增 Turn 状态 |
+| 55 | 第 42 条、ADR-021 | CON-07 已延后到 M4 之后，合同场景需要业务系统工具 | 拆出 CON-07a 在 M3 做：随连接器插件携带 OpenAPI 快照与操作白名单，每个操作必须声明可逆性与动作类别；入站支持 HTTP（HMAC）与 RocketMQ 两路，处理相同。OpenAPI 上传界面与任意系统接入仍按第 42 条延后 |
+| 56 | ADR-021、ADR-026 | 通知与 IM 渠道适配器是不是一回事 | 不是。`NotificationChannel` 是 ADR-026「通知」类 SPI，只管出站通知（发送、更新）；`ImChannelAdapter` 管双向会话。飞书通知实现内部复用飞书 IM 适配器。第一期只做飞书与邮件；钉钉、企微、短信照接口在需要时增加，不改调用方 |
+| 57 | ADR-021、ADR-015 | 卡片与通知里的深链如何鉴权 | 深链只带业务对象 ID，不带任何令牌或签名票据；业务系统与 Tioka 共用 Keycloak realm，未登录走单点登录后回到原地址，权限由业务系统自己判断 |
+| 58 | ADR-032〜034、第 40 条 | 审查 Agent 能写什么、如何上岗 | Agent 只写草稿结论（`submitReviewDraft`，REVERSIBLE），最终结论以法务处置为准；子 Agent 没有任何业务写工具与通知工具。M3 影子期用业务系统的 `visibility = SHADOW` 实现（不发通知、不向法务展示），因为 TRU-11 在 M4；达标后 `lease.review.draft` 设为 L2。M4 起新版本改用平台影子模式 |
+| 59 | 34 号计划 | 合同场景新增约 130 人日后端、30 人日前端（含新建业务系统），M3 放不下 | 2026-11-05 负责人选定方案 A：范围不变，M3 延长约 10 周（W19–W40），M4 顺延为 W41–W52，总工期约 12 个月。合同场景全部工作项（含合同链折叠）在 M3 完成，不后移其他 M3 工作项 |
+
+## 实施前权威冲突裁定（2026-11-05）
+
+M0 编码开工时（分支 `feat/G0-multistep-stream-concurrency`）裁定。该条在分支上原编号为第 36 条，与上方可信放权的第 36 条（Charter）撞号，合并回主干时改为第 60 条；代码与迁移注释中的「ADR-029 第 36 条（租户）」均指本条。
+
+| # | 涉及 | 问题 | 定案 |
+| --- | --- | --- | --- |
+| 60 | 第 19、22 条；ADR-009；persistence-guardrails；Cursor 架构规则 | 第 19/22 条要求业务表加 `tenant_id` 并保留租户拦截器，与护栏「禁止 tenantId」及单企业独立部署现实冲突 | **废止第 19、22 条中「加 `tenant_id` / 保留租户拦截器」的要求。** 禁止在 DO、迁移、API 引入 `tenant_id` / `sys_tenant`；隔离边界为空间（`workspace_id`）+ 私有资源的 `owner_id`。持久层只用 workspace 行级过滤。角色 `tenant_admin` 保留历史角色码，界面显示「系统管理员」，`sys_role.scope` 取值 `SYSTEM` / `WORKSPACE`。`Principal` 不再含 `tenantId`。未落地的契约脚本（V100 起）按本条改写；M1/M2 契约同步去掉 `tenant_id` |

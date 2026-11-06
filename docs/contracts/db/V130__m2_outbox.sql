@@ -36,4 +36,4 @@ CREATE TABLE sys_dead_letter (
 );
 CREATE INDEX idx_dead_letter_open ON sys_dead_letter (consumer, create_at) WHERE status = 'OPEN';
 
-DROP TABLE IF EXISTS im_outbox;    -- 由 sys_outbox + IM 消费者取代（M2-03）
+-- im_outbox 由 V142 在 CON-02 合入时删除（现有 ImOutbox 代码在此之前仍在使用）

@@ -24,7 +24,7 @@ INSERT INTO sys_role_permission (role_code, permission) VALUES
   ('member',          'agent:read'),
   ('viewer',          'agent:read');
 
--- 已有数据归入默认空间（ADR-029 第 36 条：无 tenant_id）
+-- 已有数据归入默认空间（ADR-029 第 60 条：无 tenant_id）
 INSERT INTO sys_workspace (id, name, owner_user_id)
   SELECT 'ws_default', '默认空间', 1
   WHERE NOT EXISTS (SELECT 1 FROM sys_workspace WHERE id = 'ws_default');
