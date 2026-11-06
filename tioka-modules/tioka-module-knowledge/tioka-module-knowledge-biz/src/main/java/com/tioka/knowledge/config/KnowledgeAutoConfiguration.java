@@ -1,5 +1,6 @@
 package com.tioka.knowledge.config;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tioka.knowledge.infrastructure.embedding.EmbeddingClient;
 import com.tioka.knowledge.infrastructure.embedding.HashEmbeddingClient;
 import com.tioka.knowledge.infrastructure.embedding.OpenAiCompatibleEmbeddingClient;
@@ -28,7 +29,8 @@ public class KnowledgeAutoConfiguration {
             @Value("${tioka.knowledge.embedding.model:text-embedding-3-small}") String model,
             @Value("${tioka.knowledge.embedding.dim:32}") int dim,
             ObjectProvider<SecretStore> secretStore,
-            ObjectProvider<EgressGuard> egressGuard) {
+            ObjectProvider<EgressGuard> egressGuard,
+            ObjectMapper objectMapper) {
         HashEmbeddingClient hash = new HashEmbeddingClient(dim);
         if (baseUrl == null || baseUrl.isBlank()) {
             return hash;
@@ -37,6 +39,7 @@ public class KnowledgeAutoConfiguration {
                 baseUrl, apiKeyRef, model, dim,
                 secretStore.getIfAvailable(),
                 egressGuard.getIfAvailable(),
-                hash);
+                hash,
+                objectMapper);
     }
 }

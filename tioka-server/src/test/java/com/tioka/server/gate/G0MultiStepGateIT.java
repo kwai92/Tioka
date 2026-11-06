@@ -1,24 +1,52 @@
 package com.tioka.server.gate;
 
-import org.junit.jupiter.api.Disabled;
+import com.tioka.framework.security.PrincipalHolder;
+import com.tioka.runtime.api.kernel.ItemType;
+import com.tioka.runtime.api.kernel.RuntimeApi;
+import com.tioka.runtime.api.kernel.TurnStatus;
+import com.tioka.server.gate.support.DualInstance;
+import com.tioka.server.gate.support.GateSeed;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
+import org.springframework.context.ConfigurableApplicationContext;
 
-import static org.junit.jupiter.api.Assertions.fail;
+import java.util.List;
+
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * 闸门 G0：RT-03。用例说明见 docs/architecture/construction/M0-03。
- *
- * <p>运行环境：双实例 + Testcontainers（PostgreSQL、Redis，按需 Keycloak、RocketMQ）+ 录制回放的模型桩（ENG-04）。
- * 实现者删除 {@code @Disabled} 并补全断言；闸门通过前不得合并对应阶段的发布分支。
+ * 闸门 G0：RT-03。剧本 three-tools.yaml：3 次 tool_call / tool_result + 最终 message，Turn COMPLETED。
  */
 @Tag("gate")
-@Disabled("骨架：待 RT-03 实现后启用")
+@EnabledIfSystemProperty(named = "gate", matches = "true")
 class G0MultiStepGateIT {
 
-    /** 剧本 three-tools.yaml：3 个 tool_call、3 个 tool_result、1 条最终 message，Turn COMPLETED。 */
     @Test
     void threeToolCallsCompleteAutomatically() {
-        fail("待实现：剧本 three-tools.yaml：3 个 tool_call、3 个 tool_result、1 条最终 message，Turn COMPLETED");
+        try (DualInstance di = DualInstance.start()) {
+            ConfigurableApplicationContext a = di.a();
+            GateSeed.Bundle bundle = GateSeed.seedPublishedAgent(a, di.llm().baseUrl());
+            RuntimeApi.ThreadView thr = GateSeed.createThread(a, bundle);
+            RuntimeApi.TurnHandle handle = GateSeed.startTurn(a, bundle, thr.threadId(), "cm-ms-1",
+                    "请依次调用 echo 三次");
+            RuntimeApi.TurnView done = GateSeed.awaitTerminal(a, bundle, handle.turnId(), 60_000);
+            assertEquals(TurnStatus.COMPLETED, done.status(), () -> "turn failed: " + done.errorMessage());
+
+            PrincipalHolder principals = a.getBean(PrincipalHolder.class);
+            RuntimeApi runtime = a.getBean(RuntimeApi.class);
+            List<RuntimeApi.ItemView> items = principals.runAs(
+                    GateSeed.user(bundle.userId(), bundle.workspaceId()),
+                    () -> runtime.listItems(thr.threadId(), 0, 200));
+
+            long toolCalls = items.stream().filter(i -> i.type() == ItemType.TOOL_CALL).count();
+            long toolResults = items.stream().filter(i -> i.type() == ItemType.TOOL_RESULT).count();
+            long assistantMsgs = items.stream()
+                    .filter(i -> i.type() == ItemType.MESSAGE && "assistant".equals(i.role()))
+                    .count();
+            assertEquals(3, toolCalls, () -> "items=" + items);
+            assertEquals(3, toolResults, () -> "items=" + items);
+            assertTrue(assistantMsgs >= 1, () -> "items=" + items);
+        }
     }
 }

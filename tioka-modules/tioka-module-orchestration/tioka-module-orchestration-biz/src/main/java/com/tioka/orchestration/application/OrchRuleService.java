@@ -1,5 +1,7 @@
 package com.tioka.orchestration.application;
 
+import com.tioka.framework.id.Ids;
+
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tioka.framework.error.BizException;
@@ -10,14 +12,14 @@ import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 
 @Service
 public class OrchRuleService {
     private final OrchRepository repo;
-    private final ObjectMapper mapper = new ObjectMapper();
+    private final ObjectMapper mapper;
 
-    public OrchRuleService(OrchRepository repo) {
+    public OrchRuleService(OrchRepository repo, ObjectMapper mapper) {
+        this.mapper = mapper;
         this.repo = repo;
     }
 
@@ -25,7 +27,7 @@ public class OrchRuleService {
         if (eventType == null || eventType.isBlank()) {
             throw new BizException(ErrorCode.BAD_REQUEST, "eventType 必填");
         }
-        String id = "rule_" + UUID.randomUUID().toString().replace("-", "").substring(0, 8);
+        String id = Ids.newId("rule");
         OrchRuleDO row = new OrchRuleDO();
         row.setId(id);
         row.setName(name == null || name.isBlank() ? id : name);
@@ -58,7 +60,8 @@ public class OrchRuleService {
         try {
             return mapper.readValue(rule.getActionJson(), new TypeReference<>() {});
         } catch (Exception e) {
-            return Map.of("type", "create_run");
+            throw new com.tioka.framework.error.BizException(
+                    com.tioka.framework.error.ErrorCode.BAD_REQUEST, "actionJson 解析失败");
         }
     }
 

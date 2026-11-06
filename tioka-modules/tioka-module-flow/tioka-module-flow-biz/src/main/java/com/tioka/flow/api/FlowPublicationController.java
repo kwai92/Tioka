@@ -11,9 +11,10 @@ import java.util.Map;
 @RequestMapping("/api/flows/publications")
 public class FlowPublicationController {
     private final FlowPublicationService publicationService;
-    private final ObjectMapper mapper = new ObjectMapper();
+    private final ObjectMapper mapper;
 
-    public FlowPublicationController(FlowPublicationService publicationService) {
+    public FlowPublicationController(FlowPublicationService publicationService, ObjectMapper mapper) {
+        this.mapper = mapper;
         this.publicationService = publicationService;
     }
 

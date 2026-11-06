@@ -29,8 +29,12 @@ public class AuthUserRepositoryImpl implements AuthUserRepository {
     }
 
     @Override
+    public void update(AuthUserDO user) {
+        mapper.updateById(user);
+    }
+
+    @Override
     public long nextId() {
-        Long max = mapper.selectMaxId();
-        return (max == null ? 0L : max) + 1L;
+        return mapper.nextId();
     }
 }

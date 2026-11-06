@@ -21,8 +21,21 @@ public class AgentRepository {
     }
 
     public void upsertAgent(AgentDO row) {
-        if (agents.selectById(row.getId()) == null) agents.insert(row);
-        else agents.updateById(row);
+        AgentDO existing = agents.selectById(row.getId());
+        if (existing == null) {
+            if (row.getVersion() == null) {
+                row.setVersion(0);
+            }
+            agents.insert(row);
+            return;
+        }
+        if (row.getVersion() == null) {
+            row.setVersion(existing.getVersion());
+        }
+        int n = agents.updateById(row);
+        if (n == 0) {
+            throw new BizException(ErrorCode.STALE_REVISION, "Agent 已被并发修改: " + row.getId());
+        }
     }
 
     public AgentDO findAgent(String id) { return agents.selectById(id); }

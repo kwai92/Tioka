@@ -1,10 +1,11 @@
 package com.tioka.agent.application;
 
+import com.tioka.framework.id.Ids;
+
 import com.tioka.agent.infrastructure.AgentShareRepository;
 import com.tioka.agent.infrastructure.persistence.AgentShareDO;
 import org.springframework.stereotype.Service;
 
-import java.util.UUID;
 
 @Service
 public class AgentShareService {
@@ -12,7 +13,7 @@ public class AgentShareService {
     public AgentShareService(AgentShareRepository shares) { this.shares = shares; }
 
     public Share share(String agentId, String mode) {
-        Share s = new Share("sh_" + UUID.randomUUID().toString().substring(0, 8), agentId, mode == null ? "READONLY" : mode);
+        Share s = new Share(Ids.newId("sh"), agentId, mode == null ? "READONLY" : mode);
         AgentShareDO row = new AgentShareDO();
         row.setId(s.id()); row.setAgentId(s.agentId()); row.setMode(s.mode());
         shares.insert(row);

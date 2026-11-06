@@ -28,7 +28,7 @@ class McpGrantSnapshotTest {
                 new McpStore.Tool("tool_a", "a", Map.of()),
                 new McpStore.Tool("tool_b", "b", Map.of())));
 
-        McpAdminService admin = new McpAdminService(secrets, store, true);
+        McpAdminService admin = new McpAdminService(secrets, store, true, new com.fasterxml.jackson.databind.ObjectMapper());
         assertThrows(BizException.class,
                 () -> admin.callToolWithGrantIds(List.of("gr_a"), "tool_b", Map.of()));
     }
@@ -42,7 +42,8 @@ class McpGrantSnapshotTest {
                 new McpStore.Tool("tool_a", "a", Map.of()),
                 new McpStore.Tool("tool_b", "b", Map.of())));
 
-        McpAdminService admin = new McpAdminService(mock(SecretStore.class), store, true);
+        McpAdminService admin = new McpAdminService(mock(SecretStore.class), store, true,
+                new com.fasterxml.jackson.databind.ObjectMapper());
         List<McpStore.Tool> tools = admin.toolsForGrantIds(List.of("gr_a"));
         assertEquals(1, tools.size());
         assertEquals("tool_a", tools.get(0).name());
@@ -62,7 +63,8 @@ class McpGrantSnapshotTest {
         when(store.getServer("srv_1")).thenReturn(Optional.of(
                 new McpStore.McpServer("srv_1", "s", "mock://x", null, "READY"))); // record in McpStore
 
-        McpAdminService admin = new McpAdminService(mock(SecretStore.class), store, true);
+        McpAdminService admin = new McpAdminService(mock(SecretStore.class), store, true,
+                new com.fasterxml.jackson.databind.ObjectMapper());
         McpToolProvider provider = new McpToolProvider(admin, agents);
 
         assertTrue(provider.listTools("av_1").stream().anyMatch(t -> t.name().equals("mcp_echo")));

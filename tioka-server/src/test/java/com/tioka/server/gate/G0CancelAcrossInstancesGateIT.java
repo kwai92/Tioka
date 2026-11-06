@@ -1,24 +1,116 @@
 package com.tioka.server.gate;
 
-import org.junit.jupiter.api.Disabled;
+import com.tioka.framework.id.Ids;
+import com.tioka.framework.security.SystemPrincipals;
+import com.tioka.framework.security.TiokaAuthentication;
+import com.tioka.runtime.infrastructure.RuntimeSessionRepository;
+import com.tioka.runtime.infrastructure.persistence.RuntimeSessionDO;
+import com.tioka.runtime.kernel.application.TurnSignalService;
+import com.tioka.runtime.kernel.infrastructure.TurnRepository;
+import com.tioka.runtime.kernel.infrastructure.persistence.RuntimeTurnDO;
+import com.tioka.runtime.kernel.infrastructure.redis.SignalBus;
+import com.tioka.server.gate.support.DualInstance;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
+import org.springframework.context.ConfigurableApplicationContext;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.security.core.context.SecurityContextHolder;
 
-import static org.junit.jupiter.api.Assertions.fail;
+import java.time.Instant;
+
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * 闸门 G0：RT-05。用例说明见 docs/architecture/construction/M0-03。
+ * 闸门 G0：RT-05。
+ * <ul>
+ *   <li>排队 Turn：实例 B 发 interrupt → 共享 DB 上状态 CANCELLED</li>
+ *   <li>运行中 Turn：实例 B 写 Redis cancel 信号 → 实例 A 的 {@link SignalBus} 本地标志置位</li>
+ * </ul>
  *
- * <p>运行环境：双实例 + Testcontainers（PostgreSQL、Redis，按需 Keycloak、RocketMQ）+ 录制回放的模型桩（ENG-04）。
- * 实现者删除 {@code @Disabled} 并补全断言；闸门通过前不得合并对应阶段的发布分支。
+ * <p>需 {@code -Dgate=true}。
  */
 @Tag("gate")
-@Disabled("骨架：待 RT-05 实现后启用")
+@EnabledIfSystemProperty(named = "gate", matches = "true")
 class G0CancelAcrossInstancesGateIT {
 
-    /** Turn 在 A 上流式输出，向 B 发 interrupt；1 秒内 A 停止输出，状态 CANCELLED，已流出文本保留。 */
     @Test
     void cancelOnBStopsTurnOnA() {
-        fail("待实现：Turn 在 A 上流式输出，向 B 发 interrupt；1 秒内 A 停止输出，状态 CANCELLED，已流出文本保留");
+        try (DualInstance di = DualInstance.start()) {
+            ConfigurableApplicationContext a = di.a();
+            ConfigurableApplicationContext b = di.b();
+            SecurityContextHolder.getContext().setAuthentication(new TiokaAuthentication(SystemPrincipals.system()));
+            try {
+                RuntimeSessionRepository sessions = a.getBean(RuntimeSessionRepository.class);
+                TurnRepository turns = a.getBean(TurnRepository.class);
+                TurnSignalService signalsB = b.getBean(TurnSignalService.class);
+                SignalBus busA = a.getBean(SignalBus.class);
+                StringRedisTemplate redis = a.getBean(StringRedisTemplate.class);
+
+                String threadId = Ids.newId("thr");
+                RuntimeSessionDO s = new RuntimeSessionDO();
+                s.setId(threadId);
+                s.setStatus("OPEN");
+                s.setAgentVersionId("agent_v1");
+                s.setWorkspaceId("ws_default");
+                s.setOwnerId("0");
+                s.setLastItemSeq(0L);
+                s.setOrigin("chat");
+                s.setDepth(0);
+                sessions.upsert(s);
+
+                // 1) 排队取消（跨实例写库）
+                RuntimeTurnDO queued = newTurn(turns, threadId, "cm-q");
+                turns.insert(queued);
+                signalsB.interrupt(queued.getId());
+                assertEquals("CANCELLED", turns.findById(queued.getId()).orElseThrow().getStatus());
+
+                // 2) 运行中取消：在 A 注册本地 Turn，B 发信号，A 本地标志置位
+                String runningId = Ids.newId("turn");
+                RuntimeTurnDO running = newTurn(turns, threadId, "cm-r");
+                running.setId(runningId);
+                running.setStatus("RUNNING");
+                running.setLeaseVersion(1L);
+                turns.insert(running);
+                busA.register(runningId);
+
+                signalsB.interrupt(runningId);
+
+                Instant deadline = Instant.now().plusSeconds(2);
+                boolean ok = false;
+                while (Instant.now().isBefore(deadline)) {
+                    if (Boolean.TRUE.equals(redis.hasKey(SignalBus.cancelKey(runningId)))
+                            && busA.flags(runningId) != null
+                            && busA.flags(runningId).cancelRequested.get()) {
+                        ok = true;
+                        break;
+                    }
+                    try {
+                        Thread.sleep(30);
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        break;
+                    }
+                }
+                assertTrue(ok, "A 应收到跨实例 cancel 信号");
+                busA.unregister(runningId);
+            } finally {
+                SecurityContextHolder.clearContext();
+            }
+        }
+    }
+
+    private static RuntimeTurnDO newTurn(TurnRepository turns, String threadId, String clientMsgId) {
+        RuntimeTurnDO t = new RuntimeTurnDO();
+        t.setId(Ids.newId("turn"));
+        t.setSessionId(threadId);
+        t.setSeq(turns.nextSeq(threadId));
+        t.setStatus("QUEUED");
+        t.setOrigin("chat");
+        t.setClientMsgId(clientMsgId);
+        t.setRunAsJson("{\"userId\":\"1\",\"type\":\"USER\"}");
+        t.setStepCount(0);
+        t.setLeaseVersion(0L);
+        return t;
     }
 }

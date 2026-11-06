@@ -1,5 +1,7 @@
 package com.tioka.model.application;
 
+import com.tioka.framework.error.BizException;
+import com.tioka.framework.error.ErrorCode;
 import com.tioka.model.api.ModelRouterApi;
 import com.tioka.model.api.dto.ProviderDtos.CreateBindingRequest;
 import com.tioka.model.api.dto.ProviderDtos.CreateLogicalModelRequest;
@@ -19,7 +21,7 @@ import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class ModelRouterFreezeTest {
 
@@ -35,7 +37,7 @@ class ModelRouterFreezeTest {
         admin.publish(plan);
         GenericApplicationContext ctx = new GenericApplicationContext();
         ctx.refresh();
-        ModelRouterService router = new ModelRouterService(new DifficultyRouter(), ctx, entities);
+        ModelRouterService router = new ModelRouterService(ctx, entities);
         ModelRouterApi.ModelSelection s1 = router.select("sess1", plan);
         ModelRouterApi.ModelSelection s2 = router.select("sess1", plan);
         assertEquals(s1.bindingId(), s2.bindingId());
@@ -43,7 +45,7 @@ class ModelRouterFreezeTest {
     }
 
     @Test
-    void difficultyHardExposesRouteReason() {
+    void difficultyPlanCreateReturns501() {
         ModelEntities entities = new ModelEntities(new InMemoryModelEntitiesRepository());
         SecretStore store = new MemorySecretStore();
         ModelAdminService admin = new ModelAdminService(store, entities);
@@ -51,16 +53,9 @@ class ModelRouterFreezeTest {
         String lm = admin.createLogicalModel(new CreateLogicalModelRequest("m", "tool"));
         String soft = admin.createBinding(new CreateBindingRequest(lm, provider.id(), "soft"));
         String hard = admin.createBinding(new CreateBindingRequest(lm, provider.id(), "hard"));
-        String plan = admin.createPlan(new CreateRoutingPlanRequest("r", "DIFFICULTY", soft, null, hard)).id();
-        admin.publish(plan);
-        GenericApplicationContext ctx = new GenericApplicationContext();
-        ctx.refresh();
-        ModelRouterService router = new ModelRouterService(new DifficultyRouter(), ctx, entities);
-        ModelRouterApi.ModelSelection sel = router.select("sess-hard", plan, "这是一个复杂任务 hard");
-        assertEquals(hard, sel.bindingId());
-        assertTrue(sel.reason().contains("difficulty=hard"));
-        assertTrue(router.lastRoute("sess-hard").isPresent());
-        assertEquals(sel.reason(), router.lastRoute("sess-hard").get().reason());
+        BizException ex = assertThrows(BizException.class,
+                () -> admin.createPlan(new CreateRoutingPlanRequest("r", "DIFFICULTY", soft, null, hard)));
+        assertEquals(ErrorCode.NOT_IMPLEMENTED, ex.getErrorCode());
     }
 
     static final class InMemoryModelEntitiesRepository implements ModelEntitiesRepository {
@@ -104,10 +99,14 @@ class ModelRouterFreezeTest {
         public List<ModelRoutingPlanDO> plans() { return new ArrayList<>(plans.values()); }
 
         @Override
-        public Optional<String> getFreeze(String sessionId) { return Optional.ofNullable(freezes.get(sessionId)); }
+        public Optional<String> getFreeze(String sessionId, String turnId) {
+            return Optional.ofNullable(freezes.get(sessionId + "|" + turnId));
+        }
 
         @Override
-        public void putFreeze(String sessionId, String bindingId) { freezes.put(sessionId, bindingId); }
+        public void putFreeze(String sessionId, String turnId, String bindingId) {
+            freezes.put(sessionId + "|" + turnId, bindingId);
+        }
     }
 
     static final class MemorySecretStore implements SecretStore {

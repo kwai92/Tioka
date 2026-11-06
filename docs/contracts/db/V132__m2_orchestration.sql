@@ -9,7 +9,6 @@ ALTER TABLE orch_rule DROP COLUMN event_type;
 ALTER TABLE orch_rule DROP COLUMN version;
 ALTER TABLE orch_rule DROP COLUMN published;
 ALTER TABLE orch_rule DROP COLUMN action_json;
-ALTER TABLE orch_rule ADD COLUMN tenant_id VARCHAR(64) NOT NULL DEFAULT 'default';
 ALTER TABLE orch_rule ADD COLUMN workspace_id VARCHAR(64);
 ALTER TABLE orch_rule ADD COLUMN owner_id VARCHAR(64);
 ALTER TABLE orch_rule ADD COLUMN stable_version_id VARCHAR(32);
@@ -17,7 +16,6 @@ ALTER TABLE orch_rule ADD COLUMN canary_version_id VARCHAR(32);
 
 CREATE TABLE orch_event (
     id              VARCHAR(32)  PRIMARY KEY,
-    tenant_id       VARCHAR(64)  NOT NULL DEFAULT 'default',
     workspace_id    VARCHAR(64),
     source          VARCHAR(64)  NOT NULL,
     type            VARCHAR(128) NOT NULL,
@@ -29,7 +27,7 @@ CREATE TABLE orch_event (
     disposition     VARCHAR(16)  NOT NULL CHECK (disposition IN ('STORED','DUPLICATE','FILTERED')),
     strength        VARCHAR(16)  NOT NULL CHECK (strength IN ('EXPLICIT','INFERRED')),
     received_at     TIMESTAMPTZ  NOT NULL DEFAULT now(),
-    UNIQUE (tenant_id, idempotency_key)
+    UNIQUE (idempotency_key)
 );
 CREATE INDEX idx_orch_event_type_ts ON orch_event (type, received_at);
 
@@ -70,7 +68,6 @@ CREATE INDEX idx_decision_rule ON orch_decision (rule_version_id, decision, crea
 
 CREATE TABLE orch_work_item (
     id                  VARCHAR(32)  PRIMARY KEY,
-    tenant_id           VARCHAR(64)  NOT NULL DEFAULT 'default',
     workspace_id        VARCHAR(64),
     rule_id             VARCHAR(64)  NOT NULL,
     subject_key         VARCHAR(255) NOT NULL,
@@ -81,7 +78,7 @@ CREATE TABLE orch_work_item (
     last_event_at       TIMESTAMPTZ,
     create_at           TIMESTAMPTZ  NOT NULL DEFAULT now(),
     update_at           TIMESTAMPTZ  NOT NULL DEFAULT now(),
-    UNIQUE (tenant_id, rule_id, subject_key)
+    UNIQUE (rule_id, subject_key)
 );
 
 CREATE TABLE orch_mandate (
@@ -114,7 +111,6 @@ CREATE TABLE orch_subscription (
 
 CREATE TABLE orch_run (
     id              VARCHAR(32) PRIMARY KEY,
-    tenant_id       VARCHAR(64) NOT NULL DEFAULT 'default',
     workspace_id    VARCHAR(64),
     work_item_id    VARCHAR(32) NOT NULL,
     event_id        VARCHAR(32) NOT NULL,
@@ -140,7 +136,6 @@ CREATE INDEX idx_orch_run_active ON orch_run (status) WHERE status NOT IN ('SUCC
 
 CREATE TABLE orch_timer (
     id           VARCHAR(32)  PRIMARY KEY,
-    tenant_id    VARCHAR(64)  NOT NULL DEFAULT 'default',
     workspace_id VARCHAR(64),
     kind         VARCHAR(8)   NOT NULL CHECK (kind IN ('CRON','LATER')),
     rule_id      VARCHAR(64),

@@ -22,12 +22,14 @@ import java.util.Map;
 public class DingTalkImChannelAdapter implements ImChannelAdapter {
     private static final Logger log = LoggerFactory.getLogger(DingTalkImChannelAdapter.class);
     private final ImOutboxRepository outbox;
-    private final ObjectMapper mapper = new ObjectMapper();
+    private final ObjectMapper mapper;
     private final HttpClient http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build();
     private final String webhookUrl;
 
     public DingTalkImChannelAdapter(ImOutboxRepository outbox,
-                                    @Value("${tioka.dingtalk.webhook-url:}") String webhookUrl) {
+                                    @Value("${tioka.dingtalk.webhook-url:}") String webhookUrl,
+                                  ObjectMapper mapper) {
+        this.mapper = mapper;
         this.outbox = outbox;
         this.webhookUrl = webhookUrl == null ? "" : webhookUrl.trim();
     }

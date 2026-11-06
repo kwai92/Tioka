@@ -24,7 +24,7 @@ public class FlowPublicationService implements ToolProvider {
     private final FlowService flowService;
     private final FlowRepository repo;
     private final ObjectProvider<FlowSecretBridge> secretBridge;
-    private final ObjectMapper mapper = new ObjectMapper();
+    private final ObjectMapper mapper;
     private final String webhookSecretRef;
     private final String webhookSecretFallback;
 
@@ -32,7 +32,9 @@ public class FlowPublicationService implements ToolProvider {
                                   FlowRepository repo,
                                   ObjectProvider<FlowSecretBridge> secretBridge,
                                   @Value("${tioka.flow.webhook.secret-ref:flow-webhook::hmac}") String webhookSecretRef,
-                                  @Value("${tioka.flow.webhook.secret:gate-test-secret}") String webhookSecretFallback) {
+                                  @Value("${tioka.flow.webhook.secret:gate-test-secret}") String webhookSecretFallback,
+                                  ObjectMapper mapper) {
+        this.mapper = mapper;
         this.flowService = flowService;
         this.repo = repo;
         this.secretBridge = secretBridge;

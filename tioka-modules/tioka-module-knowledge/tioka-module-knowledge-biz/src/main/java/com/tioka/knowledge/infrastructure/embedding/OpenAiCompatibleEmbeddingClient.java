@@ -28,12 +28,13 @@ public class OpenAiCompatibleEmbeddingClient implements EmbeddingClient {
     private final SecretStore secretStore;
     private final EgressGuard egressGuard;
     private final EmbeddingClient fallback;
-    private final ObjectMapper mapper = new ObjectMapper();
+    private final ObjectMapper mapper;
     private final HttpClient http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build();
 
     public OpenAiCompatibleEmbeddingClient(String baseUrl, String apiKeyRef, String model, int dim,
                                            SecretStore secretStore, EgressGuard egressGuard,
-                                           EmbeddingClient fallback) {
+                                           EmbeddingClient fallback, ObjectMapper mapper) {
+        this.mapper = mapper;
         this.baseUrl = baseUrl == null ? "" : baseUrl.trim();
         this.apiKeyRef = apiKeyRef == null ? "" : apiKeyRef;
         this.model = model == null || model.isBlank() ? "text-embedding-3-small" : model;

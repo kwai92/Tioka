@@ -1,5 +1,7 @@
 package com.tioka.orchestration.application;
 
+import com.tioka.framework.id.Ids;
+
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tioka.framework.error.BizException;
@@ -11,6 +13,7 @@ import com.tioka.orchestration.infrastructure.persistence.OrchIdemDO;
 import com.tioka.orchestration.infrastructure.persistence.OrchRuleDO;
 import com.tioka.orchestration.infrastructure.persistence.OrchRunDO;
 import com.tioka.orchestration.infrastructure.persistence.OrchWhyDO;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
@@ -18,17 +21,20 @@ import java.util.*;
 
 @Service
 public class OrchService implements OrchApi {
+    private static final long CLAIM_LEASE_MS = 30_000L;
+
     private final OrchRepository repo;
     private final OrchRuleService ruleService;
-    private final ObjectMapper mapper = new ObjectMapper();
+    private final ObjectMapper mapper;
 
-    public OrchService(OrchRepository repo, OrchRuleService ruleService) {
+    public OrchService(OrchRepository repo, OrchRuleService ruleService, ObjectMapper mapper) {
+        this.mapper = mapper;
         this.repo = repo;
         this.ruleService = ruleService;
     }
 
     @Override
-    public synchronized String ingestEvent(String eventType, String idempotencyKey, Map<String, Object> payload) {
+    public String ingestEvent(String eventType, String idempotencyKey, Map<String, Object> payload) {
         if (idempotencyKey != null) {
             String existing = repo.findRunIdByIdem(idempotencyKey);
             if (existing != null) return existing;
@@ -41,14 +47,18 @@ public class OrchService implements OrchApi {
         String type = String.valueOf(action.getOrDefault("type", "create_run"));
 
         if ("ignore".equalsIgnoreCase(type)) {
-            // 不建业务 Run；记一条哨兵 why（runId=ignored）便于排查
             appendWhy("ignored", "ignore", "eventType=" + eventType
                     + (rule == null ? "" : " rule=" + rule.getId()));
             if (idempotencyKey != null) {
-                OrchIdemDO idem = new OrchIdemDO();
-                idem.setIdempotencyKey(idempotencyKey);
-                idem.setRunId("");
-                repo.insertIdem(idem);
+                try {
+                    OrchIdemDO idem = new OrchIdemDO();
+                    idem.setIdempotencyKey(idempotencyKey);
+                    idem.setRunId("");
+                    repo.insertIdem(idem);
+                } catch (DuplicateKeyException e) {
+                    String existing = repo.findRunIdByIdem(idempotencyKey);
+                    return existing == null ? "" : existing;
+                }
             }
             return "";
         }
@@ -65,8 +75,8 @@ public class OrchService implements OrchApi {
     }
 
     private String createReadyRun(String eventType, String idempotencyKey) {
-        String eventId = "evt_" + UUID.randomUUID().toString().replace("-", "").substring(0, 8);
-        String runId = "run_" + UUID.randomUUID().toString().replace("-", "").substring(0, 8);
+        String eventId = Ids.newId("evt");
+        String runId = Ids.newId("run");
         OrchRunDO run = new OrchRunDO();
         run.setId(runId);
         run.setStatus("READY");
@@ -76,26 +86,29 @@ public class OrchService implements OrchApi {
         repo.insertRun(run);
         appendWhy(runId, "event", eventType);
         if (idempotencyKey != null) {
-            OrchIdemDO idem = new OrchIdemDO();
-            idem.setIdempotencyKey(idempotencyKey);
-            idem.setRunId(runId);
-            repo.insertIdem(idem);
+            try {
+                OrchIdemDO idem = new OrchIdemDO();
+                idem.setIdempotencyKey(idempotencyKey);
+                idem.setRunId(runId);
+                repo.insertIdem(idem);
+            } catch (DuplicateKeyException e) {
+                String existing = repo.findRunIdByIdem(idempotencyKey);
+                if (existing != null) {
+                    return existing;
+                }
+                throw e;
+            }
         }
         return runId;
     }
 
     @Override
-    public synchronized RunView claim(String workerId) {
-        List<OrchRunDO> ready = repo.listClaimable(System.currentTimeMillis());
-        if (ready.isEmpty()) return null;
-        OrchRunDO r = ready.get(0);
-        long lease = System.currentTimeMillis() + 30_000;
-        r.setStatus("LEASED");
-        r.setWorkerId(workerId);
-        r.setLeaseUntil(lease);
-        repo.updateRun(r);
+    public RunView claim(String workerId) {
+        String id = repo.claimOne(workerId, CLAIM_LEASE_MS);
+        if (id == null) return null;
+        OrchRunDO r = repo.findRun(id);
         appendWhy(r.getId(), "claim", workerId);
-        return new RunView(r.getId(), "LEASED", r.getEventId(), workerId, lease);
+        return new RunView(r.getId(), "LEASED", r.getEventId(), r.getWorkerId(), r.getLeaseUntil());
     }
 
     @Override
@@ -110,7 +123,7 @@ public class OrchService implements OrchApi {
     @Override
     public AttentionView openAttention(String runId, String title, Map<String, Object> card) {
         getRun(runId);
-        String id = "att_" + UUID.randomUUID().toString().replace("-", "").substring(0, 8);
+        String id = Ids.newId("att");
         AttentionView a = new AttentionView(id, runId, "OPEN", title, card, null);
         OrchAttentionDO row = new OrchAttentionDO();
         row.setId(id);
@@ -169,7 +182,7 @@ public class OrchService implements OrchApi {
     private void appendWhy(String runId, String kind, String detail) {
         int ord = repo.nextWhyOrd(runId);
         OrchWhyDO row = new OrchWhyDO();
-        row.setId("why_" + UUID.randomUUID().toString().replace("-", "").substring(0, 10));
+        row.setId(Ids.newId("why"));
         row.setRunId(runId);
         row.setAtTs(Instant.now().toString());
         row.setKind(kind);
@@ -191,7 +204,8 @@ public class OrchService implements OrchApi {
         try {
             return mapper.readValue(json, new TypeReference<>() {});
         } catch (Exception e) {
-            return Map.of();
+            throw new com.tioka.framework.error.BizException(
+                    com.tioka.framework.error.ErrorCode.BAD_REQUEST, "JSON 解析失败");
         }
     }
 }

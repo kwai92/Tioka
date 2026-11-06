@@ -1,5 +1,7 @@
 package com.tioka.flow.application;
 
+import com.tioka.framework.id.Ids;
+
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tioka.flow.infrastructure.FlowRepository;
@@ -21,9 +23,10 @@ public class FlowService {
 
     private final FlowRepository repo;
     private final FlowEngine engine;
-    private final ObjectMapper mapper = new ObjectMapper();
+    private final ObjectMapper mapper;
 
-    public FlowService(FlowRepository repo, FlowEngine engine) {
+    public FlowService(FlowRepository repo, FlowEngine engine, ObjectMapper mapper) {
+        this.mapper = mapper;
         this.repo = repo;
         this.engine = engine;
     }
@@ -34,7 +37,7 @@ public class FlowService {
 
     public FlowDraft saveDraft(String name, Map<String, Object> graph) {
         validateGraph(graph);
-        String id = "fd_" + UUID.randomUUID().toString().replace("-", "").substring(0, 8);
+        String id = Ids.newId("fd");
         FlowDraft d = new FlowDraft(id, name, graph);
         FlowDraftDO row = new FlowDraftDO();
         row.setId(id);
@@ -48,7 +51,7 @@ public class FlowService {
         FlowDraftDO draft = repo.findDraft(draftId);
         if (draft == null) throw new BizException(ErrorCode.NOT_FOUND, "draft 不存在");
         FlowDraft d = new FlowDraft(draft.getId(), draft.getName(), fromMap(draft.getGraphJson()));
-        String id = "fv_" + UUID.randomUUID().toString().replace("-", "").substring(0, 8);
+        String id = Ids.newId("fv");
         FlowVersion v = new FlowVersion(id, draftId, d.name(), d.graph(), true);
         FlowVersionDO row = new FlowVersionDO();
         row.setId(id);
@@ -66,7 +69,7 @@ public class FlowService {
             throw new BizException(ErrorCode.BAD_REQUEST, "Flow 未发布");
         }
         Map<String, Object> graph = fromMap(ver.getGraphJson());
-        String id = "fr_" + UUID.randomUUID().toString().replace("-", "").substring(0, 8);
+        String id = Ids.newId("fr");
         FlowEngine.EngineResult result = engine.run(id, graph, input == null ? Map.of() : input);
 
         FlowRun run = new FlowRun(id, versionId, result.status(), result.output(), result.trace());
@@ -81,7 +84,7 @@ public class FlowService {
 
     /** 供单测 / 内部直接跑图（不落库）。 */
     public FlowEngine.EngineResult runGraph(Map<String, Object> graph, Map<String, Object> input) {
-        String id = "fr_" + UUID.randomUUID().toString().replace("-", "").substring(0, 8);
+        String id = Ids.newId("fr");
         return engine.run(id, graph, input == null ? Map.of() : input);
     }
 
@@ -109,7 +112,8 @@ public class FlowService {
         try {
             return mapper.readValue(json, new TypeReference<>() {});
         } catch (Exception e) {
-            return Map.of();
+            throw new com.tioka.framework.error.BizException(
+                    com.tioka.framework.error.ErrorCode.BAD_REQUEST, "JSON 解析失败");
         }
     }
 

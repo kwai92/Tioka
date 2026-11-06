@@ -13,9 +13,10 @@ import java.util.Optional;
 @Repository
 public class AgentStore {
     private final AgentRepository repo;
-    private final ObjectMapper mapper = new ObjectMapper();
+    private final ObjectMapper mapper;
 
-    public AgentStore(AgentRepository repo) {
+    public AgentStore(AgentRepository repo, ObjectMapper mapper) {
+        this.mapper = mapper;
         this.repo = repo;
     }
 
@@ -78,7 +79,8 @@ public class AgentStore {
             if (json == null || json.isBlank()) return List.of();
             return mapper.readValue(json, new TypeReference<>() {});
         } catch (Exception e) {
-            return List.of();
+            throw new com.tioka.framework.error.BizException(
+                    com.tioka.framework.error.ErrorCode.BAD_REQUEST, "JSON 解析失败");
         }
     }
 
@@ -95,7 +97,8 @@ public class AgentStore {
             if (json == null || json.isBlank()) return List.of();
             return mapper.readValue(json, new TypeReference<>() {});
         } catch (Exception e) {
-            return List.of();
+            throw new com.tioka.framework.error.BizException(
+                    com.tioka.framework.error.ErrorCode.BAD_REQUEST, "JSON 解析失败");
         }
     }
 

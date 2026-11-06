@@ -3,10 +3,10 @@ package com.tioka.orchestration.infrastructure.persistence;
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
-import com.tioka.framework.persistence.BaseDO;
+import com.tioka.framework.persistence.WorkspaceAwareDO;
 
 @TableName("orch_run")
-public class OrchRunDO extends BaseDO {
+public class OrchRunDO extends WorkspaceAwareDO {
     @TableId(type = IdType.INPUT)
     private String id;
     private String status;

@@ -1,6 +1,6 @@
 package com.tioka.framework.trace;
 
-import java.util.UUID;
+import com.github.f4b6a3.ulid.UlidCreator;
 
 public final class TraceContext {
     private static final ThreadLocal<String> TRACE = new ThreadLocal<>();
@@ -12,7 +12,7 @@ public final class TraceContext {
     public static String getTraceId() {
         String id = TRACE.get();
         if (id == null) {
-            id = UUID.randomUUID().toString().replace("-", "");
+            id = UlidCreator.getMonotonicUlid().toString();
             TRACE.set(id);
         }
         return id;

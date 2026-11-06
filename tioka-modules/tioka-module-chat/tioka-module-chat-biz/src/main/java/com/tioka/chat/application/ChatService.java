@@ -6,24 +6,35 @@ import com.tioka.chat.domain.ChatStore.Conversation;
 import com.tioka.chat.domain.ChatStore.Message;
 import com.tioka.framework.error.BizException;
 import com.tioka.framework.error.ErrorCode;
+import com.tioka.framework.id.Ids;
+import com.tioka.framework.security.PrincipalHolder;
 import com.tioka.runtime.api.RuntimeSessionApi;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 
 @Service
 public class ChatService {
     private final AgentQueryApi agentQueryApi;
     private final RuntimeSessionApi runtime;
     private final ChatStore store;
+    private final PrincipalHolder principals;
+    private final TransactionTemplate tx;
 
-    public ChatService(AgentQueryApi agentQueryApi, RuntimeSessionApi runtime, ChatStore store) {
+    public ChatService(AgentQueryApi agentQueryApi,
+                       RuntimeSessionApi runtime,
+                       ChatStore store,
+                       PrincipalHolder principals,
+                       PlatformTransactionManager transactionManager) {
         this.agentQueryApi = agentQueryApi;
         this.runtime = runtime;
         this.store = store;
+        this.principals = principals;
+        this.tx = new TransactionTemplate(transactionManager);
     }
 
     public Conversation create(String title, String agentVersionId) {
@@ -32,11 +43,12 @@ public class ChatService {
                 .map(s -> new RuntimeSessionApi.SkillInstallInput(
                         s.skillId(), s.name(), s.mode(), s.description(), s.skillMd()))
                 .toList();
+        String workspaceId = principals.current().workspaceId();
         var session = runtime.create(new RuntimeSessionApi.CreateSessionRequest(
                 v.id(), v.routingPlanId(),
-                Map.of("agentVersionId", v.id(), "workspaceId", "ws_default"),
+                Map.of("agentVersionId", v.id(), "workspaceId", workspaceId == null ? "" : workspaceId),
                 skills));
-        String id = "conv_" + UUID.randomUUID().toString().replace("-", "").substring(0, 8);
+        String id = Ids.newId("conv");
         Conversation c = new Conversation(id, title == null ? "新会话" : title, agentVersionId, session.id());
         store.saveConversation(c);
         return c;
@@ -46,12 +58,25 @@ public class ChatService {
         return store.listConversations();
     }
 
-    public Message send(String conversationId, String text, String clientMsgId) {
+    public Conversation get(String conversationId) {
         Conversation c = store.getConversation(conversationId);
-        if (c == null) throw new BizException(ErrorCode.NOT_FOUND, "会话不存在");
-        String mid = "msg_" + UUID.randomUUID().toString().replace("-", "").substring(0, 8);
+        if (c == null) {
+            throw new BizException(ErrorCode.NOT_FOUND, "会话不存在");
+        }
+        return c;
+    }
+
+    public void delete(String conversationId) {
+        get(conversationId);
+        store.deleteConversation(conversationId);
+    }
+
+    public Message send(String conversationId, String text, String clientMsgId) {
+        Conversation c = get(conversationId);
+        String mid = Ids.newId("msg");
         Message user = new Message(mid, conversationId, "user", text, List.of(Map.of("type", "text", "text", text)));
-        store.addMessage(user);
+        // GOV-04：用户消息先落库提交；模型调用不在事务内。与 startTurn 同事务待 RuntimeApi 适配后合并。
+        tx.executeWithoutResult(status -> store.addMessage(user));
 
         RuntimeSessionApi.TurnView turn = runtime.append(c.runtimeSessionId(),
                 new RuntimeSessionApi.AppendRequest(clientMsgId, text));
@@ -69,13 +94,14 @@ public class ChatService {
                 assistantText.append("\n[tool] ").append(p.text());
             }
         }
-        Message asst = new Message("msg_" + UUID.randomUUID().toString().replace("-", "").substring(0, 8),
+        Message asst = new Message(Ids.newId("msg"),
                 conversationId, "assistant", assistantText.toString().trim(), parts);
         store.addMessage(asst);
         return asst;
     }
 
     public List<Message> messages(String conversationId) {
+        get(conversationId);
         return store.messages(conversationId);
     }
 }

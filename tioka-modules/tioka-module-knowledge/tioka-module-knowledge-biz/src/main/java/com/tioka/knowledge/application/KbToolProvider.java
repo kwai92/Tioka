@@ -12,9 +12,10 @@ import java.util.Map;
 @Component
 public class KbToolProvider implements ToolProvider {
     private final KnowledgeService knowledgeService;
-    private final ObjectMapper mapper = new ObjectMapper();
+    private final ObjectMapper mapper;
 
-    public KbToolProvider(KnowledgeService knowledgeService) {
+    public KbToolProvider(KnowledgeService knowledgeService, ObjectMapper mapper) {
+        this.mapper = mapper;
         this.knowledgeService = knowledgeService;
     }
 

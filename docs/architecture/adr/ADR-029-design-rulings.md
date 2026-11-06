@@ -118,3 +118,11 @@ M0 编码线程开工前复核施工设计，发现以下问题。按 ADR-030 �
 | 57 | ADR-021、ADR-015 | 卡片与通知里的深链如何鉴权 | 深链只带业务对象 ID，不带任何令牌或签名票据；业务系统与 Tioka 共用 Keycloak realm，未登录走单点登录后回到原地址，权限由业务系统自己判断 |
 | 58 | ADR-032〜034、第 40 条 | 审查 Agent 能写什么、如何上岗 | Agent 只写草稿结论（`submitReviewDraft`，REVERSIBLE），最终结论以法务处置为准；子 Agent 没有任何业务写工具与通知工具。M3 影子期用业务系统的 `visibility = SHADOW` 实现（不发通知、不向法务展示），因为 TRU-11 在 M4；达标后 `lease.review.draft` 设为 L2。M4 起新版本改用平台影子模式 |
 | 59 | 34 号计划 | 合同场景新增约 130 人日后端、30 人日前端（含新建业务系统），M3 放不下 | 2026-11-05 负责人选定方案 A：范围不变，M3 延长约 10 周（W19–W40），M4 顺延为 W41–W52，总工期约 12 个月。合同场景全部工作项（含合同链折叠）在 M3 完成，不后移其他 M3 工作项 |
+
+## 实施前权威冲突裁定（2026-11-05）
+
+M0 编码开工时（分支 `feat/G0-multistep-stream-concurrency`）裁定。该条在分支上原编号为第 36 条，与上方可信放权的第 36 条（Charter）撞号，合并回主干时改为第 60 条；代码与迁移注释中的「ADR-029 第 36 条（租户）」均指本条。
+
+| # | 涉及 | 问题 | 定案 |
+| --- | --- | --- | --- |
+| 60 | 第 19、22 条；ADR-009；persistence-guardrails；Cursor 架构规则 | 第 19/22 条要求业务表加 `tenant_id` 并保留租户拦截器，与护栏「禁止 tenantId」及单企业独立部署现实冲突 | **废止第 19、22 条中「加 `tenant_id` / 保留租户拦截器」的要求。** 禁止在 DO、迁移、API 引入 `tenant_id` / `sys_tenant`；隔离边界为空间（`workspace_id`）+ 私有资源的 `owner_id`。持久层只用 workspace 行级过滤。角色 `tenant_admin` 保留历史角色码，界面显示「系统管理员」，`sys_role.scope` 取值 `SYSTEM` / `WORKSPACE`。`Principal` 不再含 `tenantId`。未落地的契约脚本（V100 起）按本条改写；M1/M2 契约同步去掉 `tenant_id` |

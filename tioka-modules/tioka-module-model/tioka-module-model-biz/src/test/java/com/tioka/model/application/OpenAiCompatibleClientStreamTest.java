@@ -16,7 +16,7 @@ class OpenAiCompatibleClientStreamTest {
     @Test
     void mockStreamEmitsAtLeastTwoDeltas() throws Exception {
         OpenAiCompatibleClient client = new OpenAiCompatibleClient(
-                noopSecretStore(), url -> {}, true);
+                noopSecretStore(), url -> {}, true, new com.fasterxml.jackson.databind.ObjectMapper());
         AtomicInteger deltas = new AtomicInteger();
         List<String> pieces = new ArrayList<>();
         LlmClientApi.CompletionResult result = client.streamComplete(

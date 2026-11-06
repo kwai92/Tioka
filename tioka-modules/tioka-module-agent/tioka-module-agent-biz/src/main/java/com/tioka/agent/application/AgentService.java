@@ -1,5 +1,7 @@
 package com.tioka.agent.application;
 
+import com.tioka.framework.id.Ids;
+
 import com.tioka.agent.api.AgentQueryApi;
 import com.tioka.agent.domain.AgentStore;
 import com.tioka.agent.domain.AgentStore.Agent;
@@ -17,7 +19,6 @@ import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.HexFormat;
 import java.util.List;
-import java.util.UUID;
 
 @Service
 public class AgentService implements AgentQueryApi {
@@ -32,7 +33,7 @@ public class AgentService implements AgentQueryApi {
     }
 
     public Agent create(String name, String workspaceId) {
-        String id = "agt_" + UUID.randomUUID().toString().replace("-", "").substring(0, 8);
+        String id = Ids.newId("agt");
         Agent a = new Agent(id, name, workspaceId, false, null);
         store.putAgent(a);
         return a;
@@ -41,7 +42,7 @@ public class AgentService implements AgentQueryApi {
     public AgentVersion draft(String agentId, String instructions, String routingPlanId,
                               List<String> mcpGrantIds, List<SkillBinding> skillBindings) {
         if (store.getAgent(agentId).isEmpty()) throw new BizException(ErrorCode.NOT_FOUND, "agent 不存在");
-        String id = "av_" + UUID.randomUUID().toString().replace("-", "").substring(0, 8);
+        String id = Ids.newId("av");
         AgentVersion v = new AgentVersion(id, agentId, instructions, routingPlanId,
                 mcpGrantIds == null ? List.of() : mcpGrantIds,
                 skillBindings == null ? List.of() : skillBindings,

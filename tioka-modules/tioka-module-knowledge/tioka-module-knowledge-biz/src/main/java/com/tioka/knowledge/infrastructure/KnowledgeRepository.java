@@ -32,6 +32,7 @@ public class KnowledgeRepository {
     public void insertBase(KbBaseDO row) { bases.insert(row); }
     public boolean hasBase(String id) { return bases.selectById(id) != null; }
     public void insertDocument(KbDocumentDO row) { documents.insert(row); }
+    public void updateDocument(KbDocumentDO row) { documents.updateById(row); }
     public KbDocumentDO findDocument(String id) { return documents.selectById(id); }
     public void insertChunk(KbChunkDO row) { chunks.insert(row); }
     public void insertChunkWithVector(String id, String docId, String kbId, String text, int ordinal, String embedding, String vectorLiteral) {

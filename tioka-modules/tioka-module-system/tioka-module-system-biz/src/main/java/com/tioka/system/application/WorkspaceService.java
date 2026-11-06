@@ -2,34 +2,63 @@ package com.tioka.system.application;
 
 import com.tioka.framework.error.BizException;
 import com.tioka.framework.error.ErrorCode;
+import com.tioka.framework.id.Ids;
+import com.tioka.framework.security.PrincipalHolder;
+import com.tioka.system.infrastructure.SysMemberRepository;
 import com.tioka.system.infrastructure.SysWorkspaceRepository;
+import com.tioka.system.infrastructure.dataobject.SysMemberDO;
 import com.tioka.system.infrastructure.persistence.SysWorkspaceDO;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
-import java.util.UUID;
+import java.util.ArrayList;
+import java.util.List;
 
 @Service
 public class WorkspaceService {
     private final SysWorkspaceRepository workspaces;
+    private final SysMemberRepository members;
+    private final PrincipalHolder principals;
 
-    public WorkspaceService(SysWorkspaceRepository workspaces) {
+    public WorkspaceService(SysWorkspaceRepository workspaces,
+                            SysMemberRepository members,
+                            PrincipalHolder principals) {
         this.workspaces = workspaces;
-        if (workspaces.findById("ws_default") == null) {
-            SysWorkspaceDO def = new SysWorkspaceDO();
-            def.setId("ws_default");
-            def.setName("默认空间");
-            def.setOwnerUserId(1L);
-            workspaces.insert(def);
+        this.members = members;
+        this.principals = principals;
+    }
+
+    @Transactional
+    public Workspace create(String name) {
+        requireTenantAdmin();
+        long ownerId = Long.parseLong(principals.current().userId());
+        String id = Ids.newId("ws");
+        SysWorkspaceDO row = new SysWorkspaceDO();
+        row.setId(id);
+        row.setName(name);
+        row.setOwnerUserId(ownerId);
+        workspaces.insert(row);
+        members.upsert(id, String.valueOf(ownerId), "workspace_admin");
+        return new Workspace(id, name, ownerId);
+    }
+
+    private void requireTenantAdmin() {
+        if (!principals.current().hasPermission("*")
+                && !principals.current().roles().contains("tenant_admin")) {
+            throw new BizException(ErrorCode.FORBIDDEN);
         }
     }
 
+    /** 测试 / 引导用：指定所有者创建空间。 */
+    @Transactional
     public Workspace create(String name, Long ownerUserId) {
-        String id = "ws_" + UUID.randomUUID().toString().replace("-", "").substring(0, 8);
+        String id = Ids.newId("ws");
         SysWorkspaceDO row = new SysWorkspaceDO();
         row.setId(id);
         row.setName(name);
         row.setOwnerUserId(ownerUserId);
         workspaces.insert(row);
+        members.upsert(id, String.valueOf(ownerUserId), "workspace_admin");
         return new Workspace(id, name, ownerUserId);
     }
 
@@ -40,11 +69,24 @@ public class WorkspaceService {
     }
 
     public void assertMember(String workspaceId, Long userId) {
-        Workspace w = require(workspaceId);
-        if (!w.ownerUserId().equals(userId) && userId != null && userId != 1L) {
-            throw new BizException(ErrorCode.FORBIDDEN, "无空间权限");
+        require(workspaceId);
+        if (userId == null || !members.isMember(workspaceId, String.valueOf(userId))) {
+            throw new BizException(ErrorCode.WORKSPACE_FORBIDDEN, "不是该空间成员");
         }
     }
 
+    public List<MineWorkspace> mine() {
+        String userId = principals.current().userId();
+        List<SysMemberDO> ms = members.findByUserId(userId);
+        List<MineWorkspace> out = new ArrayList<>();
+        for (SysMemberDO m : ms) {
+            SysWorkspaceDO ws = workspaces.findById(m.getWorkspaceId());
+            if (ws == null) continue;
+            out.add(new MineWorkspace(ws.getId(), ws.getName(), m.getRoleCode()));
+        }
+        return out;
+    }
+
     public record Workspace(String id, String name, Long ownerUserId) {}
+    public record MineWorkspace(String id, String name, String role) {}
 }

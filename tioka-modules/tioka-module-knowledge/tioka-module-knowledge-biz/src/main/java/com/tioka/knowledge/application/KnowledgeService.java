@@ -1,5 +1,7 @@
 package com.tioka.knowledge.application;
 
+import com.tioka.framework.id.Ids;
+
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tioka.framework.error.BizException;
@@ -14,6 +16,8 @@ import com.tioka.knowledge.infrastructure.persistence.KbCitationDO;
 import com.tioka.knowledge.infrastructure.persistence.KbDocumentDO;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -23,21 +27,26 @@ public class KnowledgeService implements KnowledgeSearchApi {
     private final KnowledgeRepository repo;
     private final EmbeddingClient embeddingClient;
     private final DocumentParser documentParser;
-    private final ObjectMapper mapper = new ObjectMapper();
+    private final ObjectMapper mapper;
     private final boolean pgvector;
+    private final TransactionTemplate tx;
 
     public KnowledgeService(KnowledgeRepository repo,
                             EmbeddingClient embeddingClient,
                             DocumentParser documentParser,
-                            @Value("${tioka.knowledge.vector-backend:local}") String vectorBackend) {
+                            @Value("${tioka.knowledge.vector-backend:local}") String vectorBackend,
+                            ObjectMapper mapper,
+                            PlatformTransactionManager transactionManager) {
+        this.mapper = mapper;
         this.repo = repo;
         this.embeddingClient = embeddingClient;
         this.documentParser = documentParser;
         this.pgvector = "pgvector".equalsIgnoreCase(vectorBackend);
+        this.tx = new TransactionTemplate(transactionManager);
     }
 
     public KnowledgeBase createBase(String workspaceId, String name) {
-        String id = "kb_" + UUID.randomUUID().toString().replace("-", "").substring(0, 8);
+        String id = Ids.newId("kb");
         KbBaseDO row = new KbBaseDO();
         row.setId(id);
         row.setWorkspaceId(workspaceId);
@@ -68,27 +77,69 @@ public class KnowledgeService implements KnowledgeSearchApi {
     }
 
     private Document indexDocument(String kbId, String title, String normalized, String sourceType, String format) {
-        String id = "doc_" + UUID.randomUUID().toString().replace("-", "").substring(0, 8);
+        String id = Ids.newId("doc");
         String fmt = format == null ? "txt" : format;
-        KbDocumentDO doc = new KbDocumentDO();
-        doc.setId(id);
-        doc.setKbId(kbId);
-        doc.setTitle(title);
-        doc.setSourceType(sourceType);
-        doc.setStatus("INDEXED");
-        doc.setFormat(fmt);
-        repo.insertDocument(doc);
+        tx.executeWithoutResult(status -> {
+            KbDocumentDO doc = new KbDocumentDO();
+            doc.setId(id);
+            doc.setKbId(kbId);
+            doc.setTitle(title);
+            doc.setSourceType(sourceType);
+            doc.setStatus("EMBEDDING");
+            doc.setFormat(fmt);
+            repo.insertDocument(doc);
+        });
+
+        List<PreparedChunk> prepared;
+        try {
+            prepared = prepareChunks(id, kbId, normalized);
+        } catch (RuntimeException e) {
+            String msg = e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage();
+            tx.executeWithoutResult(status -> markFailed(id, msg));
+            throw e instanceof BizException be ? be
+                    : new BizException(ErrorCode.INTERNAL, "嵌入失败: " + msg);
+        }
+
+        return tx.execute(status -> {
+            for (PreparedChunk c : prepared) {
+                insertChunk(c.chunkId(), c.docId(), c.kbId(), c.text(), c.ordinal(), c.vec());
+            }
+            KbDocumentDO doc = repo.findDocument(id);
+            if (doc == null) {
+                throw new BizException(ErrorCode.NOT_FOUND, "document 不存在");
+            }
+            doc.setStatus("READY");
+            doc.setErrorMessage(null);
+            repo.updateDocument(doc);
+            return new Document(id, kbId, title, sourceType, "READY", fmt);
+        });
+    }
+
+    private List<PreparedChunk> prepareChunks(String docId, String kbId, String normalized) {
+        List<PreparedChunk> out = new ArrayList<>();
         int size = 200;
         if (normalized == null || normalized.isEmpty()) {
-            insertChunk("chk_" + id + "_0", id, kbId, "", 0, embed(""));
-        } else {
-            for (int i = 0, ordinal = 0; i < normalized.length(); i += size, ordinal++) {
-                String text = normalized.substring(i, Math.min(normalized.length(), i + size));
-                insertChunk("chk_" + id + "_" + ordinal, id, kbId, text, ordinal, embed(text));
-            }
+            out.add(new PreparedChunk("chk_" + docId + "_0", docId, kbId, "", 0, embed("")));
+            return out;
         }
-        return new Document(id, kbId, title, sourceType, "INDEXED", fmt);
+        for (int i = 0, ordinal = 0; i < normalized.length(); i += size, ordinal++) {
+            String text = normalized.substring(i, Math.min(normalized.length(), i + size));
+            out.add(new PreparedChunk("chk_" + docId + "_" + ordinal, docId, kbId, text, ordinal, embed(text)));
+        }
+        return out;
     }
+
+    private void markFailed(String docId, String errorMessage) {
+        KbDocumentDO doc = repo.findDocument(docId);
+        if (doc == null) {
+            return;
+        }
+        doc.setStatus("FAILED");
+        doc.setErrorMessage(errorMessage == null ? "" : errorMessage.substring(0, Math.min(errorMessage.length(), 2000)));
+        repo.updateDocument(doc);
+    }
+
+    private record PreparedChunk(String chunkId, String docId, String kbId, String text, int ordinal, double[] vec) {}
 
     @Override
     public List<KnowledgeSearchApi.Hit> searchKnowledge(String kbId, String query, int topK) {
@@ -161,7 +212,7 @@ public class KnowledgeService implements KnowledgeSearchApi {
                 .limit(limit)
                 .map(e -> {
                     ScoredChunk sc = byKey.get(e.getKey());
-                    String citationId = "cit_" + UUID.randomUUID().toString().replace("-", "").substring(0, 10);
+                    String citationId = Ids.newId("cit");
                     KbCitationDO cit = new KbCitationDO();
                     cit.setId(citationId);
                     cit.setDocId(sc.docId());
@@ -242,7 +293,7 @@ public class KnowledgeService implements KnowledgeSearchApi {
             for (int i = 0; i < list.size(); i++) v[i] = list.get(i);
             return v;
         } catch (Exception e) {
-            return new double[embeddingClient.dimension()];
+            throw new BizException(ErrorCode.BAD_REQUEST, "embedding JSON 解析失败");
         }
     }
 

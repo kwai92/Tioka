@@ -2,21 +2,19 @@
 -- 施工设计：M1-01-权限与身份联邦.md（FND-04）
 
 CREATE TABLE sys_user_role (
-    tenant_id  VARCHAR(64) NOT NULL,
     user_id    VARCHAR(64) NOT NULL,
     role_code  VARCHAR(64) NOT NULL,
     create_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
     create_by  VARCHAR(64) NOT NULL DEFAULT 'system',
-    PRIMARY KEY (tenant_id, user_id, role_code)
+    PRIMARY KEY (user_id, role_code)
 );
-INSERT INTO sys_user_role (tenant_id, user_id, role_code)
-  SELECT 'default', user_id, role_code FROM sys_member WHERE role_code = 'tenant_admin'
+INSERT INTO sys_user_role (user_id, role_code)
+  SELECT user_id, role_code FROM sys_member WHERE role_code = 'tenant_admin'
   ON CONFLICT DO NOTHING;
 DELETE FROM sys_member WHERE role_code = 'tenant_admin';
 
 CREATE TABLE sys_group (
     id          VARCHAR(32)  PRIMARY KEY,
-    tenant_id   VARCHAR(64)  NOT NULL DEFAULT 'default',
     name        VARCHAR(255) NOT NULL,
     source      VARCHAR(32)  NOT NULL DEFAULT 'local',      -- local / oidc:{idp} / scim
     external_id VARCHAR(255),
@@ -24,7 +22,7 @@ CREATE TABLE sys_group (
     update_at   TIMESTAMPTZ  NOT NULL DEFAULT now(),
     create_by   VARCHAR(64)  NOT NULL DEFAULT 'system',
     update_by   VARCHAR(64)  NOT NULL DEFAULT 'system',
-    UNIQUE (tenant_id, source, external_id)
+    UNIQUE (source, external_id)
 );
 CREATE TABLE sys_group_member (
     group_id   VARCHAR(32) NOT NULL,
@@ -34,9 +32,9 @@ CREATE TABLE sys_group_member (
 );
 CREATE INDEX idx_group_member_user ON sys_group_member (user_id);
 
-DELETE FROM sys_role_permission WHERE tenant_id = 'default';
-INSERT INTO sys_role_permission (tenant_id, role_code, permission)
-SELECT 'default', p.role_code, p.permission
+DELETE FROM sys_role_permission ;
+INSERT INTO sys_role_permission (role_code, permission)
+SELECT p.role_code, p.permission
 FROM (VALUES
   ('tenant_admin', '*'),
   -- workspace_admin：除 tenant:admin、model:admin 外全部
@@ -63,7 +61,7 @@ FROM (VALUES
   ('viewer','agent:read'),('viewer','flow:read'),('viewer','kb:read'),('viewer','skill:read'),('viewer','mcp:read'),
   ('viewer','orch:read'),('viewer','model:read'),('viewer','quota:read')
 ) AS p(role_code, permission)
-JOIN sys_role r ON r.tenant_id = 'default' AND r.code = p.role_code;
+JOIN sys_role r ON r.code = p.role_code;
 
 -- 现有资源的 owner 写入 ACL
 INSERT INTO sys_resource_acl (resource_type, resource_id, subject_type, subject_id, level)
