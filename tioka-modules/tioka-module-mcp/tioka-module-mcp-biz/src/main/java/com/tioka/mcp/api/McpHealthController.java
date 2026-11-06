@@ -6,9 +6,12 @@ import com.tioka.mcp.application.McpHealthService;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
+import com.tioka.framework.security.RequirePermission;
+import com.tioka.framework.security.Permissions;
 
 @RestController
 @RequestMapping("/api/mcp")
+@RequirePermission(Permissions.MCP_READ)
 public class McpHealthController {
     private final McpHealthService healthService;
     private final McpAdminService adminService;

@@ -1,6 +1,7 @@
 package com.tioka.system.api;
 
 import com.tioka.framework.error.ApiResponse;
+import com.tioka.framework.security.Permissions;
 import com.tioka.framework.security.RequirePermission;
 import com.tioka.system.application.UserAdminService;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -19,7 +20,7 @@ public class UserController {
         this.users = users;
     }
 
-    @RequirePermission("tenant_admin")
+    @RequirePermission(Permissions.TENANT_ADMIN)
     @PostMapping
     public ApiResponse<UserAdminService.CreatedUser> create(@RequestBody Map<String, String> body) {
         return ApiResponse.ok(users.create(

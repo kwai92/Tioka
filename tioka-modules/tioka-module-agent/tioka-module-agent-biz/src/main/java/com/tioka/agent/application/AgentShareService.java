@@ -1,23 +1,17 @@
 package com.tioka.agent.application;
 
-import com.tioka.framework.id.Ids;
-
-import com.tioka.agent.infrastructure.AgentShareRepository;
-import com.tioka.agent.infrastructure.persistence.AgentShareDO;
+import com.tioka.framework.error.NotImplemented;
 import org.springframework.stereotype.Service;
 
-
+/**
+ * 旧 agent_share 已由 V110 删除；分享改走 {@code /api/{type}/{id}/acl}（FND-04）。
+ */
 @Service
 public class AgentShareService {
-    private final AgentShareRepository shares;
-    public AgentShareService(AgentShareRepository shares) { this.shares = shares; }
 
     public Share share(String agentId, String mode) {
-        Share s = new Share(Ids.newId("sh"), agentId, mode == null ? "READONLY" : mode);
-        AgentShareDO row = new AgentShareDO();
-        row.setId(s.id()); row.setAgentId(s.agentId()); row.setMode(s.mode());
-        shares.insert(row);
-        return s;
+        throw NotImplemented.of("agent-share-legacy", "FND-04 ResourceAcl");
     }
+
     public record Share(String id, String agentId, String mode) {}
 }

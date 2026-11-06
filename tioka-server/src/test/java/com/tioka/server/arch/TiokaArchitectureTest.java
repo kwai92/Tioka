@@ -34,13 +34,13 @@ import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noMethods;
 class TiokaArchitectureTest {
 
     @ArchTest
-    static final ArchRule controllersMustDeclarePermission = FreezingArchRule.freeze(
+    static final ArchRule controllersMustDeclarePermission =
             methods().that().areDeclaredInClassesThat().areAnnotatedWith(RestController.class)
                     .and().arePublic()
                     .should().beAnnotatedWith(RequirePermission.class)
                     .orShould().beAnnotatedWith(PublicApi.class)
                     .orShould().beDeclaredInClassesThat().areAnnotatedWith(RequirePermission.class)
-                    .because("Controller 方法必须声明 @RequirePermission 或 @PublicApi（ADR-015）"));
+                    .because("Controller 方法必须声明 @RequirePermission 或 @PublicApi（ADR-015）");
 
     @ArchTest
     static final ArchRule onlyModelBizTalksToModelHttp = FreezingArchRule.freeze(

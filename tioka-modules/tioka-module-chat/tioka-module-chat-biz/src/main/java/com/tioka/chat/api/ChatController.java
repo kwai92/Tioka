@@ -3,6 +3,7 @@ package com.tioka.chat.api;
 import com.tioka.chat.application.ChatService;
 import com.tioka.chat.domain.ChatStore;
 import com.tioka.framework.error.ApiResponse;
+import com.tioka.framework.security.Permissions;
 import com.tioka.framework.security.RequirePermission;
 import org.springframework.web.bind.annotation.*;
 
@@ -11,7 +12,7 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/chat")
-@RequirePermission("chat:use")
+@RequirePermission(Permissions.CHAT_USE)
 public class ChatController {
     private final ChatService chatService;
 

@@ -5,9 +5,12 @@ import com.tioka.flow.application.FlowService;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
+import com.tioka.framework.security.RequirePermission;
+import com.tioka.framework.security.Permissions;
 
 @RestController
 @RequestMapping("/api/flows")
+@RequirePermission(Permissions.FLOW_WRITE)
 public class FlowController {
     private final FlowService flowService;
 

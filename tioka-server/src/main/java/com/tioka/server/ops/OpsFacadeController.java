@@ -18,9 +18,12 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import com.tioka.framework.security.RequirePermission;
+import com.tioka.framework.security.Permissions;
 
 @RestController
 @RequestMapping("/api/ops")
+@RequirePermission(Permissions.TENANT_ADMIN)
 public class OpsFacadeController {
     private final DataSourceService dataSourceService;
     private final FeishuDocSyncService feishuDocSyncService;

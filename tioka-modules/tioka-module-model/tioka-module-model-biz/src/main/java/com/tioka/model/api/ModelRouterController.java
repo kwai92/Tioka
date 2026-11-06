@@ -6,9 +6,12 @@ import com.tioka.framework.error.ErrorCode;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
+import com.tioka.framework.security.RequirePermission;
+import com.tioka.framework.security.Permissions;
 
 @RestController
 @RequestMapping("/api/model")
+@RequirePermission(Permissions.MODEL_READ)
 public class ModelRouterController {
     private final ModelRouterApi router;
 

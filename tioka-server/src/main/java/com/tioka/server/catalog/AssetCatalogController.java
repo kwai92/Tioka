@@ -2,6 +2,8 @@ package com.tioka.server.catalog;
 
 import com.tioka.agent.application.AgentService;
 import com.tioka.framework.error.ApiResponse;
+import com.tioka.framework.security.Permissions;
+import com.tioka.framework.security.RequirePermission;
 import com.tioka.mcp.application.McpAdminService;
 import org.springframework.web.bind.annotation.*;
 
@@ -11,6 +13,7 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/catalog")
+@RequirePermission(Permissions.AGENT_READ)
 public class AssetCatalogController {
     private final AgentService agentService;
     private final McpAdminService mcpAdminService;

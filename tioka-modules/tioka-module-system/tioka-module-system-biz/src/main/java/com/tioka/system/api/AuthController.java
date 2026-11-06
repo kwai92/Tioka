@@ -77,7 +77,7 @@ public class AuthController {
         }
     }
 
-    @RequirePermission("auth:logout")
+    @RequirePermission({})
     @PostMapping("/logout")
     public ApiResponse<Void> logout(HttpServletRequest request, HttpServletResponse response) {
         String access = bearer(request);
@@ -88,7 +88,7 @@ public class AuthController {
         return ApiResponse.ok(null);
     }
 
-    @RequirePermission("auth:password")
+    @RequirePermission({})
     @PostMapping("/password")
     public ApiResponse<Void> changePassword(@RequestBody PasswordRequest req, HttpServletRequest request) {
         Long userId = authService.resolveUserId(bearer(request));
@@ -141,7 +141,7 @@ public class AuthController {
         return ApiResponse.ok(result);
     }
 
-    @RequirePermission("auth:me")
+    @RequirePermission({})
     @GetMapping("/me")
     public ApiResponse<AuthService.MeResult> me(HttpServletRequest request) {
         Long userId = authService.resolveUserId(bearer(request));

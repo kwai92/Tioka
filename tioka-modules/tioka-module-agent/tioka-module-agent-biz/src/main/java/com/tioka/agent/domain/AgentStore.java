@@ -27,21 +27,24 @@ public class AgentStore {
         row.setWorkspaceId(a.workspaceId());
         row.setEnabled(a.enabled());
         row.setPublishedVersionId(a.publishedVersionId());
+        row.setVisibility(a.visibility() == null ? "WORKSPACE" : a.visibility());
         repo.upsertAgent(row);
     }
 
     public Optional<Agent> getAgent(String id) {
         AgentDO row = repo.findAgent(id);
         return row == null ? Optional.empty()
-                : Optional.of(new Agent(row.getId(), row.getName(), row.getWorkspaceId(),
-                Boolean.TRUE.equals(row.getEnabled()), row.getPublishedVersionId()));
+                : Optional.of(toAgent(row));
     }
 
     public List<Agent> agents() {
-        return repo.listAgents().stream()
-                .map(r -> new Agent(r.getId(), r.getName(), r.getWorkspaceId(),
-                        Boolean.TRUE.equals(r.getEnabled()), r.getPublishedVersionId()))
-                .toList();
+        return repo.listAgents().stream().map(this::toAgent).toList();
+    }
+
+    private Agent toAgent(AgentDO row) {
+        return new Agent(row.getId(), row.getName(), row.getWorkspaceId(),
+                Boolean.TRUE.equals(row.getEnabled()), row.getPublishedVersionId(),
+                row.getVisibility() == null ? "WORKSPACE" : row.getVisibility());
     }
 
     public void putVersion(AgentVersion v) {
@@ -102,7 +105,12 @@ public class AgentStore {
         }
     }
 
-    public record Agent(String id, String name, String workspaceId, boolean enabled, String publishedVersionId) {}
+    public record Agent(String id, String name, String workspaceId, boolean enabled,
+                        String publishedVersionId, String visibility) {
+        public Agent(String id, String name, String workspaceId, boolean enabled, String publishedVersionId) {
+            this(id, name, workspaceId, enabled, publishedVersionId, "WORKSPACE");
+        }
+    }
 
     public record SkillBinding(String skillId, String mode) {}
 

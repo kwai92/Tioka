@@ -8,9 +8,12 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 import java.util.Map;
+import com.tioka.framework.security.RequirePermission;
+import com.tioka.framework.security.Permissions;
 
 @RestController
 @RequestMapping("/api/knowledge")
+@RequirePermission(Permissions.KB_WRITE)
 public class KnowledgeController {
     private final KnowledgeService service;
     private final DataSourceService dataSourceService;

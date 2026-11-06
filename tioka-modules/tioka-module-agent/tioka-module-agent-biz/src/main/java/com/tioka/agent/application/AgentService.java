@@ -9,8 +9,12 @@ import com.tioka.agent.domain.AgentStore.AgentVersion;
 import com.tioka.agent.domain.AgentStore.SkillBinding;
 import com.tioka.framework.error.BizException;
 import com.tioka.framework.error.ErrorCode;
+import com.tioka.framework.security.AccessLevel;
+import com.tioka.framework.security.PrincipalHolder;
+import com.tioka.framework.security.ResourceGuard;
 import com.tioka.model.api.RoutingPlanQueryApi;
 import com.tioka.skill.api.SkillQueryApi;
+import com.tioka.system.api.authz.ResourceAclApi;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -19,28 +23,71 @@ import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.Set;
 
 @Service
 public class AgentService implements AgentQueryApi {
     private final RoutingPlanQueryApi routingPlanQueryApi;
     private final SkillQueryApi skillQueryApi;
     private final AgentStore store;
+    private final ResourceGuard resourceGuard;
+    private final ResourceAclApi resourceAcl;
+    private final PrincipalHolder principals;
 
-    public AgentService(RoutingPlanQueryApi routingPlanQueryApi, SkillQueryApi skillQueryApi, AgentStore store) {
+    public AgentService(RoutingPlanQueryApi routingPlanQueryApi,
+                        SkillQueryApi skillQueryApi,
+                        AgentStore store,
+                        ResourceGuard resourceGuard,
+                        ResourceAclApi resourceAcl,
+                        PrincipalHolder principals) {
         this.routingPlanQueryApi = routingPlanQueryApi;
         this.skillQueryApi = skillQueryApi;
         this.store = store;
+        this.resourceGuard = resourceGuard;
+        this.resourceAcl = resourceAcl;
+        this.principals = principals;
     }
 
-    public Agent create(String name, String workspaceId) {
+    public Agent create(String name, String workspaceId, String visibility) {
         String id = Ids.newId("agt");
-        Agent a = new Agent(id, name, workspaceId, false, null);
+        String ws = workspaceId == null || workspaceId.isBlank()
+                ? principals.current().workspaceId() : workspaceId;
+        String vis = visibility == null || visibility.isBlank() ? "WORKSPACE" : visibility;
+        Agent a = new Agent(id, name, ws, false, null, vis);
         store.putAgent(a);
+        resourceAcl.ensureOwner("agent", id, principals.current().userId());
         return a;
+    }
+
+    /** 兼容旧调用。 */
+    public Agent create(String name, String workspaceId) {
+        return create(name, workspaceId, "WORKSPACE");
+    }
+
+    public Agent get(String agentId) {
+        resourceGuard.check("agent", agentId, AccessLevel.VIEW);
+        return store.getAgent(agentId)
+                .orElseThrow(() -> new BizException(ErrorCode.NOT_FOUND, "agent 不存在"));
+    }
+
+    public Agent update(String agentId, String name, String visibility) {
+        resourceGuard.check("agent", agentId, AccessLevel.EDIT);
+        Agent existing = store.getAgent(agentId)
+                .orElseThrow(() -> new BizException(ErrorCode.NOT_FOUND, "agent 不存在"));
+        Agent updated = new Agent(
+                existing.id(),
+                name == null || name.isBlank() ? existing.name() : name,
+                existing.workspaceId(),
+                existing.enabled(),
+                existing.publishedVersionId(),
+                visibility == null || visibility.isBlank() ? existing.visibility() : visibility);
+        store.putAgent(updated);
+        return updated;
     }
 
     public AgentVersion draft(String agentId, String instructions, String routingPlanId,
                               List<String> mcpGrantIds, List<SkillBinding> skillBindings) {
+        resourceGuard.check("agent", agentId, AccessLevel.EDIT);
         if (store.getAgent(agentId).isEmpty()) throw new BizException(ErrorCode.NOT_FOUND, "agent 不存在");
         String id = Ids.newId("av");
         AgentVersion v = new AgentVersion(id, agentId, instructions, routingPlanId,
@@ -60,6 +107,7 @@ public class AgentService implements AgentQueryApi {
     public AgentVersion publish(String versionId) {
         AgentVersion v = store.getVersion(versionId)
                 .orElseThrow(() -> new BizException(ErrorCode.NOT_FOUND, "version 不存在"));
+        resourceGuard.check("agent", v.agentId(), AccessLevel.EDIT);
         if (v.published()) {
             throw new BizException(ErrorCode.CONFLICT, "已发布版本不可变: " + versionId);
         }
@@ -72,7 +120,7 @@ public class AgentService implements AgentQueryApi {
                 v.mcpGrantIds(), v.skillBindings(), hash, true);
         store.putVersion(published);
         Agent a = store.getAgent(v.agentId()).orElseThrow();
-        store.putAgent(new Agent(a.id(), a.name(), a.workspaceId(), true, published.id()));
+        store.putAgent(new Agent(a.id(), a.name(), a.workspaceId(), true, published.id(), a.visibility()));
         return published;
     }
 
@@ -92,7 +140,13 @@ public class AgentService implements AgentQueryApi {
     }
 
     public List<Agent> list() {
-        return store.agents();
+        Set<String> visible = resourceGuard.visibleIds("agent", AccessLevel.VIEW);
+        return store.agents().stream().filter(a -> visible.contains(a.id())).toList();
+    }
+
+    /** 会话选用：需 USE。 */
+    public void requireUse(String agentId) {
+        resourceGuard.check("agent", agentId, AccessLevel.USE);
     }
 
     private static String sha256(String raw) {

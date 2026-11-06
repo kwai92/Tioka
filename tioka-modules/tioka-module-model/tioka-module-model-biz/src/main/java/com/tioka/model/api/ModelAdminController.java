@@ -6,9 +6,12 @@ import com.tioka.model.application.ModelAdminService;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import com.tioka.framework.security.RequirePermission;
+import com.tioka.framework.security.Permissions;
 
 @RestController
 @RequestMapping("/api/model")
+@RequirePermission(Permissions.MODEL_ADMIN)
 public class ModelAdminController {
     private final ModelAdminService service;
 

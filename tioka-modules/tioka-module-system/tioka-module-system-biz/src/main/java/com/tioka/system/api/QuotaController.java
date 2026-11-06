@@ -5,9 +5,12 @@ import com.tioka.system.application.QuotaService;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
+import com.tioka.framework.security.RequirePermission;
+import com.tioka.framework.security.Permissions;
 
 @RestController
 @RequestMapping("/api/system/quota")
+@RequirePermission(Permissions.QUOTA_ADMIN)
 public class QuotaController {
     private final QuotaService quotaService;
 

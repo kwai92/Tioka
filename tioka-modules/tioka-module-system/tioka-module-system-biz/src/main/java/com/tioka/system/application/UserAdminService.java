@@ -57,8 +57,8 @@ public class UserAdminService {
     }
 
     private void requireTenantAdmin() {
-        if (!principals.current().hasPermission("*")
-                && !principals.current().roles().contains("tenant_admin")) {
+        if (!principals.current().hasPermission(com.tioka.framework.security.Permissions.TENANT_ADMIN)
+                && !principals.current().hasPermission("*")) {
             throw new BizException(ErrorCode.FORBIDDEN);
         }
     }

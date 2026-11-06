@@ -8,9 +8,12 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Map;
+import com.tioka.framework.security.RequirePermission;
+import com.tioka.framework.security.Permissions;
 
 @RestController
 @RequestMapping("/api/mcp")
+@RequirePermission(Permissions.MCP_WRITE)
 public class McpAdminController {
     private final McpAdminService service;
 

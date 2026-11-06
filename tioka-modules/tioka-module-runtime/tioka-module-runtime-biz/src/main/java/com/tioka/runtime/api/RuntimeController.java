@@ -8,6 +8,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.Map;
+import com.tioka.framework.security.RequirePermission;
+import com.tioka.framework.security.Permissions;
 
 /**
  * 旧会话 REST（经 {@link com.tioka.runtime.kernel.application.LegacySessionAdapter}）。
@@ -15,6 +17,7 @@ import java.util.Map;
  */
 @RestController
 @RequestMapping("/api/runtime")
+@RequirePermission(Permissions.CHAT_USE)
 public class RuntimeController {
     private final RuntimeSessionApi runtime;
 

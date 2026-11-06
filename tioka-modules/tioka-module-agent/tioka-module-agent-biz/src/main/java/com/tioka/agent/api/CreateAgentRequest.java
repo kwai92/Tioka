@@ -6,6 +6,7 @@ public class CreateAgentRequest {
     @NotBlank
     private String name;
     private String workspaceId = "ws_default";
+    private String visibility = "WORKSPACE";
 
     public String getName() {
         return name;
@@ -21,5 +22,13 @@ public class CreateAgentRequest {
 
     public void setWorkspaceId(String workspaceId) {
         this.workspaceId = workspaceId;
+    }
+
+    public String getVisibility() {
+        return visibility == null || visibility.isBlank() ? "WORKSPACE" : visibility;
+    }
+
+    public void setVisibility(String visibility) {
+        this.visibility = visibility;
     }
 }

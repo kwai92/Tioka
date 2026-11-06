@@ -1,6 +1,9 @@
 package com.tioka.server.mcp;
 
 import com.tioka.flow.application.FlowPublicationService;
+import com.tioka.framework.error.ApiResponse;
+import com.tioka.framework.security.Permissions;
+import com.tioka.framework.security.RequirePermission;
 import com.tioka.knowledge.application.KnowledgeService;
 import org.springframework.stereotype.Service;
 import org.springframework.web.bind.annotation.*;
@@ -8,11 +11,10 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.Map;
 
-import com.tioka.framework.error.ApiResponse;
-
 @Service
 @RestController
 @RequestMapping("/api/mcp/outbound")
+@RequirePermission(Permissions.MCP_READ)
 public class TiokaMcpOutboundServer {
     private final KnowledgeService knowledgeService;
     private final FlowPublicationService flowPublicationService;
