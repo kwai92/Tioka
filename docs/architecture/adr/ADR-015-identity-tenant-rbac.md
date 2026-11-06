@@ -92,3 +92,7 @@ ALTER TABLE auth_user ADD COLUMN external_subject VARCHAR(255);
 ## 修订（2026-11-05）
 
 见 [ADR-029](ADR-029-design-rulings.md) 第 22 条：多租户不是硬需求，每家企业独立部署，`tenant_id` 固定为 `default`，不做租户开通与租户管理界面。
+
+## 修订：Foundation 基础平台（2026-11-06）
+
+见 [ADR-051](ADR-051-foundation-platform.md)〜[ADR-053](ADR-053-foundation-common-services.md) 与 ADR-029 第 69 条：系统级角色、用户与组迁出到独立的 Foundation 平台，`PrincipalLoader` 改读授权快照；空间成员、资源 ACL、API Key 仍在 Tioka。M1 按本 ADR 照做，不返工。

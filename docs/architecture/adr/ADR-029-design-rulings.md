@@ -165,3 +165,11 @@ M0 编码开工时（分支 `feat/G0-multistep-stream-concurrency`）裁定。�
 | # | 涉及 | 问题 | 定案 |
 | --- | --- | --- | --- |
 | 67 | ADR-016、ADR-020〜024、ADR-027、ADR-031、ADR-038、ADR-043、34 号计划；新增 ADR-044〜047 | 负责人要求联网调研 Agent、多 Agent、意图路由、SuperAgent、A2A，并追问 ReAct、Loop 等执行方式与 DSH 式插件模式；调研（[01](../research/01-Agent与多Agent架构调研.md)、[02](../research/02-Agent执行策略与执行器插件调研.md)）发现：没有入口意图路由；ADR-021 按旧版 MCP 规范设计；没有 A2A；只有一种执行循环；没有外部执行器；多 Agent 缺任务简报结构、决定日志、投入分级与上线基线 | 负责人 2026-11-06 同意按调研建议设计。① 新增 [ADR-044](ADR-044-entry-intent-routing.md) 入口意图路由（ROUTER 型 Agent，先按权限过滤候选再分层级联，受控交接），M4 P1；② 新增 [ADR-045](ADR-045-a2a-interop.md) A2A 映射与安全边界现在生效，实现在 M4 之后；③ 新增 [ADR-046](ADR-046-execution-strategy.md) 执行策略 SPI：M3 只预留 AgentSpec `execution` 段（EXE-01），M4 做 `PLAN_EXECUTE` 与 `REFLECT`，`CODE_ACT`、`GOAL_LOOP` 在 M4 之后，树搜索不做；④ 新增 [ADR-047](ADR-047-external-executor.md) 外部执行器（ACP 优先，沙箱内运行，模型与工具调用回到 Tioka，自治上限 L2），实现在 M4 之后；⑤ ADR-021 按 MCP 2026-07-28 修订，兼容 2025-11-25，不实现 HTTP+SSE 与 Sampling，CON-05 净增后端 2 人日；⑥ ADR-038 四处修订（MAS-08）；⑦ ADR-016 增加工具检索（RT-13）与护栏挂点（RT-14），均 M4 P2；⑧ ADR-031 增加多 Agent 与路由评测维度，OTel 以新仓库为准。**排期**：M3 净增后端约 2.5 人日，在写 M3-00 时核算，不单独延长 M3；M4 净增后端约 25.5、前端约 7 人日，预计 M4 延长约 2 周（以 M3-00 选定方案后的 M4 起止为基准），在写 M4-00 时按人力核算确认；M4 之后新增 A2A-01/02、EXE-03/04、EXR-01〜03、AST-10 |
+
+## Foundation 基础平台定案（2026-11-06）
+
+编号接记忆与上下文工程定案（第 68 条，PR #18）；两份 PR 合入顺序不影响编号。
+
+| # | 涉及 | 问题 | 定案 |
+| --- | --- | --- | --- |
+| 69 | ADR-015、ADR-025、ADR-026、ADR-040、M3-04、34 号计划、S9；新增 ADR-051〜053、S15 | 负责人要求设计 Foundation 系统，参考若依的依赖与集成。现有身份、组织、权限只在 Tioka `system` 模块内，合同场景新建的业务系统要自建一套用户、角色与区域权限；组织同步、SAML、LDAP 排在 M4；离职不能跨系统联动 | 负责人此前要求「有选项时按推荐方案直接写设计」，按推荐方案定案：① Foundation 独立部署，Tioka、业务系统均为接入应用（[ADR-051](ADR-051-foundation-platform.md)）；② Keycloak 负责登录协议，Foundation 负责人员、组织、账号、应用、角色、菜单、数据范围，令牌只带身份，应用取授权快照（ADR-051）；③ 人员与账号分离，数字员工入组织但无账号；单一权威同步来源与删除保护；权限清单由应用导入；部门五档加自定义数据维度；Tioka 空间角色不迁移（[ADR-052](ADR-052-org-account-authz-center.md)）；④ 公共服务按 S15 第 5、11 节取舍，不做多租户、调度中心、代码生成（[ADR-053](ADR-053-foundation-common-services.md)）；⑤ FND-09、FND-10 由 BAS 工作项取代，FND-11 增加 Foundation 部署。新增 BAS-01〜22（后端 94 人天，P0 63）、BAS-FE-01〜09（前端 33 人天）。**排期待负责人选定**（[S15](../systems/S15-Foundation基础平台系统.md) 第 17 节）：推荐方案 A 增加 1 名后端 W24 起专做，M3、M4 周次不变；备选 B 不加人 P0 挤进 M3（M3 +5 周）、C 推迟到 M4 之后。参考系统 sdms.rongzer.com 本次未能访问，收到菜单截图后补对照 |
