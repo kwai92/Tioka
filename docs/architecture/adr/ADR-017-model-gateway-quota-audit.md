@@ -83,3 +83,11 @@ CREATE INDEX idx_audit_ws_ts ON audit_event (workspace_id, ts);
 ```
 
 现有 `QuotaService`、`FileAuditSink` 保留为实现细节，对外只暴露上述接口；`tioka-server` 的 `OpsFacadeController` 改为只依赖 `-api` 契约（ENG-06）。
+
+## 修订：供给侧配额与预算（2026-11-06）
+
+见 [ADR-041](ADR-041-config-versioning-observability.md) 第 3 节与 ADR-029 第 62 条：
+
+- 需求侧（空间、Agent、用户）增加「月度成本」指标。
+- 新增供给侧作用对象：供应商（月度 token、月度成本、账号级 RPM/TPM）、binding（月度 token、月度成本）、别名（月度成本）。命中时不拒绝请求，而是跳过该候选；全部候选耗尽时返回 `MODEL_BUDGET_EXHAUSTED`。
+- 每个配额增加预警比例（默认 80%），越线时发 `tioka.quota.threshold.v1`。配额修改写入 `cfg_change`。
