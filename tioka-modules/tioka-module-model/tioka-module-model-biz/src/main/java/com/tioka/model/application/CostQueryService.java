@@ -4,6 +4,7 @@ import com.tioka.framework.error.BizException;
 import com.tioka.framework.error.ErrorCode;
 import com.tioka.model.api.CostQueryApi;
 import com.tioka.model.infrastructure.ModelUsageRepository;
+import com.tioka.model.infrastructure.persistence.ModelUsageDO;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
@@ -65,6 +66,28 @@ public class CostQueryService implements CostQueryApi {
                 asLong(row.get("completionTokens")),
                 asLong(row.get("costMicros")),
                 asLong(row.get("calls")));
+    }
+
+    @Override
+    public List<UsageEntry> sessionTimeline(String sessionId) {
+        if (sessionId == null || sessionId.isBlank()) {
+            return List.of();
+        }
+        return usages.findBySessionId(sessionId).stream()
+                .map(this::toEntry)
+                .toList();
+    }
+
+    private UsageEntry toEntry(ModelUsageDO row) {
+        return new UsageEntry(
+                row.getTurnId(),
+                null, // step：V143 才有列
+                row.getModelRef(),
+                row.getPromptTokens() == null ? 0 : row.getPromptTokens(),
+                row.getCompletionTokens() == null ? 0 : row.getCompletionTokens(),
+                row.getCostMicros(),
+                row.getLatencyMs(),
+                row.getStatus());
     }
 
     private CostBucket toBucket(Map<String, Object> row) {

@@ -25,6 +25,22 @@ public interface CostQueryApi {
     /** 按 runtime session / thread 汇总单会话成本。 */
     CostBucket sessionCost(String sessionId);
 
+    /**
+     * MH-05：会话用量时间线（替代 {@code cost_event}）。
+     * {@code step} 列在 V143 才加入，M1 恒为 null。
+     */
+    List<UsageEntry> sessionTimeline(String sessionId);
+
+    record UsageEntry(
+            String turnId,
+            Integer step,
+            String modelRef,
+            int promptTokens,
+            int completionTokens,
+            Long costMicros,
+            Integer latencyMs,
+            String status) {}
+
     record CostBucket(
             String key,
             String name,

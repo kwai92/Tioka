@@ -74,4 +74,21 @@ class FlywayMigrationIT {
                 (rs, i) -> rs.getString(1));
         assertTrue(versions.contains("120"), "missing V120: " + versions);
     }
+
+    /** MH-05 / V121：cost_event 已由 model_usage 取代并删除。 */
+    @Test
+    void costEventDropped() {
+        Set<String> tables = jdbc.query(
+                        "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'",
+                        (rs, i) -> rs.getString(1))
+                .stream()
+                .map(String::toLowerCase)
+                .collect(Collectors.toSet());
+        assertTrue(!tables.contains("cost_event"), "V121 后不应再有 cost_event");
+        assertTrue(tables.contains("model_usage"), "model_usage 应存在");
+        List<String> versions = jdbc.query(
+                "SELECT version FROM flyway_schema_history WHERE success = true",
+                (rs, i) -> rs.getString(1));
+        assertTrue(versions.contains("121"), "missing V121: " + versions);
+    }
 }

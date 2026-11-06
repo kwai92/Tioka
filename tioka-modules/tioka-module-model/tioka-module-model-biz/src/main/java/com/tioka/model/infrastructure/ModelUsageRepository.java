@@ -1,8 +1,10 @@
 package com.tioka.model.infrastructure;
 
+import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.tioka.model.infrastructure.mapper.ModelUsageMapper;
 import com.tioka.model.infrastructure.persistence.ModelUsageDO;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.List;
@@ -18,6 +20,23 @@ public class ModelUsageRepository {
 
     public void insert(ModelUsageDO row) {
         mapper.insert(row);
+    }
+
+    @Transactional
+    public void insertBatch(List<ModelUsageDO> rows) {
+        if (rows == null || rows.isEmpty()) {
+            return;
+        }
+        for (ModelUsageDO row : rows) {
+            mapper.insert(row);
+        }
+    }
+
+    public List<ModelUsageDO> findBySessionId(String sessionId) {
+        return mapper.selectList(Wrappers.<ModelUsageDO>lambdaQuery()
+                .eq(ModelUsageDO::getSessionId, sessionId)
+                .orderByAsc(ModelUsageDO::getCreateAt)
+                .orderByAsc(ModelUsageDO::getId));
     }
 
     public List<Map<String, Object>> summaryByWorkspace(String workspaceId, Instant from, Instant to) {

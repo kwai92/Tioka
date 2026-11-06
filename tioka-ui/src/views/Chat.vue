@@ -47,7 +47,7 @@
         <aside v-if="cost.length" class="cost">
           <h3>成本 / 模型</h3>
           <div v-for="(e, i) in cost" :key="i">
-            {{ e.modelRef }} · {{ e.routeReason || e.reason }} · {{ e.promptTokens + e.completionTokens }} tok
+            {{ e.modelRef }} · {{ e.status }} · {{ e.promptTokens + e.completionTokens }} tok · {{ e.costMicros ?? 0 }} µ¥
           </div>
         </aside>
         <form @submit.prevent="send">
