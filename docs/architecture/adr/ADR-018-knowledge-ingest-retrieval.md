@@ -113,3 +113,7 @@ CREATE TABLE kb_eval_run (id VARCHAR(32) PRIMARY KEY, set_id VARCHAR(32) NOT NUL
 
 - **自动检索结果的位置**：每轮自动检索的结果放在本轮尾部，不进入历史；回答实际采用的片段以 citation item 留在历史中（[ADR-048](ADR-048-context-engineering.md) 第 1 节）。
 - 记忆的本轮检索复用本 ADR 的混合召回组件（[ADR-050](ADR-050-memory-system.md) 第 4.2 节）。记忆与知识库的边界见 ADR-050 第 1 节。
+
+## 修订：文档解析与 OCR（2026-11-06）
+
+见 [ADR-060](ADR-060-document-parsing-service.md) 与 ADR-029 第 71 条：入库流水线第 2 步「解析」改为调用文档解析服务，输入为契约 `tioka.parse/v1`，`DocumentParser` SPI 不再扩展；OCR、图片与扫描件随解析服务在 M4 可用，KNW-09 由 PRS-09 取代。知识库只取 `role = BODY` 的块，按 `parentId` 与 `level` 得到标题路径，块的坐标作为引用定位信息存入分块元数据；切块策略仍由 Knowledge 决定（第 70 条）。

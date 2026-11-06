@@ -316,3 +316,7 @@ API Key 管理（多 Key、有效期与到期提醒、轮换与紧急吊销、�
 - **指标**：`tioka_model_tokens_total` 的 `direction` 增加 `cache_write`；新增 `tioka_model_cache_hit_ratio`；告警模板增加缓存命中率过低与写多读少两条（ADR-049 第 4 节）。
 - **系统内置 Prompt** 增加 `sys.memory.extract`；`sys.compaction` 改为结构化栏目（[ADR-048](ADR-048-context-engineering.md) 第 2.3 节），两者都跟随最新版本。
 - **上下文清单**（ADR-048 第 4 节）与用量明细一一对应，记录本次调用用到的 Prompt 模板版本、经验条目、记忆条目，按版本统计时可用。
+
+## 修订：解析方案与解析统计（2026-11-06）
+
+见 [ADR-060](ADR-060-document-parsing-service.md) 第 4 节、[ADR-061](ADR-061-parse-engine-spi-external-ocr.md) 第 4 节与 ADR-029 第 71 条：解析方案是版本化配置，发布校验增加「解析评测集闸门」（ADR-062 第 1.3 节）；解析引擎实例是即时型对象，凭证按 ADR-042 管理；统计页增加「解析」分栏（页数、成本、失败率、时延、降级次数）。
