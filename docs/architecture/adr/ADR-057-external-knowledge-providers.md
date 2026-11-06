@@ -2,7 +2,8 @@
 
 - 状态：Accepted（设计定案，待实现）
 - 日期：2026-11-06
-- 覆盖工作项：KNW-16、KNW-17、KNW-18、FE-33（新增）；与 KNW-06（数据源）衔接
+- 覆盖工作项：KNW-16、KNW-17a、KNW-17b、KNW-18、FE-33（新增）；与 KNW-06（数据源）衔接
+- 排期：2026-11-06 负责人选定方案 B，KNW-16、KNW-17a 与 FE-33 的接入页在 M3（ADR-029 第 70 条）
 - 来由：[调研 04](../research/04-Knowledge与RAG及外部知识库对接调研.md) 第 7 节，选项 R1；ADR-029 第 70 条
 - 相关：[ADR-018](ADR-018-knowledge-ingest-retrieval.md)、[ADR-021](ADR-021-connector-im-mcp.md)、[ADR-026](ADR-026-foundation.md)（插件宿主）、[ADR-039](ADR-039-delegation-grant.md)、[ADR-040](ADR-040-dataset-policy-data-label.md)、[ADR-042](ADR-042-provider-credentials-model-params.md)、[ADR-048](ADR-048-context-engineering.md)、[ADR-056](ADR-056-retrieval-qa-evaluation.md)、[M3-06](../construction/M3-06-平台补齐与G3闸门基座.md) 第 2 节（连接器 SDK）
 - 约束：与 [ADR-029](ADR-029-design-rulings.md) 定案冲突时以定案为准；修改本 ADR 走 [ADR-030](ADR-030-anti-drift-process.md) 的变更流程。
@@ -157,9 +158,10 @@
 
 | ID | 内容 | 里程碑 | 优先级 | 人日 | 依赖 |
 | --- | --- | --- | --- | --- | --- |
-| KNW-16 | `KnowledgeProvider` SPI、提供方实例与外部知识库登记、联邦检索（并行、超时、限流、熔断、部分失败）、权限与标签、引用快照、审计 | M4 前段 | P1 | 后端 6 | KNW-12、CON-SDK、FND-12、DAT-04 |
-| KNW-17 | 内置适配器：Dify、RAGFlow、百炼、通用检索协议、MCP，以及各自的契约测试 | M4 前段 | P1 | 后端 8 | KNW-16、CON-05 |
-| FE-33 | 外部知识库接入页（按规格生成表单、选择外部知识库、健康状态、权限方式标注）、联合命中测试、选型评测报告 | M4 | P1 | 前端 3 | KNW-16、FE-32 |
+| KNW-16 | `KnowledgeProvider` SPI、提供方实例与外部知识库登记、联邦检索（并行、超时、限流、熔断、部分失败）、权限与标签、引用快照、审计 | M3（W47–W48，BE-C） | P1 | 后端 6 | KNW-12、CON-SDK、FND-12、DAT-04 |
+| KNW-17a | 内置适配器：Dify、百炼、通用检索协议，以及各自的契约测试 | M3（W49，BE-C） | P1 | 后端 5 | KNW-16 |
+| KNW-17b | 内置适配器：RAGFlow、MCP，以及各自的契约测试 | M4 前段 | P1 | 后端 3 | KNW-16、CON-05 |
+| FE-33 | 外部知识库接入页（按规格生成表单、选择外部知识库、健康状态、权限方式标注）在 M3；联合命中测试与选型评测报告在 M4（随 KNW-13、KNW-15） | M3 / M4 | P1 | 前端 2 / 1 | KNW-16、FE-32 |
 | KNW-18 | 反向暴露：通用检索协议服务端、API Key 与服务身份 | M4 之后 | P2 | 后端 3 | KNW-16、DAT-06 |
 
 FastGPT、Bedrock、扣子等插件不预先排期，客户采购时按每个约 2 人日计入交付工作量。
