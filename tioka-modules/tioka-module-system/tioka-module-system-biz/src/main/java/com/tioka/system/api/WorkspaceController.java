@@ -35,7 +35,7 @@ public class WorkspaceController {
     @RequirePermission("auth:me")
     @GetMapping("/{id}")
     public ApiResponse<WorkspaceService.Workspace> get(@PathVariable String id) {
-        return ApiResponse.ok(workspaceService.require(id));
+        return ApiResponse.ok(workspaceService.requireAccessible(id));
     }
 
     @RequirePermission("workspace:manage")

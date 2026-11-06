@@ -12,8 +12,12 @@ import com.tioka.runtime.application.SkillInstallService;
 import com.tioka.runtime.config.KernelProperties;
 import com.tioka.runtime.infrastructure.RuntimeSessionRepository;
 import com.tioka.runtime.infrastructure.persistence.RuntimeSessionDO;
+import com.tioka.runtime.kernel.infrastructure.ItemRepository;
 import com.tioka.runtime.kernel.infrastructure.TurnRepository;
+import com.tioka.runtime.kernel.infrastructure.persistence.RuntimeItemDO;
 import com.tioka.runtime.kernel.infrastructure.persistence.RuntimeTurnDO;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
@@ -31,21 +35,27 @@ public class LegacySessionAdapter implements RuntimeSessionApi {
     private final RuntimeApi runtime;
     private final RuntimeSessionRepository sessions;
     private final TurnRepository turns;
+    private final ItemRepository items;
     private final WorkspaceFs workspaceFs;
     private final SkillInstallService skillInstall;
+    private final ObjectMapper mapper;
     private final Duration appendTimeout;
 
     public LegacySessionAdapter(RuntimeApi runtime,
                                 RuntimeSessionRepository sessions,
                                 TurnRepository turns,
+                                ItemRepository items,
                                 WorkspaceFs workspaceFs,
                                 SkillInstallService skillInstall,
+                                ObjectMapper mapper,
                                 KernelProperties props) {
         this.runtime = runtime;
         this.sessions = sessions;
         this.turns = turns;
+        this.items = items;
         this.workspaceFs = workspaceFs;
         this.skillInstall = skillInstall;
+        this.mapper = mapper;
         Duration configured = props.getLegacyAppendTimeout();
         this.appendTimeout = configured == null ? Duration.ofSeconds(120) : configured;
     }
@@ -82,11 +92,8 @@ public class LegacySessionAdapter implements RuntimeSessionApi {
         List<PartView> parts = new ArrayList<>();
         parts.add(new PartView(Ids.newId("part"), "text", request.text(),
                 Map.of("role", "user", "turnId", handle.turnId())));
-        for (RuntimeApi.ItemView item : runtime.listItems(sessionId, 0, 500)) {
-            if (!handle.turnId().equals(item.turnId())) {
-                continue;
-            }
-            parts.add(toPart(item));
+        for (RuntimeItemDO row : items.listByTurn(handle.turnId())) {
+            parts.add(toPart(row));
         }
         return new TurnView(handle.turnId(), done.status().name(), parts);
     }
@@ -130,28 +137,40 @@ public class LegacySessionAdapter implements RuntimeSessionApi {
         throw new BizException(ErrorCode.DEPENDENCY, "等待 Turn 超时");
     }
 
-    private static PartView toPart(RuntimeApi.ItemView item) {
-        Map<String, Object> content = item.content() == null ? Map.of() : item.content();
-        String type = switch (item.type()) {
+    private PartView toPart(RuntimeItemDO item) {
+        ItemType itemType = ItemType.fromWire(item.getType());
+        Map<String, Object> content = parseContent(item.getContentJson());
+        String type = switch (itemType) {
             case MESSAGE -> "text";
             case TOOL_CALL -> "tool_call";
             case TOOL_RESULT -> "tool_result";
-            default -> item.type().wire();
+            default -> item.getType();
         };
         String text;
-        if (item.type() == ItemType.MESSAGE) {
+        if (itemType == ItemType.MESSAGE) {
             text = String.valueOf(content.getOrDefault("text", ""));
-        } else if (item.type() == ItemType.TOOL_CALL) {
+        } else if (itemType == ItemType.TOOL_CALL) {
             text = String.valueOf(content.getOrDefault("name", ""));
-        } else if (item.type() == ItemType.TOOL_RESULT) {
+        } else if (itemType == ItemType.TOOL_RESULT) {
             text = String.valueOf(content.getOrDefault("output", ""));
         } else {
             text = "";
         }
         Map<String, Object> payload = new HashMap<>(content);
-        payload.put("turnId", item.turnId());
+        payload.put("turnId", item.getTurnId());
         payload.put("delta", false);
-        return new PartView(item.itemId(), type, text, payload);
+        return new PartView(item.getId(), type, text, payload);
+    }
+
+    private Map<String, Object> parseContent(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return Map.of();
+        }
+        try {
+            return mapper.readValue(raw, new TypeReference<>() {});
+        } catch (Exception e) {
+            return Map.of();
+        }
     }
 
     private static String workspaceIdOf(Map<String, Object> meta) {

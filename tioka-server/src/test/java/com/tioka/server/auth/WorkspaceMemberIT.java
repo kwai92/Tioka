@@ -166,4 +166,44 @@ class WorkspaceMemberIT {
                         .content("{\"role\":\"viewer\"}"))
                 .andExpect(status().isForbidden());
     }
+
+    @Test
+    void crossWorkspaceAdminCannotManageOrReadOtherWorkspace() throws Exception {
+        // 两个独立空间；用户仅是 A 的 workspace_admin（无 tenant_admin）
+        TestFixtures.Actor seed = fixtures.newActor("tenant_admin");
+        String suffix = UUID.randomUUID().toString().substring(0, 8);
+        String username = "wsadmin-" + suffix;
+        String password = "WsAdminPass!23456";
+
+        UserAdminService.CreatedUser created = principals.runAs(
+                new Principal(seed.userId(), seed.workspaceId(), PrincipalType.USER,
+                        Set.of("tenant_admin"), Set.of("*"), "password"),
+                () -> userAdmin.create(username, "WsAdmin", password));
+
+        TestFixtures.Actor other = fixtures.newActor("workspace_admin");
+        String wsA = seed.workspaceId();
+        String wsB = other.workspaceId();
+        members.upsert(wsA, created.id(), "workspace_admin");
+
+        AuthService.LoginResult login = auth.login(username, password, "127.0.0.1");
+
+        mockMvc.perform(put("/api/system/workspaces/{id}/members/{uid}", wsB, created.id())
+                        .header("Authorization", "Bearer " + login.accessToken())
+                        .header("X-Workspace-Id", wsA)
+                        .contentType("application/json")
+                        .content("{\"role\":\"workspace_admin\"}"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value(40300));
+
+        mockMvc.perform(get("/api/system/workspaces/{id}/members", wsB)
+                        .header("Authorization", "Bearer " + login.accessToken())
+                        .header("X-Workspace-Id", wsA))
+                .andExpect(status().isForbidden());
+
+        mockMvc.perform(get("/api/system/workspaces/{id}", wsB)
+                        .header("Authorization", "Bearer " + login.accessToken())
+                        .header("X-Workspace-Id", wsA))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value(40302));
+    }
 }

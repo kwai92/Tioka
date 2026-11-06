@@ -103,6 +103,6 @@ public class GatewayToolPort implements LoopPorts.ToolPort {
 
     private static ToolGateway.SessionToolContext toolCtx(LoopContext ctx) {
         return new ToolGateway.SessionToolContext(
-                ctx.threadId(), ctx.agentVersionId(), ctx.workspaceId(), null);
+                ctx.threadId(), ctx.agentVersionId(), ctx.workspaceId(), ctx.principalId());
     }
 }
