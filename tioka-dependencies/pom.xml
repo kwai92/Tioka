@@ -21,11 +21,21 @@
         <mapstruct.version>1.6.3</mapstruct.version>
         <json-schema-validator.version>1.5.3</json-schema-validator.version>
         <springdoc.version>2.6.0</springdoc.version>
+        <!-- Boot 3.2 自带 1.19.x，连不上 GitHub 运行器的 Docker 29（最低 API 1.44）；1.21.4 起兼容 -->
+        <testcontainers.version>1.21.4</testcontainers.version>
         <revision>0.1.0-SNAPSHOT</revision>
     </properties>
 
     <dependencyManagement>
         <dependencies>
+            <!-- 必须在 spring-boot-dependencies 之前导入，才能覆盖其中的 Testcontainers 版本 -->
+            <dependency>
+                <groupId>org.testcontainers</groupId>
+                <artifactId>testcontainers-bom</artifactId>
+                <version>${testcontainers.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
             <dependency>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-dependencies</artifactId>
