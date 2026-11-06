@@ -127,6 +127,24 @@ public interface RuntimeTurnMapper {
             """)
     List<String> findExpired(@Param("now") OffsetDateTime now, @Param("limit") int limit);
 
+    /** 无 RUNNING 的 session 上，取最小 seq 的 QUEUED（供补调度）。 */
+    @Select("""
+            SELECT t.id
+              FROM runtime_turn t
+             WHERE t.status = 'QUEUED'
+               AND NOT EXISTS (
+                     SELECT 1 FROM runtime_turn r
+                      WHERE r.session_id = t.session_id AND r.status = 'RUNNING'
+                   )
+               AND t.seq = (
+                     SELECT MIN(q.seq) FROM runtime_turn q
+                      WHERE q.session_id = t.session_id AND q.status = 'QUEUED'
+                   )
+             ORDER BY t.create_at
+             LIMIT #{limit}
+            """)
+    List<String> findOrphanQueuedHeads(@Param("limit") int limit);
+
     @Update("""
             UPDATE runtime_turn
                SET status = 'INTERRUPTED', update_at = now()
