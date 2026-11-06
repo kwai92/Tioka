@@ -38,7 +38,7 @@ class ModelRouterFreezeTest {
     void sameTurnKeepsBinding() {
         ModelEntities entities = new ModelEntities(new InMemoryModelEntitiesRepository());
         SecretStore store = new MemorySecretStore();
-        ModelAdminService admin = new ModelAdminService(store, entities);
+        ModelAdminService admin = newAdmin(store, entities);
         var provider = admin.createProvider(new CreateProviderRequest("p", "mock://openai", "k"));
         String lm = admin.createLogicalModel(new CreateLogicalModelRequest("m", "tool"));
         String b1 = admin.createBinding(new CreateBindingRequest(lm, provider.id(), "m1"));
@@ -60,7 +60,7 @@ class ModelRouterFreezeTest {
     void difficultyPlanCreateReturns501() {
         ModelEntities entities = new ModelEntities(new InMemoryModelEntitiesRepository());
         SecretStore store = new MemorySecretStore();
-        ModelAdminService admin = new ModelAdminService(store, entities);
+        ModelAdminService admin = newAdmin(store, entities);
         var provider = admin.createProvider(new CreateProviderRequest("p", "mock://openai", "k"));
         String lm = admin.createLogicalModel(new CreateLogicalModelRequest("m", "tool"));
         String soft = admin.createBinding(new CreateBindingRequest(lm, provider.id(), "soft"));
@@ -68,6 +68,11 @@ class ModelRouterFreezeTest {
         BizException ex = assertThrows(BizException.class,
                 () -> admin.createPlan(new CreateRoutingPlanRequest("r", "DIFFICULTY", soft, null, hard)));
         assertEquals(ErrorCode.NOT_IMPLEMENTED, ex.getErrorCode());
+    }
+
+    private static ModelAdminService newAdmin(SecretStore store, ModelEntities entities) {
+        return new ModelAdminService(
+                store, entities, mock(ModelDefaultPlanRepository.class), mock(com.tioka.framework.security.PrincipalHolder.class));
     }
 
     static final class InMemoryModelEntitiesRepository implements ModelEntitiesRepository {

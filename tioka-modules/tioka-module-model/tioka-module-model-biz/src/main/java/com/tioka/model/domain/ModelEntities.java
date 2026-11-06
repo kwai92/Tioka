@@ -85,6 +85,10 @@ public class ModelEntities {
         return repo.hasBinding(id);
     }
 
+    public List<Binding> bindings() {
+        return repo.bindings().stream().map(this::toBinding).toList();
+    }
+
     public Optional<Binding> firstEnabledBinding() {
         return repo.bindings().stream()
                 .map(this::toBinding)
