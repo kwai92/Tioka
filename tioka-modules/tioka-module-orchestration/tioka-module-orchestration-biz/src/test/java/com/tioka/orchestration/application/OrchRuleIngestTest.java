@@ -29,8 +29,9 @@ class OrchRuleIngestTest {
     @BeforeEach
     void setUp() {
         repo = new FakeOrchRepository();
-        ruleService = new OrchRuleService(repo);
-        orch = new OrchService(repo, ruleService);
+        var om = new com.fasterxml.jackson.databind.ObjectMapper();
+        ruleService = new OrchRuleService(repo, om);
+        orch = new OrchService(repo, ruleService, om);
     }
 
     @Test

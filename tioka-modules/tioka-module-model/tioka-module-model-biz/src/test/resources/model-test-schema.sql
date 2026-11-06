@@ -45,12 +45,15 @@ CREATE TABLE model_routing_plan (
     update_by VARCHAR(64) NOT NULL DEFAULT 'system',
     deleted BOOLEAN NOT NULL DEFAULT FALSE
 );
-CREATE TABLE model_session_freeze (
-    session_id VARCHAR(64) PRIMARY KEY,
+CREATE TABLE model_turn_freeze (
+    session_id VARCHAR(64) NOT NULL,
+    turn_id VARCHAR(64) NOT NULL,
     binding_id VARCHAR(64) NOT NULL,
+    reason VARCHAR(255),
+    failover_count INT NOT NULL DEFAULT 0,
     create_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     update_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     create_by VARCHAR(64) NOT NULL DEFAULT 'system',
     update_by VARCHAR(64) NOT NULL DEFAULT 'system',
-    deleted BOOLEAN NOT NULL DEFAULT FALSE
+    PRIMARY KEY (session_id, turn_id)
 );

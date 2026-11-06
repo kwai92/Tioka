@@ -1,5 +1,7 @@
 package com.tioka.chat.application;
 
+import com.tioka.framework.id.Ids;
+
 import com.tioka.chat.domain.ChatStore;
 import com.tioka.chat.domain.ChatStore.Message;
 import com.tioka.framework.error.BizException;
@@ -10,7 +12,6 @@ import org.springframework.stereotype.Service;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 
 @Service
 public class CardPartService {
@@ -117,7 +118,7 @@ public class CardPartService {
     }
 
     private static String newMsgId() {
-        return "msg_" + UUID.randomUUID().toString().replace("-", "").substring(0, 8);
+        return Ids.newId("msg");
     }
 
     private void ensureConv(String conversationId) {

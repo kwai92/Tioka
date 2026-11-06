@@ -1,5 +1,7 @@
 package com.tioka.runtime.infrastructure;
 
+import com.tioka.framework.id.Ids;
+
 import com.tioka.framework.error.BizException;
 import com.tioka.framework.error.ErrorCode;
 import com.tioka.runtime.api.spi.WorkspaceFs.PublishedArtifact;
@@ -10,7 +12,6 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
-import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -56,7 +57,7 @@ public class LocalObjectStore {
     }
 
     public PublishedArtifact issueDownloadTicket(String objectKey) {
-        String ticket = "tkt_" + UUID.randomUUID().toString().replace("-", "").substring(0, 12);
+        String ticket = Ids.newId("tkt");
         long exp = System.currentTimeMillis() + 15 * 60_000L;
         tickets.put(ticket, new Ticket(objectKey, exp));
         return new PublishedArtifact(objectKey, ticket, exp);

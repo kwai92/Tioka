@@ -12,6 +12,7 @@ import com.tioka.orchestration.infrastructure.persistence.OrchRuleDO;
 import com.tioka.orchestration.infrastructure.persistence.OrchRunDO;
 import com.tioka.orchestration.infrastructure.persistence.OrchWhyDO;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -42,10 +43,16 @@ public class OrchRepository {
     public void updateRun(OrchRunDO row) { runs.updateById(row); }
     public OrchRunDO findRun(String id) { return runs.selectById(id); }
 
-    public List<OrchRunDO> listClaimable(long now) {
-        return runs.selectList(Wrappers.<OrchRunDO>lambdaQuery()
-                .and(w -> w.eq(OrchRunDO::getStatus, "READY")
-                        .or(x -> x.eq(OrchRunDO::getStatus, "LEASED").lt(OrchRunDO::getLeaseUntil, now))));
+    /** ORC-01：同事务内 SKIP LOCKED 锁定并标记 LEASED；无可用时返回 null。 */
+    @Transactional
+    public String claimOne(String workerId, long leaseMillis) {
+        long now = System.currentTimeMillis();
+        String id = runs.lockNextClaimable(now);
+        if (id == null) {
+            return null;
+        }
+        int n = runs.markLeased(id, workerId, now + leaseMillis);
+        return n == 1 ? id : null;
     }
 
     public void insertAttention(OrchAttentionDO row) { attentions.insert(row); }

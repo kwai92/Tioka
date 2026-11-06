@@ -3,12 +3,14 @@ package com.tioka.chat.api;
 import com.tioka.chat.application.CardPartService;
 import com.tioka.chat.domain.ChatStore;
 import com.tioka.framework.error.ApiResponse;
+import com.tioka.framework.security.RequirePermission;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
 
 @RestController
 @RequestMapping("/api/chat/cards")
+@RequirePermission("chat:use")
 public class CardController {
     private final CardPartService cards;
 

@@ -1,5 +1,7 @@
 package com.tioka.model.application;
 
+import com.tioka.framework.id.Ids;
+
 import com.tioka.framework.error.BizException;
 import com.tioka.framework.error.ErrorCode;
 import com.tioka.model.api.dto.ProviderDtos.*;
@@ -12,7 +14,6 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.HexFormat;
 import java.util.List;
-import java.util.UUID;
 
 @Service
 public class ModelAdminService {
@@ -25,7 +26,7 @@ public class ModelAdminService {
     }
 
     public ProviderView createProvider(CreateProviderRequest req) {
-        String id = "prv_" + UUID.randomUUID().toString().replace("-", "").substring(0, 8);
+        String id = Ids.newId("prv");
         String ref = secretStore.put("model-provider", id, req.apiKeyPlain() == null ? "" : req.apiKeyPlain());
         Provider p = new Provider(id, req.name(), req.baseUrl(), ref);
         entities.putProvider(p);
@@ -33,7 +34,7 @@ public class ModelAdminService {
     }
 
     public String createLogicalModel(CreateLogicalModelRequest req) {
-        String id = "lm_" + UUID.randomUUID().toString().replace("-", "").substring(0, 8);
+        String id = Ids.newId("lm");
         entities.putLogical(new LogicalModel(id, req.name(), req.capabilityTags()));
         return id;
     }
@@ -42,12 +43,16 @@ public class ModelAdminService {
         if (!entities.hasLogical(req.logicalModelId()) || entities.getProvider(req.providerId()).isEmpty()) {
             throw new BizException(ErrorCode.NOT_FOUND, "logicalModel 或 provider 不存在");
         }
-        String id = "bnd_" + UUID.randomUUID().toString().replace("-", "").substring(0, 8);
+        String id = Ids.newId("bnd");
         entities.putBinding(new Binding(id, req.logicalModelId(), req.providerId(), req.modelName()));
         return id;
     }
 
     public RoutingPlanView createPlan(CreateRoutingPlanRequest req) {
+        String type = req.type() == null ? "FIXED" : req.type();
+        if ("DIFFICULTY".equalsIgnoreCase(type)) {
+            throw com.tioka.framework.error.NotImplemented.of("routing-plan-DIFFICULTY", "ADR-024");
+        }
         if (!entities.hasBinding(req.primaryBindingId())) {
             throw new BizException(ErrorCode.NOT_FOUND, "binding 不存在");
         }
@@ -57,8 +62,7 @@ public class ModelAdminService {
         if (req.hardBindingId() != null && !entities.hasBinding(req.hardBindingId())) {
             throw new BizException(ErrorCode.NOT_FOUND, "hard binding 不存在");
         }
-        String id = "rp_" + UUID.randomUUID().toString().replace("-", "").substring(0, 8);
-        String type = req.type() == null ? "FIXED" : req.type();
+        String id = Ids.newId("rp");
         RoutingPlan plan = new RoutingPlan(
                 id, req.name(), type, req.primaryBindingId(),
                 req.fallbackBindingId(), req.hardBindingId(), false, null);
@@ -69,6 +73,9 @@ public class ModelAdminService {
     public RoutingPlanView publish(String planId) {
         RoutingPlan plan = entities.getPlan(planId)
                 .orElseThrow(() -> new BizException(ErrorCode.NOT_FOUND, "routing plan 不存在"));
+        if ("DIFFICULTY".equalsIgnoreCase(plan.type())) {
+            throw com.tioka.framework.error.NotImplemented.of("routing-plan-DIFFICULTY", "ADR-024");
+        }
         String hash = sha256(plan.id() + ":" + plan.primaryBindingId() + ":" + plan.type()
                 + ":" + plan.fallbackBindingId() + ":" + plan.hardBindingId());
         RoutingPlan published = new RoutingPlan(

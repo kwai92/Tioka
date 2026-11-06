@@ -1,7 +1,6 @@
 -- M2：IM 绑定、会话映射、入站去重、出站引用、外部身份（CON-02、CON-03）。施工设计：M2-03-飞书入站与卡片.md
 CREATE TABLE im_binding (
     id                     VARCHAR(32)  PRIMARY KEY,
-    tenant_id              VARCHAR(64)  NOT NULL DEFAULT 'default',
     workspace_id           VARCHAR(64)  NOT NULL,
     channel                VARCHAR(32)  NOT NULL,
     app_id                 VARCHAR(128) NOT NULL,
@@ -53,13 +52,12 @@ CREATE TABLE im_outbound_ref (
 CREATE INDEX idx_outbound_ref ON im_outbound_ref (ref_type, ref_id);
 
 CREATE TABLE sys_external_identity (
-    tenant_id   VARCHAR(64)  NOT NULL DEFAULT 'default',
     source      VARCHAR(64)  NOT NULL,
     external_id VARCHAR(255) NOT NULL,
     union_id    VARCHAR(255),
     user_id     VARCHAR(64)  NOT NULL,
     create_at   TIMESTAMPTZ  NOT NULL DEFAULT now(),
     create_by   VARCHAR(64)  NOT NULL DEFAULT 'system',
-    PRIMARY KEY (tenant_id, source, external_id)
+    PRIMARY KEY (source, external_id)
 );
 CREATE INDEX idx_ext_identity_user ON sys_external_identity (user_id);

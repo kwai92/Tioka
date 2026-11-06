@@ -14,6 +14,7 @@ public class KbDocumentDO extends BaseDO {
     private String sourceType;
     private String status;
     private String format;
+    private String errorMessage;
 
     public String getId() { return id; }
     public void setId(String id) { this.id = id; }
@@ -27,4 +28,6 @@ public class KbDocumentDO extends BaseDO {
     public void setStatus(String status) { this.status = status; }
     public String getFormat() { return format; }
     public void setFormat(String format) { this.format = format; }
+    public String getErrorMessage() { return errorMessage; }
+    public void setErrorMessage(String errorMessage) { this.errorMessage = errorMessage; }
 }

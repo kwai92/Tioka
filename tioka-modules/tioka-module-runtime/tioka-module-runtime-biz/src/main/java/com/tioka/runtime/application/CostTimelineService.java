@@ -18,7 +18,7 @@ public class CostTimelineService {
     }
 
     @EventListener
-    public void onUsage(RuntimeSessionService.UsageReportedEvent event) {
+    public void onUsage(UsageReportedEvent event) {
         String reason = event.routeReason() == null || event.routeReason().isBlank() ? "ok" : event.routeReason();
         record(event.sessionId(), event.modelRef(), event.promptTokens(), event.completionTokens(), reason);
     }

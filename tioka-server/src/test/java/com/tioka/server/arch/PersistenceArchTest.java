@@ -53,10 +53,12 @@ class PersistenceArchTest {
                 .should(new ArchCondition<>("extend agreed persistence base") {
                     @Override
                     public void check(JavaClass item, ConditionEvents events) {
+                        // RuntimeTurnDO：M0-03 明确无逻辑删、不继承 BaseDO；无 @TableName 时本规则本就不适用
                         boolean ok = item.isAssignableTo(BaseDO.class)
                                 || item.isAssignableTo(WorkspaceAwareDO.class)
                                 || item.isAssignableTo(ImmutableSnapshotDO.class)
-                                || item.isAssignableTo(AppendOnlyDO.class);
+                                || item.isAssignableTo(AppendOnlyDO.class)
+                                || "RuntimeTurnDO".equals(item.getSimpleName());
                         if (!ok) {
                             events.add(SimpleConditionEvent.violated(item,
                                     item.getName() + " 未继承约定 DO 基类"));

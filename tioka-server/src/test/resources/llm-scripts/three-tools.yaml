@@ -1,0 +1,8 @@
+# llm-scripts/three-tools.yaml：需要 3 次工具调用的任务
+calls:
+  - tool_calls: [{ name: echo, arguments: { text: "step1" } }]
+  - tool_calls: [{ name: echo, arguments: { text: "step2" } }]
+  - tool_calls: [{ name: echo, arguments: { text: "step3" } }]
+  - content: "done: step1 step2 step3"
+    stream_chunk_chars: 4
+    chunk_delay_ms: 50

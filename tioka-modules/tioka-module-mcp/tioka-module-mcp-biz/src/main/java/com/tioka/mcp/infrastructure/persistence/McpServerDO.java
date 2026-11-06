@@ -3,10 +3,10 @@ package com.tioka.mcp.infrastructure.persistence;
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
-import com.tioka.framework.persistence.BaseDO;
+import com.tioka.framework.persistence.WorkspaceAwareDO;
 
 @TableName("mcp_server")
-public class McpServerDO extends BaseDO {
+public class McpServerDO extends WorkspaceAwareDO {
     @TableId(type = IdType.INPUT)
     private String id;
     private String name;

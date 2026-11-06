@@ -1,5 +1,6 @@
 package com.tioka.model.infrastructure;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.tioka.model.infrastructure.mapper.*;
 import com.tioka.model.infrastructure.persistence.*;
 import org.springframework.stereotype.Repository;
@@ -13,11 +14,11 @@ public class ModelEntitiesRepositoryImpl implements ModelEntitiesRepository {
     private final ModelLogicalMapper logicals;
     private final ModelBindingMapper bindings;
     private final ModelRoutingPlanMapper plans;
-    private final ModelSessionFreezeMapper freezes;
+    private final ModelTurnFreezeMapper freezes;
 
     public ModelEntitiesRepositoryImpl(ModelProviderMapper providers, ModelLogicalMapper logicals,
                                        ModelBindingMapper bindings, ModelRoutingPlanMapper plans,
-                                       ModelSessionFreezeMapper freezes) {
+                                       ModelTurnFreezeMapper freezes) {
         this.providers = providers;
         this.logicals = logicals;
         this.bindings = bindings;
@@ -85,17 +86,35 @@ public class ModelEntitiesRepositoryImpl implements ModelEntitiesRepository {
     }
 
     @Override
-    public Optional<String> getFreeze(String sessionId) {
-        ModelSessionFreezeDO row = freezes.selectById(sessionId);
+    public Optional<String> getFreeze(String sessionId, String turnId) {
+        ModelTurnFreezeDO row = freezes.selectOne(new LambdaQueryWrapper<ModelTurnFreezeDO>()
+                .eq(ModelTurnFreezeDO::getSessionId, sessionId)
+                .eq(ModelTurnFreezeDO::getTurnId, turnId)
+                .last("LIMIT 1"));
         return row == null ? Optional.empty() : Optional.ofNullable(row.getBindingId());
     }
 
     @Override
-    public void putFreeze(String sessionId, String bindingId) {
-        ModelSessionFreezeDO row = new ModelSessionFreezeDO();
-        row.setSessionId(sessionId);
-        row.setBindingId(bindingId);
-        if (freezes.selectById(sessionId) == null) freezes.insert(row);
-        else freezes.updateById(row);
+    public void putFreeze(String sessionId, String turnId, String bindingId) {
+        ModelTurnFreezeDO existing = freezes.selectOne(new LambdaQueryWrapper<ModelTurnFreezeDO>()
+                .eq(ModelTurnFreezeDO::getSessionId, sessionId)
+                .eq(ModelTurnFreezeDO::getTurnId, turnId)
+                .last("LIMIT 1"));
+        if (existing == null) {
+            ModelTurnFreezeDO row = new ModelTurnFreezeDO();
+            row.setSessionId(sessionId);
+            row.setTurnId(turnId);
+            row.setBindingId(bindingId);
+            row.setFailoverCount(0);
+            row.setCreateBy("system");
+            row.setUpdateBy("system");
+            freezes.insert(row);
+        } else {
+            existing.setBindingId(bindingId);
+            existing.setUpdateBy("system");
+            freezes.update(existing, new LambdaQueryWrapper<ModelTurnFreezeDO>()
+                    .eq(ModelTurnFreezeDO::getSessionId, sessionId)
+                    .eq(ModelTurnFreezeDO::getTurnId, turnId));
+        }
     }
 }

@@ -1,0 +1,3 @@
+Method <com.tioka.mcp.application.McpAdminService.postRpc(com.tioka.mcp.domain.McpStore$McpServer, java.lang.String, java.util.Map)> calls method <java.util.UUID.randomUUID()> in (McpAdminService.java:196)
+Method <com.tioka.system.application.AuthService.loginFederated(com.tioka.system.api.spi.IdPAdapter$FederatedIdentity)> calls method <java.util.UUID.randomUUID()> in (AuthService.java:88)
+Method <com.tioka.system.application.auth.TokenService.issue(long)> calls method <java.util.UUID.randomUUID()> in (TokenService.java:35)

@@ -13,6 +13,11 @@ public class AuthUserDO extends BaseDO {
     private String passwordHash;
     private String displayName;
     private Boolean enabled;
+    private String idp;
+    private String externalSubject;
+    private String defaultWorkspaceId;
+    private Boolean mustChangePassword;
+    private String email;
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
@@ -24,4 +29,14 @@ public class AuthUserDO extends BaseDO {
     public void setDisplayName(String displayName) { this.displayName = displayName; }
     public Boolean getEnabled() { return enabled; }
     public void setEnabled(Boolean enabled) { this.enabled = enabled; }
+    public String getIdp() { return idp; }
+    public void setIdp(String idp) { this.idp = idp; }
+    public String getExternalSubject() { return externalSubject; }
+    public void setExternalSubject(String externalSubject) { this.externalSubject = externalSubject; }
+    public String getDefaultWorkspaceId() { return defaultWorkspaceId; }
+    public void setDefaultWorkspaceId(String defaultWorkspaceId) { this.defaultWorkspaceId = defaultWorkspaceId; }
+    public Boolean getMustChangePassword() { return mustChangePassword; }
+    public void setMustChangePassword(Boolean mustChangePassword) { this.mustChangePassword = mustChangePassword; }
+    public String getEmail() { return email; }
+    public void setEmail(String email) { this.email = email; }
 }

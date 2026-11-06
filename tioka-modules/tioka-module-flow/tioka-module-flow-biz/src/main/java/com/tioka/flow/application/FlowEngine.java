@@ -1,5 +1,7 @@
 package com.tioka.flow.application;
 
+import com.tioka.framework.id.Ids;
+
 import com.tioka.flow.application.exec.NodeExecContext;
 import com.tioka.flow.application.exec.NodeExecutor;
 import com.tioka.flow.application.exec.NodeExecutorRegistry;
@@ -104,7 +106,7 @@ public class FlowEngine {
         while (!ready.isEmpty()) {
             List<String> wave = new ArrayList<>();
             while (!ready.isEmpty()) wave.add(ready.poll());
-            String parallelGroup = wave.size() > 1 ? "pg_" + UUID.randomUUID().toString().substring(0, 8) : null;
+            String parallelGroup = wave.size() > 1 ? Ids.newId("pg") : null;
 
             List<WaveItem> items = executeWave(wave, byId, preds, outputs, ctx, parallelGroup, trace);
             for (WaveItem item : items) {

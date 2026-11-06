@@ -29,7 +29,7 @@ import java.util.concurrent.atomic.AtomicReference;
 public class FeishuImChannelAdapter implements ImChannelAdapter {
     private static final Logger log = LoggerFactory.getLogger(FeishuImChannelAdapter.class);
     private final ImOutboxRepository outboxRepo;
-    private final ObjectMapper mapper = new ObjectMapper();
+    private final ObjectMapper mapper;
     private final HttpClient http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build();
     private final String webhookUrl;
     private final String appId;
@@ -43,7 +43,9 @@ public class FeishuImChannelAdapter implements ImChannelAdapter {
                                   @Value("${tioka.feishu.app-id:}") String appId,
                                   @Value("${tioka.feishu.app-secret:}") String appSecret,
                                   @Value("${tioka.feishu.api-base:https://open.feishu.cn}") String apiBase,
-                                  @Value("${tioka.feishu.receive-id-type:chat_id}") String receiveIdType) {
+                                  @Value("${tioka.feishu.receive-id-type:chat_id}") String receiveIdType,
+                                  ObjectMapper mapper) {
+        this.mapper = mapper;
         this.outboxRepo = outboxRepo;
         this.webhookUrl = webhookUrl == null ? "" : webhookUrl.trim();
         this.appId = appId == null ? "" : appId.trim();

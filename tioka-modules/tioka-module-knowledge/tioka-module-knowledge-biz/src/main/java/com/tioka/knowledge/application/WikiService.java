@@ -1,10 +1,11 @@
 package com.tioka.knowledge.application;
 
+import com.tioka.framework.id.Ids;
+
 import com.tioka.knowledge.infrastructure.KnowledgeRepository;
 import com.tioka.knowledge.infrastructure.persistence.KbWikiDO;
 import org.springframework.stereotype.Service;
 
-import java.util.UUID;
 
 @Service
 public class WikiService {
@@ -17,7 +18,7 @@ public class WikiService {
     }
 
     public WikiPage upsert(String kbId, String title, String body) {
-        String id = "wiki_" + UUID.randomUUID().toString().substring(0, 8);
+        String id = Ids.newId("wiki");
         WikiPage page = new WikiPage(id, kbId, title, body);
         KbWikiDO row = new KbWikiDO();
         row.setId(page.id());

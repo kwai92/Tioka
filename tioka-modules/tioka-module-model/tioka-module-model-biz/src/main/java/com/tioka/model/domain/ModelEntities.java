@@ -88,12 +88,12 @@ public class ModelEntities {
         return repo.plans().stream().map(this::toPlan).toList();
     }
 
-    public Optional<String> getFreeze(String sessionId) {
-        return repo.getFreeze(sessionId);
+    public Optional<String> getFreeze(String sessionId, String turnId) {
+        return repo.getFreeze(sessionId, turnId);
     }
 
-    public void putFreeze(String sessionId, String bindingId) {
-        repo.putFreeze(sessionId, bindingId);
+    public void putFreeze(String sessionId, String turnId, String bindingId) {
+        repo.putFreeze(sessionId, turnId, bindingId);
     }
 
     private RoutingPlan toPlan(ModelRoutingPlanDO r) {

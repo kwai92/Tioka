@@ -1,0 +1,6 @@
+# 并发闸门：单次完成，延迟 500ms；loop=true 供多次 Turn 复用
+loop: true
+calls:
+  - content: "pong"
+    stream_chunk_chars: 4
+    chunk_delay_ms: 500

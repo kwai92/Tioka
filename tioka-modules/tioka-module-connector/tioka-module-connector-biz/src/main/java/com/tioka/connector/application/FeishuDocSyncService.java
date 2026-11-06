@@ -1,5 +1,7 @@
 package com.tioka.connector.application;
 
+import com.tioka.framework.id.Ids;
+
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tioka.connector.api.spi.FeishuDocContentSpi;
@@ -17,7 +19,6 @@ import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
@@ -29,7 +30,7 @@ import java.util.concurrent.atomic.AtomicReference;
 public class FeishuDocSyncService implements FeishuDocContentSpi {
     private static final Logger log = LoggerFactory.getLogger(FeishuDocSyncService.class);
     private final FeishuDocRepository docs;
-    private final ObjectMapper mapper = new ObjectMapper();
+    private final ObjectMapper mapper;
     private final HttpClient http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build();
     private final String appId;
     private final String appSecret;
@@ -39,7 +40,9 @@ public class FeishuDocSyncService implements FeishuDocContentSpi {
     public FeishuDocSyncService(FeishuDocRepository docs,
                                 @Value("${tioka.feishu.app-id:}") String appId,
                                 @Value("${tioka.feishu.app-secret:}") String appSecret,
-                                @Value("${tioka.feishu.api-base:https://open.feishu.cn}") String apiBase) {
+                                @Value("${tioka.feishu.api-base:https://open.feishu.cn}") String apiBase,
+                                  ObjectMapper mapper) {
+        this.mapper = mapper;
         this.docs = docs;
         this.appId = appId == null ? "" : appId.trim();
         this.appSecret = appSecret == null ? "" : appSecret.trim();
@@ -47,7 +50,7 @@ public class FeishuDocSyncService implements FeishuDocContentSpi {
     }
 
     public Mapping map(String localDocId, String feishuDocToken) {
-        String id = "map_" + UUID.randomUUID().toString().substring(0, 8);
+        String id = Ids.newId("map");
         Mapping m = new Mapping(id, localDocId, feishuDocToken);
         FeishuDocMapDO row = new FeishuDocMapDO();
         row.setId(m.id());

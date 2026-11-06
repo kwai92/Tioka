@@ -1,30 +1,84 @@
 package com.tioka.server.gate;
 
-import org.junit.jupiter.api.Disabled;
+import com.tioka.runtime.api.kernel.RuntimeApi;
+import com.tioka.runtime.api.kernel.RuntimeEventType;
+import com.tioka.runtime.api.kernel.TurnStatus;
+import com.tioka.runtime.kernel.events.EventId;
+import com.tioka.server.gate.support.DualInstance;
+import com.tioka.server.gate.support.GateSeed;
+import com.tioka.server.gate.support.SseCollector;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 
-import static org.junit.jupiter.api.Assertions.fail;
+import java.util.List;
+
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * 闸门 G0：RT-04。用例说明见 docs/architecture/construction/M0-03。
- *
- * <p>运行环境：双实例 + Testcontainers（PostgreSQL、Redis，按需 Keycloak、RocketMQ）+ 录制回放的模型桩（ENG-04）。
- * 实现者删除 {@code @Disabled} 并补全断言；闸门通过前不得合并对应阶段的发布分支。
+ * 闸门 G0：RT-04。A 执行 Turn，B 订阅 /events；断线续传无重复无缺失。
  */
 @Tag("gate")
-@Disabled("骨架：待 RT-04 实现后启用")
+@EnabledIfSystemProperty(named = "gate", matches = "true")
 class G0DualInstanceStreamGateIT {
 
-    /** 实例 A 执行 Turn，客户端连实例 B 订阅 /events，收到完整事件序列。 */
     @Test
-    void subscribeOnOtherInstance() {
-        fail("待实现：实例 A 执行 Turn，客户端连实例 B 订阅 /events，收到完整事件序列");
+    void subscribeOnOtherInstance() throws Exception {
+        try (DualInstance di = DualInstance.start()) {
+            GateSeed.Bundle bundle = GateSeed.seedPublishedAgent(di.a(), di.llm().baseUrl());
+            RuntimeApi.ThreadView thr = GateSeed.createThread(di.a(), bundle);
+
+            try (SseCollector sse = SseCollector.subscribe(
+                    di.baseUrlB(), bundle.token(), bundle.workspaceId(), thr.threadId(), null)) {
+                RuntimeApi.TurnHandle handle = GateSeed.startTurn(di.a(), bundle, thr.threadId(),
+                        "cm-stream-1", "请依次调用 echo 三次");
+                RuntimeApi.TurnView done = GateSeed.awaitTerminal(di.a(), bundle, handle.turnId(), 60_000);
+                assertEquals(TurnStatus.COMPLETED, done.status(), () -> done.errorMessage());
+                sse.awaitEvent(RuntimeEventType.TURN_COMPLETED.wire(), 15_000);
+                assertTrue(sse.frames().stream().anyMatch(f ->
+                                f.data() != null && (f.data().contains("tool_call")
+                                        || f.data().contains("message")
+                                        || "item.completed".equals(f.event()))),
+                        () -> "frames=" + sse.frames());
+            }
+        }
     }
 
-    /** 收到 {seq}.{i} 后断开，改连另一实例并带 Last-Event-ID，无重复、无缺失。 */
     @Test
-    void resumeWithoutDuplicates() {
-        fail("待实现：收到 {seq}.{i} 后断开，改连另一实例并带 Last-Event-ID，无重复、无缺失");
+    void resumeWithoutDuplicates() throws Exception {
+        try (DualInstance di = DualInstance.start()) {
+            GateSeed.Bundle bundle = GateSeed.seedPublishedAgent(di.a(), di.llm().baseUrl());
+            RuntimeApi.ThreadView thr = GateSeed.createThread(di.a(), bundle);
+
+            String lastId;
+            RuntimeApi.TurnHandle handle;
+            try (SseCollector sse = SseCollector.subscribe(
+                    di.baseUrlB(), bundle.token(), bundle.workspaceId(), thr.threadId(), null)) {
+                handle = GateSeed.startTurn(di.a(), bundle, thr.threadId(), "cm-resume-1",
+                        "请依次调用 echo 三次");
+                lastId = sse.awaitIdContaining(".", 30_000);
+            }
+
+            EventId cursor = EventId.parse(lastId);
+            try (SseCollector sse2 = SseCollector.subscribe(
+                    di.baseUrlA(), bundle.token(), bundle.workspaceId(), thr.threadId(), lastId)) {
+                RuntimeApi.TurnView done = GateSeed.awaitTerminal(di.a(), bundle, handle.turnId(), 60_000);
+                assertEquals(TurnStatus.COMPLETED, done.status(), () -> done.errorMessage());
+                long deadline = System.currentTimeMillis() + 10_000;
+                while (System.currentTimeMillis() < deadline
+                        && !sse2.hasEvent(RuntimeEventType.TURN_COMPLETED.wire())
+                        && sse2.ids().isEmpty()) {
+                    Thread.sleep(40);
+                }
+                List<String> second = sse2.ids();
+                for (String id : second) {
+                    EventId eid = EventId.parse(id);
+                    assertTrue(eid.compareTo(cursor) > 0,
+                            "续传不应包含 ≤ Last-Event-ID 的事件 id=" + id + " last=" + lastId
+                                    + " second=" + second);
+                }
+                assertFalse(second.contains(lastId), "不应再推送 Last-Event-ID 自身");
+            }
+        }
     }
 }

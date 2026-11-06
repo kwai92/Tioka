@@ -1,5 +1,7 @@
 package com.tioka.knowledge.application;
 
+import com.tioka.framework.id.Ids;
+
 import com.tioka.connector.api.spi.FeishuDocContentSpi;
 import com.tioka.framework.error.BizException;
 import com.tioka.framework.error.ErrorCode;
@@ -16,7 +18,6 @@ import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 
 @Service
 public class DataSourceService {
@@ -36,7 +37,7 @@ public class DataSourceService {
     }
 
     public DataSource bind(String kbId, String type, String uri) {
-        String id = "ds_" + UUID.randomUUID().toString().substring(0, 8);
+        String id = Ids.newId("ds");
         String t = type == null || type.isBlank() ? "upload" : type;
         DataSource ds = new DataSource(id, kbId, t, uri, "BOUND");
         KbDatasourceDO row = new KbDatasourceDO();
