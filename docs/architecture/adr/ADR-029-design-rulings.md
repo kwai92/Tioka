@@ -151,3 +151,11 @@ M0 编码开工时（分支 `feat/G0-multistep-stream-concurrency`）裁定。�
 | # | 涉及 | 问题 | 定案 |
 | --- | --- | --- | --- |
 | 65 | 34 号计划、施工总纲、M2-01〜M2-05、ADR-031、ADR-043 | M2 施工设计与总纲排期不一致（前端约一半人天没有对应工作，G2 缺重启与端到端用例和闸门基座）；RT-09 把「Flow 发布为工具转异步」当作 M2 的第一个使用者，与 ADR-043（FLW-18，M4 之后）相反；ORC-03 的 `flow` 动作建在 M3 要重写的旧引擎上；EVO-01 定在 M2 却没有设计与人天 | 新增 [construction/M2-00](../construction/M2-00-M2实施计划.md) 作为 M2 排期权威，M2 周次 W14–W23 不变。① RT-09 照做 `WAITING_CHILD` 与异步工具结果机制（供 M3 RT-12 使用），M2 只用闸门桩工具验证，Flow 发布为工具保持同步；② M2 编排规则动作只开放 `agent` 与 `admission`，`flow` 动作在 M3 FLW-06 接通 INTERNAL 发布后开放；③ EVO-01 移到 M3，与 EVO-02、EVO-03 一起做；④ 新增 ENG-04c、G2-E2E、ID-BR、IM-ADM、FE-15〜FE-20 与 V145（旧 ECB 密文重加密）；⑤ CON-02、CON-03、HCI-06 后端改由 BE-A 负责，TRU-05、TRU-06 后端改由 BE-B 负责。M2 合计后端 123、前端 37 人天，3 名后端干满 W14–W23，M3 后端实际从 W24 起步，M3 周次在写 M3-00 时按人力核算 |
+
+## Agent 架构调研落地定案（2026-11-06）
+
+编号接 M3 实施计划定案（第 66 条，PR #17）；两份 PR 合入顺序不影响编号。
+
+| # | 涉及 | 问题 | 定案 |
+| --- | --- | --- | --- |
+| 67 | ADR-016、ADR-020〜024、ADR-027、ADR-031、ADR-038、ADR-043、34 号计划；新增 ADR-044〜047 | 负责人要求联网调研 Agent、多 Agent、意图路由、SuperAgent、A2A，并追问 ReAct、Loop 等执行方式与 DSH 式插件模式；调研（[01](../research/01-Agent与多Agent架构调研.md)、[02](../research/02-Agent执行策略与执行器插件调研.md)）发现：没有入口意图路由；ADR-021 按旧版 MCP 规范设计；没有 A2A；只有一种执行循环；没有外部执行器；多 Agent 缺任务简报结构、决定日志、投入分级与上线基线 | 负责人 2026-11-06 同意按调研建议设计。① 新增 [ADR-044](ADR-044-entry-intent-routing.md) 入口意图路由（ROUTER 型 Agent，先按权限过滤候选再分层级联，受控交接），M4 P1；② 新增 [ADR-045](ADR-045-a2a-interop.md) A2A 映射与安全边界现在生效，实现在 M4 之后；③ 新增 [ADR-046](ADR-046-execution-strategy.md) 执行策略 SPI：M3 只预留 AgentSpec `execution` 段（EXE-01），M4 做 `PLAN_EXECUTE` 与 `REFLECT`，`CODE_ACT`、`GOAL_LOOP` 在 M4 之后，树搜索不做；④ 新增 [ADR-047](ADR-047-external-executor.md) 外部执行器（ACP 优先，沙箱内运行，模型与工具调用回到 Tioka，自治上限 L2），实现在 M4 之后；⑤ ADR-021 按 MCP 2026-07-28 修订，兼容 2025-11-25，不实现 HTTP+SSE 与 Sampling，CON-05 净增后端 2 人日；⑥ ADR-038 四处修订（MAS-08）；⑦ ADR-016 增加工具检索（RT-13）与护栏挂点（RT-14），均 M4 P2；⑧ ADR-031 增加多 Agent 与路由评测维度，OTel 以新仓库为准。**排期**：M3 净增后端约 2.5 人日，在写 M3-00 时核算，不单独延长 M3；M4 净增后端约 25.5、前端约 7 人日，预计 M4 延长约 2 周（以 M3-00 选定方案后的 M4 起止为基准），在写 M4-00 时按人力核算确认；M4 之后新增 A2A-01/02、EXE-03/04、EXR-01〜03、AST-10 |
