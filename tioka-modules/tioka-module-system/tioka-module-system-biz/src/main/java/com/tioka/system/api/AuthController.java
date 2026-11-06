@@ -3,25 +3,22 @@ package com.tioka.system.api;
 import com.tioka.framework.error.ApiResponse;
 import com.tioka.framework.error.BizException;
 import com.tioka.framework.error.ErrorCode;
+import com.tioka.framework.security.Principal;
+import com.tioka.framework.security.PrincipalHolder;
 import com.tioka.framework.security.PublicApi;
 import com.tioka.framework.security.RequirePermission;
-import com.tioka.system.api.spi.IdPAdapter;
 import com.tioka.system.application.AuthService;
+import com.tioka.system.application.oidc.OidcLoginService;
 import com.tioka.system.config.AuthProperties;
-import com.tioka.system.infrastructure.spi.LocalOidcIdPAdapter;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.constraints.NotBlank;
-import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseCookie;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.Duration;
-import java.util.Map;
-import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/system/auth")
@@ -30,22 +27,19 @@ public class AuthController {
 
     private final AuthService authService;
     private final AuthProperties authProperties;
-    private final ObjectProvider<IdPAdapter> idPAdapters;
-    private final ObjectProvider<LocalOidcIdPAdapter> oidcAdapters;
-    private final boolean oidcEnabled;
+    private final OidcLoginService oidcLogin;
+    private final PrincipalHolder principals;
     private final boolean cookieSecure;
 
     public AuthController(AuthService authService,
                           AuthProperties authProperties,
-                          ObjectProvider<IdPAdapter> idPAdapters,
-                          ObjectProvider<LocalOidcIdPAdapter> oidcAdapters,
-                          @Value("${tioka.auth.oidc-enabled:false}") boolean oidcEnabled,
-                          @Value("${tioka.auth.cookie-secure:false}") boolean cookieSecure) {
+                          OidcLoginService oidcLogin,
+                          PrincipalHolder principals,
+                          @org.springframework.beans.factory.annotation.Value("${tioka.auth.cookie-secure:false}") boolean cookieSecure) {
         this.authService = authService;
         this.authProperties = authProperties;
-        this.idPAdapters = idPAdapters;
-        this.oidcAdapters = oidcAdapters;
-        this.oidcEnabled = oidcEnabled;
+        this.oidcLogin = oidcLogin;
+        this.principals = principals;
         this.cookieSecure = cookieSecure;
     }
 
@@ -91,7 +85,7 @@ public class AuthController {
     @RequirePermission({})
     @PostMapping("/password")
     public ApiResponse<Void> changePassword(@RequestBody PasswordRequest req, HttpServletRequest request) {
-        Long userId = authService.resolveUserId(bearer(request));
+        Long userId = currentUserId();
         if (userId == null) {
             throw new BizException(ErrorCode.UNAUTHORIZED, "未登录");
         }
@@ -99,56 +93,62 @@ public class AuthController {
         return ApiResponse.ok(null);
     }
 
-    @PublicApi(reason = "OIDC 授权入口")
-    @GetMapping("/oidc/start")
-    public ApiResponse<Map<String, Object>> oidcStart(@RequestParam(defaultValue = "tioka") String state) {
-        if (!oidcEnabled) {
-            throw new BizException(ErrorCode.BAD_REQUEST, "OIDC 未启用");
-        }
-        LocalOidcIdPAdapter oidc = oidcAdapters.getIfAvailable();
-        if (oidc == null) {
-            throw new BizException(ErrorCode.BAD_REQUEST, "OIDC Adapter 未装配");
-        }
-        return ApiResponse.ok(Map.of(
-                "enabled", true,
-                "authorizationUrl", oidc.authorizationUrl(state),
-                "provider", oidc.name()
-        ));
+    @PublicApi(reason = "OIDC 授权入口（FND-05）")
+    @GetMapping("/oidc/{idp}/authorize")
+    public void oidcAuthorize(@PathVariable String idp,
+                              @RequestParam(value = "redirect", defaultValue = "/") String redirect,
+                              HttpServletRequest request,
+                              HttpServletResponse response) throws Exception {
+        String callback = absoluteCallback(request, idp);
+        String authUrl = oidcLogin.beginAuthorize(idp, redirect, callback);
+        response.setStatus(302);
+        response.setHeader(HttpHeaders.LOCATION, authUrl);
     }
 
-    @PublicApi(reason = "OIDC 回调换码")
-    @PostMapping("/oidc/callback")
-    public ApiResponse<AuthService.LoginResult> oidcCallback(@RequestBody OidcCallbackRequest req,
-                                                             HttpServletResponse response) {
-        if (!oidcEnabled) {
-            throw new BizException(ErrorCode.BAD_REQUEST, "OIDC 未启用");
+    @PublicApi(reason = "OIDC 回调（FND-05）")
+    @GetMapping("/oidc/{idp}/callback")
+    public void oidcCallback(@PathVariable String idp,
+                             @RequestParam(required = false) String code,
+                             @RequestParam(required = false) String state,
+                             @RequestParam(required = false) String error,
+                             HttpServletResponse response) throws Exception {
+        if (error != null && !error.isBlank()) {
+            throw new BizException(ErrorCode.UNAUTHORIZED, "OIDC 错误: " + error);
         }
-        IdPAdapter adapter = idPAdapters.stream()
-                .filter(a -> a.name().startsWith("oidc:"))
-                .findFirst()
-                .orElseThrow(() -> new BizException(ErrorCode.BAD_REQUEST, "OIDC Adapter 未装配"));
-        Map<String, String> creds = new java.util.HashMap<>();
-        creds.put("code", req.code());
-        if (req.codeVerifier() != null && !req.codeVerifier().isBlank()) {
-            creds.put("code_verifier", req.codeVerifier());
-        }
-        Optional<IdPAdapter.FederatedIdentity> identity = adapter.authenticate(creds);
-        if (identity.isEmpty()) {
-            throw new BizException(ErrorCode.UNAUTHORIZED, "OIDC 认证失败");
-        }
-        AuthService.LoginResult result = authService.loginFederated(identity.get());
-        writeRefreshCookie(response, result.refreshToken());
-        return ApiResponse.ok(result);
+        OidcLoginService.CallbackResult result = oidcLogin.handleCallback(idp, code, state);
+        writeRefreshCookie(response, result.tokens().refreshToken());
+        response.setStatus(302);
+        response.setHeader(HttpHeaders.LOCATION, result.frontendRedirect());
     }
 
     @RequirePermission({})
     @GetMapping("/me")
-    public ApiResponse<AuthService.MeResult> me(HttpServletRequest request) {
-        Long userId = authService.resolveUserId(bearer(request));
+    public ApiResponse<AuthService.MeResult> me() {
+        Long userId = currentUserId();
         if (userId == null) {
             throw new BizException(ErrorCode.UNAUTHORIZED, "未登录");
         }
         return ApiResponse.ok(authService.me(userId));
+    }
+
+    private Long currentUserId() {
+        return principals.find()
+                .map(Principal::userId)
+                .map(Long::parseLong)
+                .orElse(null);
+    }
+
+    private static String absoluteCallback(HttpServletRequest request, String idp) {
+        StringBuffer url = request.getRequestURL();
+        // .../authorize → .../callback
+        String s = url.toString();
+        int idx = s.lastIndexOf("/authorize");
+        if (idx > 0) {
+            return s.substring(0, idx) + "/callback";
+        }
+        return request.getScheme() + "://" + request.getServerName()
+                + (request.getServerPort() == 80 || request.getServerPort() == 443 ? "" : ":" + request.getServerPort())
+                + "/api/system/auth/oidc/" + idp + "/callback";
     }
 
     private void writeRefreshCookie(HttpServletResponse response, String refreshToken) {
@@ -204,6 +204,5 @@ public class AuthController {
     }
 
     public record LoginRequest(@NotBlank String username, @NotBlank String password) {}
-    public record OidcCallbackRequest(@NotBlank String code, String state, String codeVerifier) {}
     public record PasswordRequest(@NotBlank String oldPassword, @NotBlank String newPassword) {}
 }

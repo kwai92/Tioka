@@ -55,7 +55,12 @@ public class PrincipalLoader implements PrincipalLoaderApi {
     }
 
     public Principal load(long userId, String workspaceId) {
-        String cacheKey = "auth:principal:" + userId + ":" + workspaceId;
+        return load(userId, workspaceId, "password");
+    }
+
+    public Principal load(long userId, String workspaceId, String authMethod) {
+        String method = authMethod == null || authMethod.isBlank() ? "password" : authMethod;
+        String cacheKey = "auth:principal:" + userId + ":" + workspaceId + ":" + method;
         String cached = redis.opsForValue().get(cacheKey);
         if (cached != null) {
             try {
@@ -98,7 +103,7 @@ public class PrincipalLoader implements PrincipalLoaderApi {
         Set<String> perms = rolePermissions.expand(roles);
         // 预热组缓存
         groupIds(uid);
-        Principal principal = new Principal(uid, resolvedWs, PrincipalType.USER, roles, perms, "password");
+        Principal principal = new Principal(uid, resolvedWs, PrincipalType.USER, roles, perms, method);
         try {
             redis.opsForValue().set(cacheKey, objectMapper.writeValueAsString(principal), CACHE_TTL);
         } catch (JsonProcessingException ignored) {

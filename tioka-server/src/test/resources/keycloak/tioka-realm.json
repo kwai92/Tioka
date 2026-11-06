@@ -17,8 +17,10 @@
       "redirectUris": [
         "http://127.0.0.1:5173/login/callback",
         "http://localhost:5173/login/callback",
-        "http://127.0.0.1:*/*",
-        "http://localhost:*/*"
+        "http://127.0.0.1:8080/api/system/auth/oidc/keycloak/callback",
+        "http://localhost:8080/api/system/auth/oidc/keycloak/callback",
+        "http://127.0.0.1*",
+        "http://localhost*"
       ],
       "webOrigins": ["*"],
       "standardFlowEnabled": true,

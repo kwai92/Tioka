@@ -24,6 +24,13 @@ public class AuthUserRepositoryImpl implements AuthUserRepository {
     }
 
     @Override
+    public AuthUserDO findByIdpAndSubject(String idp, String externalSubject) {
+        return mapper.selectOne(Wrappers.<AuthUserDO>lambdaQuery()
+                .eq(AuthUserDO::getIdp, idp)
+                .eq(AuthUserDO::getExternalSubject, externalSubject));
+    }
+
+    @Override
     public void insert(AuthUserDO user) {
         mapper.insert(user);
     }

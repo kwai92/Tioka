@@ -58,8 +58,8 @@ class AuditCoverageIT {
             "/api/system/auth/refresh",
             "/api/system/auth/logout",
             "/api/system/auth/password",
-            "/api/system/auth/oidc/callback",
             "/api/system/auth/oidc/{idp}/authorize",
+            "/api/system/auth/oidc/{idp}/callback",
             // 只读语义 POST
             "/api/knowledge/bases/{id}/search",
             "/api/model/router/select",

@@ -12,10 +12,7 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.SecureRandom;
 import java.time.Duration;
-import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.regex.Matcher;
@@ -23,8 +20,8 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 /**
- * ENG-04b：无浏览器走 Keycloak 授权码（PKCE）+ Tioka OIDC 回调，返回 {@code tka_} 访问令牌。
- * <p>当前对接 M0 的 {@code /api/system/auth/oidc/callback}；FND-05 换路径后需同步本工具。
+ * ENG-04b / FND-05：无浏览器走 Keycloak 授权码（PKCE）+ Tioka OIDC 回调，返回 {@code tka_} 访问令牌。
+ * <p>入口：{@code GET /api/system/auth/oidc/keycloak/authorize}；回调写 {@code tioka_rt} Cookie 后经 {@code /refresh} 取访问令牌。
  */
 public final class KeycloakLogin {
     private static final Pattern FORM_ACTION = Pattern.compile(
@@ -54,20 +51,21 @@ public final class KeycloakLogin {
     }
 
     public String login(String username, String password) throws Exception {
-        String state = randomUrlSafe(16);
-        Pkce pkce = Pkce.generate();
-
-        String authUrl = keycloak.authorizationEndpoint()
-                + "?client_id=" + enc(KeycloakGateSupport.CLIENT_ID)
-                + "&response_type=code"
-                + "&scope=" + enc("openid profile email")
-                + "&redirect_uri=" + enc(KeycloakGateSupport.REDIRECT_URI)
-                + "&state=" + enc(state)
-                + "&code_challenge=" + enc(pkce.challenge)
-                + "&code_challenge_method=S256";
-
+        keycloak.ensureRedirectUri(tiokaBaseUrl + "/api/system/auth/oidc/keycloak/callback");
+        HttpResponse<String> start = http.send(
+                HttpRequest.newBuilder(URI.create(tiokaBaseUrl
+                                + "/api/system/auth/oidc/keycloak/authorize?redirect="
+                                + enc("/chat")))
+                        .GET().timeout(Duration.ofSeconds(30)).build(),
+                HttpResponse.BodyHandlers.ofString());
+        if (start.statusCode() / 100 != 3) {
+            throw new IllegalStateException("authorize expected 302, got " + start.statusCode()
+                    + " " + truncate(start.body()));
+        }
+        String authLoc = start.headers().firstValue("location")
+                .orElseThrow(() -> new IllegalStateException("authorize missing Location"));
         HttpResponse<String> loginPage = http.send(
-                HttpRequest.newBuilder(URI.create(authUrl)).GET().timeout(Duration.ofSeconds(30)).build(),
+                HttpRequest.newBuilder(URI.create(authLoc)).GET().timeout(Duration.ofSeconds(30)).build(),
                 HttpResponse.BodyHandlers.ofString());
         String html = followToLoginHtml(loginPage);
         String action = extractFormAction(html);
@@ -76,8 +74,8 @@ public final class KeycloakLogin {
         form.put("password", password);
         form.putIfAbsent("credentialId", "");
 
-        String code = postLoginAndCaptureCode(action, form, state);
-        return exchangeViaTioka(code, state, pkce.verifier);
+        followLoginToFrontend(action, form);
+        return refreshAccessToken();
     }
 
     private String followToLoginHtml(HttpResponse<String> resp) throws Exception {
@@ -100,8 +98,7 @@ public final class KeycloakLogin {
         throw new IllegalStateException("too many redirects before login form");
     }
 
-    private String postLoginAndCaptureCode(String action, Map<String, String> form, String expectedState)
-            throws Exception {
+    private void followLoginToFrontend(String action, Map<String, String> form) throws Exception {
         String body = form.entrySet().stream()
                 .map(e -> enc(e.getKey()) + "=" + enc(e.getValue() == null ? "" : e.getValue()))
                 .collect(Collectors.joining("&"));
@@ -114,46 +111,34 @@ public final class KeycloakLogin {
                         .build(),
                 HttpResponse.BodyHandlers.ofString());
         int hops = 0;
-        while (hops++ < 10) {
+        while (hops++ < 12) {
             int status = resp.statusCode();
             if (status >= 300 && status < 400) {
                 String loc = resp.headers().firstValue("location")
                         .orElseThrow(() -> new IllegalStateException("redirect without location"));
                 URI next = URI.create(authAbsolute(loc, resp.uri()));
-                if (isTiokaRedirect(next)) {
-                    Map<String, String> q = query(next);
-                    if (!expectedState.equals(q.get("state"))) {
-                        throw new IllegalStateException("state mismatch");
-                    }
-                    String code = q.get("code");
-                    if (code == null || code.isBlank()) {
-                        throw new IllegalStateException("missing code in redirect: " + next);
-                    }
-                    return code;
+                if (isFrontendCallback(next)) {
+                    return;
                 }
                 resp = http.send(HttpRequest.newBuilder(next).GET().timeout(Duration.ofSeconds(30)).build(),
                         HttpResponse.BodyHandlers.ofString());
                 continue;
             }
-            throw new IllegalStateException("login did not redirect with code, status=" + status
+            throw new IllegalStateException("login did not complete OIDC callback, status=" + status
                     + " body=" + truncate(resp.body()));
         }
         throw new IllegalStateException("too many redirects after login");
     }
 
-    private String exchangeViaTioka(String code, String state, String codeVerifier) throws Exception {
-        Map<String, String> payload = new LinkedHashMap<>();
-        payload.put("code", code);
-        payload.put("state", state == null ? "" : state);
-        payload.put("codeVerifier", codeVerifier);
-        HttpRequest req = HttpRequest.newBuilder(URI.create(tiokaBaseUrl + "/api/system/auth/oidc/callback"))
+    private String refreshAccessToken() throws Exception {
+        HttpRequest req = HttpRequest.newBuilder(URI.create(tiokaBaseUrl + "/api/system/auth/refresh"))
                 .timeout(Duration.ofSeconds(30))
                 .header("Content-Type", "application/json")
-                .POST(HttpRequest.BodyPublishers.ofString(json.writeValueAsString(payload)))
+                .POST(HttpRequest.BodyPublishers.noBody())
                 .build();
         HttpResponse<String> resp = http.send(req, HttpResponse.BodyHandlers.ofString());
         if (resp.statusCode() / 100 != 2) {
-            throw new IllegalStateException("Tioka OIDC callback failed: " + resp.statusCode() + " " + resp.body());
+            throw new IllegalStateException("Tioka /refresh failed: " + resp.statusCode() + " " + resp.body());
         }
         JsonNode root = json.readTree(resp.body());
         String token = root.path("data").path("accessToken").asText(null);
@@ -163,9 +148,9 @@ public final class KeycloakLogin {
         return token;
     }
 
-    private static boolean isTiokaRedirect(URI uri) {
+    private static boolean isFrontendCallback(URI uri) {
         String s = uri.toString();
-        return s.startsWith(KeycloakGateSupport.REDIRECT_URI) || s.contains("/login/callback");
+        return s.contains("/login/callback");
     }
 
     private static String extractFormAction(String html) {
@@ -189,7 +174,7 @@ public final class KeycloakLogin {
         return out;
     }
 
-    private static Map<String, String> query(URI uri) {
+    static Map<String, String> query(URI uri) {
         Map<String, String> out = new LinkedHashMap<>();
         String raw = uri.getRawQuery();
         if (raw == null || raw.isBlank()) {
@@ -224,21 +209,5 @@ public final class KeycloakLogin {
             return "";
         }
         return s.length() > 400 ? s.substring(0, 400) : s;
-    }
-
-    private static String randomUrlSafe(int bytes) {
-        byte[] buf = new byte[bytes];
-        new SecureRandom().nextBytes(buf);
-        return Base64.getUrlEncoder().withoutPadding().encodeToString(buf);
-    }
-
-    private record Pkce(String verifier, String challenge) {
-        static Pkce generate() throws Exception {
-            String verifier = randomUrlSafe(32);
-            MessageDigest md = MessageDigest.getInstance("SHA-256");
-            byte[] dig = md.digest(verifier.getBytes(StandardCharsets.US_ASCII));
-            String challenge = Base64.getUrlEncoder().withoutPadding().encodeToString(dig);
-            return new Pkce(verifier, challenge);
-        }
     }
 }

@@ -189,12 +189,22 @@ public final class GateCluster implements AutoCloseable {
         m.put("tioka.runtime.dispatcher-enabled", true);
         m.put("tioka.runtime.queued-sweeper-enabled", true);
         if (keycloak != null) {
-            m.put("tioka.auth.oidc-enabled", true);
-            m.put("tioka.auth.oidc-issuer", keycloak.issuerUri());
-            m.put("tioka.auth.oidc-client-id", KeycloakGateSupport.CLIENT_ID);
-            m.put("tioka.auth.oidc-client-secret", KeycloakGateSupport.CLIENT_SECRET);
-            m.put("tioka.auth.oidc-redirect-uri", KeycloakGateSupport.REDIRECT_URI);
-            m.put("tioka.auth.oidc-token-url", keycloak.tokenEndpoint());
+            m.put("tioka.auth.oidc.frontend-base-url", "http://127.0.0.1:5173");
+            m.put("tioka.auth.oidc.providers.keycloak.issuer-uri", keycloak.issuerUri());
+            m.put("tioka.auth.oidc.providers.keycloak.client-id", KeycloakGateSupport.CLIENT_ID);
+            m.put("tioka.auth.oidc.providers.keycloak.client-secret", KeycloakGateSupport.CLIENT_SECRET);
+            m.put("tioka.auth.oidc.providers.keycloak.scopes[0]", "openid");
+            m.put("tioka.auth.oidc.providers.keycloak.scopes[1]", "profile");
+            m.put("tioka.auth.oidc.providers.keycloak.scopes[2]", "email");
+            m.put("tioka.auth.oidc.providers.keycloak.groups-claim", "groups");
+            m.put("tioka.auth.oidc.providers.keycloak.auto-provision", true);
+            m.put("tioka.auth.oidc.providers.keycloak.group-role-mappings[0].group", "/tioka/admins");
+            m.put("tioka.auth.oidc.providers.keycloak.group-role-mappings[0].tenant-role", "tenant_admin");
+            m.put("tioka.auth.oidc.providers.keycloak.group-role-mappings[1].group", "/tioka/sales");
+            m.put("tioka.auth.oidc.providers.keycloak.group-role-mappings[1].workspace", "ws_sales");
+            m.put("tioka.auth.oidc.providers.keycloak.group-role-mappings[1].role", "member");
+            m.put("tioka.auth.oidc.resource-server.enabled", true);
+            m.put("tioka.auth.oidc.resource-server.audiences[0]", "tioka-api");
         }
         return m;
     }

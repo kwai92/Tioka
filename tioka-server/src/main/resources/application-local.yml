@@ -35,7 +35,22 @@ tioka:
     webhook-url: ""
   auth:
     local-enabled: true
-    oidc-enabled: false
+    oidc:
+      frontend-base-url: http://127.0.0.1:5173
+      # 本地启用 Keycloak 时取消注释并设置 TIOKA_OIDC_SECRET
+      # providers:
+      #   keycloak:
+      #     issuer-uri: http://localhost:8180/realms/tioka
+      #     client-id: tioka
+      #     client-secret: ${TIOKA_OIDC_SECRET:tioka-test-client-secret}
+      #     groups-claim: groups
+      #     auto-provision: true
+      #     group-role-mappings:
+      #       - { group: /tioka/admins, tenant-role: tenant_admin }
+      #       - { group: /tioka/sales, workspace: ws_sales, role: member }
+      # resource-server:
+      #   enabled: true
+      #   audiences: [tioka-api]
   knowledge:
     vector-backend: local
     embedding:

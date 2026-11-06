@@ -6,7 +6,6 @@ import com.tioka.framework.error.ErrorCode;
 import com.tioka.system.api.audit.AuditApi;
 import com.tioka.system.api.audit.AuditEvent;
 import com.tioka.system.api.audit.AuditOutcome;
-import com.tioka.system.api.spi.IdPAdapter;
 import com.tioka.system.application.auth.PasswordService;
 import com.tioka.system.application.auth.TokenService;
 import com.tioka.system.config.AuthProperties;
@@ -25,7 +24,6 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 
 @Service
 public class AuthService {
@@ -84,34 +82,6 @@ public class AuthService {
         LoginResult result = issueLogin(row);
         auditAuth("auth.login", result.user().id(), username, clientIp, AuditOutcome.SUCCESS, null);
         return result;
-    }
-
-    public LoginResult loginFederated(IdPAdapter.FederatedIdentity identity) {
-        if (identity == null || identity.subject() == null || identity.subject().isBlank()) {
-            throw new BizException(ErrorCode.UNAUTHORIZED, "联邦身份无效");
-        }
-        String username = identity.email() == null || identity.email().isBlank()
-                ? "oidc:" + identity.subject()
-                : identity.email();
-        AuthUserDO row = users.findByUsername(username);
-        if (row == null) {
-            AuthUserDO created = new AuthUserDO();
-            created.setId(users.nextId());
-            created.setUsername(username);
-            created.setPasswordHash(passwords.hash(UUID.randomUUID().toString()));
-            created.setDisplayName(identity.displayName() == null ? username : identity.displayName());
-            created.setEnabled(true);
-            created.setIdp("oidc");
-            created.setExternalSubject(identity.subject());
-            created.setMustChangePassword(false);
-            created.setDefaultWorkspaceId("ws_default");
-            users.insert(created);
-            row = users.findByUsername(username);
-        }
-        if (!Boolean.TRUE.equals(row.getEnabled())) {
-            throw new BizException(ErrorCode.FORBIDDEN, "账号已禁用");
-        }
-        return issueLogin(row);
     }
 
     public LoginResult refresh(String refreshToken) {

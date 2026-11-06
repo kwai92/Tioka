@@ -47,6 +47,13 @@ class AuthServiceTest {
             }
 
             @Override
+            public AuthUserDO findByIdpAndSubject(String idp, String externalSubject) {
+                return byId.values().stream()
+                        .filter(u -> idp.equals(u.getIdp()) && externalSubject.equals(u.getExternalSubject()))
+                        .findFirst().orElse(null);
+            }
+
+            @Override
             public void insert(AuthUserDO user) {
                 byId.put(user.getId(), user);
                 byName.put(user.getUsername(), user);

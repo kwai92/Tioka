@@ -29,4 +29,13 @@ public interface SysGroupMemberMapper {
 
     @Delete("DELETE FROM sys_group_member WHERE group_id = #{groupId} AND user_id = #{userId}")
     int delete(@Param("groupId") String groupId, @Param("userId") String userId);
+
+    @Delete("""
+            DELETE FROM sys_group_member m
+            USING sys_group g
+            WHERE m.group_id = g.id
+              AND m.user_id = #{userId}
+              AND g.source = #{source}
+            """)
+    int deleteUserFromSource(@Param("userId") String userId, @Param("source") String source);
 }
