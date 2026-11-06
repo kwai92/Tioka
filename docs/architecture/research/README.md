@@ -7,4 +7,5 @@
 | [01 Agent 与多 Agent 架构调研](01-Agent与多Agent架构调研.md) | 2026-11-06 | 单 Agent、多 Agent 协作、意图路由、SuperAgent、A2A 与 MCP；对照 ADR-016/020/024/027/031/038〜040/043 | 已落地：负责人 2026-11-06 同意按建议设计，见 ADR-044〜047 与 ADR-029 第 67 条 |
 | [02 Agent 执行策略与执行器插件](02-Agent执行策略与执行器插件调研.md) | 2026-11-06 | ReAct、先规划后执行、反思、CodeAct、长时循环；DSH / autoloop 式外部执行器、ACP；执行策略 SPI 与外部执行器 SPI 设计建议 | 已落地：同上 |
 | [03 Agent 记忆与上下文工程](03-Agent记忆与上下文工程调研.md) | 2026-11-06 | 上下文腐化、压缩与清理、工具结果裁剪、提示缓存（百炼、DeepSeek 等）、记忆分层与框架（Mem0、Letta、Zep、LangMem、Claude memory 工具）、记忆投毒与治理；对照 ADR-016/018/022/027/031/038/040/044/046 | 已落地：按推荐方案写成 ADR-048〜050 与 ADR-029 第 68 条，备选列在第 10 节供复核 |
+| [04 Knowledge / RAG 与外部知识库对接](04-Knowledge与RAG及外部知识库对接调研.md) | 2026-11-06 | 解析概览、切块与上下文增强、嵌入与 Rerank 选型、PostgreSQL 混合检索、查询改写、Agentic RAG、GraphRAG、RAG 评测；Dify、RAGFlow、FastGPT、百炼、Bedrock、扣子、WeKnora 的检索接口与对接方式；对照 ADR-018/036/040/048/050 | 已落地：按推荐方案写成 ADR-055〜057 与 ADR-029 第 70 条，备选列在第 9 节供复核 |
 | [05 文档解析与 OCR](05-文档解析与OCR调研.md) | 2026-11-06 | 版面分析、两阶段 VLM 与端到端 VLM；PaddleOCR、MinerU、Docling、Unstructured；阿里云、百炼、百度、腾讯、TextIn 外购产品对比；解析输出契约；外购适配差异；对照 ADR-018/024/036/040/042 与 M3-03 | 已落地：按推荐方案写成 ADR-060〜062 与 ADR-029 第 71 条，备选列在第 8 节供复核 |
