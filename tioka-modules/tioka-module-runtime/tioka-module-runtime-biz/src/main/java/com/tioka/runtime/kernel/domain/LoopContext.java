@@ -15,19 +15,29 @@ public final class LoopContext {
     private final String agentVersionId;
     private final String routingPlanId;
     private final String workspaceId;
+    private final String principalId;
     private boolean forceFinalAnswer;
     private ModelRouterApi.ModelSelection modelSelection;
 
     public LoopContext(String threadId, String turnId, long leaseVersion,
                        int maxSteps, int repeatLimit, int startStep,
                        LoopPorts.SignalPort signals) {
-        this(threadId, turnId, leaseVersion, maxSteps, repeatLimit, startStep, signals, null, null, null);
+        this(threadId, turnId, leaseVersion, maxSteps, repeatLimit, startStep, signals, null, null, null, null);
     }
 
     public LoopContext(String threadId, String turnId, long leaseVersion,
                        int maxSteps, int repeatLimit, int startStep,
                        LoopPorts.SignalPort signals,
                        String agentVersionId, String routingPlanId, String workspaceId) {
+        this(threadId, turnId, leaseVersion, maxSteps, repeatLimit, startStep, signals,
+                agentVersionId, routingPlanId, workspaceId, null);
+    }
+
+    public LoopContext(String threadId, String turnId, long leaseVersion,
+                       int maxSteps, int repeatLimit, int startStep,
+                       LoopPorts.SignalPort signals,
+                       String agentVersionId, String routingPlanId, String workspaceId,
+                       String principalId) {
         this.threadId = threadId;
         this.turnId = turnId;
         this.leaseVersion = leaseVersion;
@@ -38,6 +48,7 @@ public final class LoopContext {
         this.agentVersionId = agentVersionId;
         this.routingPlanId = routingPlanId;
         this.workspaceId = workspaceId;
+        this.principalId = principalId;
     }
 
     public String threadId() { return threadId; }
@@ -49,6 +60,7 @@ public final class LoopContext {
     public String agentVersionId() { return agentVersionId; }
     public String routingPlanId() { return routingPlanId; }
     public String workspaceId() { return workspaceId; }
+    public String principalId() { return principalId; }
 
     public ModelRouterApi.ModelSelection modelSelection() { return modelSelection; }
     public void setModelSelection(ModelRouterApi.ModelSelection modelSelection) {
