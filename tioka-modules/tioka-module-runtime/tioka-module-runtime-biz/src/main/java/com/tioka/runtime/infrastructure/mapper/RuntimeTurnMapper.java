@@ -127,6 +127,23 @@ public interface RuntimeTurnMapper {
             """)
     List<String> findExpired(@Param("now") OffsetDateTime now, @Param("limit") int limit);
 
+    @Update("""
+            UPDATE runtime_turn
+               SET status = 'INTERRUPTED', update_at = now()
+             WHERE id = #{turnId} AND status = 'RUNNING' AND lease_until < now()
+            """)
+    int markInterrupted(String turnId);
+
+    @Update("""
+            UPDATE runtime_turn
+               SET status = 'FAILED', error_code = #{errorCode}, error_message = #{errorMessage},
+                   ended_at = now(), update_at = now()
+             WHERE id = #{turnId} AND status = 'INTERRUPTED'
+            """)
+    int failInterrupted(@Param("turnId") String turnId,
+                         @Param("errorCode") String errorCode,
+                         @Param("errorMessage") String errorMessage);
+
     @Select("""
             SELECT id, session_id AS sessionId, seq, status, origin, origin_ref AS originRef,
                    client_msg_id AS clientMsgId, run_as_json AS runAsJson, options_json AS optionsJson,
@@ -151,7 +168,14 @@ public interface RuntimeTurnMapper {
             FROM runtime_turn
             WHERE session_id = #{sessionId}
               AND status IN ('RUNNING', 'WAITING_APPROVAL', 'WAITING_CHILD', 'QUEUED')
-            ORDER BY seq DESC
+            ORDER BY CASE status
+                       WHEN 'RUNNING' THEN 0
+                       WHEN 'WAITING_APPROVAL' THEN 1
+                       WHEN 'WAITING_CHILD' THEN 2
+                       WHEN 'QUEUED' THEN 3
+                       ELSE 4
+                     END,
+                     seq DESC
             LIMIT 1
             """)
     RuntimeTurnDO findActive(String sessionId);

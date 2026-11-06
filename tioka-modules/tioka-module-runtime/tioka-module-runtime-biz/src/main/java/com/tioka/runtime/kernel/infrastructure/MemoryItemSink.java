@@ -46,8 +46,11 @@ public class MemoryItemSink implements LoopPorts.ItemSink {
             if (entry != null) {
                 streams.setCurrentEntry(ctx.threadId(), entry);
             }
-            return new StreamState(seq, itemId);
+            return new StreamState(seq, itemId, ctx.leaseVersion());
         });
+        if (delta.text() != null) {
+            st.appendText(delta.text());
+        }
         int index = st.nextDelta();
         streams.publish(ctx.threadId(), EventId.of(st.seq, index).toString(),
                 RuntimeEventType.ITEM_DELTA.wire(),
@@ -59,7 +62,7 @@ public class MemoryItemSink implements LoopPorts.ItemSink {
         StreamState st = streaming.remove(ctx.turnId());
         RuntimeItemDO item;
         if (st != null) {
-            items.insertReserved(st.seq, ctx.threadId(), ctx.turnId(), step,
+            items.insertReserved(st.seq, ctx.threadId(), ctx.turnId(), st.leaseVersion, step,
                     ItemType.MESSAGE.wire(), "assistant", json(Map.of("text", text)), null);
             item = new RuntimeItemDO();
             item.setId(st.itemId);
@@ -75,6 +78,33 @@ public class MemoryItemSink implements LoopPorts.ItemSink {
             item = items.append(ctx.threadId(), ctx.turnId(), ctx.leaseVersion(), step,
                     ItemType.MESSAGE.wire(), "assistant", json(Map.of("text", text)), null);
         }
+        streams.publish(ctx.threadId(), EventId.of(item.getSeq()).toString(),
+                RuntimeEventType.ITEM_COMPLETED.wire(),
+                events.itemCompleted(ctx.threadId(), item));
+    }
+
+    @Override
+    public void flushInterrupted(LoopContext ctx, int step) {
+        StreamState st = streaming.remove(ctx.turnId());
+        if (st == null) {
+            return;
+        }
+        Map<String, Object> content = new LinkedHashMap<>();
+        content.put("text", st.text());
+        content.put("interrupted", true);
+        String contentJson = json(content);
+        items.insertReserved(st.seq, ctx.threadId(), ctx.turnId(), st.leaseVersion, step,
+                ItemType.MESSAGE.wire(), "assistant", contentJson, null);
+        RuntimeItemDO item = new RuntimeItemDO();
+        item.setId(st.itemId);
+        item.setSessionId(ctx.threadId());
+        item.setTurnId(ctx.turnId());
+        item.setSeq(st.seq);
+        item.setStep(step);
+        item.setType(ItemType.MESSAGE.wire());
+        item.setRole("assistant");
+        item.setContentJson(contentJson);
+        streams.clearCurrentEntry(ctx.threadId());
         streams.publish(ctx.threadId(), EventId.of(item.getSeq()).toString(),
                 RuntimeEventType.ITEM_COMPLETED.wire(),
                 events.itemCompleted(ctx.threadId(), item));
@@ -144,12 +174,23 @@ public class MemoryItemSink implements LoopPorts.ItemSink {
     private static final class StreamState {
         final long seq;
         final String itemId;
+        final long leaseVersion;
+        private final StringBuilder text = new StringBuilder();
         private final java.util.concurrent.atomic.AtomicInteger deltaIndex =
                 new java.util.concurrent.atomic.AtomicInteger();
 
-        StreamState(long seq, String itemId) {
+        StreamState(long seq, String itemId, long leaseVersion) {
             this.seq = seq;
             this.itemId = itemId;
+            this.leaseVersion = leaseVersion;
+        }
+
+        void appendText(String chunk) {
+            text.append(chunk);
+        }
+
+        String text() {
+            return text.toString();
         }
 
         int nextDelta() {

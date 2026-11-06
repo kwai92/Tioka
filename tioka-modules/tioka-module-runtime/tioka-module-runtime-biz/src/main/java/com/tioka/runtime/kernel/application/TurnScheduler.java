@@ -1,5 +1,7 @@
 package com.tioka.runtime.kernel.application;
 
+import com.tioka.framework.error.BizException;
+import com.tioka.framework.error.ErrorCode;
 import com.tioka.runtime.config.KernelProperties;
 import com.tioka.runtime.kernel.infrastructure.TurnRepository;
 import com.tioka.runtime.kernel.infrastructure.persistence.RuntimeTurnDO;
@@ -12,6 +14,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.Semaphore;
+import java.util.concurrent.ThreadPoolExecutor;
 
 /**
  * 本实例有界线程池 + 同 thread 串行（靠 SessionLock）。
@@ -33,6 +36,15 @@ public class TurnScheduler {
         this.runner = runner;
         this.executor = turnExecutor;
         this.concurrency = new Semaphore(props.getExecutor().getMaxConcurrentTurns());
+    }
+
+    /** startTurn 在入队前探测：池与队列都满则返回 false。 */
+    public boolean canAccept() {
+        if (executor instanceof ThreadPoolExecutor tpe) {
+            return tpe.getQueue().remainingCapacity() > 0
+                    || tpe.getActiveCount() < tpe.getMaximumPoolSize();
+        }
+        return true;
     }
 
     public void submit(String turnId) {
@@ -57,21 +69,15 @@ public class TurnScheduler {
                         sessionId = row.get().getSessionId();
                         stillQueued = "QUEUED".equals(row.get().getStatus());
                     }
-                    if (stillQueued) {
-                        // 抢锁/acquire 失败提前返回：短暂退避后重新入队，避免永久 QUEUED
-                        try {
-                            Thread.sleep(20);
-                        } catch (InterruptedException e) {
-                            Thread.currentThread().interrupt();
-                        }
-                        submit(turnId);
-                    } else if (sessionId != null) {
+                    // 锁被占时 TurnRunner 直接返回（仍 QUEUED）：不自旋重投，
+                    // 等当前持锁 Turn 结束时 onTurnFinished → nextQueued 保证 FIFO。
+                    if (!stillQueued && sessionId != null) {
                         onTurnFinished(sessionId);
                     }
                 }
             });
-        } catch (RejectedExecutionException ignored) {
-            // 队列满：保持 QUEUED，由后续 onTurnFinished 再捞
+        } catch (RejectedExecutionException e) {
+            throw new BizException(ErrorCode.DEPENDENCY, "本实例执行队列已满");
         }
     }
 

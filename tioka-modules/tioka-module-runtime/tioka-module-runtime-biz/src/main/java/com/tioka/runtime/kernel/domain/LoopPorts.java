@@ -39,6 +39,9 @@ public final class LoopPorts {
         void toolResult(LoopContext ctx, int step, ToolOutcome outcome);
 
         void status(LoopContext ctx, int step, String kind);
+
+        /** 取消时把流式中的文本以 interrupted:true 落库；无流式则无操作。 */
+        default void flushInterrupted(LoopContext ctx, int step) {}
     }
 
     public interface SignalPort {

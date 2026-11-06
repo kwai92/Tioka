@@ -23,11 +23,13 @@ import com.tioka.runtime.kernel.events.EventStream;
 import com.tioka.runtime.kernel.events.RuntimeEventFactory;
 import com.tioka.runtime.kernel.infrastructure.TurnRepository;
 import com.tioka.runtime.kernel.infrastructure.persistence.RuntimeTurnDO;
+import com.tioka.runtime.application.UsageReportedEvent;
 import com.tioka.runtime.kernel.infrastructure.redis.SessionLock;
 import com.tioka.runtime.kernel.infrastructure.redis.SignalBus;
 import com.tioka.system.api.spi.PrincipalLoaderApi;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
@@ -54,6 +56,7 @@ public class TurnRunner {
     private final LoopPorts.SignalPort signalPort;
     private final EventStream streams;
     private final RuntimeEventFactory events;
+    private final ApplicationEventPublisher publisher;
 
     public TurnRunner(TurnRepository turns,
                       RuntimeSessionRepository sessions,
@@ -67,7 +70,8 @@ public class TurnRunner {
                       SignalBus signalBus,
                       LoopPorts.SignalPort signalPort,
                       EventStream streams,
-                      RuntimeEventFactory events) {
+                      RuntimeEventFactory events,
+                      ApplicationEventPublisher publisher) {
         this.turns = turns;
         this.sessions = sessions;
         this.sessionLock = sessionLock;
@@ -81,6 +85,7 @@ public class TurnRunner {
         this.signalPort = signalPort;
         this.streams = streams;
         this.events = events;
+        this.publisher = publisher;
     }
 
     public void run(String turnId) {
@@ -136,7 +141,9 @@ public class TurnRunner {
                             result.errorCode(), truncate(result.errorMessage()),
                             result.promptTokens(), result.completionTokens());
                     turns.requireLeaseWrite(n);
+                    publishUsage(threadId, result);
                     publishTerminal(threadId, turnId, result.status());
+                    streams.expireAfterTurn(threadId);
                     return null;
                 });
             } catch (LeaseLost e) {
@@ -144,12 +151,14 @@ public class TurnRunner {
             } catch (CancelledSignal e) {
                 turns.finish(turnId, lv, TurnStatus.CANCELLED, null, null, null, null);
                 publishTerminal(threadId, turnId, TurnStatus.CANCELLED);
+                streams.expireAfterTurn(threadId);
             } catch (RuntimeException e) {
                 log.error("turn {} failed", turnId, e);
                 try {
                     turns.finish(turnId, lv, TurnStatus.FAILED, "INTERNAL",
                             truncate(e.getMessage()), null, null);
                     publishTerminal(threadId, turnId, TurnStatus.FAILED);
+                    streams.expireAfterTurn(threadId);
                 } catch (RuntimeException ignored) {
                     // ignore
                 }
@@ -174,6 +183,14 @@ public class TurnRunner {
         };
         streams.publish(threadId, null, type.wire(),
                 events.turnStatus(type, threadId, turnId, status.name()));
+    }
+
+    private void publishUsage(String threadId, LoopResult result) {
+        if (result.promptTokens() <= 0 && result.completionTokens() <= 0) {
+            return;
+        }
+        publisher.publishEvent(new UsageReportedEvent(
+                threadId, "turn", result.promptTokens(), result.completionTokens(), "ok"));
     }
 
     /** ADR-029 §6：按 turn.runAsJson 重载发起人权限，禁止一律 SYSTEM。 */

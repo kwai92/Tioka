@@ -111,6 +111,9 @@ public class KernelRuntimeService implements RuntimeApi {
                 return new TurnHandle(t.getId(), TurnStatus.valueOf(t.getStatus()), eventsUrl(threadId));
             }
         }
+        if (!scheduler.canAccept()) {
+            throw new BizException(ErrorCode.DEPENDENCY, "本实例执行队列已满");
+        }
         int active = turns.countActive(threadId);
         if (active >= props.getMaxQueuedPerThread()) {
             throw new BizException(ErrorCode.RATE_LIMITED, "同 thread 排队超过上限");
