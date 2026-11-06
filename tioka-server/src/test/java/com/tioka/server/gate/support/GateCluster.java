@@ -188,6 +188,9 @@ public final class GateCluster implements AutoCloseable {
         m.put("tioka.runtime.release-on-shutdown", true);
         m.put("tioka.runtime.dispatcher-enabled", true);
         m.put("tioka.runtime.queued-sweeper-enabled", true);
+        m.put("spring.flyway.placeholders.embeddingDim", "32");
+        m.put("tioka.knowledge.embedding-dim", 32);
+        m.put("tioka.knowledge.reindex-enabled", false);
         if (keycloak != null) {
             m.put("tioka.auth.oidc.frontend-base-url", "http://127.0.0.1:5173");
             m.put("tioka.auth.oidc.providers.keycloak.issuer-uri", keycloak.issuerUri());

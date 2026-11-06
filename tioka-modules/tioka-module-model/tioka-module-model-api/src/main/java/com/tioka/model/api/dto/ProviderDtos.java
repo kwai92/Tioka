@@ -5,7 +5,13 @@ public final class ProviderDtos {
     public record CreateProviderRequest(String name, String baseUrl, String apiKeyPlain) {}
     public record ProviderView(String id, String name, String baseUrl, String apiKeyRef) {}
     public record CreateLogicalModelRequest(String name, String capabilityTags) {}
-    public record CreateBindingRequest(String logicalModelId, String providerId, String modelName) {}
+    public record CreateBindingRequest(
+            String logicalModelId, String providerId, String modelName,
+            String kind, Integer embeddingDim) {
+        public CreateBindingRequest(String logicalModelId, String providerId, String modelName) {
+            this(logicalModelId, providerId, modelName, null, null);
+        }
+    }
     public record CreateRoutingPlanRequest(
             String name,
             String type,

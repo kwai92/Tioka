@@ -6,6 +6,7 @@ import com.tioka.framework.security.SystemPrincipals;
 import com.tioka.knowledge.infrastructure.KnowledgeRepository;
 import com.tioka.knowledge.infrastructure.embedding.HashEmbeddingClient;
 import com.tioka.knowledge.infrastructure.parse.DocumentParser;
+import com.tioka.model.api.BindingQueryApi;
 import com.tioka.model.api.gateway.ModelCallContext;
 import com.tioka.model.api.gateway.ModelGateway;
 import com.tioka.knowledge.infrastructure.persistence.KbBaseDO;
@@ -19,6 +20,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
@@ -36,21 +38,27 @@ final class KnowledgeInMemorySupport {
         return new KnowledgeRepository(null, null, null, null, null, null, null) {
             @Override public void insertBase(KbBaseDO row) { bases.put(row.getId(), row); }
             @Override public boolean hasBase(String id) { return bases.containsKey(id); }
+            @Override public KbBaseDO findBase(String id) { return bases.get(id); }
             @Override public boolean lockBaseExists(String id) { return bases.containsKey(id); }
             @Override public void insertDocument(KbDocumentDO row) { docs.put(row.getId(), row); }
             @Override public void updateDocument(KbDocumentDO row) { docs.put(row.getId(), row); }
             @Override public KbDocumentDO findDocument(String id) { return docs.get(id); }
-            @Override public void insertChunk(KbChunkDO row) { chunks.put(row.getId(), row); }
-            @Override public void insertChunkWithVector(String id, String docId, String kbId, String text, int ordinal, String embedding, String vectorLiteral) {
+            @Override public List<KbDocumentDO> listDocumentsByStatus(String status, int limit) {
+                return docs.values().stream()
+                        .filter(d -> status.equals(d.getStatus()))
+                        .limit(limit)
+                        .toList();
+            }
+            @Override public void insertChunkWithVector(String id, String docId, String kbId, String text, int ordinal, String vectorLiteral) {
                 KbChunkDO row = new KbChunkDO();
                 row.setId(id);
                 row.setDocId(docId);
                 row.setKbId(kbId);
                 row.setText(text);
                 row.setOrdinal(ordinal);
-                row.setEmbedding(embedding);
                 chunks.put(id, row);
             }
+            @Override public void updateChunkVector(String id, String vectorLiteral) { /* no-op in memory */ }
             @Override public KbChunkDO findChunk(String id) { return chunks.get(id); }
             @Override public List<KbChunkDO> listChunksByDoc(String docId) {
                 return chunks.values().stream()
@@ -60,7 +68,7 @@ final class KnowledgeInMemorySupport {
             }
             @Override public void insertCitation(KbCitationDO row) { citations.put(row.getId(), row); }
             @Override public KbCitationDO findCitation(String id) { return citations.get(id); }
-            @Override public List<Map<String, Object>> listChunksWithDoc(String kbId) {
+            @Override public List<Map<String, Object>> searchNearest(String kbId, String vectorLiteral, int k) {
                 List<Map<String, Object>> out = new ArrayList<>();
                 for (KbChunkDO c : chunks.values()) {
                     if (!kbId.equals(c.getKbId())) continue;
@@ -70,14 +78,11 @@ final class KnowledgeInMemorySupport {
                     m.put("doc_id", c.getDocId());
                     m.put("text", c.getText());
                     m.put("ordinal", c.getOrdinal());
-                    m.put("embedding", c.getEmbedding());
                     m.put("title", d == null ? "" : d.getTitle());
+                    m.put("distance", 0.1);
                     out.add(m);
                 }
-                return out;
-            }
-            @Override public List<Map<String, Object>> searchNearest(String kbId, String vectorLiteral, int k) {
-                return listChunksWithDoc(kbId).stream().limit(k).toList();
+                return out.stream().limit(k).toList();
             }
             @Override public void insertDatasource(KbDatasourceDO row) { datasources.put(row.getId(), row); }
             @Override public List<KbDatasourceDO> listDatasources(String kbId) {
@@ -116,13 +121,14 @@ final class KnowledgeInMemorySupport {
                 throw new UnsupportedOperationException();
             }
         };
+        BindingQueryApi bindings = bindingId -> Optional.empty();
         PrincipalHolder holder = new PrincipalHolder() {
             @Override public Principal current() { return SystemPrincipals.system(); }
             @Override public java.util.Optional<Principal> find() { return java.util.Optional.of(SystemPrincipals.system()); }
             @Override public <T> T runAs(Principal principal, java.util.function.Supplier<T> body) { return body.get(); }
         };
-        return new KnowledgeService(repo, gateway, holder, new DocumentParser(), "local",
-                new com.fasterxml.jackson.databind.ObjectMapper(), new PassthroughTxManager());
+        return new KnowledgeService(repo, gateway, bindings, holder, new DocumentParser(), 32,
+                new PassthroughTxManager());
     }
 
     /** 单测无真实事务：回调直接执行。 */

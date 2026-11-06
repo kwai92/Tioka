@@ -22,5 +22,9 @@ public final class IntegrationTestSupport {
         // 与 GateCluster / DualInstance 共享 Testcontainers Redis 时，禁止本上下文抢 rt:turns
         registry.add("tioka.runtime.dispatcher-enabled", () -> "false");
         registry.add("tioka.runtime.queued-sweeper-enabled", () -> "false");
+        // KNW-01：IT 用 32 维，与 ProviderClient mock / LlmStub 默认一致
+        registry.add("spring.flyway.placeholders.embeddingDim", () -> "32");
+        registry.add("tioka.knowledge.embedding-dim", () -> "32");
+        registry.add("tioka.knowledge.reindex-enabled", () -> "false");
     }
 }

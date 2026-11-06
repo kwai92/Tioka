@@ -5,6 +5,9 @@ spring:
     username: ${TIOKA_DB_USER:tioka}
     password: ${TIOKA_DB_PASSWORD:tioka}
     driver-class-name: org.postgresql.Driver
+  flyway:
+    placeholders:
+      embeddingDim: ${TIOKA_EMBEDDING_DIM:32}
   data:
     redis:
       host: ${TIOKA_REDIS_HOST:localhost}
@@ -52,12 +55,9 @@ tioka:
       #   enabled: true
       #   audiences: [tioka-api]
   knowledge:
-    vector-backend: local
-    embedding:
-      base-url: ""
-      api-key-ref: ""
-      model: text-embedding-3-small
-      dim: 32
+    # 本地开发可用较小维度加速；生产默认 1024（见 application.yml）
+    embedding-dim: ${TIOKA_EMBEDDING_DIM:32}
+    reindex-enabled: true
 
 mybatis-plus:
   global-config:

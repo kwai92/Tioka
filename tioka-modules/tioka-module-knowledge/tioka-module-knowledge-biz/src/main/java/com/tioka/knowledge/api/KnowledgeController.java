@@ -25,7 +25,10 @@ public class KnowledgeController {
 
     @PostMapping("/bases")
     public ApiResponse<KnowledgeService.KnowledgeBase> createBase(@RequestBody Map<String, String> body) {
-        return ApiResponse.ok(service.createBase(body.getOrDefault("workspaceId", "ws_default"), body.get("name")));
+        return ApiResponse.ok(service.createBase(
+                body.getOrDefault("workspaceId", "ws_default"),
+                body.get("name"),
+                body.get("embeddingBindingId")));
     }
 
     @PostMapping("/bases/{id}/documents")

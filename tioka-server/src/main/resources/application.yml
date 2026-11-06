@@ -17,6 +17,8 @@ spring:
     baseline-on-migrate: false
     # ADR-029 第 33 条修订：迁移随工作项合入，合入顺序可能与版本号不同
     out-of-order: true
+    placeholders:
+      embeddingDim: ${TIOKA_EMBEDDING_DIM:1024}
   data:
     redis:
       host: ${TIOKA_REDIS_HOST:localhost}
@@ -74,3 +76,8 @@ tioka:
     forward-batch-size: 100
     forward-delay-ms: 5000
     file-relative-path: audit/audit.jsonl
+  knowledge:
+    embedding-dim: ${TIOKA_EMBEDDING_DIM:1024}
+    reindex-enabled: true
+    reindex-interval-ms: 15000
+    reindex-batch-size: 5

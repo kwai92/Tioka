@@ -13,7 +13,6 @@ public class KbChunkDO extends BaseDO {
     private String kbId;
     private String text;
     private Integer ordinal;
-    private String embedding;
 
     public String getId() { return id; }
     public void setId(String id) { this.id = id; }
@@ -25,6 +24,4 @@ public class KbChunkDO extends BaseDO {
     public void setText(String text) { this.text = text; }
     public Integer getOrdinal() { return ordinal; }
     public void setOrdinal(Integer ordinal) { this.ordinal = ordinal; }
-    public String getEmbedding() { return embedding; }
-    public void setEmbedding(String embedding) { this.embedding = embedding; }
 }

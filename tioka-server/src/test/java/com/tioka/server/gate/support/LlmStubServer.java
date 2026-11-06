@@ -76,6 +76,9 @@ public final class LlmStubServer implements AutoCloseable {
             @Override
             public MockResponse dispatch(RecordedRequest request) {
                 String path = request.getPath() == null ? "" : request.getPath();
+                if (path.contains("/embeddings")) {
+                    return embeddingResponse(request);
+                }
                 if (!path.contains("/chat/completions")) {
                     return new MockResponse().setResponseCode(404);
                 }
@@ -244,6 +247,64 @@ public final class LlmStubServer implements AutoCloseable {
         root.put("id", "chatcmpl_stub");
         root.put("object", "chat.completion.chunk");
         return root;
+    }
+
+    /** KNW-01：OpenAI 兼容 /embeddings，按 dimensions（缺省 32）返回确定性哈希向量。 */
+    private MockResponse embeddingResponse(RecordedRequest request) {
+        try {
+            JsonNode body = json.readTree(request.getBody().readUtf8());
+            int dim = body.path("dimensions").asInt(32);
+            if (dim <= 0) {
+                dim = 32;
+            }
+            ArrayNode inputs = body.path("input").isArray()
+                    ? (ArrayNode) body.path("input")
+                    : json.createArrayNode().add(body.path("input").asText(""));
+            ObjectNode root = json.createObjectNode();
+            root.put("object", "list");
+            ArrayNode data = root.putArray("data");
+            for (int i = 0; i < inputs.size(); i++) {
+                String text = inputs.get(i).asText("");
+                ObjectNode item = data.addObject();
+                item.put("object", "embedding");
+                item.put("index", i);
+                ArrayNode emb = item.putArray("embedding");
+                float[] v = hashEmbed(text, dim);
+                for (float x : v) {
+                    emb.add(x);
+                }
+            }
+            ObjectNode usage = root.putObject("usage");
+            usage.put("prompt_tokens", Math.max(1, inputs.size()));
+            usage.put("total_tokens", Math.max(1, inputs.size()));
+            return new MockResponse()
+                    .setHeader("Content-Type", "application/json")
+                    .setBody(json.writeValueAsString(root));
+        } catch (Exception e) {
+            return new MockResponse().setResponseCode(500).setBody(String.valueOf(e.getMessage()));
+        }
+    }
+
+    private static float[] hashEmbed(String text, int dim) {
+        float[] v = new float[dim];
+        if (text == null || text.isBlank()) {
+            return v;
+        }
+        byte[] bytes = text.toLowerCase().getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        for (int i = 0; i < bytes.length; i++) {
+            v[Math.floorMod(bytes[i] + i, dim)] += 1.0f;
+        }
+        double norm = 0;
+        for (float x : v) {
+            norm += x * x;
+        }
+        norm = Math.sqrt(norm);
+        if (norm > 0) {
+            for (int i = 0; i < dim; i++) {
+                v[i] /= (float) norm;
+            }
+        }
+        return v;
     }
 
     @Override

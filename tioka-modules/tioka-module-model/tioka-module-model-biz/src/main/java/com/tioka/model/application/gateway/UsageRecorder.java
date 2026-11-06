@@ -14,6 +14,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * MH-05：用量异步批量写入 {@code model_usage}。
@@ -28,6 +29,7 @@ public class UsageRecorder implements SmartLifecycle {
     private final ModelUsageRepository usages;
     private final LinkedBlockingQueue<ModelUsageDO> queue = new LinkedBlockingQueue<>();
     private final AtomicBoolean running = new AtomicBoolean(false);
+    private final ReentrantLock flushLock = new ReentrantLock();
     private Thread worker;
 
     public UsageRecorder(ModelUsageRepository usages) {
@@ -85,20 +87,25 @@ public class UsageRecorder implements SmartLifecycle {
     }
 
     /** 测试与停机共用：排空队列并批量落库。 */
-    public synchronized void flush() {
-        List<ModelUsageDO> batch = new ArrayList<>(BATCH);
-        while (true) {
-            batch.clear();
-            queue.drainTo(batch, BATCH);
-            if (batch.isEmpty()) {
-                return;
+    public void flush() {
+        flushLock.lock();
+        try {
+            List<ModelUsageDO> batch = new ArrayList<>(BATCH);
+            while (true) {
+                batch.clear();
+                queue.drainTo(batch, BATCH);
+                if (batch.isEmpty()) {
+                    return;
+                }
+                try {
+                    usages.insertBatch(batch);
+                } catch (RuntimeException e) {
+                    log.error("model_usage 批量写入失败 size={}", batch.size(), e);
+                    throw e;
+                }
             }
-            try {
-                usages.insertBatch(batch);
-            } catch (RuntimeException e) {
-                log.error("model_usage 批量写入失败 size={}", batch.size(), e);
-                throw e;
-            }
+        } finally {
+            flushLock.unlock();
         }
     }
 

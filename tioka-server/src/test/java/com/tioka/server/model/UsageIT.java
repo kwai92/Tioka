@@ -52,10 +52,9 @@ class UsageIT {
                                 List.of(Map.of("role", "user", "content", "flow")),
                                 List.of(), null, null),
                         d -> {});
-                // 强制不存在的 binding → resolve NOT_FOUND → MH-04 mock 哈希嵌入（仍记 EMBEDDING）
                 gateway.embed(
                         new ModelCallContext(p, null, null, null, null, ModelPurpose.EMBEDDING),
-                        new ModelGateway.EmbeddingRequest("bnd_usage_it_mock", List.of("hello embedding")));
+                        new ModelGateway.EmbeddingRequest(seeded.embeddingBindingId(), List.of("hello embedding")));
                 return null;
             });
 
@@ -121,15 +120,17 @@ class UsageIT {
             String lm = models.createLogicalModel(new CreateLogicalModelRequest(Ids.newId("m"), "tool"));
             String primary = models.createBinding(new CreateBindingRequest(lm, provider.id(), "gpt-primary"));
             String fallback = models.createBinding(new CreateBindingRequest(lm, provider.id(), "gpt-fallback"));
+            String embed = models.createBinding(
+                    new CreateBindingRequest(lm, provider.id(), "text-embedding", "embedding", 32));
             String planId = models.createPlan(
                     new CreateRoutingPlanRequest(Ids.newId("rp"), "PRIMARY_FALLBACK", primary, fallback, null)).id();
             models.publish(planId);
-            return new Seeded(login.userId(), login.workspaceId(), planId, primary, fallback,
+            return new Seeded(login.userId(), login.workspaceId(), planId, primary, fallback, embed,
                     Ids.newId("sess"), Ids.newId("turn"));
         });
     }
 
     private record Seeded(String userId, String workspaceId, String planId,
-                          String primaryBindingId, String fallbackBindingId,
+                          String primaryBindingId, String fallbackBindingId, String embeddingBindingId,
                           String sessionId, String turnId) {}
 }

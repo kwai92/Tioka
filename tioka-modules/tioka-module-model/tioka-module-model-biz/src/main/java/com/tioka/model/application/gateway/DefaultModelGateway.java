@@ -199,22 +199,8 @@ public class DefaultModelGateway implements ModelGateway {
         long t0 = System.nanoTime();
         BindingResolver.Resolution sel = null;
         try {
-            try {
-                sel = resolver.resolve(ctx, forced);
-            } catch (BizException ex) {
-                // MH-04 过渡：尚未配置嵌入 binding/默认方案时走本地 mock 哈希（KNW-01 收紧）
-                if (ex.getErrorCode() != ErrorCode.BAD_REQUEST && ex.getErrorCode() != ErrorCode.NOT_FOUND) {
-                    usage.record(ctx, forced, forced, 0, 0, 0L, 0L, elapsedMs(t0), "ERROR");
-                    throw ex;
-                }
-                List<float[]> vectors = provider.embed("mock://openai", "", "hash-embed", null, inputs);
-                int dim = vectors.isEmpty() ? 0 : vectors.get(0).length;
-                int promptTokens = inputs.stream().mapToInt(s -> s == null ? 0 : Math.max(1, s.length() / 3)).sum();
-                usage.record(ctx, "bnd_mock_local", "hash-embed@mock",
-                        promptTokens, 0, 0L, 0L, elapsedMs(t0), "SUCCESS");
-                consume(ctx, promptTokens, 0);
-                return new EmbeddingResult(vectors, dim, promptTokens, "bnd_mock_local");
-            }
+            // KNW-01：不再回退本地哈希；必须经 BindingResolver 选到真实/mock Provider
+            sel = resolver.resolve(ctx, forced);
             List<float[]> vectors = provider.embed(
                     sel.baseUrl(), sel.apiKeyRef(), sel.modelName(),
                     sel.binding().embeddingDim(), inputs);
@@ -224,6 +210,7 @@ public class DefaultModelGateway implements ModelGateway {
             account(ctx, sel, promptTokens, 0, elapsedMs(t0), "SUCCESS");
             return new EmbeddingResult(vectors, dim, promptTokens, sel.bindingId());
         } catch (BizException e) {
+            accountEmbedError(ctx, sel, forced, elapsedMs(t0));
             throw e;
         } catch (ProviderHttpException e) {
             accountEmbedError(ctx, sel, forced, elapsedMs(t0));

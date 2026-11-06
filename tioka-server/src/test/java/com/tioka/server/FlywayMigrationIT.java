@@ -15,6 +15,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @SpringBootTest
@@ -107,5 +108,29 @@ class FlywayMigrationIT {
                 "SELECT version FROM flyway_schema_history WHERE success = true",
                 (rs, i) -> rs.getString(1));
         assertTrue(versions.contains("122"), "missing V122: " + versions);
+    }
+
+    /** KNW-01 / V119：统一向量维度，embedding TEXT 已删。 */
+    @Test
+    void embeddingDimUnified() {
+        List<String> versions = jdbc.query(
+                "SELECT version FROM flyway_schema_history WHERE success = true",
+                (rs, i) -> rs.getString(1));
+        assertTrue(versions.contains("119"), "missing V119: " + versions);
+        Integer embeddingCols = jdbc.queryForObject(
+                """
+                SELECT COUNT(*) FROM information_schema.columns
+                WHERE table_schema = 'public' AND table_name = 'kb_chunk' AND column_name = 'embedding'
+                """,
+                Integer.class);
+        assertEquals(0, embeddingCols, "V119 后 kb_chunk.embedding TEXT 应已删除");
+        Integer bindingCol = jdbc.queryForObject(
+                """
+                SELECT COUNT(*) FROM information_schema.columns
+                WHERE table_schema = 'public' AND table_name = 'kb_base'
+                  AND column_name = 'embedding_binding_id'
+                """,
+                Integer.class);
+        assertEquals(1, bindingCol, "kb_base.embedding_binding_id 应存在");
     }
 }

@@ -38,7 +38,7 @@ public class ProviderClient {
     public ProviderClient(SecretStore secretStore,
                           EgressGuard egressGuard,
                           @Value("${tioka.model.mock:true}") boolean mock,
-                          @Value("${tioka.knowledge.embedding.dim:32}") int mockEmbeddingDim,
+                          @Value("${tioka.knowledge.embedding-dim:1024}") int mockEmbeddingDim,
                           ObjectMapper mapper) {
         this.mapper = mapper;
         this.secretStore = secretStore;

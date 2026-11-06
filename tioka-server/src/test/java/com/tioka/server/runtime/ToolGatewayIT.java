@@ -109,8 +109,9 @@ class ToolGatewayIT {
         TestFixtures.Actor member = fixtures.newLimitedUser(admin, "member");
 
         String[] ids = principals.runAs(adminPrincipal(admin), () -> {
-            var allowed = knowledge.createBase(admin.workspaceId(), "kb-allow");
-            var denied = knowledge.createBase(admin.workspaceId(), "kb-deny");
+            String embed = seedEmbeddingBinding();
+            var allowed = knowledge.createBase(admin.workspaceId(), "kb-allow", embed);
+            var denied = knowledge.createBase(admin.workspaceId(), "kb-deny", embed);
             jdbc.update("UPDATE kb_base SET visibility = 'PRIVATE' WHERE id IN (?, ?)",
                     allowed.id(), denied.id());
             acls.upsert("kb", allowed.id(), "user", member.userId(), "USE");
@@ -138,7 +139,8 @@ class ToolGatewayIT {
         TestFixtures.Actor builder = fixtures.newLimitedUser(admin, "builder");
 
         String kbId = principals.runAs(adminPrincipal(admin), () -> {
-            var kb = knowledge.createBase(admin.workspaceId(), "kb-revoke");
+            String embed = seedEmbeddingBinding();
+            var kb = knowledge.createBase(admin.workspaceId(), "kb-revoke", embed);
             jdbc.update("UPDATE kb_base SET visibility = 'WORKSPACE' WHERE id = ?", kb.id());
             knowledge.ingest(kb.id(), "d", "revoke-token-zzz", "upload");
             return kb.id();
@@ -157,8 +159,8 @@ class ToolGatewayIT {
                 "DELETE FROM sys_role_permission WHERE role_code = 'viewer' AND permission = 'kb:read'");
         assertTrue(removed >= 1);
         try {
-            // 模拟 Principal 60s 缓存过期（ADR-029 第 6 条）
-            redis.delete("auth:principal:" + builder.userId() + ":" + admin.workspaceId());
+            // 模拟 Principal 60s 缓存过期（ADR-029 第 6 条）；key 含 authMethod（password）
+            redis.delete("auth:principal:" + builder.userId() + ":" + admin.workspaceId() + ":password");
             Principal after = principalLoader.load(Long.parseLong(builder.userId()), admin.workspaceId());
             assertFalse(after.hasPermission("kb:read"),
                     "收回后应无 kb:read，实际=" + after.permissions());
@@ -230,6 +232,14 @@ class ToolGatewayIT {
         String planId = models.createPlan(new CreateRoutingPlanRequest(id + "-rp", "FIXED", binding)).id();
         models.publish(planId);
         return planId;
+    }
+
+    /** KNW-01：知识入库须绑定 kind=embedding 且维度与 tioka.knowledge.embedding-dim 一致。 */
+    private String seedEmbeddingBinding() {
+        String id = Ids.newId("emb");
+        var provider = models.createProvider(new CreateProviderRequest(id + "-p", "mock://openai", "k"));
+        String lm = models.createLogicalModel(new CreateLogicalModelRequest(id + "-m", "embed"));
+        return models.createBinding(new CreateBindingRequest(lm, provider.id(), "text-embedding", "embedding", 32));
     }
 
     private ToolGateway.ToolCallContext ctx(Principal p, String agentVersionId,

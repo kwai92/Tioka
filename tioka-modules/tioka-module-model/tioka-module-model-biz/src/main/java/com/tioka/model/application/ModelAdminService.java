@@ -43,8 +43,17 @@ public class ModelAdminService {
         if (!entities.hasLogical(req.logicalModelId()) || entities.getProvider(req.providerId()).isEmpty()) {
             throw new BizException(ErrorCode.NOT_FOUND, "logicalModel 或 provider 不存在");
         }
+        String kind = req.kind() == null || req.kind().isBlank() ? "chat" : req.kind().trim().toLowerCase();
+        if (!kind.equals("chat") && !kind.equals("embedding") && !kind.equals("rerank")) {
+            throw new BizException(ErrorCode.BAD_REQUEST, "binding.kind 必须是 chat/embedding/rerank");
+        }
+        if (kind.equals("embedding") && req.embeddingDim() == null) {
+            throw new BizException(ErrorCode.BAD_REQUEST, "kind=embedding 时 embeddingDim 必填");
+        }
         String id = Ids.newId("bnd");
-        entities.putBinding(new Binding(id, req.logicalModelId(), req.providerId(), req.modelName()));
+        entities.putBinding(new Binding(
+                id, req.logicalModelId(), req.providerId(), req.modelName(),
+                kind, null, req.embeddingDim(), 0L, 0L, null, null, true));
         return id;
     }
 
