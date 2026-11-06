@@ -6,7 +6,7 @@ import java.util.Map;
 import java.util.Optional;
 
 /**
- * Runtime 内核唯一对外入口（ADR-016）。替代 {@code RuntimeSessionApi}。
+ * Runtime 内核唯一对外入口（ADR-016）。
  *
  * <p>调用方身份取自 {@code PrincipalHolder}；startTurn 写入 run_as 后立即返回，
  * 执行在 worker 上异步进行，结果通过 SSE {@code GET /api/runtime/threads/{id}/events} 推送。

@@ -90,15 +90,16 @@ class TiokaArchitectureTest {
             noClasses().should().callMethod(java.util.UUID.class, "randomUUID")
                     .because("业务 ID 使用 Ids.newId；随机口令/令牌等非 ID 场景可留在冻结库存（ENG-05）"));
 
+    /** RT-08b：CHT-02 / 调用方迁移后清零冻结，规则立即生效。 */
     @ArchTest
-    static final ArchRule onlyRuntimeApiExecutesAgents = FreezingArchRule.freeze(
+    static final ArchRule onlyRuntimeApiExecutesAgents =
             noClasses().that().resideInAnyPackage(
                             "com.tioka.chat..",
                             "com.tioka.flow..",
                             "com.tioka.orchestration..",
                             "com.tioka.connector..")
                     .should().dependOnClassesThat().resideInAnyPackage("com.tioka.runtime.application..")
-                    .because("一个内核：非 runtime 不得直接依赖 runtime.application（ADR-016）"));
+                    .because("一个内核：非 runtime 不得直接依赖 runtime.application（ADR-016）");
 
     @ArchTest
     static final ArchRule noModelCallOnRequestThread = FreezingArchRule.freeze(

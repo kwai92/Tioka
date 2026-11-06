@@ -14,8 +14,6 @@ public class KernelProperties {
     private int maxQueuedPerThread = 5;
     private Loop loop = new Loop();
     private Events events = new Events();
-    /** LegacySessionAdapter.append 等待 Turn 终态超时。 */
-    private Duration legacyAppendTimeout = Duration.ofSeconds(120);
     /**
      * 关闭上下文时是否释放 SessionLock / 让 Turn 收尾。
      * 闸门模拟崩溃时置 false，租约留给 LeaseReaper（ENG-04b）。
@@ -58,10 +56,6 @@ public class KernelProperties {
     public void setLoop(Loop loop) { this.loop = loop; }
     public Events getEvents() { return events; }
     public void setEvents(Events events) { this.events = events; }
-    public Duration getLegacyAppendTimeout() { return legacyAppendTimeout; }
-    public void setLegacyAppendTimeout(Duration legacyAppendTimeout) {
-        this.legacyAppendTimeout = legacyAppendTimeout;
-    }
 
     public static class Executor {
         private int maxConcurrentTurns = 64;
