@@ -114,6 +114,45 @@ public interface RuntimeTurnMapper {
             """)
     int incrementStep(@Param("turnId") String turnId, @Param("leaseVersion") long leaseVersion);
 
+    /** RT-07：RUNNING → WAITING_APPROVAL，释放租约。 */
+    @Update("""
+            UPDATE runtime_turn
+               SET status = 'WAITING_APPROVAL',
+                   lease_until = NULL,
+                   worker_id = NULL,
+                   update_at = now()
+             WHERE id = #{turnId}
+               AND lease_version = #{leaseVersion}
+               AND status = 'RUNNING'
+            """)
+    int markWaitingApproval(@Param("turnId") String turnId, @Param("leaseVersion") long leaseVersion);
+
+    /** RT-07：WAITING_APPROVAL → QUEUED（无 PENDING 审批后续跑）。 */
+    @Update("""
+            UPDATE runtime_turn
+               SET status = 'QUEUED',
+                   worker_id = NULL,
+                   lease_until = NULL,
+                   update_at = now()
+             WHERE id = #{turnId} AND status = 'WAITING_APPROVAL'
+            """)
+    int requeueFromWaitingApproval(String turnId);
+
+    /** RT-07：WAITING_APPROVAL → CANCELLED（interrupt）。 */
+    @Update("""
+            UPDATE runtime_turn
+               SET status = 'CANCELLED',
+                   error_code = #{errorCode},
+                   error_message = #{errorMessage},
+                   ended_at = now(),
+                   lease_until = NULL,
+                   update_at = now()
+             WHERE id = #{turnId} AND status = 'WAITING_APPROVAL'
+            """)
+    int cancelWaitingApproval(@Param("turnId") String turnId,
+                              @Param("errorCode") String errorCode,
+                              @Param("errorMessage") String errorMessage);
+
     @Update("""
             UPDATE runtime_turn
                SET status = 'CANCELLED',

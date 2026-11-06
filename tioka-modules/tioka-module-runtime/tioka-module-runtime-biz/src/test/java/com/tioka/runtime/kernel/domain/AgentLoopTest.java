@@ -253,10 +253,11 @@ class AgentLoopTest {
         }
 
         @Override
-        public void toolCall(LoopContext ctx, int step, LoopPorts.ToolCall call) {
+        public String toolCall(LoopContext ctx, int step, LoopPorts.ToolCall call) {
             toolCalls.add(call);
-            appendItem(ctx, step, ItemType.TOOL_CALL.wire(), "assistant",
+            RuntimeItemDO item = appendItem(ctx, step, ItemType.TOOL_CALL.wire(), "assistant",
                     Map.of("callId", call.callId(), "name", call.name(), "arguments", call.argumentsJson()));
+            return item.getId();
         }
 
         @Override
@@ -273,8 +274,9 @@ class AgentLoopTest {
             appendItem(ctx, step, ItemType.STATUS.wire(), "system", Map.of("kind", kind));
         }
 
-        private void appendItem(LoopContext ctx, int step, String type, String role, Object content) {
+        private RuntimeItemDO appendItem(LoopContext ctx, int step, String type, String role, Object content) {
             RuntimeItemDO item = new RuntimeItemDO();
+            item.setId("itm_" + (items.size() + 1));
             item.setSessionId(ctx.threadId());
             item.setTurnId(ctx.turnId());
             item.setStep(step);
@@ -288,6 +290,7 @@ class AgentLoopTest {
             }
             item.setDiscarded(false);
             items.add(item);
+            return item;
         }
     }
 }

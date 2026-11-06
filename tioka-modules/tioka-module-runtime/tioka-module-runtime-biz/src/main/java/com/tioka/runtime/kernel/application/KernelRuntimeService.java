@@ -15,6 +15,7 @@ import com.tioka.runtime.api.kernel.TurnStatus;
 import com.tioka.runtime.config.KernelProperties;
 import com.tioka.runtime.infrastructure.RuntimeSessionRepository;
 import com.tioka.runtime.infrastructure.persistence.RuntimeSessionDO;
+import com.tioka.runtime.kernel.approval.ApprovalDecideService;
 import com.tioka.runtime.kernel.events.EventStream;
 import com.tioka.runtime.kernel.events.RuntimeEventFactory;
 import com.tioka.runtime.kernel.infrastructure.ItemRepository;
@@ -48,6 +49,7 @@ public class KernelRuntimeService implements RuntimeApi {
     private final RuntimeEventFactory events;
     private final ObjectMapper mapper;
     private final AgentQueryApi agents;
+    private final ApprovalDecideService approvalDecide;
 
     public KernelRuntimeService(RuntimeSessionRepository sessions,
                                 TurnRepository turns,
@@ -59,7 +61,8 @@ public class KernelRuntimeService implements RuntimeApi {
                                 EventStream streams,
                                 RuntimeEventFactory events,
                                 ObjectMapper mapper,
-                                AgentQueryApi agents) {
+                                AgentQueryApi agents,
+                                ApprovalDecideService approvalDecide) {
         this.sessions = sessions;
         this.turns = turns;
         this.items = items;
@@ -71,6 +74,7 @@ public class KernelRuntimeService implements RuntimeApi {
         this.events = events;
         this.mapper = mapper;
         this.agents = agents;
+        this.approvalDecide = approvalDecide;
     }
 
     @Override
@@ -196,7 +200,7 @@ public class KernelRuntimeService implements RuntimeApi {
         if (decision == null) {
             throw new BizException(ErrorCode.BAD_REQUEST, "ApprovalDecision 必填");
         }
-        throw NotImplemented.of("runtime-approval", "RT-07");
+        approvalDecide.decide(approvalId, decision);
     }
 
     @Override

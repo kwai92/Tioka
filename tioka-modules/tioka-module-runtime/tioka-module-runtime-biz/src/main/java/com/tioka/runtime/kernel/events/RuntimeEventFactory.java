@@ -75,6 +75,41 @@ public class RuntimeEventFactory {
         return json(root);
     }
 
+    public String approvalRequested(String threadId, String turnId, String approvalId,
+                                    String subjectType, String subjectId, String kind,
+                                    String status, String toolName, String risk) {
+        ObjectNode root = base(RuntimeEventType.APPROVAL_REQUESTED, threadId, turnId);
+        ObjectNode a = root.putObject("approval");
+        a.put("approvalId", approvalId);
+        a.put("subjectType", subjectType);
+        a.put("subjectId", subjectId);
+        a.put("kind", kind);
+        a.put("status", status);
+        if (toolName != null) {
+            a.put("toolName", toolName);
+        }
+        if (risk != null) {
+            a.put("risk", risk);
+        }
+        return json(root);
+    }
+
+    public String approvalDecided(String threadId, String turnId, String approvalId,
+                                  String subjectType, String subjectId, String kind,
+                                  String status, String decidedBy) {
+        ObjectNode root = base(RuntimeEventType.APPROVAL_DECIDED, threadId, turnId);
+        ObjectNode a = root.putObject("approval");
+        a.put("approvalId", approvalId);
+        a.put("subjectType", subjectType);
+        a.put("subjectId", subjectId);
+        a.put("kind", kind);
+        a.put("status", status);
+        if (decidedBy != null) {
+            a.put("decidedBy", decidedBy);
+        }
+        return json(root);
+    }
+
     private ObjectNode base(RuntimeEventType type, String threadId, String turnId) {
         ObjectNode root = mapper.createObjectNode();
         root.put("schemaVersion", 1);

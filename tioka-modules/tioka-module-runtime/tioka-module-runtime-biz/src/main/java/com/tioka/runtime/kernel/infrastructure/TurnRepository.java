@@ -71,6 +71,18 @@ public class TurnRepository {
         return mapper.incrementStep(turnId, leaseVersion);
     }
 
+    public int markWaitingApproval(String turnId, long leaseVersion) {
+        return mapper.markWaitingApproval(turnId, leaseVersion);
+    }
+
+    public int requeueFromWaitingApproval(String turnId) {
+        return mapper.requeueFromWaitingApproval(turnId);
+    }
+
+    public int cancelWaitingApproval(String turnId, String errorCode, String errorMessage) {
+        return mapper.cancelWaitingApproval(turnId, errorCode, errorMessage);
+    }
+
     public int cancelQueued(String turnId) {
         return cancelQueued(turnId, null, null);
     }

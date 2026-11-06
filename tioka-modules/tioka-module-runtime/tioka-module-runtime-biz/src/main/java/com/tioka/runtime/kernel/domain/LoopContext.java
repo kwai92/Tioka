@@ -16,13 +16,15 @@ public final class LoopContext {
     private final String routingPlanId;
     private final String workspaceId;
     private final String principalId;
+    private final String approvalPolicy;
     private boolean forceFinalAnswer;
     private ModelRouterApi.ModelSelection modelSelection;
 
     public LoopContext(String threadId, String turnId, long leaseVersion,
                        int maxSteps, int repeatLimit, int startStep,
                        LoopPorts.SignalPort signals) {
-        this(threadId, turnId, leaseVersion, maxSteps, repeatLimit, startStep, signals, null, null, null, null);
+        this(threadId, turnId, leaseVersion, maxSteps, repeatLimit, startStep, signals,
+                null, null, null, null, null);
     }
 
     public LoopContext(String threadId, String turnId, long leaseVersion,
@@ -30,7 +32,7 @@ public final class LoopContext {
                        LoopPorts.SignalPort signals,
                        String agentVersionId, String routingPlanId, String workspaceId) {
         this(threadId, turnId, leaseVersion, maxSteps, repeatLimit, startStep, signals,
-                agentVersionId, routingPlanId, workspaceId, null);
+                agentVersionId, routingPlanId, workspaceId, null, null);
     }
 
     public LoopContext(String threadId, String turnId, long leaseVersion,
@@ -38,6 +40,15 @@ public final class LoopContext {
                        LoopPorts.SignalPort signals,
                        String agentVersionId, String routingPlanId, String workspaceId,
                        String principalId) {
+        this(threadId, turnId, leaseVersion, maxSteps, repeatLimit, startStep, signals,
+                agentVersionId, routingPlanId, workspaceId, principalId, null);
+    }
+
+    public LoopContext(String threadId, String turnId, long leaseVersion,
+                       int maxSteps, int repeatLimit, int startStep,
+                       LoopPorts.SignalPort signals,
+                       String agentVersionId, String routingPlanId, String workspaceId,
+                       String principalId, String approvalPolicy) {
         this.threadId = threadId;
         this.turnId = turnId;
         this.leaseVersion = leaseVersion;
@@ -49,6 +60,7 @@ public final class LoopContext {
         this.routingPlanId = routingPlanId;
         this.workspaceId = workspaceId;
         this.principalId = principalId;
+        this.approvalPolicy = approvalPolicy;
     }
 
     public String threadId() { return threadId; }
@@ -61,6 +73,9 @@ public final class LoopContext {
     public String routingPlanId() { return routingPlanId; }
     public String workspaceId() { return workspaceId; }
     public String principalId() { return principalId; }
+
+    /** TurnOptions.approvalPolicy；空则用 agent-config。 */
+    public String approvalPolicy() { return approvalPolicy; }
 
     public ModelRouterApi.ModelSelection modelSelection() { return modelSelection; }
     public void setModelSelection(ModelRouterApi.ModelSelection modelSelection) {

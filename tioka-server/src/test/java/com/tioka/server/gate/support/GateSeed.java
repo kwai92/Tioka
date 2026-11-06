@@ -6,15 +6,19 @@ import com.tioka.framework.id.Ids;
 import com.tioka.framework.security.Principal;
 import com.tioka.framework.security.PrincipalHolder;
 import com.tioka.framework.security.PrincipalType;
+import com.tioka.mcp.application.McpAdminService;
+import com.tioka.mcp.domain.McpStore;
 import com.tioka.model.api.dto.ProviderDtos.CreateBindingRequest;
 import com.tioka.model.api.dto.ProviderDtos.CreateLogicalModelRequest;
 import com.tioka.model.api.dto.ProviderDtos.CreateProviderRequest;
 import com.tioka.model.api.dto.ProviderDtos.CreateRoutingPlanRequest;
 import com.tioka.model.application.ModelAdminService;
 import com.tioka.runtime.api.kernel.RuntimeApi;
+import com.tioka.runtime.api.kernel.TurnStatus;
 import com.tioka.server.support.IntegrationTestSupport;
 import com.tioka.system.application.AuthService;
 import org.springframework.context.ConfigurableApplicationContext;
+import org.springframework.core.env.Environment;
 
 import java.util.List;
 import java.util.Set;
@@ -29,6 +33,13 @@ public final class GateSeed {
                          String agentVersionId, String routingPlanId) {}
 
     public static Bundle seedPublishedAgent(ConfigurableApplicationContext ctx, String llmBaseUrl) {
+        return seedPublishedAgent(ctx, llmBaseUrl, false);
+    }
+
+    /**
+     * @param withMcp 为 true 时注册 GateCluster MCP 桩、刷新工具、PATCH risk，并把 grant 绑到 Agent。
+     */
+    public static Bundle seedPublishedAgent(ConfigurableApplicationContext ctx, String llmBaseUrl, boolean withMcp) {
         AuthService auth = ctx.getBean(AuthService.class);
         PrincipalHolder principals = ctx.getBean(PrincipalHolder.class);
         ModelAdminService models = ctx.getBean(ModelAdminService.class);
@@ -49,8 +60,30 @@ public final class GateSeed {
             String planId = models.createPlan(new CreateRoutingPlanRequest(tag + "-rp", "FIXED", binding)).id();
             models.publish(planId);
 
+            List<String> grantIds = List.of();
+            if (withMcp) {
+                McpAdminService mcp = ctx.getBean(McpAdminService.class);
+                Environment env = ctx.getEnvironment();
+                String mcpBase = env.getProperty("tioka.gate.mcp-base-url");
+                if (mcpBase == null || mcpBase.isBlank()) {
+                    throw new IllegalStateException("withMcp 需要 tioka.gate.mcp-base-url");
+                }
+                McpStore.McpServer server = mcp.register(tag + "-mcp", mcpBase, "tok");
+                mcp.refreshTools(server.id());
+                mcp.updateToolRisk(server.id(), "erp.query", "READ");
+                mcp.updateToolRisk(server.id(), "erp.update", "WRITE");
+                // agent 尚未创建：先建 agent 再 grant
+                AgentStore.Agent agent = agents.create(tag + "-agent", ws);
+                McpStore.Grant grant = mcp.grant(agent.id(), server.id(),
+                        List.of("erp.query", "erp.update", "erp.slow"));
+                grantIds = List.of(grant.id());
+                AgentStore.AgentVersion draft = agents.draft(agent.id(), "you call mcp tools", planId, grantIds);
+                AgentStore.AgentVersion published = agents.publish(draft.id());
+                return new Bundle(userId, ws, login.accessToken(), published.id(), planId);
+            }
+
             AgentStore.Agent agent = agents.create(tag + "-agent", ws);
-            AgentStore.AgentVersion draft = agents.draft(agent.id(), "you call echo tools", planId, List.of());
+            AgentStore.AgentVersion draft = agents.draft(agent.id(), "you call echo tools", planId, grantIds);
             AgentStore.AgentVersion published = agents.publish(draft.id());
             return new Bundle(userId, ws, login.accessToken(), published.id(), planId);
         });
@@ -85,27 +118,33 @@ public final class GateSeed {
                                                     Bundle bundle,
                                                     String turnId,
                                                     long timeoutMs) {
+        return awaitStatus(ctx, bundle, turnId, timeoutMs,
+                TurnStatus.COMPLETED, TurnStatus.FAILED, TurnStatus.CANCELLED);
+    }
+
+    public static RuntimeApi.TurnView awaitStatus(ConfigurableApplicationContext ctx,
+                                                  Bundle bundle,
+                                                  String turnId,
+                                                  long timeoutMs,
+                                                  TurnStatus... wanted) {
         PrincipalHolder principals = ctx.getBean(PrincipalHolder.class);
         RuntimeApi runtime = ctx.getBean(RuntimeApi.class);
+        Set<TurnStatus> want = Set.of(wanted);
         long deadline = System.currentTimeMillis() + timeoutMs;
         while (System.currentTimeMillis() < deadline) {
             RuntimeApi.TurnView v = principals.runAs(user(bundle.userId(), bundle.workspaceId()), () ->
                     runtime.getTurn(turnId));
-            switch (v.status()) {
-                case COMPLETED, FAILED, CANCELLED -> {
-                    return v;
-                }
-                default -> {
-                    try {
-                        Thread.sleep(40);
-                    } catch (InterruptedException e) {
-                        Thread.currentThread().interrupt();
-                        throw new IllegalStateException(e);
-                    }
-                }
+            if (want.contains(v.status())) {
+                return v;
+            }
+            try {
+                Thread.sleep(40);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new IllegalStateException(e);
             }
         }
-        throw new AssertionError("turn 未在 " + timeoutMs + "ms 内结束: " + turnId);
+        throw new AssertionError("turn 未在 " + timeoutMs + "ms 内到达 " + want + ": " + turnId);
     }
 
     public static Principal user(String uid, String ws) {

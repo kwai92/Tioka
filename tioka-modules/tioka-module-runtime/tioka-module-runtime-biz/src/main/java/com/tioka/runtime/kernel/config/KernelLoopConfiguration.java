@@ -3,6 +3,7 @@ package com.tioka.runtime.kernel.config;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tioka.framework.security.TiokaExecutors;
 import com.tioka.runtime.config.KernelProperties;
+import com.tioka.runtime.kernel.approval.ToolApprovalCoordinator;
 import com.tioka.runtime.kernel.domain.AgentLoop;
 import com.tioka.runtime.kernel.domain.ContextBuilder;
 import com.tioka.runtime.kernel.domain.LoopPorts;
@@ -58,8 +59,9 @@ public class KernelLoopConfiguration {
                         ContextBuilder contextBuilder,
                         TurnRepository turns,
                         ItemRepository items,
-                        ObjectMapper mapper) {
+                        ObjectMapper mapper,
+                        ToolApprovalCoordinator approvals) {
         return new AgentLoop(modelPort, toolPort, sink, contextBuilder, turns,
-                items::listBySession, mapper);
+                items::listBySession, mapper, approvals);
     }
 }

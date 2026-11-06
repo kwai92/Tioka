@@ -49,6 +49,8 @@ public final class DualInstance implements AutoCloseable {
 
     public LlmStubServer llm() { return cluster.llm(); }
 
+    public McpStubServer mcp() { return cluster.mcp(); }
+
     public String baseUrlA() { return cluster.baseUrlA(); }
 
     public String baseUrlB() { return cluster.baseUrlB(); }

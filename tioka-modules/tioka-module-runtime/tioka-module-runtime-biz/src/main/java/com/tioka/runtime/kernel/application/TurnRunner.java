@@ -130,11 +130,12 @@ public class TurnRunner {
             Principal runAs = resolveRunAs(turn);
             try {
                 long finalLv = lv;
-                principals.runAs(runAs, () -> {
+                LoopResult result = principals.runAs(runAs, () -> {
                     RuntimeSessionDO session = sessions.find(threadId);
                     int maxSteps = props.getLoop().getMaxSteps();
                     // RT-06：崩溃续跑从已累计的 step_count 继续（中断前 model 步已 increment）
                     int startStep = turn.getStepCount() == null ? 0 : turn.getStepCount();
+                    String approvalPolicy = parseApprovalPolicy(turn.getOptionsJson());
                     LoopContext ctx = new LoopContext(threadId, turnId, finalLv,
                             maxSteps, props.getLoop().getRepeatCallLimit(), startStep,
                             c -> {
@@ -146,16 +147,20 @@ public class TurnRunner {
                             session == null ? null : session.getAgentVersionId(),
                             session == null ? null : session.getRoutingPlanId(),
                             session == null ? null : session.getWorkspaceId(),
-                            runAs.userId());
-                    LoopResult result = agentLoop.run(ctx);
+                            runAs.userId(),
+                            approvalPolicy);
+                    return agentLoop.run(ctx);
+                });
+                if (result.status() == TurnStatus.WAITING_APPROVAL) {
+                    // 挂起已在 ApprovalSuspendService 内完成；释放锁与并发槽，不 enqueueNext
+                } else {
                     int n = turns.finish(turnId, finalLv, result.status(),
                             result.errorCode(), truncate(result.errorMessage()),
                             result.promptTokens(), result.completionTokens());
                     turns.requireLeaseWrite(n);
                     publishTerminal(threadId, turnId, result.status());
-                    return null;
-                });
-                finished = true;
+                    finished = true;
+                }
             } catch (LeaseLost e) {
                 log.warn("turn {} lease lost; leave terminal to reaper", turnId);
             } catch (CancelledSignal e) {
@@ -249,6 +254,19 @@ public class TurnRunner {
             cur = cur.getCause();
         }
         return cur;
+    }
+
+    private String parseApprovalPolicy(String optionsJson) {
+        if (optionsJson == null || optionsJson.isBlank()) {
+            return null;
+        }
+        try {
+            JsonNode n = mapper.readTree(optionsJson);
+            String p = n.path("approvalPolicy").asText(null);
+            return p == null || p.isBlank() ? null : p;
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     private static String truncate(String msg) {

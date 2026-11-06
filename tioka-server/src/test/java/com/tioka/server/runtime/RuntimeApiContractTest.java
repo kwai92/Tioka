@@ -162,14 +162,18 @@ class RuntimeApiContractTest {
     }
 
     @Test
-    void decideApproval_and_fork_notImplemented() {
+    void decideApproval_validatesAndForkStillNotImplemented() {
         BizException blankApproval = assertThrows(BizException.class, () -> principals.runAs(principal, () ->
                 runtime.decideApproval(" ", new RuntimeApi.ApprovalDecision(true, null, null))));
         assertEquals(ErrorCode.BAD_REQUEST, blankApproval.getErrorCode());
 
-        BizException approval = assertThrows(BizException.class, () -> principals.runAs(principal, () ->
-                runtime.decideApproval("apv_1", new RuntimeApi.ApprovalDecision(true, null, null))));
-        assertEquals(ErrorCode.NOT_IMPLEMENTED, approval.getErrorCode());
+        BizException missing = assertThrows(BizException.class, () -> principals.runAs(principal, () ->
+                runtime.decideApproval("apv_missing", new RuntimeApi.ApprovalDecision(true, null, null))));
+        assertEquals(ErrorCode.NOT_FOUND, missing.getErrorCode());
+
+        BizException nullDecision = assertThrows(BizException.class, () -> principals.runAs(principal, () ->
+                runtime.decideApproval("apv_1", null)));
+        assertEquals(ErrorCode.BAD_REQUEST, nullDecision.getErrorCode());
 
         BizException blankFork = assertThrows(BizException.class, () -> principals.runAs(principal, () ->
                 runtime.fork(" ", 0)));

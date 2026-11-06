@@ -3,18 +3,24 @@ package com.tioka.runtime.kernel.application;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tioka.framework.error.BizException;
 import com.tioka.framework.error.ErrorCode;
+import com.tioka.runtime.api.kernel.ApprovalSubjectType;
 import com.tioka.runtime.api.kernel.ItemType;
+import com.tioka.runtime.api.kernel.RuntimeEventType;
 import com.tioka.runtime.api.kernel.TurnStatus;
+import com.tioka.runtime.kernel.approval.ApprovalDecideService;
 import com.tioka.runtime.kernel.events.EventId;
 import com.tioka.runtime.kernel.events.EventStream;
 import com.tioka.runtime.kernel.events.RuntimeEventFactory;
+import com.tioka.runtime.kernel.infrastructure.ApprovalRepository;
 import com.tioka.runtime.kernel.infrastructure.ItemRepository;
 import com.tioka.runtime.kernel.infrastructure.TurnRepository;
+import com.tioka.runtime.kernel.infrastructure.persistence.RuntimeApprovalDO;
 import com.tioka.runtime.kernel.infrastructure.persistence.RuntimeItemDO;
 import com.tioka.runtime.kernel.infrastructure.persistence.RuntimeTurnDO;
 import com.tioka.runtime.kernel.infrastructure.redis.SignalBus;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -30,19 +36,25 @@ public class TurnSignalService {
     private final EventStream streams;
     private final RuntimeEventFactory events;
     private final ObjectMapper mapper;
+    private final ApprovalRepository approvals;
+    private final ApprovalDecideService approvalDecide;
 
     public TurnSignalService(TurnRepository turns,
                              ItemRepository items,
                              SignalBus signals,
                              EventStream streams,
                              RuntimeEventFactory events,
-                             ObjectMapper mapper) {
+                             ObjectMapper mapper,
+                             ApprovalRepository approvals,
+                             ApprovalDecideService approvalDecide) {
         this.turns = turns;
         this.items = items;
         this.signals = signals;
         this.streams = streams;
         this.events = events;
         this.mapper = mapper;
+        this.approvals = approvals;
+        this.approvalDecide = approvalDecide;
     }
 
     /** FND-04e：身份失效取消原因，写入 {@code runtime_turn.error_code}。 */
@@ -73,8 +85,27 @@ public class TurnSignalService {
             }
             return;
         }
+        if (st == TurnStatus.WAITING_APPROVAL) {
+            // RT-07：WAITING 时无 worker，直接 CANCELLED + PENDING 审批 EXPIRED
+            int n = turns.cancelWaitingApproval(turnId, reason, null);
+            if (n > 0) {
+                List<RuntimeApprovalDO> pending = approvals.listBySubject(
+                        ApprovalSubjectType.TURN.wire(), turnId).stream()
+                        .filter(a -> "PENDING".equals(a.getStatus()))
+                        .toList();
+                approvals.expirePendingForSubject(ApprovalSubjectType.TURN.wire(), turnId, "system");
+                for (RuntimeApprovalDO a : pending) {
+                    a.setStatus("EXPIRED");
+                    a.setDecidedBy("system");
+                    approvalDecide.notifyDecided(a);
+                }
+                String payload = events.turnStatus(RuntimeEventType.TURN_CANCELLED,
+                        turn.getSessionId(), turnId, TurnStatus.CANCELLED.name());
+                streams.publish(turn.getSessionId(), null, RuntimeEventType.TURN_CANCELLED.wire(), payload);
+            }
+            return;
+        }
         if (st == TurnStatus.RUNNING
-                || st == TurnStatus.WAITING_APPROVAL
                 || st == TurnStatus.WAITING_CHILD
                 || st == TurnStatus.INTERRUPTED) {
             if (reason == null || reason.isBlank()) {

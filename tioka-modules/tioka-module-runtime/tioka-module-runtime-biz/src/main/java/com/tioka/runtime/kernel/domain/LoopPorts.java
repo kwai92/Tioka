@@ -34,7 +34,8 @@ public final class LoopPorts {
 
         void complete(LoopContext ctx, int step, String type, String role, String contentJson);
 
-        void toolCall(LoopContext ctx, int step, ToolCall call);
+        /** @return 写入的 tool_call itemId（审批挂起需关联） */
+        String toolCall(LoopContext ctx, int step, ToolCall call);
 
         void toolResult(LoopContext ctx, int step, ToolOutcome outcome);
 
@@ -53,5 +54,10 @@ public final class LoopPorts {
 
     public record ToolCall(String callId, String name, String argumentsJson) {}
 
-    public record ToolOutcome(String callId, String name, boolean ok, String output, long durationMs) {}
+    public record ToolOutcome(String callId, String name, boolean ok, String output, long durationMs,
+                              String approvedBy) {
+        public ToolOutcome(String callId, String name, boolean ok, String output, long durationMs) {
+            this(callId, name, ok, output, durationMs, null);
+        }
+    }
 }
