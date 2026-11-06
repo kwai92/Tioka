@@ -113,3 +113,14 @@ CREATE TABLE kb_eval_run (id VARCHAR(32) PRIMARY KEY, set_id VARCHAR(32) NOT NUL
 
 - **自动检索结果的位置**：每轮自动检索的结果放在本轮尾部，不进入历史；回答实际采用的片段以 citation item 留在历史中（[ADR-048](ADR-048-context-engineering.md) 第 1 节）。
 - 记忆的本轮检索复用本 ADR 的混合召回组件（[ADR-050](ADR-050-memory-system.md) 第 4.2 节）。记忆与知识库的边界见 ADR-050 第 1 节。
+
+## 修订：Knowledge / RAG 调研落地（2026-11-06）
+
+来由：[调研 04](../research/04-Knowledge与RAG及外部知识库对接调研.md)；ADR-029 第 70 条。
+
+- **解析**：上文「`DocumentParser` SPI 按格式选择实现」作废。Knowledge 改用文档层所用的同一解析服务，按 [ADR-055](ADR-055-knowledge-ingest-chunking.md) 第 1 节的输入契约消费；引擎、OCR 与版面模型由文档解析专题定。
+- **切块**：父子块规则保留，补标题路径前缀、表格、页码与位置框（ADR-055 第 2 节）；入库阶段增加可选的上下文增强（ADR-055 第 3、4 节）。
+- **检索**：四段扩为九步，明确向量与全文两路独立召回、多知识库一次查询、Rerank 阈值、无答案、预算裁剪；`KnowledgeSearchApi.search` 的请求与返回增量见 [ADR-056](ADR-056-retrieval-qa-evaluation.md) 第 2 节。
+- **模型**：示例维度 1024 改为推荐值，默认模型见 ADR-056 第 1 节。
+- **评测**：KNW-07 保留，补生成侧评估器（ADR-056 第 5 节）。
+- **外部知识库**：知识库可以是外部知识库，经 [ADR-057](ADR-057-external-knowledge-providers.md) 的 `KnowledgeProvider` SPI 检索。

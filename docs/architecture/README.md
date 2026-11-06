@@ -64,3 +64,6 @@ ADR-015〜040 是 M0〜M4 的权威设计（ADR-032〜035 为可信放权，ADR-
 | [ADR-052](adr/ADR-052-org-account-authz-center.md) | 组织、账号与权限中心 |
 | [ADR-053](adr/ADR-053-foundation-common-services.md) | Foundation 公共服务、安全合规与部署 |
 | [ADR-054](adr/ADR-054-engineering-base-subsystem-microfrontend.md) | Java 工程化底座、子系统授权模式与微前端 |
+| [ADR-055](adr/ADR-055-knowledge-ingest-chunking.md) | 知识入库：解析输入契约、结构化切块与上下文增强（KNW-11、KNW-20） |
+| [ADR-056](adr/ADR-056-retrieval-qa-evaluation.md) | 知识检索、问答模式与评测：模型与维度、九步检索、AUTO/TOOL/BOTH、检索轨迹、生成侧评测（KNW-12〜15） |
+| [ADR-057](adr/ADR-057-external-knowledge-providers.md) | 外部知识库产品的适配与对接：KnowledgeProvider SPI、检索联邦、内置适配器、反向暴露（KNW-16〜18） |
