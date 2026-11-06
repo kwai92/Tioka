@@ -111,3 +111,7 @@ CREATE TABLE model_usage_daily (day DATE, workspace_id VARCHAR(64), agent_id VAR
 
 - `preferPreviousInGroup` 在同一 thread 内强制生效；同一 thread 内只在压缩之后、用户显式切换、或当前模型不可用时换模型（[ADR-049](ADR-049-prompt-caching.md) 规则 C5）。
 - binding 增加缓存能力字段与缓存写入、读取单价；网关按缓存模式落地组装器的断点提示（ADR-049 第 2 节，CCH-02）。
+
+## 修订：文档解析与 OCR（2026-11-06）
+
+见 [ADR-061](ADR-061-parse-engine-spi-external-ocr.md) 与 ADR-029 第 71 条：Model Hub 的 `ocr` 用途只用于 VLM 类模型（如百炼 `qwen-vl-ocr`），由文档解析服务的「模型引擎」适配器经 ModelGateway 调用，继续受配额、审计与数据标签路由约束。按页或按次计费的 OCR 与文档解析产品（阿里云文档解析、百度、腾讯、TextIn 等）和自部署解析服务不是模型绑定，按 ADR-061 的解析引擎 SPI 接入，不进路由组。
