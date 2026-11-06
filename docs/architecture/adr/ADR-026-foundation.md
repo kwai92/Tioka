@@ -82,3 +82,7 @@ CREATE TABLE sys_adapter_registration (id VARCHAR(32) PRIMARY KEY, tenant_id VAR
 ## 修订：供应商凭证（2026-11-06）
 
 见 [ADR-042](ADR-042-provider-credentials-model-params.md) 与 ADR-029 第 63 条：供应商 API Key、MCP 令牌、数据源凭证统一使用 FND-08 的 `CredentialCipher`（AES-256-GCM，带 AAD 与密钥版本），替换现有 `LocalSecretStore` 的 ECB 加密，旧密文由迁移任务重新加密。
+
+## 修订：Foundation 基础平台（2026-11-06）
+
+见 [ADR-051](ADR-051-foundation-platform.md)〜[ADR-054](ADR-054-engineering-base-subsystem-microfrontend.md) 与 ADR-029 第 69 条：FND-09、FND-10 在 M4 照做（按 S15 第 19.2 节约定）；M4 之后的 F 阶段，外部身份映射、组织同步与登录方式配置移到独立的 Foundation 平台，由 BAS 工作项接管；组 → 空间角色规则改为引用 Foundation 组织单元、岗位与应用角色；离职处理改由 `fdn.person.disabled` 触发。代用户令牌、凭证加密、插件宿主仍在 Tioka。
