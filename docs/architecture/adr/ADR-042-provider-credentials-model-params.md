@@ -228,3 +228,7 @@
 1. 供应商配主备两个 Key，桩对主 Key 返回 401：主 Key 被标为 INVALID，请求改用备用 Key 成功，并触发告警。
 2. 把备用 Key 的到期时间设为过去：它转为 EXPIRED，供应商状态变为 `NO_CREDENTIAL`，路由跳到另一个供应商。
 3. Agent 覆盖 temperature 超出 binding 允许的范围：值被截到边界，时间线有警告。锁定参数不受 Agent 覆盖影响。
+
+## 修订：解析服务供应商（2026-11-06）
+
+见 [ADR-061](ADR-061-parse-engine-spi-external-ocr.md) 与 ADR-029 第 71 条：供应商类型增加「解析服务」（阿里云文档解析与读光 OCR、百度、腾讯、TextIn 等），凭证类型增加 AppId + Secret 与「API Key + Secret Key 换取访问令牌」两种；多 Key、有效期提醒、轮换、紧急吊销与按 Key 用量规则同样适用。只有文档解析服务的出站客户端能解密这类凭证（ADR-014 白名单增加一项）。

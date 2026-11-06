@@ -120,3 +120,7 @@ ID 前缀：`dset` 数据集。新增错误码：`NO_ELIGIBLE_MODEL`、`DATA_LAB
 - 空间记忆与经验库同样只接受空间配置上限（默认 `INTERNAL`）以内的条目，并必须人审。
 - 来源 Turn 标签为 `SECRET` 时不抽取记忆。
 - 子 Agent `WITH_SUMMARY` 传入模式下，父会话摘要标签超过子授予 `maxDataLabel` 时降为 `ISOLATED`（[ADR-048](ADR-048-context-engineering.md) 第 3.1 节）。
+
+## 修订：文档解析引擎的去向（2026-11-06）
+
+见 [ADR-061](ADR-061-parse-engine-spi-external-ocr.md) 第 5 节与 ADR-029 第 71 条：文档解析引擎实例是一种去向。`PRIVATE` 实例等同私有化模型，`CLOUD` 实例等同云端模型供应商；留存或训练条款未声明的云实例不能处理 `CONFIDENTIAL` 及以上文档，空间管理员填写数据处理协议编号后可放行并记审计；`SECRET` 文档只能用 `PRIVATE` 实例。解析方案中不满足去向的引擎在路由时跳过，整条链不满足时解析失败，不静默降级。
