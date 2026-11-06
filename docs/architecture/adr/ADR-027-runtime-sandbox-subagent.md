@@ -77,3 +77,11 @@ CREATE TABLE runtime_job (id VARCHAR(32) PRIMARY KEY, thread_id VARCHAR(64) NOT 
 上下文组装顺序加入「经验」，见 [ADR-029](ADR-029-design-rulings.md) 第 25 条与 [ADR-031](ADR-031-agent-eval-experience.md)。
 
 子 Agent（RT-12）提前到 M3，深度与并行数改为缺省值，委派时签发收窄的授予，子任务终态时回收，见 [ADR-029](ADR-029-design-rulings.md) 第 43 条、[ADR-038](ADR-038-multi-agent-team.md)、[ADR-039](ADR-039-delegation-grant.md)。「Agent Team」的设计即 ADR-038。
+
+## 修订：Agent 架构调研落地（2026-11-06）
+
+来由：[调研 01](../research/01-Agent与多Agent架构调研.md)、[调研 02](../research/02-Agent执行策略与执行器插件调研.md)；负责人同意按调研建议设计，见 ADR-029 第 66 条。
+
+- **结构化笔记**：上下文压缩（RT-10）时，Agent 写在工作盘 `scratch/notes` 下的待办与笔记文件不参与摘要、原样保留路径引用，压缩摘要中注明其存在，供长任务续接。
+- **代码即动作**：ADR-046 的 `CODE_ACT`（M4 之后）在本 ADR 的沙箱中运行，代码中的平台工具调用经工具桥回到 ToolGateway。
+- **外部执行器**：外部 Agent 进程运行在本 ADR 的沙箱中，规则见 [ADR-047](ADR-047-external-executor.md)（M4 之后）。

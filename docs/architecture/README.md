@@ -50,3 +50,10 @@ ADR-015〜040 是 M0〜M4 的权威设计（ADR-032〜035 为可信放权，ADR-
 | [ADR-038](adr/ADR-038-multi-agent-team.md) | 多智能体团队：规划、分派、协商、汇总，子 Agent 生命周期（MAS-03〜07） |
 | [ADR-039](adr/ADR-039-delegation-grant.md) | 委派授予与权限收窄，Skills / MCP / Workflow 的三道门（MAS-01、MAS-02、DAT-04〜06） |
 | [ADR-040](adr/ADR-040-dataset-policy-data-label.md) | 数据集行列策略与数据标签（DAT-01〜03） |
+| [ADR-041](adr/ADR-041-config-versioning-observability.md) | 配置版本化、运行状态、告警与统计 |
+| [ADR-042](adr/ADR-042-provider-credentials-model-params.md) | 供应商凭证与模型参数 |
+| [ADR-043](adr/ADR-043-flow-orchestration-detail.md) | Flow 工作流编排详细设计（FLW-09〜19） |
+| [ADR-044](adr/ADR-044-entry-intent-routing.md) | 入口意图路由与受控交接（RTE-01〜03） |
+| [ADR-045](adr/ADR-045-a2a-interop.md) | A2A 互通：概念映射与安全边界（实现在 M4 之后） |
+| [ADR-046](adr/ADR-046-execution-strategy.md) | Agent 执行策略：REACT、PLAN_EXECUTE、REFLECT 等（EXE-01〜04） |
+| [ADR-047](adr/ADR-047-external-executor.md) | 外部执行器，DSH 式插件执行（实现在 M4 之后） |
