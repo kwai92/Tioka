@@ -19,7 +19,7 @@
 6. **GraphRAG 不建议在 M4 做全量实现**。微软 GraphRAG 索引成本高；LazyGraphRAG 的索引成本与向量 RAG 相同，约为完整 GraphRAG 的 0.1%；LightRAG 可以全部放在 PostgreSQL 上。Tioka 的结构化知识已经有业务本体（ADR-036）承担。KNW-10 改为「M4 之后、按评测证明有需要再做」，届时用 LightRAG 式的轻量实体索引放在 PostgreSQL 上。
 7. **评测从「只测召回」扩到「召回 + 生成」**：在 EVO-02 评估器 SPI 上加忠实度、引用正确率、无答案拒答三个评估器，并支持从文档自动生成候选评测题（人工审核后入集）。
 8. **外部知识库产品的对接方式**：主流产品（Dify、RAGFlow、FastGPT、百炼、Amazon Bedrock）都提供「按知识库 ID + 查询 → 返回片段、分数、元数据」的检索 HTTP 接口，Dify 还定义了一个让外部知识库接入的公开协议（External Knowledge API）。建议以**检索联邦**为主：外部知识库在 Tioka 里登记为一种知识库，内容留在外部，查询时由适配器实时检索，结果和 Tioka 自有知识库一起融合、重排、引用；权限、数据标签、出网、审计、限流都在 Tioka 这一侧执行（ADR-057）。另外提供两种补充方式：内容同步（经连接器 SDK 把外部文档拉进 Tioka 索引）与反向暴露（Tioka 实现同一检索协议和 MCP 工具，让采购的产品也能用 Tioka 的知识库）。
-9. **排期**（以第 68、69 条后的计划为基准：M3 W24–W53，M4 W54–约 W69，Foundation F 阶段 W70–W80）：**2026-11-06 负责人选定方案 B，外部知识库提前到 M3**。M3 净增后端 19（KNW-11、KNW-12、KNW-14、KNW-16、KNW-17a）、前端 6，M3 延长约 1 周到 W54；M4 净增后端 10（KNW-13、KNW-15、KNW-17b）、前端 1，M4 为 W55 起到约 W71，F 阶段顺延到约 W72–W82；KNW-18、KNW-20、KNW-10 在 M4 之后（第 9、10 节）。
+9. **排期**（以第 68、69 条后的计划为基准：M3 W24–W53，M4 W54–约 W69，Foundation F 阶段 W70–W80）：**2026-11-06 负责人选定方案 B，外部知识库提前到 M3**。M3 净增后端 19（KNW-11、KNW-12、KNW-14、KNW-16、KNW-17a）、前端 6，M3 延长约 1 周到 W54；M4 净增后端 15（KNW-13、KNW-15、KNW-17b）、前端 1，M4 为 W55 起到约 W71.5，F 阶段顺延到约 W73–W83；外部适配器第一批为飞书与腾讯乐享（负责人指定）；KNW-18、KNW-20、KNW-10 在 M4 之后（第 9、10 节）。
 
 ---
 
@@ -189,6 +189,8 @@ Tioka 的情况：合同与业务对象已经由业务本体（ADR-036）结构�
 | 阿里云百炼 | POST `/{WorkspaceId}/index/retrieve`（OpenAPI，AccessKey + RAM `sfm:Retrieve`）；另有 DashScope 风格的知识检索接口（API Key） | 阿里云 AccessKey 或 DashScope API Key | `IndexId`、`Query`、稠密 / 稀疏召回条数（各 ≤100，合计 ≤200）、Rerank（`qwen3-rerank` 等，TopN ≤20）、查询改写与历史、`SearchFilters` | `Nodes[]`：文本、分数（0〜1）、元数据（文档 ID、文档名、标题、图片地址） | RAM 授权到工作空间；元数据与标签过滤 | 多知识库检索最多 15 个；官方提示接口延迟较高 |
 | Amazon Bedrock 知识库 | POST `/knowledgebases/{id}/retrieve` | AWS 签名 | 查询文本或图片、返回条数、元数据过滤（等于、大于、in、前缀、与、或）、Rerank 配置、护栏 | 内容、位置、文档 ID、元数据、分数 | 元数据过滤；`userContext` | 只在海外部署相关 |
 | 扣子（Coze） | 公开 OpenAPI 以知识库与文档管理为主；本次未能从官方文档确认有独立的检索接口（文档页为前端渲染，抓取失败） | 个人访问令牌 / OAuth | — | — | — | 采购前要求厂商提供检索接口或 MCP；否则只能经其 Bot 对话接口间接使用，不建议 |
+| 飞书知识库与云文档 | 搜索接口只返回文档或知识库节点列表，不返回片段（知识库节点搜索、云文档搜索）；正文另取（`docx` 纯文本接口，官方说明每秒 5 次） | 应用身份 `tenant_access_token` 或用户身份 `user_access_token` | 关键词、知识空间范围 | 文档列表；正文要再取 | 用户身份调用时结果只含该用户有权限的文档 | 官方 MCP Server `lark-openapi-mcp`（Beta，本地运行）含文档读取与知识库节点搜索工具，支持用户身份；开放平台文档页为前端渲染，接口细节以接入时的官方文档为准 |
+| 腾讯乐享 | POST `/cgi-bin/v1/ai/search`（AI 检索，返回片段）；另有 AI 问答 `/cgi-bin/v1/ai/qa`（返回答案与参考片段）、知识库条目搜索 `/cgi-bin/v1/kb/entries/search`（关键词） | AppKey / AppSecret 换 `access_token`（7200 秒），Bearer；多数接口要求 `x-staff-id` 员工身份 | `query`、`targets`（企业、团队、知识库、单篇）、`top_n`（≤50）、是否返回分数 | 标题、Markdown 片段、链接 | 是否按员工身份过滤检索结果，文档未写明，需实测 | 换令牌每 10 分钟 20 次，其他接口每分钟 3000 次；文档变更事件只看到「解析完成」一种；私有化版本与 MCP 支持未确认 |
 | 腾讯 WeKnora | REST API 与官方 MCP Server（约 29 个工具）；API Key 可限定能力与知识库 | API Key、OIDC、MCP OAuth2 | — | — | 四级角色 | 可经 MCP 适配器接入 |
 | MaxKB | 有 API 与 MCP 工具调用；本次未查到检索接口细节 | — | — | — | — | GPL-3.0；按采购版本确认 |
 
@@ -253,7 +255,7 @@ Tioka 的情况：合同与业务对象已经由业务本体（ADR-036）结构�
 
 ### 选项 R：外部知识库
 
-- **R1（推荐）**：`KnowledgeProvider` SPI，检索联邦为主；内置 Dify、RAGFlow、百炼、通用检索协议（Dify External Knowledge API 形态）、MCP 五种适配器；FastGPT、Bedrock、扣子等按需以插件提供；内容同步走 KNW-06 的连接器；反向暴露在 M4 之后。
+- **R1（推荐）**：`KnowledgeProvider` SPI，检索联邦为主；内置适配器第一批为飞书与腾讯乐享（负责人 2026-11-06 指定），第二批为 Dify、RAGFlow、百炼、通用检索协议（Dify External Knowledge API 形态）、MCP；FastGPT、Bedrock、扣子等按需以插件提供；内容同步走 KNW-06 的连接器；反向暴露在 M4 之后。
 - R2：只做内容同步，不做实时联邦。权限与评测完全统一，但要求每个产品都有导出接口，且要二次存储和嵌入。
 - R3：只经 MCP 接入（外部产品提供 MCP 检索工具，Agent 直接调用）。实现最省，但结果不进融合与重排，权限、标签、引用都要各自处理。可作为 R1 的一种适配器保留。
 
@@ -271,8 +273,8 @@ Tioka 的情况：合同与业务对象已经由业务本体（ADR-036）结构�
 
 | 里程碑 | 新增 | 后端 | 前端 | 说明 |
 | --- | --- | --- | --- | --- |
-| M3 | KNW-11、KNW-12、KNW-14、KNW-16、KNW-17a、FE-32、FE-33 接入页 | 19 | 6 | BE-C 在 W42–W49 完成；8 人日占用 W48 缓冲，其余使 M3 延长约 1 周到 W54；BE-C 的 Flow 增强项顺延约 1 周 |
-| M4 | KNW-13、KNW-15、KNW-17b、FE-33 其余 | 10 | 1 | M4 为 W55 起，长度增加约 0.8 周，到约 W71；F 阶段顺延到约 W72–W82 |
+| M3 | KNW-11、KNW-12、KNW-14、KNW-16、KNW-17a（飞书、乐享）、FE-32、FE-33 接入页 | 19 | 6 | BE-C 在 W42–W49 完成；8 人日占用 W48 缓冲，其余使 M3 延长约 1 周到 W54；BE-C 的 Flow 增强项顺延约 1 周 |
+| M4 | KNW-13、KNW-15、KNW-17b（Dify、RAGFlow、百炼、通用协议、MCP）、FE-33 其余 | 15 | 1 | M4 为 W55 起，长度增加约 1.2 周，到约 W71.5；F 阶段顺延到约 W73–W83 |
 | M4 之后 | KNW-18、KNW-20、KNW-10 | 约 5（KNW-10 未估） | 约 2 | 增强批次 |
 
 KNW-09 的剩余部分（图片理解、Excel）交给文档解析专题，KNW-09 在 34 号计划中标为作废、由该专题的工作项取代。
@@ -291,6 +293,8 @@ KNW-09 的剩余部分（图片理解、Excel）交给文档解析专题，KNW-0
 - 阿里云百炼文本向量 `text-embedding-v4`：https://www.alibabacloud.com/help/zh/model-studio/text-embedding-synchronous-api
 - Amazon Bedrock Retrieve：https://docs.aws.amazon.com/bedrock/latest/APIReference/API_agent-runtime_Retrieve.html
 - 扣子开放平台知识库文档（抓取失败，未验证）：https://www.coze.cn/open/docs/developer_guides/knowledge_overview
+- 飞书官方 MCP Server：https://github.com/larksuite/lark-openapi-mcp
+- 腾讯乐享开放 API：https://lexiang.tencent.com/wiki/api/ （鉴权 10003，知识库 15001、15003，AI 问答与检索 40000、40004）
 - Tencent WeKnora：https://github.com/Tencent/WeKnora
 - MaxKB：https://github.com/1Panel-dev/MaxKB
 - Anthropic，Contextual Retrieval：https://www.anthropic.com/news/contextual-retrieval
