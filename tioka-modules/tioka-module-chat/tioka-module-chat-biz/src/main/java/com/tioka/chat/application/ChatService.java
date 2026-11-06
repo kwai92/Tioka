@@ -1,70 +1,50 @@
 package com.tioka.chat.application;
 
 import com.tioka.agent.api.AgentSnapshotApi;
-import com.tioka.agent.api.spec.AgentSpec;
 import com.tioka.chat.domain.ChatStore;
 import com.tioka.chat.domain.ChatStore.Conversation;
-import com.tioka.chat.domain.ChatStore.Message;
 import com.tioka.framework.error.BizException;
 import com.tioka.framework.error.ErrorCode;
 import com.tioka.framework.id.Ids;
-import com.tioka.framework.security.PrincipalHolder;
 import com.tioka.model.api.CostQueryApi;
-import com.tioka.runtime.api.RuntimeSessionApi;
-import com.tioka.skill.api.SkillQueryApi;
+import com.tioka.runtime.api.kernel.RuntimeApi;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.PlatformTransactionManager;
-import org.springframework.transaction.support.TransactionTemplate;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * CHT-02：Chat 发送异步化。{@code send} 只校验归属 → {@code startTurn} → 更新索引字段，不写 chat_message、不等模型。
+ */
 @Service
 public class ChatService {
     private final AgentSnapshotApi snapshots;
-    private final SkillQueryApi skills;
-    private final RuntimeSessionApi runtime;
+    private final RuntimeApi runtime;
     private final CostQueryApi costs;
     private final ChatStore store;
-    private final PrincipalHolder principals;
-    private final TransactionTemplate tx;
 
     public ChatService(AgentSnapshotApi snapshots,
-                       SkillQueryApi skills,
-                       RuntimeSessionApi runtime,
+                       RuntimeApi runtime,
                        CostQueryApi costs,
-                       ChatStore store,
-                       PrincipalHolder principals,
-                       PlatformTransactionManager transactionManager) {
+                       ChatStore store) {
         this.snapshots = snapshots;
-        this.skills = skills;
         this.runtime = runtime;
         this.costs = costs;
         this.store = store;
-        this.principals = principals;
-        this.tx = new TransactionTemplate(transactionManager);
     }
 
-    public Conversation create(String title, String agentVersionId) {
-        AgentSnapshotApi.AgentSnapshot snap = snapshots.get(agentVersionId);
-        List<RuntimeSessionApi.SkillInstallInput> skillInputs = new ArrayList<>();
-        for (AgentSpec.SkillRef ref : snap.spec().skills()) {
-            skills.findPublished(ref.skillVersionId()).ifPresent(sk ->
-                    skillInputs.add(new RuntimeSessionApi.SkillInstallInput(
-                            sk.id(), sk.name(),
-                            ref.mode() == null ? "ALWAYS" : ref.mode(),
-                            sk.description(), sk.skillMd())));
+    public CreatedConversation create(String title, String agentVersionId) {
+        if (agentVersionId == null || agentVersionId.isBlank()) {
+            throw new BizException(ErrorCode.BAD_REQUEST, "agentVersionId 必填");
         }
-        String workspaceId = principals.current().workspaceId();
-        var session = runtime.create(new RuntimeSessionApi.CreateSessionRequest(
-                snap.versionId(), snap.spec().model().routingPlanId(),
-                Map.of("agentVersionId", snap.versionId(), "workspaceId", workspaceId == null ? "" : workspaceId),
-                skillInputs));
+        snapshots.get(agentVersionId); // 校验已发布版本存在
         String id = Ids.newId("conv");
-        Conversation c = new Conversation(id, title == null ? "新会话" : title, agentVersionId, session.id());
+        String resolvedTitle = title == null || title.isBlank() ? "新会话" : title;
+        RuntimeApi.ThreadView thread = runtime.createThread(new RuntimeApi.CreateThreadCmd(
+                agentVersionId, "chat", id, resolvedTitle, Map.of()));
+        Conversation c = new Conversation(id, resolvedTitle, agentVersionId, thread.threadId());
         store.saveConversation(c);
-        return c;
+        return new CreatedConversation(c.id(), c.threadId(), c.title());
     }
 
     public List<Conversation> list() {
@@ -79,10 +59,10 @@ public class ChatService {
         return c;
     }
 
-    /** GOV-05：会话成本按 runtimeSessionId（thread）归集。 */
+    /** GOV-05：会话成本按 threadId 归集。 */
     public CostQueryApi.CostBucket cost(String conversationId) {
         Conversation c = get(conversationId);
-        return costs.sessionCost(c.runtimeSessionId());
+        return costs.sessionCost(c.threadId());
     }
 
     public void delete(String conversationId) {
@@ -90,36 +70,45 @@ public class ChatService {
         store.deleteConversation(conversationId);
     }
 
-    public Message send(String conversationId, String text, String clientMsgId) {
-        Conversation c = get(conversationId);
-        String mid = Ids.newId("msg");
-        Message user = new Message(mid, conversationId, "user", text, List.of(Map.of("type", "text", "text", text)));
-        tx.executeWithoutResult(status -> store.addMessage(user));
-
-        RuntimeSessionApi.TurnView turn = runtime.append(c.runtimeSessionId(),
-                new RuntimeSessionApi.AppendRequest(clientMsgId, text));
-        List<Map<String, Object>> parts = new ArrayList<>();
-        StringBuilder assistantText = new StringBuilder();
-        for (RuntimeSessionApi.PartView p : turn.parts()) {
-            parts.add(Map.of(
-                    "id", p.id(),
-                    "type", p.type(),
-                    "text", p.text() == null ? "" : p.text(),
-                    "payload", p.payload() == null ? Map.of() : p.payload()));
-            if ("text".equals(p.type()) && p.payload() != null && Boolean.FALSE.equals(p.payload().get("delta"))) {
-                assistantText.append(p.text());
-            } else if ("tool_result".equals(p.type())) {
-                assistantText.append("\n[tool] ").append(p.text());
-            }
+    /**
+     * 异步发送：立即返回；按 clientMsgId 幂等。
+     */
+    public SendAccepted send(String conversationId, String text, String clientMsgId) {
+        if (text == null || text.isBlank()) {
+            throw new BizException(ErrorCode.BAD_REQUEST, "text 必填");
         }
-        Message asst = new Message(Ids.newId("msg"),
-                conversationId, "assistant", assistantText.toString().trim(), parts);
-        store.addMessage(asst);
-        return asst;
+        if (clientMsgId == null || clientMsgId.isBlank()) {
+            throw new BizException(ErrorCode.BAD_REQUEST, "clientMsgId 必填");
+        }
+        Conversation c = get(conversationId);
+        boolean first = runtime.listItems(c.threadId(), 0, 1).isEmpty();
+        RuntimeApi.TurnHandle handle = runtime.startTurn(c.threadId(), new RuntimeApi.StartTurnCmd(
+                clientMsgId,
+                List.of(RuntimeApi.InputItem.text(text)),
+                null,
+                "chat",
+                conversationId));
+        String newTitle = null;
+        if (first) {
+            String preview = text.trim();
+            newTitle = preview.length() <= 30 ? preview : preview.substring(0, 30);
+        }
+        store.touchActivity(conversationId, newTitle);
+        return new SendAccepted(handle.turnId(), c.threadId(), handle.eventsUrl());
     }
 
-    public List<Message> messages(String conversationId) {
-        get(conversationId);
-        return store.messages(conversationId);
+    public List<RuntimeApi.ItemView> messages(String conversationId, long afterSeq, int limit) {
+        Conversation c = get(conversationId);
+        return runtime.listItems(c.threadId(), afterSeq, limit);
     }
+
+    /** 停止当前活动 Turn；无活动 Turn 时幂等成功。 */
+    public void stop(String conversationId) {
+        Conversation c = get(conversationId);
+        runtime.findActiveTurn(c.threadId()).ifPresent(t -> runtime.interrupt(t.turnId()));
+    }
+
+    public record CreatedConversation(String id, String threadId, String title) {}
+
+    public record SendAccepted(String turnId, String threadId, String eventsUrl) {}
 }

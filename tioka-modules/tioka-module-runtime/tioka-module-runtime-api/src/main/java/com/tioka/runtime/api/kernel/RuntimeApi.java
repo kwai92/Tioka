@@ -3,6 +3,7 @@ package com.tioka.runtime.api.kernel;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * Runtime 内核唯一对外入口（ADR-016）。替代 {@code RuntimeSessionApi}。
@@ -29,6 +30,12 @@ public interface RuntimeApi {
     void decideApproval(String approvalId, ApprovalDecision decision);
 
     TurnView getTurn(String turnId);
+
+    /**
+     * 当前 thread 上最新的非终态 Turn（QUEUED / RUNNING / WAITING_*）；无则 empty。
+     * Chat {@code /stop} 等入口据此转调 {@link #interrupt(String)}。
+     */
+    Optional<TurnView> findActiveTurn(String threadId);
 
     /** 按 seq 升序返回 {@code afterSeq} 之后的 item；SSE 断线补偿也走这里。 */
     List<ItemView> listItems(String threadId, long afterSeq, int limit);

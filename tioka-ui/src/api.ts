@@ -4,7 +4,7 @@ import { useAuthStore } from './stores/auth'
 export { api, authHeaders } from './api/http'
 export { streamThread } from './api/stream'
 export type { RuntimeEvent, StreamHandlers } from './api/stream'
-export { listThreadItems, startChatTurn, stopActiveTurn } from './api/chatAsync'
+export { listConversationItems, startChatTurn, stopActiveTurn } from './api/chatAsync'
 
 export type StreamPart = {
   type?: string

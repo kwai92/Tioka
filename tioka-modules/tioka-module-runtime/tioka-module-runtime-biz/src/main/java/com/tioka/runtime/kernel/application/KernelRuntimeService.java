@@ -35,6 +35,7 @@ import java.time.ZoneOffset;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 @Service
 public class KernelRuntimeService implements RuntimeApi {
@@ -210,6 +211,13 @@ public class KernelRuntimeService implements RuntimeApi {
                 .orElseThrow(() -> new BizException(ErrorCode.NOT_FOUND, "turn 不存在"));
         requireThread(t.getSessionId());
         return toTurnView(t);
+    }
+
+    @Override
+    public Optional<TurnView> findActiveTurn(String threadId) {
+        requireText(threadId, "threadId");
+        requireThread(threadId);
+        return turns.findActive(threadId).map(this::toTurnView);
     }
 
     @Override

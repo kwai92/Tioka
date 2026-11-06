@@ -12,6 +12,7 @@ import com.tioka.framework.security.PrincipalHolder;
 import com.tioka.framework.security.PrincipalType;
 import org.springframework.stereotype.Repository;
 
+import java.time.OffsetDateTime;
 import java.util.List;
 
 @Repository
@@ -55,6 +56,18 @@ public class ChatRepository {
             return;
         }
         conversations.deleteById(id);
+    }
+
+    public void touchActivity(String conversationId, String newTitleOrNull, OffsetDateTime lastActiveAt) {
+        ChatConversationDO row = findConversation(conversationId);
+        if (row == null) {
+            return;
+        }
+        row.setLastActiveAt(lastActiveAt);
+        if (newTitleOrNull != null && !newTitleOrNull.isBlank()) {
+            row.setTitle(newTitleOrNull);
+        }
+        conversations.updateById(row);
     }
 
     public void insertMessage(ChatMessageDO row) { messages.insert(row); }

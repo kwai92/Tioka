@@ -65,7 +65,7 @@
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { api } from '../api'
-import { listThreadItems, startChatTurn, stopActiveTurn } from '../api/chatAsync'
+import { listConversationItems, startChatTurn, stopActiveTurn } from '../api/chatAsync'
 import { streamThread } from '../api/stream'
 import { gateSend, itemToPart } from '../chat/chatUx'
 import { useThreadStore } from '../stores/thread'
@@ -156,7 +156,7 @@ async function open(id) {
   discardBanner.value = ''
   activeId.value = id
   const conv = conversations.value.find((c) => c.id === id)
-  // M0：runtimeSessionId ≡ threadId；CHT-02 后改为 threadId
+  // CHT-02：conversation.threadId（兼容 runtimeSessionId）
   threadId.value = conv?.threadId || conv?.runtimeSessionId || ''
 
   if (!threadId.value) {
@@ -168,7 +168,7 @@ async function open(id) {
   store?.reset()
 
   try {
-    const items = await listThreadItems(threadId.value, 0)
+    const items = await listConversationItems(id, 0)
     store.seed(items)
   } catch (e) {
     errorBanner.value = e?.message || '加载消息失败'
@@ -226,13 +226,15 @@ async function send() {
   try {
     const accepted = await startChatTurn({
       conversationId: activeId.value,
-      threadId: threadId.value,
       text,
       clientMsgId
     })
+    if (accepted.threadId) {
+      threadId.value = accepted.threadId
+    }
     store.setActiveTurn(accepted.turnId, accepted.status || 'QUEUED')
     // 用户 item 可能只入库未推 SSE：拉一次列表替换乐观消息
-    const items = await listThreadItems(threadId.value, 0)
+    const items = await listConversationItems(activeId.value, 0)
     store.seed(items)
   } catch (e) {
     errorBanner.value = e?.message || '发送失败'
@@ -243,10 +245,9 @@ async function send() {
 }
 
 async function stop() {
-  const turnId = threadStore.value?.activeTurn?.turnId
-  if (!turnId) return
+  if (!activeId.value) return
   try {
-    await stopActiveTurn(turnId)
+    await stopActiveTurn(activeId.value)
     // 输入态在收到 turn.cancelled 后由 store 清空；此处不强制
   } catch (e) {
     errorBanner.value = e?.message || '停止失败'
@@ -255,8 +256,8 @@ async function stop() {
 
 async function onCardSubmitted() {
   const store = threadStore.value
-  if (!threadId.value || !store) return
-  const items = await listThreadItems(threadId.value, 0)
+  if (!activeId.value || !store) return
+  const items = await listConversationItems(activeId.value, 0)
   store.seed(items)
   scrollBottom()
 }
