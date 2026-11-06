@@ -1,9 +1,9 @@
 # ADR-052 — 组织、账号与权限中心
 
-- 状态：Accepted（设计定案，待实现）
+- 状态：Accepted（设计定案，待实现；在 M4 之后的 F 阶段实施）
 - 日期：2026-11-06
 - 覆盖工作项：BAS-02、BAS-03、BAS-05〜07、BAS-11〜15、BAS-19、BAS-FE-03〜05、BAS-FE-07
-- 详细设计：[S15](../systems/S15-Foundation基础平台系统.md) 第 6〜9 节
+- 详细设计：[S15](../systems/S15-Foundation基础平台系统.md) 第 8〜11 节；子系统目录与授权模式见 [ADR-054](ADR-054-engineering-base-subsystem-microfrontend.md)
 - 相关：[ADR-015](ADR-015-identity-tenant-rbac.md)、[ADR-026](ADR-026-foundation.md)、[ADR-025](ADR-025-governance.md)（GOV-07）、[ADR-032](ADR-032-agent-charter.md)、[ADR-040](ADR-040-dataset-policy-data-label.md)、ADR-029 第 69 条
 - 约束：与 ADR-029 定案冲突时以定案为准；修改本 ADR 走 [ADR-030](ADR-030-anti-drift-process.md) 的变更流程。
 

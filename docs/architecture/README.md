@@ -60,3 +60,4 @@ ADR-015〜040 是 M0〜M4 的权威设计（ADR-032〜035 为可信放权，ADR-
 | [ADR-051](adr/ADR-051-foundation-platform.md) | Foundation 基础平台：定位、架构与应用接入（BAS，详设见 [S15](systems/S15-Foundation基础平台系统.md)） |
 | [ADR-052](adr/ADR-052-org-account-authz-center.md) | 组织、账号与权限中心 |
 | [ADR-053](adr/ADR-053-foundation-common-services.md) | Foundation 公共服务、安全合规与部署 |
+| [ADR-054](adr/ADR-054-engineering-base-subsystem-microfrontend.md) | Java 工程化底座、子系统授权模式与微前端 |
