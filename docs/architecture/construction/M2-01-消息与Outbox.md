@@ -6,6 +6,8 @@
 - 前置：M1 完成
 - 迁移编号段：M2 使用 V130〜V149，本文件用 V130〜V131
 
+> 2026-11-06 补充（[M2-00](M2-00-M2实施计划.md)、ADR-029 第 65 条）：排期、人天与负责人以 M2-00 为准。ORC-02 第一周先合事件契约 PR：补齐全部事件 payload schema，信封 `mq-envelope-v1.json` 去掉 `tenantId`，加可选字段 `replayOf`、`traceparent`；身份生命周期事件桥接（ID-BR）由 BE-A 做。本文建表片段中的 `tenant_id` 与伪代码中的租户维度已按第 60 条废止，以 `docs/contracts/db` 中的契约为准。
+
 ---
 
 ## ORC-02 RocketMQ、事务 Outbox、消费幂等（P0，8 人天）

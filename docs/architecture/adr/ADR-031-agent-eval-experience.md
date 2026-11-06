@@ -114,7 +114,7 @@ CREATE TABLE exp_hit (turn_id VARCHAR(64) NOT NULL, exp_id VARCHAR(32) NOT NULL,
 
 | 编号 | 工作项 | 阶段 | 优先级 |
 | --- | --- | --- | --- |
-| EVO-01 | 轨迹导出接口与用户反馈 | M2 | P1 |
+| EVO-01 | 轨迹导出接口与用户反馈（2026-11-06 移到 M3，与 EVO-02、EVO-03 一起做；轨迹导出复用 HCI-07 查询，ADR-029 第 65 条） | M3 | P1 |
 | EVO-02 | 数据集、评估器 SPI、批次评测（与 KNW-07 合并实现） | M3 | P1 |
 | EVO-03 | 线上采样评测与待标注回流 | M3 | P1 |
 | EVO-04 | 实验对比与显著性报告 | M4 | P2 |
