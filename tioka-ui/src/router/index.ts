@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory, createMemoryHistory } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import Login from '@/views/Login.vue'
+import LoginCallback from '@/views/LoginCallback.vue'
 import ChangePassword from '@/views/ChangePassword.vue'
 import Shell from '@/views/Shell.vue'
 import Chat from '@/views/Chat.vue'
@@ -17,6 +18,7 @@ export const router = createRouter({
   history: import.meta.env.VITEST ? createMemoryHistory() : createWebHistory(),
   routes: [
     { path: '/login', component: Login, meta: { public: true } },
+    { path: '/login/callback', component: LoginCallback, meta: { public: true } },
     { path: '/account/password', component: ChangePassword, meta: { auth: true } },
     {
       path: '/',
