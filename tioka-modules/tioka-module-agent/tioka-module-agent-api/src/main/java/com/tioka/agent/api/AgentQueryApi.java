@@ -1,17 +1,8 @@
 package com.tioka.agent.api;
 
-import java.util.List;
-
+/**
+ * @deprecated AST-01 起改用 {@link AgentSnapshotApi}；本接口保留空壳以免旧编译引用炸裂，将于 ENG-06 删除。
+ */
+@Deprecated(forRemoval = true)
 public interface AgentQueryApi {
-    AgentVersionView requirePublished(String versionId);
-
-    record SkillBindingView(String skillId, String name, String mode, String description, String skillMd) {}
-
-    record AgentVersionView(String id, String agentId, String instructions, String routingPlanId,
-                            List<String> mcpGrantIds, List<SkillBindingView> skills) {
-        public AgentVersionView(String id, String agentId, String instructions, String routingPlanId,
-                                List<String> mcpGrantIds) {
-            this(id, agentId, instructions, routingPlanId, mcpGrantIds, List.of());
-        }
-    }
 }

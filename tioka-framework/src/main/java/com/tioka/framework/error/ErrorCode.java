@@ -19,6 +19,10 @@ public enum ErrorCode {
     STALE_REVISION(40901, 409, "数据已被修改，请刷新后重试"),
     /** 不能移除空间的最后一个管理员（GOV-01）。 */
     LAST_ADMIN(40902, 409, "空间至少需要一名管理员"),
+    /** Agent 发布校验失败（AST-01/AST-02），HTTP 422。 */
+    AGENT_PUBLISH_INVALID(42201, 422, "Agent 发布校验失败"),
+    /** Agent 已停用，HTTP 423。 */
+    AGENT_DISABLED(42300, 423, "Agent 已停用"),
     RATE_LIMITED(42900, 429, "请求过于频繁"),
     /** 配额用尽（ADR-017、ADR-029 第 7 条），HTTP 429。 */
     QUOTA_EXCEEDED(42901, 429, "配额已用尽"),

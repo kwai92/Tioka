@@ -181,40 +181,69 @@ public class McpAdminService implements McpToolCallApi {
         return new McpToolCallApi.CallResult(false, "unknown tool: " + toolName);
     }
 
-    /** 仅解析指定 Grant 快照内的工具（AgentVersion.mcpGrantIds）。 */
+    /** @deprecated AST-01 起优先 {@link #toolsForMcpBindings}。 */
+    @Deprecated
     public List<Tool> toolsForGrantIds(List<String> grantIds) {
         if (grantIds == null || grantIds.isEmpty()) return List.of();
+        List<McpBinding> bindings = new ArrayList<>();
+        for (String grantId : grantIds) {
+            store.getGrant(grantId).ifPresent(g ->
+                    bindings.add(new McpBinding(g.serverId(), g.allowlist())));
+        }
+        return toolsForMcpBindings(bindings);
+    }
+
+    /** 按 AgentSpec.tools.mcp 快照解析工具。 */
+    public List<Tool> toolsForMcpBindings(List<McpBinding> bindings) {
+        if (bindings == null || bindings.isEmpty()) return List.of();
         List<Tool> out = new ArrayList<>();
         Set<String> seen = new HashSet<>();
-        for (String grantId : grantIds) {
-            Optional<Grant> g = store.getGrant(grantId);
-            if (g.isEmpty()) continue;
-            for (Tool t : store.tools(g.get().serverId())) {
-                if (!g.get().allowlist().isEmpty() && !g.get().allowlist().contains(t.name())) continue;
+        for (McpBinding b : bindings) {
+            if (b == null || b.serverId() == null) continue;
+            for (Tool t : store.tools(b.serverId())) {
+                if (b.allowlist() != null && !b.allowlist().isEmpty()
+                        && !b.allowlist().contains(t.name())) continue;
                 if (seen.add(t.name())) out.add(t);
             }
         }
         return out;
     }
 
+    /** @deprecated AST-01 起优先 {@link #callToolWithMcpBindings}。 */
+    @Deprecated
     public McpToolCallApi.CallResult callToolWithGrantIds(List<String> grantIds, String toolName,
                                                          Map<String, Object> arguments) {
         if (grantIds == null || grantIds.isEmpty()) {
             throw new BizException(ErrorCode.FORBIDDEN, "工具未授权: " + toolName);
         }
+        List<McpBinding> bindings = new ArrayList<>();
         for (String grantId : grantIds) {
-            Optional<Grant> opt = store.getGrant(grantId);
-            if (opt.isEmpty()) continue;
-            Grant g = opt.get();
-            if (!g.allowlist().isEmpty() && !g.allowlist().contains(toolName)) continue;
-            for (Tool t : store.tools(g.serverId())) {
+            store.getGrant(grantId).ifPresent(g ->
+                    bindings.add(new McpBinding(g.serverId(), g.allowlist())));
+        }
+        return callToolWithMcpBindings(bindings, toolName, arguments);
+    }
+
+    public McpToolCallApi.CallResult callToolWithMcpBindings(List<McpBinding> bindings, String toolName,
+                                                            Map<String, Object> arguments) {
+        if (bindings == null || bindings.isEmpty()) {
+            throw new BizException(ErrorCode.FORBIDDEN, "工具未授权: " + toolName);
+        }
+        for (McpBinding b : bindings) {
+            if (b == null || b.serverId() == null) continue;
+            if (b.allowlist() != null && !b.allowlist().isEmpty() && !b.allowlist().contains(toolName)) {
+                continue;
+            }
+            for (Tool t : store.tools(b.serverId())) {
                 if (Objects.equals(t.name(), toolName)) {
-                    return callTool(g.serverId(), toolName, arguments);
+                    return callTool(b.serverId(), toolName, arguments);
                 }
             }
         }
         throw new BizException(ErrorCode.FORBIDDEN, "工具未授权: " + toolName);
     }
+
+    public record McpBinding(String serverId, List<String> allowlist) {}
 
     private JsonNode postRpc(McpServer server, String method, Map<String, Object> params) throws Exception {
         Map<String, Object> rpc = new LinkedHashMap<>();

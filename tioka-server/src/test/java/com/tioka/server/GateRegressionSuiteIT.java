@@ -19,6 +19,7 @@ import static org.hamcrest.Matchers.*;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -376,10 +377,24 @@ class GateRegressionSuiteIT {
                 .andExpect(jsonPath("$.data.published").value(true));
         String agentId = text(postJson("/api/agents",
                 "{\"name\":\"Gate Agent\",\"workspaceId\":\"ws_default\"}"), "data", "id");
-        String versionId = text(postJson("/api/agents/" + agentId + "/drafts",
-                "{\"instructions\":\"helpful\",\"routingPlanId\":\"" + plan + "\",\"mcpGrantIds\":[]}"), "data", "id");
-        mockMvc.perform(post("/api/agents/versions/" + versionId + "/publish"))
-                .andExpect(jsonPath("$.data.published").value(true));
+        int revision = Integer.parseInt(text(mockMvc.perform(get("/api/agents/" + agentId + "/draft"))
+                .andExpect(status().isOk()).andReturn(), "data", "revision"));
+        String draftBody = """
+                {"revision":%d,"spec":{"schemaVersion":1,"profile":{"name":"Gate Agent","kind":"CHAT","tags":[]},
+                 "instructions":{"sections":[{"key":"main","text":"helpful"}]},
+                 "model":{"routingPlanId":"%s","allowUserOverride":false},
+                 "tools":{"builtin":[],"mcp":[],"flows":[],"business":[]},"skills":[],
+                 "knowledge":{"kbIds":[],"mode":"TOOL"},"sandbox":{"level":"EDIT","networkAllowlist":[]},
+                 "approval":{"toolPolicies":{}},"limits":{"maxSteps":20},
+                 "charter":null,"output":null,"subAgents":null,"dataClearance":null}}
+                """.formatted(revision, plan);
+        mockMvc.perform(put("/api/agents/" + agentId + "/draft")
+                        .contentType(MediaType.APPLICATION_JSON).content(draftBody))
+                .andExpect(status().isOk());
+        revision = Integer.parseInt(text(mockMvc.perform(get("/api/agents/" + agentId + "/draft"))
+                .andExpect(status().isOk()).andReturn(), "data", "revision"));
+        String versionId = text(postJson("/api/agents/" + agentId + "/publish",
+                "{\"revision\":" + revision + "}"), "data", "versionId");
         return new Fixture(plan, versionId);
     }
 

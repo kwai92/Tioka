@@ -1,6 +1,7 @@
 package com.tioka.mcp.application;
 
-import com.tioka.agent.api.AgentQueryApi;
+import com.tioka.agent.api.AgentSnapshotApi;
+import com.tioka.agent.api.spec.AgentSpec;
 import com.tioka.framework.error.BizException;
 import com.tioka.framework.error.ErrorCode;
 import com.tioka.mcp.domain.McpStore;
@@ -13,16 +14,16 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 将 AgentVersion 快照内的 MCP Grant 工具暴露给 Runtime ToolRegistry。
+ * 将 Agent 版本快照内的 MCP 工具暴露给 Runtime ToolRegistry（AST-01：读 AgentSpec.tools.mcp）。
  */
 @Component
 public class McpToolProvider implements ToolProvider {
     private final McpAdminService mcpAdminService;
-    private final AgentQueryApi agentQueryApi;
+    private final AgentSnapshotApi snapshots;
 
-    public McpToolProvider(McpAdminService mcpAdminService, AgentQueryApi agentQueryApi) {
+    public McpToolProvider(McpAdminService mcpAdminService, AgentSnapshotApi snapshots) {
         this.mcpAdminService = mcpAdminService;
-        this.agentQueryApi = agentQueryApi;
+        this.snapshots = snapshots;
     }
 
     @Override
@@ -31,8 +32,8 @@ public class McpToolProvider implements ToolProvider {
     @Override
     public List<ToolDescriptor> listTools(String agentVersionId) {
         if (agentVersionId == null || agentVersionId.isBlank()) return List.of();
-        List<String> grantIds = grantIdsOf(agentVersionId);
-        List<McpStore.Tool> tools = mcpAdminService.toolsForGrantIds(grantIds);
+        List<McpAdminService.McpBinding> bindings = bindingsOf(agentVersionId);
+        List<McpStore.Tool> tools = mcpAdminService.toolsForMcpBindings(bindings);
         List<ToolDescriptor> out = new ArrayList<>();
         for (McpStore.Tool t : tools) {
             out.add(new ToolDescriptor(t.name(), t.description(), t.inputSchema(), parseRisk(t.risk())));
@@ -61,12 +62,15 @@ public class McpToolProvider implements ToolProvider {
         if (agentVersionId == null || agentVersionId.isBlank()) {
             throw new BizException(ErrorCode.FORBIDDEN, "缺少 agentVersionId，拒绝 MCP 工具调用");
         }
-        var r = mcpAdminService.callToolWithGrantIds(grantIdsOf(agentVersionId), toolName, arguments);
+        var r = mcpAdminService.callToolWithMcpBindings(bindingsOf(agentVersionId), toolName, arguments);
         return new ToolResult(r.ok(), r.content());
     }
 
-    private List<String> grantIdsOf(String agentVersionId) {
-        AgentQueryApi.AgentVersionView v = agentQueryApi.requirePublished(agentVersionId);
-        return v.mcpGrantIds() == null ? List.of() : v.mcpGrantIds();
+    private List<McpAdminService.McpBinding> bindingsOf(String agentVersionId) {
+        AgentSpec.ToolSet tools = snapshots.get(agentVersionId).spec().tools();
+        if (tools == null || tools.mcp() == null) return List.of();
+        return tools.mcp().stream()
+                .map(m -> new McpAdminService.McpBinding(m.serverId(), m.allowlist()))
+                .toList();
     }
 }

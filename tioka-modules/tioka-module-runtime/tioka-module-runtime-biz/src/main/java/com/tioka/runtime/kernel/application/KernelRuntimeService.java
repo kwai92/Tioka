@@ -1,7 +1,7 @@
 package com.tioka.runtime.kernel.application;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.tioka.agent.api.AgentQueryApi;
+import com.tioka.agent.api.AgentSnapshotApi;
 import com.tioka.framework.error.BizException;
 import com.tioka.framework.error.ErrorCode;
 import com.tioka.framework.error.NotImplemented;
@@ -48,7 +48,7 @@ public class KernelRuntimeService implements RuntimeApi {
     private final EventStream streams;
     private final RuntimeEventFactory events;
     private final ObjectMapper mapper;
-    private final AgentQueryApi agents;
+    private final AgentSnapshotApi agents;
     private final ApprovalDecideService approvalDecide;
 
     public KernelRuntimeService(RuntimeSessionRepository sessions,
@@ -61,7 +61,7 @@ public class KernelRuntimeService implements RuntimeApi {
                                 EventStream streams,
                                 RuntimeEventFactory events,
                                 ObjectMapper mapper,
-                                AgentQueryApi agents,
+                                AgentSnapshotApi agents,
                                 ApprovalDecideService approvalDecide) {
         this.sessions = sessions;
         this.turns = turns;
@@ -85,13 +85,13 @@ public class KernelRuntimeService implements RuntimeApi {
         }
         requireText(cmd.agentVersionId(), "agentVersionId");
         Principal p = principals.current();
-        AgentQueryApi.AgentVersionView ver = agents.requirePublished(cmd.agentVersionId());
+        AgentSnapshotApi.AgentSnapshot ver = agents.get(cmd.agentVersionId());
         String id = Ids.newId("thr");
         RuntimeSessionDO row = new RuntimeSessionDO();
         row.setId(id);
         row.setStatus("OPEN");
-        row.setAgentVersionId(ver.id());
-        row.setRoutingPlanId(ver.routingPlanId());
+        row.setAgentVersionId(ver.versionId());
+        row.setRoutingPlanId(ver.spec().model().routingPlanId());
         row.setWorkspaceId(p.workspaceId());
         row.setOwnerId(p.userId());
         row.setLastItemSeq(0L);

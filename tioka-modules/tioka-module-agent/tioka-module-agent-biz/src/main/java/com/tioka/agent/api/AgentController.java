@@ -1,5 +1,6 @@
 package com.tioka.agent.api;
 
+import com.tioka.agent.api.spec.AgentSpec;
 import com.tioka.agent.application.AgentService;
 import com.tioka.agent.domain.AgentStore;
 import com.tioka.framework.error.ApiResponse;
@@ -46,45 +47,75 @@ public class AgentController {
         return ApiResponse.ok(service.update(id, name, visibility));
     }
 
-    @RequirePermission(Permissions.AGENT_WRITE)
-    @PostMapping("/{id}/drafts")
-    public ApiResponse<AgentStore.AgentVersion> draft(@PathVariable String id, @RequestBody Map<String, Object> body) {
-        @SuppressWarnings("unchecked")
-        List<String> grants = (List<String>) body.getOrDefault("mcpGrantIds", List.of());
-        List<AgentStore.SkillBinding> skills = parseSkillBindings(body.get("skillBindings"), body.get("skillIds"));
-        return ApiResponse.ok(service.draft(id, String.valueOf(body.getOrDefault("instructions", "")),
-                String.valueOf(body.get("routingPlanId")), grants, skills));
+    @RequirePermission(Permissions.AGENT_READ)
+    @GetMapping("/{id}/draft")
+    public ApiResponse<AgentService.DraftView> getDraft(@PathVariable String id) {
+        return ApiResponse.ok(service.getDraft(id));
     }
 
-    @SuppressWarnings("unchecked")
-    private static List<AgentStore.SkillBinding> parseSkillBindings(Object bindingsRaw, Object skillIdsRaw) {
-        List<AgentStore.SkillBinding> out = new java.util.ArrayList<>();
-        if (bindingsRaw instanceof List<?> list) {
-            for (Object item : list) {
-                if (item instanceof Map<?, ?> m) {
-                    Object sid = m.get("skillId");
-                    if (sid == null) continue;
-                    Object mode = m.containsKey("mode") ? m.get("mode") : "auto";
-                    out.add(new AgentStore.SkillBinding(String.valueOf(sid), String.valueOf(mode)));
-                } else if (item != null) {
-                    out.add(new AgentStore.SkillBinding(String.valueOf(item), "always"));
-                }
-            }
-        }
-        if (skillIdsRaw instanceof List<?> ids) {
-            for (Object id : ids) {
-                if (id == null) continue;
-                String sid = String.valueOf(id);
-                boolean exists = out.stream().anyMatch(b -> sid.equals(b.skillId()));
-                if (!exists) out.add(new AgentStore.SkillBinding(sid, "always"));
-            }
-        }
-        return out;
+    @RequirePermission(Permissions.AGENT_WRITE)
+    @PutMapping("/{id}/draft")
+    public ApiResponse<AgentService.DraftView> putDraft(@PathVariable String id,
+                                                        @RequestBody DraftBody body) {
+        return ApiResponse.ok(service.saveDraft(id, body.spec(), body.revision()));
+    }
+
+    @RequirePermission(Permissions.AGENT_WRITE)
+    @PostMapping("/{id}/validate")
+    public ApiResponse<AgentService.ValidateResult> validate(@PathVariable String id) {
+        return ApiResponse.ok(service.validate(id));
     }
 
     @RequirePermission(Permissions.AGENT_PUBLISH)
-    @PostMapping("/versions/{versionId}/publish")
-    public ApiResponse<AgentStore.AgentVersion> publish(@PathVariable String versionId) {
-        return ApiResponse.ok(service.publish(versionId));
+    @PostMapping("/{id}/publish")
+    public ApiResponse<AgentService.PublishResult> publish(@PathVariable String id,
+                                                           @RequestBody PublishBody body) {
+        return ApiResponse.ok(service.publish(id, body.revision(), body.note()));
     }
+
+    @RequirePermission(Permissions.AGENT_READ)
+    @GetMapping("/{id}/versions")
+    public ApiResponse<List<AgentService.VersionView>> versions(@PathVariable String id) {
+        return ApiResponse.ok(service.listVersions(id));
+    }
+
+    @RequirePermission(Permissions.AGENT_READ)
+    @GetMapping("/{id}/versions/{versionId}")
+    public ApiResponse<AgentService.VersionView> version(@PathVariable String id,
+                                                         @PathVariable String versionId) {
+        return ApiResponse.ok(service.getVersion(id, versionId));
+    }
+
+    @RequirePermission(Permissions.AGENT_READ)
+    @GetMapping("/{id}/versions/diff")
+    public ApiResponse<List<Map<String, Object>>> diff(@PathVariable String id,
+                                                       @RequestParam String from,
+                                                       @RequestParam String to) {
+        return ApiResponse.ok(service.diff(id, from, to));
+    }
+
+    @RequirePermission(Permissions.AGENT_PUBLISH)
+    @PostMapping("/{id}/rollback")
+    public ApiResponse<AgentService.PublishResult> rollback(@PathVariable String id,
+                                                            @RequestBody RollbackBody body) {
+        return ApiResponse.ok(service.rollback(id, body.versionId()));
+    }
+
+    @RequirePermission(Permissions.AGENT_PUBLISH)
+    @PostMapping("/{id}/disable")
+    public ApiResponse<AgentStore.Agent> disable(@PathVariable String id) {
+        return ApiResponse.ok(service.disable(id));
+    }
+
+    @RequirePermission(Permissions.AGENT_PUBLISH)
+    @PostMapping("/{id}/enable")
+    public ApiResponse<AgentStore.Agent> enable(@PathVariable String id) {
+        return ApiResponse.ok(service.enable(id));
+    }
+
+    public record DraftBody(AgentSpec spec, int revision) {}
+
+    public record PublishBody(int revision, String note) {}
+
+    public record RollbackBody(String versionId) {}
 }

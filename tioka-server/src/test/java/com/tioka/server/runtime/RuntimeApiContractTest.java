@@ -75,7 +75,7 @@ class RuntimeApiContractTest {
         BizException ex = assertThrows(BizException.class, () -> principals.runAs(principal, () ->
                 runtime.createThread(new RuntimeApi.CreateThreadCmd(
                         "agv_missing", "chat", null, null, null))));
-        assertEquals(ErrorCode.BAD_REQUEST, ex.getErrorCode());
+        assertEquals(ErrorCode.NOT_FOUND, ex.getErrorCode());
     }
 
     @Test

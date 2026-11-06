@@ -1,5 +1,6 @@
 package com.tioka.server.gate.support;
 
+import com.tioka.agent.api.spec.AgentSpec;
 import com.tioka.agent.application.AgentService;
 import com.tioka.agent.domain.AgentStore;
 import com.tioka.framework.id.Ids;
@@ -21,6 +22,7 @@ import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.core.env.Environment;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -37,7 +39,7 @@ public final class GateSeed {
     }
 
     /**
-     * @param withMcp 为 true 时注册 GateCluster MCP 桩、刷新工具、PATCH risk，并把 grant 绑到 Agent。
+     * @param withMcp 为 true 时注册 GateCluster MCP 桩、刷新工具、PATCH risk，并把 mcp 绑定写入 AgentSpec。
      */
     public static Bundle seedPublishedAgent(ConfigurableApplicationContext ctx, String llmBaseUrl, boolean withMcp) {
         AuthService auth = ctx.getBean(AuthService.class);
@@ -60,32 +62,40 @@ public final class GateSeed {
             String planId = models.createPlan(new CreateRoutingPlanRequest(tag + "-rp", "FIXED", binding)).id();
             models.publish(planId);
 
-            List<String> grantIds = List.of();
+            AgentStore.Agent agent = agents.create(tag + "-agent", ws);
+            List<AgentSpec.ToolSet.McpBinding> mcp = List.of();
+            String instructions = "you call echo tools";
             if (withMcp) {
-                McpAdminService mcp = ctx.getBean(McpAdminService.class);
+                McpAdminService mcpAdmin = ctx.getBean(McpAdminService.class);
                 Environment env = ctx.getEnvironment();
                 String mcpBase = env.getProperty("tioka.gate.mcp-base-url");
                 if (mcpBase == null || mcpBase.isBlank()) {
                     throw new IllegalStateException("withMcp 需要 tioka.gate.mcp-base-url");
                 }
-                McpStore.McpServer server = mcp.register(tag + "-mcp", mcpBase, "tok");
-                mcp.refreshTools(server.id());
-                mcp.updateToolRisk(server.id(), "erp.query", "READ");
-                mcp.updateToolRisk(server.id(), "erp.update", "WRITE");
-                // agent 尚未创建：先建 agent 再 grant
-                AgentStore.Agent agent = agents.create(tag + "-agent", ws);
-                McpStore.Grant grant = mcp.grant(agent.id(), server.id(),
-                        List.of("erp.query", "erp.update", "erp.slow"));
-                grantIds = List.of(grant.id());
-                AgentStore.AgentVersion draft = agents.draft(agent.id(), "you call mcp tools", planId, grantIds);
-                AgentStore.AgentVersion published = agents.publish(draft.id());
-                return new Bundle(userId, ws, login.accessToken(), published.id(), planId);
+                McpStore.McpServer server = mcpAdmin.register(tag + "-mcp", mcpBase, "tok");
+                mcpAdmin.refreshTools(server.id());
+                mcpAdmin.updateToolRisk(server.id(), "erp.query", "READ");
+                mcpAdmin.updateToolRisk(server.id(), "erp.update", "WRITE");
+                mcp = List.of(new AgentSpec.ToolSet.McpBinding(server.id(),
+                        List.of("erp.query", "erp.update", "erp.slow")));
+                instructions = "you call mcp tools";
             }
 
-            AgentStore.Agent agent = agents.create(tag + "-agent", ws);
-            AgentStore.AgentVersion draft = agents.draft(agent.id(), "you call echo tools", planId, grantIds);
-            AgentStore.AgentVersion published = agents.publish(draft.id());
-            return new Bundle(userId, ws, login.accessToken(), published.id(), planId);
+            AgentSpec spec = new AgentSpec(
+                    1,
+                    new AgentSpec.Profile(agent.name(), null, null, List.of(), "CHAT"),
+                    new AgentSpec.Instructions(List.of(
+                            new AgentSpec.Instructions.Section("main", instructions))),
+                    new AgentSpec.ModelPolicy(planId, false),
+                    new AgentSpec.ToolSet(List.of(), mcp, List.of(), List.of()),
+                    List.of(),
+                    AgentSpec.KnowledgeBinding.empty(),
+                    AgentSpec.SandboxPolicy.defaults(),
+                    AgentSpec.ApprovalSettings.empty(),
+                    AgentSpec.Limits.defaults(),
+                    null, null, null, null);
+            AgentService.PublishResult published = agents.publishSpec(agent.id(), spec);
+            return new Bundle(userId, ws, login.accessToken(), published.versionId(), planId);
         });
     }
 

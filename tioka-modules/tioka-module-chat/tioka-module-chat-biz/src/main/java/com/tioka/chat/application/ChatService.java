@@ -1,6 +1,7 @@
 package com.tioka.chat.application;
 
-import com.tioka.agent.api.AgentQueryApi;
+import com.tioka.agent.api.AgentSnapshotApi;
+import com.tioka.agent.api.spec.AgentSpec;
 import com.tioka.chat.domain.ChatStore;
 import com.tioka.chat.domain.ChatStore.Conversation;
 import com.tioka.chat.domain.ChatStore.Message;
@@ -9,6 +10,7 @@ import com.tioka.framework.error.ErrorCode;
 import com.tioka.framework.id.Ids;
 import com.tioka.framework.security.PrincipalHolder;
 import com.tioka.runtime.api.RuntimeSessionApi;
+import com.tioka.skill.api.SkillQueryApi;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -19,18 +21,21 @@ import java.util.Map;
 
 @Service
 public class ChatService {
-    private final AgentQueryApi agentQueryApi;
+    private final AgentSnapshotApi snapshots;
+    private final SkillQueryApi skills;
     private final RuntimeSessionApi runtime;
     private final ChatStore store;
     private final PrincipalHolder principals;
     private final TransactionTemplate tx;
 
-    public ChatService(AgentQueryApi agentQueryApi,
+    public ChatService(AgentSnapshotApi snapshots,
+                       SkillQueryApi skills,
                        RuntimeSessionApi runtime,
                        ChatStore store,
                        PrincipalHolder principals,
                        PlatformTransactionManager transactionManager) {
-        this.agentQueryApi = agentQueryApi;
+        this.snapshots = snapshots;
+        this.skills = skills;
         this.runtime = runtime;
         this.store = store;
         this.principals = principals;
@@ -38,16 +43,20 @@ public class ChatService {
     }
 
     public Conversation create(String title, String agentVersionId) {
-        AgentQueryApi.AgentVersionView v = agentQueryApi.requirePublished(agentVersionId);
-        List<RuntimeSessionApi.SkillInstallInput> skills = v.skills() == null ? List.of() : v.skills().stream()
-                .map(s -> new RuntimeSessionApi.SkillInstallInput(
-                        s.skillId(), s.name(), s.mode(), s.description(), s.skillMd()))
-                .toList();
+        AgentSnapshotApi.AgentSnapshot snap = snapshots.get(agentVersionId);
+        List<RuntimeSessionApi.SkillInstallInput> skillInputs = new ArrayList<>();
+        for (AgentSpec.SkillRef ref : snap.spec().skills()) {
+            skills.findPublished(ref.skillVersionId()).ifPresent(sk ->
+                    skillInputs.add(new RuntimeSessionApi.SkillInstallInput(
+                            sk.id(), sk.name(),
+                            ref.mode() == null ? "ALWAYS" : ref.mode(),
+                            sk.description(), sk.skillMd())));
+        }
         String workspaceId = principals.current().workspaceId();
         var session = runtime.create(new RuntimeSessionApi.CreateSessionRequest(
-                v.id(), v.routingPlanId(),
-                Map.of("agentVersionId", v.id(), "workspaceId", workspaceId == null ? "" : workspaceId),
-                skills));
+                snap.versionId(), snap.spec().model().routingPlanId(),
+                Map.of("agentVersionId", snap.versionId(), "workspaceId", workspaceId == null ? "" : workspaceId),
+                skillInputs));
         String id = Ids.newId("conv");
         Conversation c = new Conversation(id, title == null ? "新会话" : title, agentVersionId, session.id());
         store.saveConversation(c);
@@ -75,7 +84,6 @@ public class ChatService {
         Conversation c = get(conversationId);
         String mid = Ids.newId("msg");
         Message user = new Message(mid, conversationId, "user", text, List.of(Map.of("type", "text", "text", text)));
-        // GOV-04：用户消息先落库提交；模型调用不在事务内。与 startTurn 同事务待 RuntimeApi 适配后合并。
         tx.executeWithoutResult(status -> store.addMessage(user));
 
         RuntimeSessionApi.TurnView turn = runtime.append(c.runtimeSessionId(),
