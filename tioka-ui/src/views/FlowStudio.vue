@@ -75,17 +75,65 @@
       <template #header>
         <span>节点配置 · {{ selectedId }}（{{ selectedType }}）</span>
       </template>
-      <el-input
-        v-model="selectedConfigText"
-        type="textarea"
-        :rows="5"
-        placeholder='{"field":"route","equals":"A"}'
-        @change="applySelectedConfig"
-      />
-      <div class="config-actions">
-        <el-button size="small" type="primary" @click="applySelectedConfig">应用 config</el-button>
-        <span v-if="configError" class="cfg-err">{{ configError }}</span>
-      </div>
+
+      <template v-if="selectedType === 'LLM'">
+        <el-alert
+          v-if="llmHasLegacy"
+          type="warning"
+          show-icon
+          :closable="false"
+          class="mb"
+          title="直连模型字段已废弃"
+          description="运行时经 ModelGateway；请改选路由方案，或留空使用 FLOW 默认方案（模型页）。下列旧字段只读，应用时不会回写。"
+        />
+        <el-descriptions
+          v-if="llmHasLegacy"
+          :column="1"
+          size="small"
+          border
+          class="mb legacy-desc"
+        >
+          <el-descriptions-item v-for="(val, key) in llmLegacyFields" :key="key" :label="String(key)">
+            {{ formatLegacyValue(val) }}
+          </el-descriptions-item>
+        </el-descriptions>
+        <el-form label-width="120px" @submit.prevent>
+          <el-form-item label="路由方案">
+            <el-select
+              v-model="llmRoutingPlanId"
+              clearable
+              filterable
+              placeholder="留空 = FLOW 默认方案"
+              style="width: 100%"
+            >
+              <el-option
+                v-for="p in publishedPlans"
+                :key="p.id"
+                :label="`${p.name} (${p.type || '-'})`"
+                :value="p.id"
+              />
+            </el-select>
+          </el-form-item>
+        </el-form>
+        <div class="config-actions">
+          <el-button size="small" type="primary" @click="applyLlmConfig">应用 config</el-button>
+          <span v-if="configError" class="cfg-err">{{ configError }}</span>
+        </div>
+      </template>
+
+      <template v-else>
+        <el-input
+          v-model="selectedConfigText"
+          type="textarea"
+          :rows="5"
+          placeholder='{"field":"route","equals":"A"}'
+          @change="applySelectedConfig"
+        />
+        <div class="config-actions">
+          <el-button size="small" type="primary" @click="applySelectedConfig">应用 config</el-button>
+          <span v-if="configError" class="cfg-err">{{ configError }}</span>
+        </div>
+      </template>
     </el-card>
 
     <details class="raw">
@@ -148,12 +196,19 @@ import { VueFlow } from '@vue-flow/core'
 import { Background } from '@vue-flow/background'
 import { Controls } from '@vue-flow/controls'
 import { api } from '../api'
+import {
+  extractLegacyLlmDirectFields,
+  filterPublishedRoutingPlans,
+  hasLegacyLlmDirectFields,
+  normalizeLlmNodeConfig
+} from './flowLlmNode'
 import '@vue-flow/core/dist/style.css'
 import '@vue-flow/core/dist/theme-default.css'
 import '@vue-flow/controls/dist/style.css'
 
 /** @typedef {{ nodeId?: string, message: string, level: 'error'|'warn' }} Issue */
 /** @typedef {{ type?: string, nodeId?: string, input?: unknown, output?: unknown }} TraceStep */
+/** @typedef {{ id: string, name: string, type?: string, published?: boolean }} RoutingPlanOpt */
 
 const uiState = ref('empty')
 const statusText = ref('画布就绪')
@@ -177,6 +232,12 @@ const runMeta = ref('')
 const publishing = ref(false)
 const publishingTool = ref(false)
 const running = ref(false)
+/** @type {import('vue').Ref<RoutingPlanOpt[]>} */
+const publishedPlans = ref([])
+const llmRoutingPlanId = ref(/** @type {string} */ (''))
+const llmHasLegacy = ref(false)
+/** @type {import('vue').Ref<Record<string, unknown>>} */
+const llmLegacyFields = ref({})
 
 const selectedType = computed(() => {
   const n = nodes.value.find((x) => x.id === selectedId.value)
@@ -187,10 +248,15 @@ watch(selectedId, (id) => {
   configError.value = ''
   if (!id) {
     selectedConfigText.value = '{}'
+    llmRoutingPlanId.value = ''
+    llmHasLegacy.value = false
+    llmLegacyFields.value = {}
     return
   }
   const n = nodes.value.find((x) => x.id === id)
-  selectedConfigText.value = JSON.stringify(n?.data?.config ?? {}, null, 2)
+  const cfg = n?.data?.config ?? {}
+  selectedConfigText.value = JSON.stringify(cfg, null, 2)
+  syncLlmFormFromConfig(cfg)
 })
 
 onMounted(async () => {
@@ -200,8 +266,53 @@ onMounted(async () => {
     ElMessage.error(e?.message || '加载节点类型失败')
     nodeTypes.value = ['IO', 'LLM', 'Agent', 'Retrieve', 'HTTP', 'MCP', 'Branch', 'HumanCard']
   }
+  try {
+    const plans = await api('/api/model/routing-plans')
+    publishedPlans.value = filterPublishedRoutingPlans(Array.isArray(plans) ? plans : [])
+  } catch {
+    publishedPlans.value = []
+  }
   clearCanvas()
 })
+
+/**
+ * @param {Record<string, unknown>} cfg
+ */
+function syncLlmFormFromConfig(cfg) {
+  const c = cfg && typeof cfg === 'object' ? cfg : {}
+  llmHasLegacy.value = hasLegacyLlmDirectFields(c)
+  llmLegacyFields.value = extractLegacyLlmDirectFields(c)
+  const rp = c.routingPlanId
+  llmRoutingPlanId.value = rp == null || String(rp).trim() === '' ? '' : String(rp).trim()
+}
+
+function formatLegacyValue(val) {
+  if (val == null) return '—'
+  if (typeof val === 'string') return val
+  try {
+    return JSON.stringify(val)
+  } catch {
+    return String(val)
+  }
+}
+
+function applyLlmConfig() {
+  configError.value = ''
+  if (!selectedId.value) return
+  const n = nodes.value.find((x) => x.id === selectedId.value)
+  const prev = n?.data?.config && typeof n.data.config === 'object' ? n.data.config : {}
+  const next = normalizeLlmNodeConfig({
+    ...prev,
+    routingPlanId: llmRoutingPlanId.value
+  })
+  nodes.value = nodes.value.map((node) =>
+    node.id === selectedId.value ? { ...node, data: { ...node.data, config: next } } : node
+  )
+  selectedConfigText.value = JSON.stringify(next, null, 2)
+  syncLlmFormFromConfig(next)
+  syncGraph()
+  ElMessage.success('config 已更新')
+}
 
 function clearCanvas() {
   nodes.value = []
@@ -250,11 +361,15 @@ function applyGraph(g) {
 
 function toDomainGraph() {
   return {
-    nodes: nodes.value.map((n) => ({
-      id: n.id,
-      type: n.data?.type || 'IO',
-      config: n.data?.config || {}
-    })),
+    nodes: nodes.value.map((n) => {
+      const type = n.data?.type || 'IO'
+      const raw = n.data?.config || {}
+      return {
+        id: n.id,
+        type,
+        config: type === 'LLM' ? normalizeLlmNodeConfig(raw) : raw
+      }
+    }),
     edges: edges.value.map((e) => {
       const edge = { from: e.source, to: e.target }
       if (e.label) edge.when = e.label
@@ -573,6 +688,9 @@ function formatJson(v) {
 .cfg-err {
   color: #ff8e8e;
   font-size: 12px;
+}
+.legacy-desc {
+  max-width: 560px;
 }
 .playground .run-meta {
   margin-top: 8px;
