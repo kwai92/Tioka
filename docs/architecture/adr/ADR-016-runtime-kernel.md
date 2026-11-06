@@ -102,3 +102,11 @@ record TurnHandle(String turnId, String status, String eventsUrl) {}
 流式接口 `GET /api/runtime/threads/{id}/events`（SSE），事件类型：`turn.started`、`item.created`、`item.delta`、`item.completed`、`approval.requested`、`turn.completed`、`turn.failed`。事件 ID 为 `{itemSeq}` 或 `{itemSeq}.{deltaIndex}`，客户端断线后带 `Last-Event-ID` 重连。M2 的 HCI-06 再把这套事件映射到 AG-UI。
 
 Chat、Flow、Orchestration、IM 四个入口只使用 `RuntimeApi`，不再各自调模型。Orchestration 的人审（Attention）与 Runtime 的工具审批共用 `runtime_approval`，卡片提交最终都调用 `decideApproval`。
+
+## 修订：Agent 架构调研落地（2026-11-06）
+
+来由：[调研 01](../research/01-Agent与多Agent架构调研.md)、[调研 02](../research/02-Agent执行策略与执行器插件调研.md)；负责人同意按调研建议设计，见 ADR-029 第 67 条。
+
+- **执行策略**：执行循环中「组装本步提示 → 调模型 → 解释结果」一段改为可插拔的执行策略，默认 `REACT` 即本 ADR 的循环，行为不变；其他策略见 [ADR-046](ADR-046-execution-strategy.md)。所有策略共用本 ADR 的状态机、租约、审批挂起、取消与插话、item 落库与推送。`runtime_item.type` 增加 `plan`、`reflection`。
+- **工具检索（RT-13，M4 P2）**：本 Turn 授予内的工具超过 15 个或工具定义合计超过 10K token 时，`listTools` 只给模型「常用工具」（Agent 配置的固定集合，缺省为最近 30 天调用最多的 8 个）与内置工具 `tool.search`；其余工具标记为延迟加载，模型经 `tool.search`（按名称、描述做关键词与向量检索，范围限于授予内）取得定义后才可调用。检索结果作为普通工具结果入库。延迟加载不影响提示缓存：常用工具集合在一个 Turn 内不变。
+- **护栏挂点（RT-14，M4 P2）**：Turn 管线固定三个挂点，均为 SPI，可由平台或领域包注册检查器：① **输入**（本轮用户输入进入上下文前：相关性、越狱、PII）；② **工具前**（即 ADR-033 管线，不变）；③ **最终输出**（交付前：输出契约 Schema、PII、敏感词、引用存在性）。检查结果为放行、改写（如掩码）、拒绝、转人审四种；拒绝与转人审写 `status` item 并审计。模型型检查经 ModelGateway（purpose=guardrail），计入本 Turn 预算。挂点顺序与上下文组装顺序一样由平台固定，模块不得自行插入。

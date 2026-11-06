@@ -120,3 +120,11 @@ CREATE TABLE exp_hit (turn_id VARCHAR(64) NOT NULL, exp_id VARCHAR(32) NOT NULL,
 | EVO-04 | 实验对比与显著性报告 | M4 | P2 |
 | EVO-05 | 经验提取、审核、注入与淘汰 | M4 | P1 |
 | EVO-06 | 发布回归门禁 | M4 | P1 |
+
+## 修订：Agent 架构调研落地（2026-11-06）
+
+来由：[调研 01](../research/01-Agent与多Agent架构调研.md)、[调研 02](../research/02-Agent执行策略与执行器插件调研.md)；负责人同意按调研建议设计，见 ADR-029 第 67 条。
+
+- **多 Agent 与路由的评测维度**：① 团队 Run 按角色出分（每个子任务的产物经该角色绑定的评估器打分）；② 入口路由准确率与混淆矩阵（[ADR-044](ADR-044-entry-intent-routing.md) 第 5 节）；③ 实验变量增加「执行策略与参数」（[ADR-046](ADR-046-execution-strategy.md)）。
+- **团队上线基线（MAS-08，随 EVO-06）**：团队型 Agent 发布时若绑定了回归数据集，发布门禁同时跑一个「单 Agent 基线」臂（用团队主管的 Agent 版本、不允许委派），报告质量差与成本比；差异不显著且成本更高时给出警告，不阻断发布。
+- **OpenTelemetry**：OTel GenAI 语义约定已迁到独立仓库 `open-telemetry/semantic-conventions-genai`。外部 trace 接入与轨迹导出、GOV-08 链路追踪的 Agent、工具相关 span 以该仓库的现行约定为准，在导出层做映射，不把属性名写进核心表。
