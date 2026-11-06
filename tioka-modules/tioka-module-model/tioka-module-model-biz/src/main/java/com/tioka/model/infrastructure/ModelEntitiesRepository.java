@@ -21,5 +21,14 @@ public interface ModelEntitiesRepository {
     Optional<ModelRoutingPlanDO> lockPlanForShare(String id);
     List<ModelRoutingPlanDO> plans();
     Optional<String> getFreeze(String sessionId, String turnId);
+
+    /**
+     * INSERT … ON CONFLICT DO NOTHING 后重新读取；返回实际冻结的 bindingId。
+     */
+    String insertFreezeIfAbsent(String sessionId, String turnId, String bindingId, String reason);
+
+    /** 故障接力等场景覆盖已有冻结。 */
     void putFreeze(String sessionId, String turnId, String bindingId);
+
+    List<ModelTurnFreezeDO> listFreezes(String sessionId);
 }

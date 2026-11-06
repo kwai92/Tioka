@@ -118,8 +118,22 @@ public class ModelEntities {
         return repo.getFreeze(sessionId, turnId);
     }
 
+    /** @return 实际冻结的 bindingId（并发以先写者为准） */
+    public String insertFreezeIfAbsent(String sessionId, String turnId, String bindingId, String reason) {
+        return repo.insertFreezeIfAbsent(sessionId, turnId, bindingId, reason);
+    }
+
     public void putFreeze(String sessionId, String turnId, String bindingId) {
         repo.putFreeze(sessionId, turnId, bindingId);
+    }
+
+    public List<Freeze> listFreezes(String sessionId) {
+        return repo.listFreezes(sessionId).stream()
+                .map(r -> new Freeze(
+                        r.getSessionId(), r.getTurnId(), r.getBindingId(),
+                        r.getReason(),
+                        r.getFailoverCount() == null ? 0 : r.getFailoverCount()))
+                .toList();
     }
 
     private RoutingPlan toPlan(ModelRoutingPlanDO r) {
@@ -152,4 +166,6 @@ public class ModelEntities {
                     fallbackBindingId);
         }
     }
+
+    public record Freeze(String sessionId, String turnId, String bindingId, String reason, int failoverCount) {}
 }

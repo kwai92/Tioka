@@ -110,6 +110,14 @@ public class ModelEntitiesRepositoryImpl implements ModelEntitiesRepository {
     }
 
     @Override
+    public String insertFreezeIfAbsent(String sessionId, String turnId, String bindingId, String reason) {
+        freezes.insertIfAbsent(sessionId, turnId, bindingId, reason);
+        return getFreeze(sessionId, turnId)
+                .orElseThrow(() -> new IllegalStateException(
+                        "冻结写入后读不到: " + sessionId + "/" + turnId));
+    }
+
+    @Override
     public void putFreeze(String sessionId, String turnId, String bindingId) {
         ModelTurnFreezeDO existing = freezes.selectOne(new LambdaQueryWrapper<ModelTurnFreezeDO>()
                 .select(ModelTurnFreezeDO::getBindingId, ModelTurnFreezeDO::getSessionId, ModelTurnFreezeDO::getTurnId)
@@ -117,14 +125,7 @@ public class ModelEntitiesRepositoryImpl implements ModelEntitiesRepository {
                 .eq(ModelTurnFreezeDO::getTurnId, turnId)
                 .last("LIMIT 1"));
         if (existing == null) {
-            ModelTurnFreezeDO row = new ModelTurnFreezeDO();
-            row.setSessionId(sessionId);
-            row.setTurnId(turnId);
-            row.setBindingId(bindingId);
-            row.setFailoverCount(0);
-            row.setCreateBy("system");
-            row.setUpdateBy("system");
-            freezes.insert(row);
+            freezes.insertIfAbsent(sessionId, turnId, bindingId, null);
         } else {
             existing.setBindingId(bindingId);
             existing.setUpdateBy("system");
@@ -132,5 +133,10 @@ public class ModelEntitiesRepositoryImpl implements ModelEntitiesRepository {
                     .eq(ModelTurnFreezeDO::getSessionId, sessionId)
                     .eq(ModelTurnFreezeDO::getTurnId, turnId));
         }
+    }
+
+    @Override
+    public List<ModelTurnFreezeDO> listFreezes(String sessionId) {
+        return freezes.listBySession(sessionId);
     }
 }

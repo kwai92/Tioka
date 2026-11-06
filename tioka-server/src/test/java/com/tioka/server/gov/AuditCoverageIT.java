@@ -62,7 +62,6 @@ class AuditCoverageIT {
             "/api/system/auth/oidc/{idp}/callback",
             // 只读语义 POST
             "/api/knowledge/bases/{id}/search",
-            "/api/model/router/select",
             "/api/model/router/failover",
             // 未实现 / 运维桩
             "/api/ops/interpreter",

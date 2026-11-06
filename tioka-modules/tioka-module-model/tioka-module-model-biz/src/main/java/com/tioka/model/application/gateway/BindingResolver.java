@@ -8,7 +8,7 @@ import com.tioka.model.domain.ModelEntities;
 import com.tioka.model.domain.ModelEntities.Binding;
 import com.tioka.model.domain.ModelEntities.Provider;
 import com.tioka.model.domain.ModelEntities.RoutingPlan;
-import com.tioka.model.infrastructure.mapper.ModelDefaultPlanMapper;
+import com.tioka.model.infrastructure.ModelDefaultPlanRepository;
 import com.tioka.model.infrastructure.persistence.ModelDefaultPlanDO;
 import org.springframework.stereotype.Component;
 
@@ -23,11 +23,11 @@ import java.util.Optional;
 @Component
 public class BindingResolver {
     private final ModelEntities entities;
-    private final ModelDefaultPlanMapper defaultPlans;
+    private final ModelDefaultPlanRepository defaultPlans;
     private final List<BindingFilter> filters;
 
     public BindingResolver(ModelEntities entities,
-                           ModelDefaultPlanMapper defaultPlans,
+                           ModelDefaultPlanRepository defaultPlans,
                            List<BindingFilter> filters) {
         this.entities = entities;
         this.defaultPlans = defaultPlans;
@@ -43,14 +43,18 @@ public class BindingResolver {
         if (forcedBindingId != null && !forcedBindingId.isBlank()) {
             return ofBinding(forcedBindingId, List.of(), "forced");
         }
+
+        RoutingPlan plan = resolvePlan(ctx);
+        List<String> chain = fallbackChain(plan);
+
+        // 嵌入 / rerank：turnId=null，不冻结
         if (ctx.turnId() != null && ctx.sessionId() != null) {
             Optional<String> frozen = entities.getFreeze(ctx.sessionId(), ctx.turnId());
             if (frozen.isPresent()) {
-                return ofBinding(frozen.get(), List.of(), "frozen");
+                return ofBinding(frozen.get(), chainAfter(frozen.get(), chain), "frozen");
             }
         }
 
-        RoutingPlan plan = resolvePlan(ctx);
         String primary = switch (normalizeType(plan.type())) {
             case "HARD" -> require(plan.hardBindingId() != null ? plan.hardBindingId() : plan.primaryBindingId(),
                     "HARD 方案缺少 hardBindingId");
@@ -58,11 +62,13 @@ public class BindingResolver {
             case "DIFFICULTY" -> throw NotImplemented.of("routing-plan-DIFFICULTY", "ADR-024");
             default -> require(plan.primaryBindingId(), "方案缺少 primaryBindingId");
         };
-        List<String> chain = fallbackChain(plan);
         primary = firstPassing(ctx, primary, chain);
 
         if (ctx.turnId() != null && ctx.sessionId() != null) {
-            entities.putFreeze(ctx.sessionId(), ctx.turnId(), primary);
+            String chosen = entities.insertFreezeIfAbsent(
+                    ctx.sessionId(), ctx.turnId(), primary, plan.type());
+            String reason = chosen.equals(primary) ? plan.type() : "frozen";
+            return ofBinding(chosen, chainAfter(chosen, chain), reason);
         }
         return ofBinding(primary, chainAfter(primary, chain), plan.type());
     }
@@ -92,7 +98,7 @@ public class BindingResolver {
             return entities.getPlan(ctx.routingPlanId())
                     .orElseThrow(() -> new BizException(ErrorCode.BAD_REQUEST, "路由计划未发布或不存在"));
         }
-        ModelDefaultPlanDO def = defaultPlans.selectById(ctx.purpose().name());
+        ModelDefaultPlanDO def = defaultPlans.findByPurpose(ctx.purpose().name()).orElse(null);
         if (def != null && def.getRoutingPlanId() != null && !def.getRoutingPlanId().isBlank()) {
             return entities.getPlan(def.getRoutingPlanId())
                     .orElseThrow(() -> new BizException(ErrorCode.BAD_REQUEST, "默认路由计划不存在"));

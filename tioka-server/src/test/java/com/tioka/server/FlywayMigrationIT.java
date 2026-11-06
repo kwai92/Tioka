@@ -52,9 +52,26 @@ class FlywayMigrationIT {
                 .collect(Collectors.toSet());
         for (String t : List.of(
                 "runtime_turn", "runtime_item", "runtime_approval",
-                "sys_member", "audit_event", "gov_quota")) {
+                "sys_member", "audit_event", "gov_quota", "model_turn_freeze")) {
             assertTrue(tables.contains(t), "missing table " + t + "; have=" + tables);
         }
         assertTrue(TestContainers.PG.isRunning());
+    }
+
+    /** MH-01 / V120：会话级冻结表已删除。 */
+    @Test
+    void modelSessionFreezeDropped() {
+        Set<String> tables = jdbc.query(
+                        "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'",
+                        (rs, i) -> rs.getString(1))
+                .stream()
+                .map(String::toLowerCase)
+                .collect(Collectors.toSet());
+        assertTrue(!tables.contains("model_session_freeze"),
+                "V120 后不应再有 model_session_freeze");
+        List<String> versions = jdbc.query(
+                "SELECT version FROM flyway_schema_history WHERE success = true",
+                (rs, i) -> rs.getString(1));
+        assertTrue(versions.contains("120"), "missing V120: " + versions);
     }
 }
