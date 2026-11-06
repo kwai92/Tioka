@@ -116,10 +116,40 @@ public interface RuntimeTurnMapper {
 
     @Update("""
             UPDATE runtime_turn
-               SET status = 'CANCELLED', ended_at = now(), update_at = now()
+               SET status = 'CANCELLED',
+                   error_code = #{errorCode},
+                   error_message = #{errorMessage},
+                   ended_at = now(),
+                   update_at = now()
              WHERE id = #{turnId} AND status = 'QUEUED'
             """)
-    int cancelQueued(String turnId);
+    int cancelQueued(@Param("turnId") String turnId,
+                     @Param("errorCode") String errorCode,
+                     @Param("errorMessage") String errorMessage);
+
+    /**
+     * FND-04e：按 run_as.userId（及可选空间）查找未终态 Turn。
+     */
+    @Select("""
+            SELECT t.id, t.session_id AS sessionId, t.seq, t.status, t.origin,
+                   t.origin_ref AS originRef, t.client_msg_id AS clientMsgId,
+                   t.run_as_json AS runAsJson, t.options_json AS optionsJson,
+                   t.step_count AS stepCount, t.recover_count AS recoverCount,
+                   t.worker_id AS workerId, t.lease_version AS leaseVersion,
+                   t.lease_until AS leaseUntil, t.error_code AS errorCode,
+                   t.error_message AS errorMessage,
+                   t.prompt_tokens AS promptTokens, t.completion_tokens AS completionTokens,
+                   t.started_at AS startedAt, t.ended_at AS endedAt,
+                   t.create_at AS createAt, t.update_at AS updateAt
+              FROM runtime_turn t
+              JOIN runtime_session s ON s.id = t.session_id
+             WHERE t.status IN ('QUEUED', 'RUNNING', 'WAITING_APPROVAL', 'WAITING_CHILD', 'INTERRUPTED')
+               AND t.run_as_json::jsonb ->> 'userId' = #{userId}
+               AND (CAST(#{workspaceId} AS VARCHAR) IS NULL OR s.workspace_id = CAST(#{workspaceId} AS VARCHAR))
+             LIMIT 500
+            """)
+    List<RuntimeTurnDO> findActiveByPrincipal(@Param("userId") String userId,
+                                              @Param("workspaceId") String workspaceId);
 
     @Select("""
             SELECT id FROM runtime_turn

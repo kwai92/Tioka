@@ -4,7 +4,9 @@ import com.tioka.framework.error.ApiResponse;
 import com.tioka.framework.security.Permissions;
 import com.tioka.framework.security.RequirePermission;
 import com.tioka.system.application.UserAdminService;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -27,5 +29,21 @@ public class UserController {
                 body.get("username"),
                 body.get("displayName"),
                 body.get("password")));
+    }
+
+    /** FND-04e */
+    @RequirePermission(Permissions.TENANT_ADMIN)
+    @PutMapping("/{id}/disable")
+    public ApiResponse<Void> disable(@PathVariable String id) {
+        users.disable(id);
+        return ApiResponse.ok(null);
+    }
+
+    /** FND-04e */
+    @RequirePermission(Permissions.TENANT_ADMIN)
+    @PutMapping("/{id}/enable")
+    public ApiResponse<Void> enable(@PathVariable String id) {
+        users.enable(id);
+        return ApiResponse.ok(null);
     }
 }

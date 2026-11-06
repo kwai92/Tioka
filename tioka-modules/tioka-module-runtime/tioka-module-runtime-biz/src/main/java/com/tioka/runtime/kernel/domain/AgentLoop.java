@@ -92,7 +92,7 @@ public final class AgentLoop {
             }
         } catch (CancelledSignal e) {
             sink.status(ctx, 0, "cancelled");
-            return LoopResult.cancelled(promptTokens, completionTokens);
+            return LoopResult.cancelled(e.reason(), promptTokens, completionTokens);
         }
     }
 

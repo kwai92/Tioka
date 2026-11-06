@@ -72,7 +72,15 @@ public class TurnRepository {
     }
 
     public int cancelQueued(String turnId) {
-        return mapper.cancelQueued(turnId);
+        return cancelQueued(turnId, null, null);
+    }
+
+    public int cancelQueued(String turnId, String errorCode, String errorMessage) {
+        return mapper.cancelQueued(turnId, errorCode, errorMessage);
+    }
+
+    public List<RuntimeTurnDO> findActiveByPrincipal(String userId, String workspaceId) {
+        return mapper.findActiveByPrincipal(userId, workspaceId);
     }
 
     public List<String> findExpired(Instant now, int limit) {

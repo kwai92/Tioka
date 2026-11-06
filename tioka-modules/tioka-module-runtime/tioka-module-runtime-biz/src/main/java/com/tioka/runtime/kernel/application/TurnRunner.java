@@ -159,7 +159,7 @@ public class TurnRunner {
             } catch (LeaseLost e) {
                 log.warn("turn {} lease lost; leave terminal to reaper", turnId);
             } catch (CancelledSignal e) {
-                turns.finish(turnId, lv, TurnStatus.CANCELLED, null, null, null, null);
+                turns.finish(turnId, lv, TurnStatus.CANCELLED, e.reason(), null, null, null);
                 publishTerminal(threadId, turnId, TurnStatus.CANCELLED);
                 finished = true;
             } catch (RuntimeException e) {

@@ -3,13 +3,22 @@ package com.tioka.system.application;
 import com.tioka.framework.error.BizException;
 import com.tioka.framework.error.ErrorCode;
 import com.tioka.framework.security.PrincipalHolder;
+import com.tioka.system.api.audit.AuditApi;
+import com.tioka.system.api.audit.AuditEvent;
+import com.tioka.system.api.audit.AuditOutcome;
+import com.tioka.system.api.event.UserDisabledEvent;
+import com.tioka.system.api.event.UserEnabledEvent;
 import com.tioka.system.application.auth.PasswordService;
+import com.tioka.system.application.lifecycle.AfterCommitEvents;
 import com.tioka.system.infrastructure.AuthUserRepository;
 import com.tioka.system.infrastructure.persistence.AuthUserDO;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.security.SecureRandom;
+import java.time.Instant;
+import java.util.Map;
 
 @Service
 public class UserAdminService {
@@ -20,13 +29,19 @@ public class UserAdminService {
     private final AuthUserRepository users;
     private final PasswordService passwords;
     private final PrincipalHolder principals;
+    private final ApplicationEventPublisher events;
+    private final AuditApi audit;
 
     public UserAdminService(AuthUserRepository users,
                             PasswordService passwords,
-                            PrincipalHolder principals) {
+                            PrincipalHolder principals,
+                            ApplicationEventPublisher events,
+                            AuditApi audit) {
         this.users = users;
         this.passwords = passwords;
         this.principals = principals;
+        this.events = events;
+        this.audit = audit;
     }
 
     @Transactional
@@ -54,6 +69,56 @@ public class UserAdminService {
         row.setDefaultWorkspaceId(principals.current().workspaceId());
         users.insert(row);
         return new CreatedUser(String.valueOf(row.getId()), generated ? raw : null);
+    }
+
+    /** FND-04e：禁用用户 → afterCommit 发 {@link UserDisabledEvent}。 */
+    @Transactional
+    public void disable(String userId) {
+        requireTenantAdmin();
+        AuthUserDO row = requireUser(userId);
+        if (!Boolean.TRUE.equals(row.getEnabled())) {
+            return;
+        }
+        row.setEnabled(false);
+        users.update(row);
+        String operatorId = principals.current().userId();
+        Instant at = Instant.now();
+        audit.record(new AuditEvent(null, at, null, principals.current().workspaceId(),
+                "user", operatorId, "user.disable", "user", userId,
+                AuditOutcome.SUCCESS, null, null, null, Map.of()));
+        AfterCommitEvents.publish(events, new UserDisabledEvent(userId, operatorId, at));
+    }
+
+    /** FND-04e：启用用户 → afterCommit 发 {@link UserEnabledEvent}。 */
+    @Transactional
+    public void enable(String userId) {
+        requireTenantAdmin();
+        AuthUserDO row = requireUser(userId);
+        if (Boolean.TRUE.equals(row.getEnabled())) {
+            return;
+        }
+        row.setEnabled(true);
+        users.update(row);
+        String operatorId = principals.current().userId();
+        Instant at = Instant.now();
+        audit.record(new AuditEvent(null, at, null, principals.current().workspaceId(),
+                "user", operatorId, "user.enable", "user", userId,
+                AuditOutcome.SUCCESS, null, null, null, Map.of()));
+        AfterCommitEvents.publish(events, new UserEnabledEvent(userId, operatorId, at));
+    }
+
+    private AuthUserDO requireUser(String userId) {
+        long id;
+        try {
+            id = Long.parseLong(userId);
+        } catch (NumberFormatException e) {
+            throw new BizException(ErrorCode.NOT_FOUND, "用户不存在");
+        }
+        AuthUserDO row = users.findById(id);
+        if (row == null) {
+            throw new BizException(ErrorCode.NOT_FOUND, "用户不存在");
+        }
+        return row;
     }
 
     private void requireTenantAdmin() {

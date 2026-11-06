@@ -63,8 +63,12 @@ public class SignalBus implements MessageListener {
     public TurnFlags register(String turnId) {
         TurnFlags flags = new TurnFlags();
         local.put(turnId, flags);
-        if (Boolean.TRUE.equals(redis.hasKey(cancelKey(turnId)))) {
+        String existing = redis.opsForValue().get(cancelKey(turnId));
+        if (existing != null) {
             flags.cancelRequested.set(true);
+            if (!existing.isBlank() && !"1".equals(existing)) {
+                flags.cancelReason = existing;
+            }
         }
         return flags;
     }
@@ -78,12 +82,34 @@ public class SignalBus implements MessageListener {
     }
 
     public void publishCancel(String turnId) {
-        redis.opsForValue().set(cancelKey(turnId), "1", TTL);
+        publishCancel(turnId, "1");
+    }
+
+    /**
+     * @param reason Redis 值；普通取消为 {@code "1"}，身份失效为 {@code principal_revoked}
+     */
+    public void publishCancel(String turnId, String reason) {
+        String value = reason == null || reason.isBlank() ? "1" : reason;
+        redis.opsForValue().set(cancelKey(turnId), value, TTL);
         publish(turnId, "cancel");
         TurnFlags f = local.get(turnId);
         if (f != null) {
             f.cancelRequested.set(true);
+            f.cancelReason = "1".equals(value) ? null : value;
         }
+    }
+
+    /** 读取取消原因；无键或值为 {@code "1"} 时返回 null。 */
+    public String cancelReason(String turnId) {
+        TurnFlags f = local.get(turnId);
+        if (f != null && f.cancelReason != null) {
+            return f.cancelReason;
+        }
+        String v = redis.opsForValue().get(cancelKey(turnId));
+        if (v == null || v.isBlank() || "1".equals(v)) {
+            return null;
+        }
+        return v;
     }
 
     public void publishSteer(String turnId, String text) {
@@ -144,6 +170,10 @@ public class SignalBus implements MessageListener {
             }
             if ("cancel".equals(kind)) {
                 f.cancelRequested.set(true);
+                String reason = cancelReason(turnId);
+                if (reason != null) {
+                    f.cancelReason = reason;
+                }
             } else if ("steer".equals(kind)) {
                 f.steerPending.set(true);
             }
@@ -163,5 +193,7 @@ public class SignalBus implements MessageListener {
     public static final class TurnFlags {
         public final AtomicBoolean cancelRequested = new AtomicBoolean(false);
         public final AtomicBoolean steerPending = new AtomicBoolean(false);
+        /** 非普通取消时的 reason（如 principal_revoked）。 */
+        public volatile String cancelReason;
     }
 }
