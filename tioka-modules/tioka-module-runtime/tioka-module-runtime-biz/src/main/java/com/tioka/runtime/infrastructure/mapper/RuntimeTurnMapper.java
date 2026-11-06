@@ -172,4 +172,26 @@ public interface RuntimeTurnMapper {
             LIMIT 1
             """)
     RuntimeTurnDO findActive(String sessionId);
+
+    /** RT-06 QueuedSweeper：陈旧 QUEUED 且同 session 无 RUNNING、且为本 session 最小 seq。 */
+    @Select("""
+            SELECT t.id, t.session_id AS sessionId
+              FROM runtime_turn t
+             WHERE t.status = 'QUEUED'
+               AND t.update_at < now() - interval '15 seconds'
+               AND NOT EXISTS (
+                     SELECT 1 FROM runtime_turn r
+                      WHERE r.session_id = t.session_id AND r.status = 'RUNNING')
+               AND t.seq = (
+                     SELECT MIN(q.seq) FROM runtime_turn q
+                      WHERE q.session_id = t.session_id AND q.status = 'QUEUED')
+             LIMIT 100
+            """)
+    List<RuntimeTurnDO> findStaleQueuedForDispatch();
+
+    @Select("SELECT pg_try_advisory_lock(hashtext('tioka.runtime.queued-sweeper'))")
+    boolean tryAdvisoryLockQueuedSweeper();
+
+    @Select("SELECT pg_advisory_unlock(hashtext('tioka.runtime.queued-sweeper'))")
+    boolean unlockAdvisoryLockQueuedSweeper();
 }

@@ -95,6 +95,18 @@ public class TurnRepository {
         return Optional.ofNullable(mapper.findActive(sessionId));
     }
 
+    public List<RuntimeTurnDO> findStaleQueuedForDispatch() {
+        return mapper.findStaleQueuedForDispatch();
+    }
+
+    public boolean tryAdvisoryLockQueuedSweeper() {
+        return mapper.tryAdvisoryLockQueuedSweeper();
+    }
+
+    public void unlockAdvisoryLockQueuedSweeper() {
+        mapper.unlockAdvisoryLockQueuedSweeper();
+    }
+
     public void requireLeaseWrite(int affected) {
         if (affected == 0) {
             throw new BizException(ErrorCode.LEASE_LOST);

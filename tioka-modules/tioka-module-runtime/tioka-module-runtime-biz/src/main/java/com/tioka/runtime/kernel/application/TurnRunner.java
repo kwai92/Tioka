@@ -25,6 +25,7 @@ import com.tioka.runtime.kernel.infrastructure.TurnRepository;
 import com.tioka.runtime.kernel.infrastructure.persistence.RuntimeTurnDO;
 import com.tioka.runtime.kernel.infrastructure.redis.SessionLock;
 import com.tioka.runtime.kernel.infrastructure.redis.SignalBus;
+import com.tioka.runtime.kernel.infrastructure.redis.TurnDispatchQueue;
 import com.tioka.system.api.spi.PrincipalLoaderApi;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -56,6 +57,7 @@ public class TurnRunner {
     private final EventStream streams;
     private final RuntimeEventFactory events;
     private final ObjectProvider<RuntimeTestHooks> testHooks;
+    private final TurnDispatchQueue dispatchQueue;
 
     public TurnRunner(TurnRepository turns,
                       RuntimeSessionRepository sessions,
@@ -70,7 +72,8 @@ public class TurnRunner {
                       LoopPorts.SignalPort signalPort,
                       EventStream streams,
                       RuntimeEventFactory events,
-                      ObjectProvider<RuntimeTestHooks> testHooks) {
+                      ObjectProvider<RuntimeTestHooks> testHooks,
+                      TurnDispatchQueue dispatchQueue) {
         this.turns = turns;
         this.sessions = sessions;
         this.sessionLock = sessionLock;
@@ -85,6 +88,7 @@ public class TurnRunner {
         this.streams = streams;
         this.events = events;
         this.testHooks = testHooks;
+        this.dispatchQueue = dispatchQueue;
     }
 
     public void run(String turnId) {
@@ -101,6 +105,7 @@ public class TurnRunner {
         AtomicBoolean lost = new AtomicBoolean(false);
         ScheduledFuture<?> renewFuture = null;
         long leaseVersion = -1;
+        boolean finished = false;
         try {
             var acquired = turns.acquire(turnId, props.getInstanceId(), Instant.now().plus(props.getLeaseTtl()));
             if (acquired.isEmpty()) {
@@ -121,24 +126,25 @@ public class TurnRunner {
             }, props.getLeaseRenewInterval().toMillis(), props.getLeaseRenewInterval().toMillis(), TimeUnit.MILLISECONDS);
 
             signalBus.register(turnId);
-            RuntimeSessionDO session = sessions.find(threadId);
+            // 派发线程无请求 SecurityContext：必须先按 run_as 恢复 Principal，再读 workspace 作用域表
             Principal runAs = resolveRunAs(turn);
-            int maxSteps = props.getLoop().getMaxSteps();
-            LoopContext ctx = new LoopContext(threadId, turnId, lv,
-                    maxSteps, props.getLoop().getRepeatCallLimit(), 0,
-                    c -> {
-                        if (lost.get()) {
-                            throw new LeaseLost();
-                        }
-                        signalPort.checkpoint(c);
-                    },
-                    session == null ? null : session.getAgentVersionId(),
-                    session == null ? null : session.getRoutingPlanId(),
-                    session == null ? null : session.getWorkspaceId(),
-                    runAs.userId());
             try {
                 long finalLv = lv;
                 principals.runAs(runAs, () -> {
+                    RuntimeSessionDO session = sessions.find(threadId);
+                    int maxSteps = props.getLoop().getMaxSteps();
+                    LoopContext ctx = new LoopContext(threadId, turnId, finalLv,
+                            maxSteps, props.getLoop().getRepeatCallLimit(), 0,
+                            c -> {
+                                if (lost.get()) {
+                                    throw new LeaseLost();
+                                }
+                                signalPort.checkpoint(c);
+                            },
+                            session == null ? null : session.getAgentVersionId(),
+                            session == null ? null : session.getRoutingPlanId(),
+                            session == null ? null : session.getWorkspaceId(),
+                            runAs.userId());
                     LoopResult result = agentLoop.run(ctx);
                     int n = turns.finish(turnId, finalLv, result.status(),
                             result.errorCode(), truncate(result.errorMessage()),
@@ -147,17 +153,20 @@ public class TurnRunner {
                     publishTerminal(threadId, turnId, result.status());
                     return null;
                 });
+                finished = true;
             } catch (LeaseLost e) {
                 log.warn("turn {} lease lost; leave terminal to reaper", turnId);
             } catch (CancelledSignal e) {
                 turns.finish(turnId, lv, TurnStatus.CANCELLED, null, null, null, null);
                 publishTerminal(threadId, turnId, TurnStatus.CANCELLED);
+                finished = true;
             } catch (RuntimeException e) {
                 log.error("turn {} failed", turnId, e);
                 try {
                     turns.finish(turnId, lv, TurnStatus.FAILED, "INTERNAL",
                             truncate(e.getMessage()), null, null);
                     publishTerminal(threadId, turnId, TurnStatus.FAILED);
+                    finished = true;
                 } catch (RuntimeException ignored) {
                     // ignore
                 }
@@ -171,8 +180,16 @@ public class TurnRunner {
             if (props.isReleaseOnShutdown()) {
                 lock.close();
             }
-            // 同 thread 下一条 / 失败重试由 TurnScheduler 在 release 后统一调度
+            // M1-02：Turn 结束后查 nextQueued，有则重新 XADD
+            if (finished) {
+                enqueueNext(threadId);
+            }
         }
+    }
+
+    /** LeaseReaper / 外部在终态后触发同 thread 下一条。 */
+    public void enqueueNext(String threadId) {
+        turns.nextQueued(threadId).ifPresent(t -> dispatchQueue.offer(t.getId(), threadId));
     }
 
     private void publishTerminal(String threadId, String turnId, TurnStatus status) {

@@ -19,5 +19,8 @@ public final class IntegrationTestSupport {
         // 多 Spring 上下文会各自建池；限制池大小避免打满 Testcontainers PG
         registry.add("spring.datasource.hikari.maximum-pool-size", () -> "4");
         registry.add("spring.datasource.hikari.minimum-idle", () -> "1");
+        // 与 GateCluster / DualInstance 共享 Testcontainers Redis 时，禁止本上下文抢 rt:turns
+        registry.add("tioka.runtime.dispatcher-enabled", () -> "false");
+        registry.add("tioka.runtime.queued-sweeper-enabled", () -> "false");
     }
 }

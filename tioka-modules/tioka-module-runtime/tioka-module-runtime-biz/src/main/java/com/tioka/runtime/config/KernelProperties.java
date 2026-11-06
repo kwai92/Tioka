@@ -21,6 +21,13 @@ public class KernelProperties {
      * 闸门模拟崩溃时置 false，租约留给 LeaseReaper（ENG-04b）。
      */
     private boolean releaseOnShutdown = true;
+    /**
+     * 是否启动 {@code TurnDispatcher} 消费 {@code rt:turns}。
+     * 普通 {@code @SpringBootTest} IT 与 GateCluster 共享 Redis 时关闭，避免抢消费。
+     */
+    private boolean dispatcherEnabled = true;
+    /** 是否启用 QueuedSweeper（与 dispatcher 同理，普通 IT 关闭以免污染共享 Redis）。 */
+    private boolean queuedSweeperEnabled = true;
 
     public String getInstanceId() { return instanceId; }
     public void setInstanceId(String instanceId) { this.instanceId = instanceId; }
@@ -30,6 +37,12 @@ public class KernelProperties {
     public void setLeaseRenewInterval(Duration leaseRenewInterval) { this.leaseRenewInterval = leaseRenewInterval; }
     public boolean isReleaseOnShutdown() { return releaseOnShutdown; }
     public void setReleaseOnShutdown(boolean releaseOnShutdown) { this.releaseOnShutdown = releaseOnShutdown; }
+    public boolean isDispatcherEnabled() { return dispatcherEnabled; }
+    public void setDispatcherEnabled(boolean dispatcherEnabled) { this.dispatcherEnabled = dispatcherEnabled; }
+    public boolean isQueuedSweeperEnabled() { return queuedSweeperEnabled; }
+    public void setQueuedSweeperEnabled(boolean queuedSweeperEnabled) {
+        this.queuedSweeperEnabled = queuedSweeperEnabled;
+    }
     public Executor getExecutor() { return executor; }
     public void setExecutor(Executor executor) { this.executor = executor; }
     public int getMaxQueuedPerThread() { return maxQueuedPerThread; }

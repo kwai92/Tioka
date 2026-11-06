@@ -21,6 +21,7 @@ import com.tioka.runtime.kernel.infrastructure.ItemRepository;
 import com.tioka.runtime.kernel.infrastructure.TurnRepository;
 import com.tioka.runtime.kernel.infrastructure.persistence.RuntimeItemDO;
 import com.tioka.runtime.kernel.infrastructure.persistence.RuntimeTurnDO;
+import com.tioka.runtime.kernel.infrastructure.redis.TurnDispatchQueue;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -39,7 +40,7 @@ public class KernelRuntimeService implements RuntimeApi {
     private final RuntimeSessionRepository sessions;
     private final TurnRepository turns;
     private final ItemRepository items;
-    private final TurnScheduler scheduler;
+    private final TurnDispatchQueue dispatchQueue;
     private final TurnSignalService signals;
     private final PrincipalHolder principals;
     private final KernelProperties props;
@@ -51,7 +52,7 @@ public class KernelRuntimeService implements RuntimeApi {
     public KernelRuntimeService(RuntimeSessionRepository sessions,
                                 TurnRepository turns,
                                 ItemRepository items,
-                                TurnScheduler scheduler,
+                                TurnDispatchQueue dispatchQueue,
                                 TurnSignalService signals,
                                 PrincipalHolder principals,
                                 KernelProperties props,
@@ -62,7 +63,7 @@ public class KernelRuntimeService implements RuntimeApi {
         this.sessions = sessions;
         this.turns = turns;
         this.items = items;
-        this.scheduler = scheduler;
+        this.dispatchQueue = dispatchQueue;
         this.signals = signals;
         this.principals = principals;
         this.props = props;
@@ -146,21 +147,21 @@ public class KernelRuntimeService implements RuntimeApi {
         }
         streams.publish(threadId, null, RuntimeEventType.TURN_STARTED.wire(),
                 events.turnStatus(RuntimeEventType.TURN_STARTED, threadId, turnId, TurnStatus.QUEUED.name()));
-        // 必须在事务提交后再调度，否则 worker 可能读不到刚 insert 的 Turn（永久 QUEUED）
-        submitAfterCommit(turnId);
+        // 必须在事务提交后再 XADD，否则 worker 可能读不到刚 insert 的 Turn（永久 QUEUED）
+        offerAfterCommit(turnId, threadId);
         return new TurnHandle(turnId, TurnStatus.QUEUED, eventsUrl(threadId));
     }
 
-    private void submitAfterCommit(String turnId) {
+    private void offerAfterCommit(String turnId, String threadId) {
         if (TransactionSynchronizationManager.isSynchronizationActive()) {
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
                 @Override
                 public void afterCommit() {
-                    scheduler.submit(turnId);
+                    dispatchQueue.offer(turnId, threadId);
                 }
             });
         } else {
-            scheduler.submit(turnId);
+            dispatchQueue.offer(turnId, threadId);
         }
     }
 
