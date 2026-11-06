@@ -4,7 +4,7 @@ import java.util.Objects;
 import java.util.Set;
 
 /**
- * 请求或后台任务的不可变身份（ADR-015；ADR-029 第 36 条：无 tenantId）。
+ * 请求或后台任务的不可变身份（ADR-015；ADR-029 第 60 条：无 tenantId）。
  *
  * @param userId      用户或服务账号 ID（十进制字符串）
  * @param workspaceId 当前空间 ID

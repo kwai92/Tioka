@@ -1,4 +1,4 @@
--- FND-03：回填后将归属列改为 NOT NULL（ADR-029 第 36 条；禁止 tenant_id）
+-- FND-03：回填后将归属列改为 NOT NULL（ADR-029 第 60 条；禁止 tenant_id）
 UPDATE chat_conversation SET workspace_id = 'ws_default' WHERE workspace_id IS NULL;
 UPDATE chat_conversation SET owner_id = '0' WHERE owner_id IS NULL;
 UPDATE agent_agent SET owner_id = '0' WHERE owner_id IS NULL;

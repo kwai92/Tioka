@@ -20,7 +20,7 @@ public class MybatisPlusConfiguration {
     @Bean
     MybatisPlusInterceptor mybatisPlusInterceptor(PrincipalHolder holder, ScopedTables tables) {
         MybatisPlusInterceptor i = new MybatisPlusInterceptor();
-        // 仅 workspace 行级过滤；禁止 tenant_id 拦截器（ADR-029 第 36 条）
+        // 仅 workspace 行级过滤；禁止 tenant_id 拦截器（ADR-029 第 60 条）
         i.addInnerInterceptor(new TenantLineInnerInterceptor(
                 new ScopeLineHandler("workspace_id", tables, holder)));
         i.addInnerInterceptor(new PaginationInnerInterceptor(DbType.POSTGRE_SQL));
