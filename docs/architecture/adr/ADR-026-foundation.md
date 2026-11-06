@@ -78,3 +78,7 @@ CREATE TABLE sys_adapter_registration (id VARCHAR(32) PRIMARY KEY, tenant_id VAR
   impl VARCHAR(255) NOT NULL, plugin_sha256 VARCHAR(64), config_json TEXT, status VARCHAR(16) NOT NULL);
 -- scim_user 废弃，改为写 auth_user + sys_external_identity
 ```
+
+## 修订：供应商凭证（2026-11-06）
+
+见 [ADR-042](ADR-042-provider-credentials-model-params.md) 与 ADR-029 第 63 条：供应商 API Key、MCP 令牌、数据源凭证统一使用 FND-08 的 `CredentialCipher`（AES-256-GCM，带 AAD 与密钥版本），替换现有 `LocalSecretStore` 的 ECB 加密，旧密文由迁移任务重新加密。

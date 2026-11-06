@@ -85,3 +85,13 @@ CREATE TABLE model_usage_daily (day DATE, workspace_id VARCHAR(64), agent_id VAR
   calls INT, prompt_tokens BIGINT, completion_tokens BIGINT, cost_micros BIGINT,
   PRIMARY KEY (day, workspace_id, agent_id, binding_id));
 ```
+
+## 修订：管理面版本化与可观测（2026-11-06）
+
+见 [ADR-041](ADR-041-config-versioning-observability.md) 与 ADR-029 第 62 条：
+
+- LogicalModel 改名扩展为 ModelAlias（稳定名称 → 路由计划或单个 binding）；`model_default_plan` 迁移为 `sys.*` 系统别名。推荐 Agent、Flow、知识库引用别名，原来直接引用计划 ID 的方式保留。
+- 供应商、binding、别名、路由计划都是发布型对象。上文的 `model_routing_plan_version` 不再单独建表，并入通用的 `cfg_version`。
+- MH-07「成本与路由看板」并入 MH-11（统计与版本对比）；`model_usage_daily` 的维度按 ADR-041 第 6 节扩展。
+- 供给侧配额（供应商、binding、别名）在选模的候选过滤阶段生效，命中时跳过该候选，并写一条路由事件。
+- （2026-11-06，ADR-042）路由组可以带模型参数覆盖；路由事件记录最终参数与 binding 默认值的差异。凭证选用在选定 binding 之后进行，不随 Turn 冻结。
