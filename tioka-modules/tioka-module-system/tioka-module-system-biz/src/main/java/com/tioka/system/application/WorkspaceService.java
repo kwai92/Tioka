@@ -68,6 +68,20 @@ public class WorkspaceService {
         return new Workspace(row.getId(), row.getName(), row.getOwnerUserId());
     }
 
+    /** GET /workspaces/{id}：仅本空间成员或 tenant_admin 可读。 */
+    public Workspace requireAccessible(String id) {
+        Workspace ws = require(id);
+        var p = principals.current();
+        if (p.hasPermission("*") || p.roles().contains("tenant_admin")) {
+            return ws;
+        }
+        if (id.equals(p.workspaceId())) {
+            return ws;
+        }
+        assertMember(id, p.userId() == null ? null : Long.parseLong(p.userId()));
+        return ws;
+    }
+
     public void assertMember(String workspaceId, Long userId) {
         require(workspaceId);
         if (userId == null || !members.isMember(workspaceId, String.valueOf(userId))) {

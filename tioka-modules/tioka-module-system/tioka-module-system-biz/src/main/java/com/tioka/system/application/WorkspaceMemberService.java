@@ -41,7 +41,7 @@ public class WorkspaceMemberService {
     }
 
     public Page<MemberView> list(String workspaceId, int page, int size) {
-        requireManage();
+        requireManageWorkspace(workspaceId);
         workspaces.require(workspaceId);
         int p = Math.max(page, 1);
         int s = Math.min(Math.max(size, 1), 100);
@@ -61,7 +61,7 @@ public class WorkspaceMemberService {
 
     @Transactional
     public void put(String workspaceId, String userId, String role) {
-        requireManage();
+        requireManageWorkspace(workspaceId);
         workspaces.require(workspaceId);
         SysRoleDO r = roles.findByCode(role);
         if (r == null || !"WORKSPACE".equalsIgnoreCase(r.getScope())) {
@@ -82,7 +82,7 @@ public class WorkspaceMemberService {
 
     @Transactional
     public void remove(String workspaceId, String userId) {
-        requireManage();
+        requireManageWorkspace(workspaceId);
         workspaces.require(workspaceId);
         boolean isAdmin = members.listByWorkspace(workspaceId, 0, 5000).stream()
                 .anyMatch(m -> userId.equals(m.getUserId()) && "workspace_admin".equals(m.getRoleCode()));
@@ -93,9 +93,19 @@ public class WorkspaceMemberService {
         principalCache.evictUser(Long.parseLong(userId));
     }
 
-    private void requireManage() {
-        if (!principals.current().hasPermission(Permissions.WORKSPACE_MANAGE)) {
+    /**
+     * 路径中的 workspaceId 必须是当前 Principal 所在空间，或调用方为 tenant_admin。
+     */
+    private void requireManageWorkspace(String workspaceId) {
+        var p = principals.current();
+        if (!p.hasPermission(Permissions.WORKSPACE_MANAGE)) {
             throw new BizException(ErrorCode.FORBIDDEN);
+        }
+        if (p.hasPermission("*") || p.roles().contains("tenant_admin")) {
+            return;
+        }
+        if (workspaceId == null || !workspaceId.equals(p.workspaceId())) {
+            throw new BizException(ErrorCode.FORBIDDEN, "不能管理其他空间的成员");
         }
     }
 
