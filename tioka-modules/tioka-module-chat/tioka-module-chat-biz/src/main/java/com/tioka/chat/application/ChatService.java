@@ -9,6 +9,7 @@ import com.tioka.framework.error.BizException;
 import com.tioka.framework.error.ErrorCode;
 import com.tioka.framework.id.Ids;
 import com.tioka.framework.security.PrincipalHolder;
+import com.tioka.model.api.CostQueryApi;
 import com.tioka.runtime.api.RuntimeSessionApi;
 import com.tioka.skill.api.SkillQueryApi;
 import org.springframework.stereotype.Service;
@@ -24,6 +25,7 @@ public class ChatService {
     private final AgentSnapshotApi snapshots;
     private final SkillQueryApi skills;
     private final RuntimeSessionApi runtime;
+    private final CostQueryApi costs;
     private final ChatStore store;
     private final PrincipalHolder principals;
     private final TransactionTemplate tx;
@@ -31,12 +33,14 @@ public class ChatService {
     public ChatService(AgentSnapshotApi snapshots,
                        SkillQueryApi skills,
                        RuntimeSessionApi runtime,
+                       CostQueryApi costs,
                        ChatStore store,
                        PrincipalHolder principals,
                        PlatformTransactionManager transactionManager) {
         this.snapshots = snapshots;
         this.skills = skills;
         this.runtime = runtime;
+        this.costs = costs;
         this.store = store;
         this.principals = principals;
         this.tx = new TransactionTemplate(transactionManager);
@@ -73,6 +77,12 @@ public class ChatService {
             throw new BizException(ErrorCode.NOT_FOUND, "会话不存在");
         }
         return c;
+    }
+
+    /** GOV-05：会话成本按 runtimeSessionId（thread）归集。 */
+    public CostQueryApi.CostBucket cost(String conversationId) {
+        Conversation c = get(conversationId);
+        return costs.sessionCost(c.runtimeSessionId());
     }
 
     public void delete(String conversationId) {

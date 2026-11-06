@@ -37,6 +37,10 @@
         </dependency>
         <dependency>
             <groupId>com.tioka</groupId>
+            <artifactId>tioka-module-model-api</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.tioka</groupId>
             <artifactId>tioka-module-skill-api</artifactId>
         </dependency>
         <dependency>

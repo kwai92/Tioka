@@ -5,6 +5,7 @@ import com.tioka.chat.domain.ChatStore;
 import com.tioka.framework.error.ApiResponse;
 import com.tioka.framework.security.Permissions;
 import com.tioka.framework.security.RequirePermission;
+import com.tioka.model.api.CostQueryApi;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -49,5 +50,11 @@ public class ChatController {
     @GetMapping("/conversations/{id}/messages")
     public ApiResponse<List<ChatStore.Message>> messages(@PathVariable String id) {
         return ApiResponse.ok(chatService.messages(id));
+    }
+
+    /** GOV-05：单会话成本（按关联 runtime thread / session 汇总）。 */
+    @GetMapping("/conversations/{id}/cost")
+    public ApiResponse<CostQueryApi.CostBucket> cost(@PathVariable String id) {
+        return ApiResponse.ok(chatService.cost(id));
     }
 }
