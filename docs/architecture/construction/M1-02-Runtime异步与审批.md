@@ -4,7 +4,8 @@
 - 工作项：RT-06、RT-07、RT-08、CHT-02、CHT-03、HCI-02、HCI-04
 - 约束：ADR-016、ADR-022、ADR-028、ADR-029 第 1〜7、16、30 条
 - 前置：[M0-03](M0-03-Runtime内核.md)；FND-04（审批权限）
-- 迁移：V114〜V116
+- 迁移：V114、V115（V116 预留未用）
+- 排期与人天：以 [M1-00 实施计划](M1-00-M1实施计划.md) 为准；CHT-02、CHT-03 由 BE-C 负责
 
 ---
 
@@ -100,7 +101,9 @@ public enum ToolRisk { READ, WRITE, DESTRUCTIVE, EXTERNAL_SEND }
 
 `ToolProvider.ToolDescriptor` 增加 `ToolRisk risk` 字段（新 record 构造器，旧三参构造器保留并默认 `READ`）；MCP 工具从 `mcp_tool` 新列 `risk`（V114，默认 `WRITE`）取值，管理员可在 MCP 页修改。
 
-默认策略 `agent-config`：Agent 版本配置 `toolPolicies: {"<toolName>": "auto" | "approve" | "deny"}`；未配置的工具按风险：`READ → auto`，`WRITE`、`DESTRUCTIVE`、`EXTERNAL_SEND → approve`。`TurnOptions.approvalPolicy` 可覆盖为 `never`（仅系统内部调用，需 `SYSTEM` 主体）或 `always`。
+默认策略 `agent-config`：读 Agent 版本快照 `AgentSpec.approval.toolPolicies`（[M1-05](M1-05-Agent资产与G1闸门基座.md) AST-01，不另建配置表）`{"<toolName>": "auto" | "approve" | "deny"}`；未配置的工具按风险：`READ → auto`，`WRITE`、`DESTRUCTIVE`、`EXTERNAL_SEND → approve`。`TurnOptions.approvalPolicy` 可覆盖为 `never`（仅系统内部调用，需 `SYSTEM` 主体）或 `always`。
+
+向前兼容（M1-00 第 6 节 F3、F4）：`ApprovalRequestContext` 只能经 `ApprovalRequestContexts.from(turn, call, descriptor)` 构造，调用方不直接 `new`。M3 的 `autonomy` 策略（ADR-034）会在 record 上加 `actionClass`、`changeSetTotals` 等字段，届时只改这个工厂。`runtime_approval` 的 `subject_type`、`kind` CHECK 约束在 M3 迁移中放宽，M1 不预加取值。
 
 ### 执行循环中的处理
 
@@ -219,6 +222,7 @@ public interface TurnAwaiter {
 | 编排 | 无执行 | M2 ORC-03 |
 
 4. 删除 `RuntimeSessionApi`、`LegacySessionAdapter`、`PartView` 及 `runtime-api/part` 包。ArchUnit `onlyRuntimeApiExecutesAgents` 生效。
+5. 旧回归套件 `GateRegressionSuiteIT`（W5-15 遗留，调用 `/api/runtime/sessions/*/append`、`DIFFICULTY` 路由、`/api/model/router/select`）随本项删除：其中仍有价值的断言（steer、取消后追加 409、冻结）已由 G0、G1 闸门用例覆盖，对照表写进 PR 描述。
 
 测试：`RuntimeApiContractTest`（每个方法的参数校验与错误码）；ArchUnit 规则绿；`grep -r RuntimeSessionApi` 为空。
 
