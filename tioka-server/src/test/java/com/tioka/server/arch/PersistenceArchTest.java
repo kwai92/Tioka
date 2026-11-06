@@ -60,7 +60,9 @@ class PersistenceArchTest {
                                 || item.isAssignableTo(AppendOnlyDO.class)
                                 || "RuntimeTurnDO".equals(item.getSimpleName())
                                 // AST-01：agent_draft 契约仅有 update_at/by + revision，无 create/deleted
-                                || "AgentDraftDO".equals(item.getSimpleName());
+                                || "AgentDraftDO".equals(item.getSimpleName())
+                                // MH-04：model_default_plan 仅 purpose PK + update_at/by
+                                || "ModelDefaultPlanDO".equals(item.getSimpleName());
                         if (!ok) {
                             events.add(SimpleConditionEvent.violated(item,
                                     item.getName() + " 未继承约定 DO 基类"));

@@ -1,8 +1,13 @@
 package com.tioka.knowledge.application;
 
+import com.tioka.framework.security.Principal;
+import com.tioka.framework.security.PrincipalHolder;
+import com.tioka.framework.security.SystemPrincipals;
 import com.tioka.knowledge.infrastructure.KnowledgeRepository;
 import com.tioka.knowledge.infrastructure.embedding.HashEmbeddingClient;
 import com.tioka.knowledge.infrastructure.parse.DocumentParser;
+import com.tioka.model.api.gateway.ModelCallContext;
+import com.tioka.model.api.gateway.ModelGateway;
 import com.tioka.knowledge.infrastructure.persistence.KbBaseDO;
 import com.tioka.knowledge.infrastructure.persistence.KbChunkDO;
 import com.tioka.knowledge.infrastructure.persistence.KbCitationDO;
@@ -83,7 +88,40 @@ final class KnowledgeInMemorySupport {
     }
 
     static KnowledgeService service(KnowledgeRepository repo) {
-        return new KnowledgeService(repo, new HashEmbeddingClient(32), new DocumentParser(), "local",
+        HashEmbeddingClient hash = new HashEmbeddingClient(32);
+        ModelGateway gateway = new ModelGateway() {
+            @Override
+            public ChatResult chat(ModelCallContext ctx, ChatRequest request,
+                                   java.util.function.Consumer<StreamDelta> onDelta) {
+                throw new UnsupportedOperationException();
+            }
+
+            @Override
+            public EmbeddingResult embed(ModelCallContext ctx, EmbeddingRequest request) {
+                List<String> inputs = request.inputs() == null ? List.of() : request.inputs();
+                List<float[]> vectors = new ArrayList<>();
+                for (String text : inputs) {
+                    double[] d = hash.embed(text);
+                    float[] f = new float[d.length];
+                    for (int i = 0; i < d.length; i++) {
+                        f[i] = (float) d[i];
+                    }
+                    vectors.add(f);
+                }
+                return new EmbeddingResult(vectors, hash.dimension(), inputs.size(), "bnd_hash");
+            }
+
+            @Override
+            public RerankResult rerank(ModelCallContext ctx, RerankRequest request) {
+                throw new UnsupportedOperationException();
+            }
+        };
+        PrincipalHolder holder = new PrincipalHolder() {
+            @Override public Principal current() { return SystemPrincipals.system(); }
+            @Override public java.util.Optional<Principal> find() { return java.util.Optional.of(SystemPrincipals.system()); }
+            @Override public <T> T runAs(Principal principal, java.util.function.Supplier<T> body) { return body.get(); }
+        };
+        return new KnowledgeService(repo, gateway, holder, new DocumentParser(), "local",
                 new com.fasterxml.jackson.databind.ObjectMapper(), new PassthroughTxManager());
     }
 

@@ -90,6 +90,9 @@ class ModelRouterFreezeTest {
         public boolean hasBinding(String id) { return bindings.containsKey(id); }
 
         @Override
+        public List<ModelBindingDO> bindings() { return new ArrayList<>(bindings.values()); }
+
+        @Override
         public void putPlan(ModelRoutingPlanDO row) { plans.put(row.getId(), row); }
 
         @Override

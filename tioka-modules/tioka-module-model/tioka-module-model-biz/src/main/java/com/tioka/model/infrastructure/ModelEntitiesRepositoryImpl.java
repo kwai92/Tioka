@@ -73,6 +73,11 @@ public class ModelEntitiesRepositoryImpl implements ModelEntitiesRepository {
     }
 
     @Override
+    public List<ModelBindingDO> bindings() {
+        return bindings.selectList(null);
+    }
+
+    @Override
     public void putPlan(ModelRoutingPlanDO row) {
         if (plans.selectById(row.getId()) == null) plans.insert(row);
         else plans.updateById(row);

@@ -4,7 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tioka.framework.security.PublicApi;
 import com.tioka.framework.security.RequirePermission;
 import com.tioka.model.api.gateway.ModelGateway;
-import com.tioka.model.application.OpenAiCompatibleClient;
+import com.tioka.model.infrastructure.provider.ProviderClient;
 import com.tngtech.archunit.core.domain.JavaAnnotation;
 import com.tngtech.archunit.core.domain.JavaClass;
 import com.tngtech.archunit.core.domain.JavaModifier;
@@ -43,10 +43,23 @@ class TiokaArchitectureTest {
                     .because("Controller 方法必须声明 @RequirePermission 或 @PublicApi（ADR-015）");
 
     @ArchTest
-    static final ArchRule onlyModelBizTalksToModelHttp = FreezingArchRule.freeze(
+    static final ArchRule onlyModelBizTalksToModelHttp =
             noClasses().that().resideOutsideOfPackage("com.tioka.model..")
-                    .should().dependOnClassesThat().areAssignableTo(OpenAiCompatibleClient.class)
-                    .because("仅 model-biz 可直接依赖模型 HTTP 客户端（ADR-017）"));
+                    .should().dependOnClassesThat().areAssignableTo(ProviderClient.class)
+                    .because("仅 model-biz 可直接依赖模型 HTTP 客户端（ADR-017 / MH-04）");
+
+    @ArchTest
+    static final ArchRule noLlmClientApi =
+            noClasses().should().dependOnClassesThat()
+                    .haveFullyQualifiedName("com.tioka.model.api.LlmClientApi")
+                    .because("LlmClientApi 已删除，统一走 ModelGateway（MH-04）");
+
+    @ArchTest
+    static final ArchRule noHashEmbeddingInMain =
+            noClasses().should().dependOnClassesThat()
+                    .haveFullyQualifiedName("com.tioka.knowledge.infrastructure.embedding.HashEmbeddingClient")
+                    .because("HashEmbeddingClient 仅允许测试使用（MH-04 / KNW-01）");
+
 
     @ArchTest
     static final ArchRule serverDependsOnlyOnApi = FreezingArchRule.freeze(

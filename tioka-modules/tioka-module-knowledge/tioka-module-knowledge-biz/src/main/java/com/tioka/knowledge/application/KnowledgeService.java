@@ -6,14 +6,19 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tioka.framework.error.BizException;
 import com.tioka.framework.error.ErrorCode;
+import com.tioka.framework.security.Principal;
+import com.tioka.framework.security.PrincipalHolder;
+import com.tioka.framework.security.SystemPrincipals;
 import com.tioka.knowledge.api.KnowledgeSearchApi;
 import com.tioka.knowledge.infrastructure.KnowledgeRepository;
-import com.tioka.knowledge.infrastructure.embedding.EmbeddingClient;
 import com.tioka.knowledge.infrastructure.parse.DocumentParser;
 import com.tioka.knowledge.infrastructure.persistence.KbBaseDO;
 import com.tioka.knowledge.infrastructure.persistence.KbChunkDO;
 import com.tioka.knowledge.infrastructure.persistence.KbCitationDO;
 import com.tioka.knowledge.infrastructure.persistence.KbDocumentDO;
+import com.tioka.model.api.gateway.ModelCallContext;
+import com.tioka.model.api.gateway.ModelGateway;
+import com.tioka.model.api.gateway.ModelPurpose;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -25,21 +30,24 @@ import java.util.stream.Collectors;
 @Service
 public class KnowledgeService implements KnowledgeSearchApi {
     private final KnowledgeRepository repo;
-    private final EmbeddingClient embeddingClient;
+    private final ModelGateway modelGateway;
+    private final PrincipalHolder principals;
     private final DocumentParser documentParser;
     private final ObjectMapper mapper;
     private final boolean pgvector;
     private final TransactionTemplate tx;
 
     public KnowledgeService(KnowledgeRepository repo,
-                            EmbeddingClient embeddingClient,
+                            ModelGateway modelGateway,
+                            PrincipalHolder principals,
                             DocumentParser documentParser,
                             @Value("${tioka.knowledge.vector-backend:local}") String vectorBackend,
                             ObjectMapper mapper,
                             PlatformTransactionManager transactionManager) {
         this.mapper = mapper;
         this.repo = repo;
-        this.embeddingClient = embeddingClient;
+        this.modelGateway = modelGateway;
+        this.principals = principals;
         this.documentParser = documentParser;
         this.pgvector = "pgvector".equalsIgnoreCase(vectorBackend);
         this.tx = new TransactionTemplate(transactionManager);
@@ -318,7 +326,20 @@ public class KnowledgeService implements KnowledgeSearchApi {
     }
 
     private double[] embed(String text) {
-        return embeddingClient.embed(text);
+        Principal principal = principals.find().orElse(SystemPrincipals.system());
+        ModelCallContext ctx = new ModelCallContext(
+                principal, null, null, null, null, ModelPurpose.EMBEDDING);
+        ModelGateway.EmbeddingResult result = modelGateway.embed(
+                ctx, new ModelGateway.EmbeddingRequest(null, List.of(text == null ? "" : text)));
+        if (result.vectors() == null || result.vectors().isEmpty()) {
+            throw new BizException(ErrorCode.DEPENDENCY, "嵌入结果为空");
+        }
+        float[] src = result.vectors().get(0);
+        double[] out = new double[src.length];
+        for (int i = 0; i < src.length; i++) {
+            out[i] = src[i];
+        }
+        return out;
     }
 
     private static double cosine(double[] a, double[] b) {

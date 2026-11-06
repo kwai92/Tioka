@@ -14,6 +14,7 @@ public interface ModelEntitiesRepository {
     void putBinding(ModelBindingDO row);
     Optional<ModelBindingDO> getBinding(String id);
     boolean hasBinding(String id);
+    List<ModelBindingDO> bindings();
     void putPlan(ModelRoutingPlanDO row);
     Optional<ModelRoutingPlanDO> getPlan(String id);
     /** AST-02：FOR SHARE 锁定路由方案行。 */

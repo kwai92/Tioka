@@ -1,7 +1,5 @@
 package com.tioka.runtime.kernel.domain;
 
-import com.tioka.model.api.ModelRouterApi;
-
 import java.util.List;
 import java.util.Map;
 
@@ -22,7 +20,6 @@ public final class LoopContext {
     private final List<String> toolAllowList;
     private final Map<String, Object> agentToolConfig;
     private boolean forceFinalAnswer;
-    private ModelRouterApi.ModelSelection modelSelection;
 
     public LoopContext(String threadId, String turnId, long leaseVersion,
                        int maxSteps, int repeatLimit, int startStep,
@@ -102,11 +99,6 @@ public final class LoopContext {
 
     /** CON-01：含 mcpGrants，供 ToolGateway 授权。 */
     public Map<String, Object> agentToolConfig() { return agentToolConfig; }
-
-    public ModelRouterApi.ModelSelection modelSelection() { return modelSelection; }
-    public void setModelSelection(ModelRouterApi.ModelSelection modelSelection) {
-        this.modelSelection = modelSelection;
-    }
 
     public void checkpoint() {
         signals.checkpoint(this);

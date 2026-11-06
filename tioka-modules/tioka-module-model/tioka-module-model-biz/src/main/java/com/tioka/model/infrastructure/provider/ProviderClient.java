@@ -1,9 +1,8 @@
-package com.tioka.model.application;
+package com.tioka.model.infrastructure.provider;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.tioka.model.api.LlmClientApi;
 import com.tioka.system.api.spi.EgressGuard;
 import com.tioka.system.api.spi.SecretStore;
 import org.springframework.beans.factory.annotation.Value;
@@ -24,25 +23,30 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
 
+/**
+ * OpenAI 兼容 Provider HTTP 客户端（原 OpenAiCompatibleClient）。仅 model-biz 内部使用。
+ */
 @Component
-public class OpenAiCompatibleClient implements LlmClientApi {
+public class ProviderClient {
     private final SecretStore secretStore;
     private final EgressGuard egressGuard;
     private final ObjectMapper mapper;
     private final HttpClient http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build();
     private final boolean mock;
+    private final int mockEmbeddingDim;
 
-    public OpenAiCompatibleClient(SecretStore secretStore,
-                                  EgressGuard egressGuard,
-                                  @Value("${tioka.model.mock:true}") boolean mock,
-                                  ObjectMapper mapper) {
+    public ProviderClient(SecretStore secretStore,
+                          EgressGuard egressGuard,
+                          @Value("${tioka.model.mock:true}") boolean mock,
+                          @Value("${tioka.knowledge.embedding.dim:32}") int mockEmbeddingDim,
+                          ObjectMapper mapper) {
         this.mapper = mapper;
         this.secretStore = secretStore;
         this.egressGuard = egressGuard;
         this.mock = mock;
+        this.mockEmbeddingDim = Math.max(1, mockEmbeddingDim);
     }
 
-    @Override
     public CompletionResult complete(String baseUrl, String apiKeyRef, String model,
                                      List<Map<String, Object>> messages,
                                      List<Map<String, Object>> tools) throws Exception {
@@ -52,7 +56,6 @@ public class OpenAiCompatibleClient implements LlmClientApi {
         return httpComplete(baseUrl, apiKeyRef, model, messages, tools, false, null);
     }
 
-    @Override
     public CompletionResult streamComplete(String baseUrl, String apiKeyRef, String model,
                                            List<Map<String, Object>> messages,
                                            List<Map<String, Object>> tools,
@@ -62,6 +65,48 @@ public class OpenAiCompatibleClient implements LlmClientApi {
             return mockStreamComplete(messages, tools, sink);
         }
         return httpComplete(baseUrl, apiKeyRef, model, messages, tools, true, sink);
+    }
+
+    public List<float[]> embed(String baseUrl, String apiKeyRef, String model, Integer embeddingDim,
+                               List<String> inputs) throws Exception {
+        int dim = embeddingDim == null ? mockEmbeddingDim : Math.max(1, embeddingDim);
+        if (isMockMode(baseUrl)) {
+            List<float[]> out = new ArrayList<>();
+            for (String text : inputs == null ? List.<String>of() : inputs) {
+                out.add(hashEmbed(text, dim));
+            }
+            return out;
+        }
+        egressGuard.assertAllowed(baseUrl);
+        String apiKey = resolveApiKey(apiKeyRef);
+        ObjectNode body = mapper.createObjectNode();
+        body.put("model", model);
+        body.set("input", mapper.valueToTree(inputs == null ? List.of() : inputs));
+        body.put("dimensions", dim);
+        HttpRequest req = HttpRequest.newBuilder()
+                .uri(URI.create(trimSlash(baseUrl) + "/embeddings"))
+                .timeout(Duration.ofSeconds(60))
+                .header("Authorization", "Bearer " + apiKey)
+                .header("Content-Type", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString(mapper.writeValueAsString(body)))
+                .build();
+        HttpResponse<String> resp = http.send(req, HttpResponse.BodyHandlers.ofString());
+        if (resp.statusCode() >= 300) {
+            throw new IllegalStateException("openai compatible embedding error: " + resp.statusCode() + " " + resp.body());
+        }
+        JsonNode data = mapper.readTree(resp.body()).path("data");
+        List<float[]> vectors = new ArrayList<>();
+        if (data.isArray()) {
+            for (JsonNode item : data) {
+                JsonNode emb = item.path("embedding");
+                float[] v = new float[emb.size()];
+                for (int i = 0; i < emb.size(); i++) {
+                    v[i] = (float) emb.get(i).asDouble();
+                }
+                vectors.add(fitDim(v, dim));
+            }
+        }
+        return vectors;
     }
 
     private boolean isMockMode(String baseUrl) {
@@ -79,7 +124,6 @@ public class OpenAiCompatibleClient implements LlmClientApi {
         if (content.isEmpty()) {
             return full;
         }
-        // 按字符真正多次回调，禁止 Runtime 再切块
         for (int i = 0; i < content.length(); i++) {
             onDelta.accept(StreamDelta.text(String.valueOf(content.charAt(i))));
         }
@@ -97,9 +141,9 @@ public class OpenAiCompatibleClient implements LlmClientApi {
             Map<String, Object> function = (Map<String, Object>) tools.get(0).get("function");
             String name = String.valueOf(function.get("name"));
             String args = mapper.createObjectNode().put("text", last).toString();
-            return new CompletionResult("", List.of(new ToolCall("call_mock", name, args)), 12, 24);
+            return new CompletionResult("", List.of(new ToolCall("call_mock", name, args)), 12, 24, null);
         }
-        return new CompletionResult("【mock】已收到：" + last, List.of(), 10, 20);
+        return new CompletionResult("【mock】已收到：" + last, List.of(), 10, 20, null);
     }
 
     private CompletionResult httpComplete(String baseUrl, String apiKeyRef, String model,
@@ -151,6 +195,7 @@ public class OpenAiCompatibleClient implements LlmClientApi {
         Map<Integer, ToolCallAcc> toolAcc = new HashMap<>();
         int promptTokens = 0;
         int completionTokens = 0;
+        String finishReason = null;
 
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(body, StandardCharsets.UTF_8))) {
             String line;
@@ -162,6 +207,9 @@ public class OpenAiCompatibleClient implements LlmClientApi {
 
                 JsonNode root = mapper.readTree(payload);
                 JsonNode choice = root.path("choices").path(0);
+                if (choice.hasNonNull("finish_reason")) {
+                    finishReason = choice.path("finish_reason").asText(finishReason);
+                }
                 JsonNode delta = choice.path("delta");
                 if (delta.hasNonNull("content")) {
                     String piece = delta.path("content").asText("");
@@ -208,10 +256,7 @@ public class OpenAiCompatibleClient implements LlmClientApi {
                 ));
             }
         }
-        if (promptTokens > 0 || completionTokens > 0) {
-            onDelta.accept(new StreamDelta(null, null, promptTokens, completionTokens));
-        }
-        return new CompletionResult(content.toString(), calls, promptTokens, completionTokens);
+        return new CompletionResult(content.toString(), calls, promptTokens, completionTokens, finishReason);
     }
 
     private String resolveApiKey(String apiKeyRef) {
@@ -228,10 +273,12 @@ public class OpenAiCompatibleClient implements LlmClientApi {
 
     private CompletionResult parse(String json) throws Exception {
         JsonNode root = mapper.readTree(json);
-        JsonNode choice = root.path("choices").path(0).path("message");
-        String content = choice.path("content").asText("");
+        JsonNode choice = root.path("choices").path(0);
+        JsonNode message = choice.path("message");
+        String content = message.path("content").asText("");
+        String finishReason = choice.path("finish_reason").asText(null);
         List<ToolCall> calls = new ArrayList<>();
-        JsonNode toolCalls = choice.path("tool_calls");
+        JsonNode toolCalls = message.path("tool_calls");
         if (toolCalls.isArray()) {
             for (JsonNode tc : toolCalls) {
                 calls.add(new ToolCall(
@@ -243,11 +290,55 @@ public class OpenAiCompatibleClient implements LlmClientApi {
         }
         return new CompletionResult(content, calls,
                 root.path("usage").path("prompt_tokens").asInt(0),
-                root.path("usage").path("completion_tokens").asInt(0));
+                root.path("usage").path("completion_tokens").asInt(0),
+                finishReason);
+    }
+
+    private static float[] hashEmbed(String text, int dim) {
+        float[] v = new float[dim];
+        if (text == null || text.isBlank()) {
+            return v;
+        }
+        byte[] bytes = text.toLowerCase().getBytes(StandardCharsets.UTF_8);
+        for (int i = 0; i < bytes.length; i++) {
+            v[Math.floorMod(bytes[i] + i, v.length)] += 1.0f;
+        }
+        double norm = 0;
+        for (float x : v) {
+            norm += x * x;
+        }
+        norm = Math.sqrt(norm);
+        if (norm > 0) {
+            for (int i = 0; i < v.length; i++) {
+                v[i] /= (float) norm;
+            }
+        }
+        return v;
+    }
+
+    private static float[] fitDim(float[] src, int dim) {
+        if (src.length == dim) {
+            return src;
+        }
+        float[] out = new float[dim];
+        System.arraycopy(src, 0, out, 0, Math.min(src.length, dim));
+        return out;
     }
 
     private static String trimSlash(String s) {
         return s.endsWith("/") ? s.substring(0, s.length() - 1) : s;
+    }
+
+    public record ToolCall(String id, String name, String argumentsJson) {}
+
+    public record CompletionResult(String content, List<ToolCall> toolCalls,
+                                   int promptTokens, int completionTokens, String finishReason) {}
+
+    public record StreamDelta(String textDelta, List<ToolCall> toolCalls,
+                              Integer promptTokens, Integer completionTokens) {
+        public static StreamDelta text(String delta) {
+            return new StreamDelta(delta, null, null, null);
+        }
     }
 
     private static final class ToolCallAcc {

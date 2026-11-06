@@ -2,12 +2,14 @@ package com.tioka.flow.application;
 
 import com.tioka.flow.application.exec.*;
 import com.tioka.framework.error.BizException;
-import com.tioka.model.api.LlmClientApi;
+import com.tioka.model.api.gateway.ModelCallContext;
+import com.tioka.model.api.gateway.ModelGateway;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.ObjectProvider;
 
 import java.util.*;
+import java.util.function.Consumer;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -16,24 +18,27 @@ class FlowEngineTest {
 
     @BeforeEach
     void setUp() {
-        LlmClientApi mockLlm = new LlmClientApi() {
+        ModelGateway mockGw = new ModelGateway() {
             @Override
-            public CompletionResult complete(String baseUrl, String apiKeyRef, String model,
-                                             List<Map<String, Object>> messages,
-                                             List<Map<String, Object>> tools) {
-                String content = messages.isEmpty() ? "" : String.valueOf(messages.get(messages.size() - 1).get("content"));
-                return new CompletionResult("mock:" + content, List.of(), 1, 1);
+            public ChatResult chat(ModelCallContext ctx, ChatRequest request, Consumer<StreamDelta> onDelta) {
+                String content = "";
+                if (request != null && request.messages() != null && !request.messages().isEmpty()) {
+                    content = String.valueOf(request.messages().get(request.messages().size() - 1).get("content"));
+                }
+                return new ChatResult("mock:" + content, null, List.of(), 1, 1, "bnd_mock", "mock@m", 0, "stop");
             }
 
             @Override
-            public CompletionResult streamComplete(String baseUrl, String apiKeyRef, String model,
-                                                   List<Map<String, Object>> messages,
-                                                   List<Map<String, Object>> tools,
-                                                   java.util.function.Consumer<StreamDelta> onDelta) {
-                return complete(baseUrl, apiKeyRef, model, messages, tools);
+            public EmbeddingResult embed(ModelCallContext ctx, EmbeddingRequest request) {
+                return new EmbeddingResult(List.of(new float[]{0.1f}), 1, 1, "bnd_mock");
+            }
+
+            @Override
+            public RerankResult rerank(ModelCallContext ctx, RerankRequest request) {
+                return new RerankResult(List.of(), "bnd_mock");
             }
         };
-        ObjectProvider<LlmClientApi> llmProvider = provider(mockLlm);
+        ObjectProvider<ModelGateway> gwProvider = provider(mockGw);
         List<NodeExecutor> executors = List.of(
                 new IoNodeExecutor(),
                 new OutputNodeExecutor(),
@@ -42,8 +47,8 @@ class FlowEngineTest {
                 new ParserNodeExecutor(),
                 new BranchNodeExecutor(),
                 new LoopNodeExecutor(),
-                new LlmNodeExecutor(llmProvider),
-                new AgentNodeExecutor(llmProvider),
+                new LlmNodeExecutor(gwProvider, provider(null)),
+                new AgentNodeExecutor(provider(null), provider(null)),
                 new RetrieveNodeExecutor(provider(null)),
                 new HttpNodeExecutor(provider(null), provider(null),
                         new com.fasterxml.jackson.databind.ObjectMapper()),

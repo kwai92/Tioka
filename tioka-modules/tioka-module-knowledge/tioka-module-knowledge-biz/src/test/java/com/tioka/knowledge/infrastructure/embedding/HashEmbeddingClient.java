@@ -3,9 +3,9 @@ package com.tioka.knowledge.infrastructure.embedding;
 import java.nio.charset.StandardCharsets;
 
 /**
- * 本地默认：字频哈希向量（与历史 32 维行为一致）。
+ * 测试用本地哈希嵌入（MH-04 起生产走 ModelGateway；KNW-01 要求 Hash 仅留在 test）。
  */
-public class HashEmbeddingClient implements EmbeddingClient {
+public class HashEmbeddingClient {
     private final int dim;
 
     public HashEmbeddingClient() {
@@ -16,7 +16,6 @@ public class HashEmbeddingClient implements EmbeddingClient {
         this.dim = Math.max(1, dim);
     }
 
-    @Override
     public double[] embed(String text) {
         double[] v = new double[dim];
         if (text == null || text.isBlank()) return v;
@@ -33,7 +32,6 @@ public class HashEmbeddingClient implements EmbeddingClient {
         return v;
     }
 
-    @Override
     public int dimension() {
         return dim;
     }

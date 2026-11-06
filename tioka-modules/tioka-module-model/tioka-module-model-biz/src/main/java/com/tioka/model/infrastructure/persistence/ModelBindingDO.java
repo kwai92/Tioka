@@ -12,6 +12,14 @@ public class ModelBindingDO extends BaseDO {
     private String logicalModelId;
     private String providerId;
     private String modelName;
+    private String kind;
+    private Integer contextWindow;
+    private Integer embeddingDim;
+    private Long inputPriceMicros;
+    private Long outputPriceMicros;
+    private Integer rpmLimit;
+    private Integer tpmLimit;
+    private Boolean enabled;
 
     public String getId() { return id; }
     public void setId(String id) { this.id = id; }
@@ -21,4 +29,20 @@ public class ModelBindingDO extends BaseDO {
     public void setProviderId(String providerId) { this.providerId = providerId; }
     public String getModelName() { return modelName; }
     public void setModelName(String modelName) { this.modelName = modelName; }
+    public String getKind() { return kind; }
+    public void setKind(String kind) { this.kind = kind; }
+    public Integer getContextWindow() { return contextWindow; }
+    public void setContextWindow(Integer contextWindow) { this.contextWindow = contextWindow; }
+    public Integer getEmbeddingDim() { return embeddingDim; }
+    public void setEmbeddingDim(Integer embeddingDim) { this.embeddingDim = embeddingDim; }
+    public Long getInputPriceMicros() { return inputPriceMicros; }
+    public void setInputPriceMicros(Long inputPriceMicros) { this.inputPriceMicros = inputPriceMicros; }
+    public Long getOutputPriceMicros() { return outputPriceMicros; }
+    public void setOutputPriceMicros(Long outputPriceMicros) { this.outputPriceMicros = outputPriceMicros; }
+    public Integer getRpmLimit() { return rpmLimit; }
+    public void setRpmLimit(Integer rpmLimit) { this.rpmLimit = rpmLimit; }
+    public Integer getTpmLimit() { return tpmLimit; }
+    public void setTpmLimit(Integer tpmLimit) { this.tpmLimit = tpmLimit; }
+    public Boolean getEnabled() { return enabled; }
+    public void setEnabled(Boolean enabled) { this.enabled = enabled; }
 }
