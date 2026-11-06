@@ -47,7 +47,7 @@ class FlowEngineTest {
                 new ParserNodeExecutor(),
                 new BranchNodeExecutor(),
                 new LoopNodeExecutor(),
-                new LlmNodeExecutor(gwProvider, provider(null)),
+                new LlmNodeExecutor(gwProvider),
                 new AgentNodeExecutor(provider(null), provider(null)),
                 new RetrieveNodeExecutor(provider(null)),
                 new HttpNodeExecutor(provider(null), provider(null),
@@ -55,7 +55,7 @@ class FlowEngineTest {
                 new McpNodeExecutor(provider(null)),
                 new HumanCardNodeExecutor(provider(null))
         );
-        engine = new FlowEngine(new NodeExecutorRegistry(executors));
+        engine = new FlowEngine(new NodeExecutorRegistry(executors), provider(null));
     }
 
     @Test
@@ -149,7 +149,7 @@ class FlowEngineTest {
         };
         FlowEngine failing = new FlowEngine(new NodeExecutorRegistry(List.of(
                 new IoNodeExecutor(), boomLlm
-        )));
+        )), provider(null));
         Map<String, Object> graph = Map.of(
                 "nodes", List.of(
                         Map.of("id", "n1", "type", "IO"),

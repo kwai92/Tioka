@@ -68,7 +68,8 @@ public class FlowService {
         if (ver == null || !Boolean.TRUE.equals(ver.getPublished())) {
             throw new BizException(ErrorCode.BAD_REQUEST, "Flow 未发布");
         }
-        Map<String, Object> graph = fromMap(ver.getGraphJson());
+        // FLW-02：加载版本快照时剥离 LLM 直连字段 → routingPlanId（空=FLOW 默认）
+        Map<String, Object> graph = LlmNodeConfigMigrator.migrate(fromMap(ver.getGraphJson()));
         String id = Ids.newId("fr");
         FlowEngine.EngineResult result = engine.run(id, graph, input == null ? Map.of() : input);
 
@@ -85,7 +86,8 @@ public class FlowService {
     /** 供单测 / 内部直接跑图（不落库）。 */
     public FlowEngine.EngineResult runGraph(Map<String, Object> graph, Map<String, Object> input) {
         String id = Ids.newId("fr");
-        return engine.run(id, graph, input == null ? Map.of() : input);
+        Map<String, Object> migrated = LlmNodeConfigMigrator.migrate(graph);
+        return engine.run(id, migrated, input == null ? Map.of() : input);
     }
 
     public void validateGraph(Map<String, Object> graph) {

@@ -4,10 +4,11 @@ import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 
 /**
  * 各用途默认路由方案（V117 {@code model_default_plan}）。
+ * {@code update_at} 为 TIMESTAMPTZ，映射 {@link OffsetDateTime}。
  */
 @TableName("model_default_plan")
 public class ModelDefaultPlanDO {
@@ -15,7 +16,7 @@ public class ModelDefaultPlanDO {
     private String purpose;
     private String routingPlanId;
     private String bindingId;
-    private LocalDateTime updateAt;
+    private OffsetDateTime updateAt;
     private String updateBy;
 
     public String getPurpose() { return purpose; }
@@ -24,8 +25,8 @@ public class ModelDefaultPlanDO {
     public void setRoutingPlanId(String routingPlanId) { this.routingPlanId = routingPlanId; }
     public String getBindingId() { return bindingId; }
     public void setBindingId(String bindingId) { this.bindingId = bindingId; }
-    public LocalDateTime getUpdateAt() { return updateAt; }
-    public void setUpdateAt(LocalDateTime updateAt) { this.updateAt = updateAt; }
+    public OffsetDateTime getUpdateAt() { return updateAt; }
+    public void setUpdateAt(OffsetDateTime updateAt) { this.updateAt = updateAt; }
     public String getUpdateBy() { return updateBy; }
     public void setUpdateBy(String updateBy) { this.updateBy = updateBy; }
 }

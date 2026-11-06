@@ -1,10 +1,13 @@
 package com.tioka.flow.application;
 
 import com.tioka.framework.id.Ids;
-
+import com.tioka.framework.security.Principal;
+import com.tioka.framework.security.PrincipalHolder;
+import com.tioka.framework.security.SystemPrincipals;
 import com.tioka.flow.application.exec.NodeExecContext;
 import com.tioka.flow.application.exec.NodeExecutor;
 import com.tioka.flow.application.exec.NodeExecutorRegistry;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Component;
 
 import java.util.*;
@@ -17,10 +20,13 @@ import java.util.concurrent.*;
 public class FlowEngine {
     private static final int PARALLELISM = 4;
     private final NodeExecutorRegistry registry;
+    private final ObjectProvider<PrincipalHolder> principals;
     private final ExecutorService pool;
 
-    public FlowEngine(NodeExecutorRegistry registry) {
+    public FlowEngine(NodeExecutorRegistry registry,
+                      ObjectProvider<PrincipalHolder> principals) {
         this.registry = registry;
+        this.principals = principals;
         this.pool = Executors.newFixedThreadPool(PARALLELISM, r -> {
             Thread t = new Thread(r, "flow-engine");
             t.setDaemon(true);
@@ -42,7 +48,7 @@ public class FlowEngine {
             byId.put(String.valueOf(node.get("id")), node);
         }
 
-        NodeExecContext ctx = new NodeExecContext(runId, input);
+        NodeExecContext ctx = new NodeExecContext(runId, resolveRunAs(), input);
         List<Map<String, Object>> trace = Collections.synchronizedList(new ArrayList<>());
 
         try {
@@ -197,6 +203,8 @@ public class FlowEngine {
                            String parallelGroup, List<Map<String, Object>> trace) throws Exception {
         String type = String.valueOf(node.get("type"));
         String id = String.valueOf(node.get("id"));
+        String nodeRunId = Ids.newId("fnr");
+        ctx.beginNodeRun(nodeRunId);
         NodeExecutor executor = registry.require(type);
         Object output;
         try {
@@ -205,6 +213,7 @@ public class FlowEngine {
             Map<String, Object> fail = new LinkedHashMap<>();
             fail.put("id", id);
             fail.put("type", type);
+            fail.put("nodeRunId", nodeRunId);
             fail.put("input", input == null ? Map.of() : input);
             fail.put("error", e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage());
             if (parallelGroup != null) fail.put("parallelGroup", parallelGroup);
@@ -215,11 +224,20 @@ public class FlowEngine {
         Map<String, Object> step = new LinkedHashMap<>();
         step.put("id", id);
         step.put("type", type);
+        step.put("nodeRunId", nodeRunId);
         step.put("input", input == null ? Map.of() : input);
         step.put("output", output == null ? Map.of() : output);
         if (parallelGroup != null) step.put("parallelGroup", parallelGroup);
         trace.add(step);
         return output;
+    }
+
+    private Principal resolveRunAs() {
+        PrincipalHolder holder = principals == null ? null : principals.getIfAvailable();
+        if (holder == null) {
+            return SystemPrincipals.system();
+        }
+        return holder.find().orElse(SystemPrincipals.system());
     }
 
     private static Object lastMeaningfulOutput(List<Map<String, Object>> trace) {
