@@ -106,3 +106,10 @@ CREATE TABLE kb_eval_run (id VARCHAR(32) PRIMARY KEY, set_id VARCHAR(32) NOT NUL
 ## 修订（2026-11-05）
 
 见 [ADR-029](ADR-029-design-rulings.md) 第 23 条：统一向量维度；数据源不再指定 Confluence、GitLab，改为通用连接器 SDK 加 HTTP/REST、S3/MinIO/NAS、JDBC 三类通用连接器；`ChangeEvent` 增加可选 `aclPrincipals`，有源权限时检索取知识库级与文档级权限的交集。
+
+## 修订：记忆与上下文工程调研落地（2026-11-06）
+
+来由：[调研 03](../research/03-Agent记忆与上下文工程调研.md)；按负责人「有选项时按推荐方案直接写设计」的要求落地，见 ADR-029 第 68 条。
+
+- **自动检索结果的位置**：每轮自动检索的结果放在本轮尾部，不进入历史；回答实际采用的片段以 citation item 留在历史中（[ADR-048](ADR-048-context-engineering.md) 第 1 节）。
+- 记忆的本轮检索复用本 ADR 的混合召回组件（[ADR-050](ADR-050-memory-system.md) 第 4.2 节）。记忆与知识库的边界见 ADR-050 第 1 节。

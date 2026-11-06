@@ -111,3 +111,12 @@ ID 前缀：`dset` 数据集。新增错误码：`NO_ELIGIBLE_MODEL`、`DATA_LAB
 | DAT-01 | 数据集登记、DatasetPolicy、连接器 SDK 行列执行（JDBC 与通用 REST；业务插件随 CON-07） | M3 | P1 | 6 | 通用连接器 SDK | G3：两位不同区域用户问同一问题，得到不同的行与掩码 |
 | DAT-02 | 数据标签传播、黑板与对外去向许可 | M3 | P1 | 5 | GOV-10、MAS-01 | G3：CONFIDENTIAL 结果不能原文发到外部群 |
 | DAT-03 | 标签 → 可用路由计划 | M3 | P1 | 2 | MH-06 | G3：读到 SECRET 后不再调用未获许可的模型 |
+
+## 修订：记忆与上下文工程调研落地（2026-11-06）
+
+来由：[调研 03](../research/03-Agent记忆与上下文工程调研.md)；按负责人「有选项时按推荐方案直接写设计」的要求落地，见 ADR-029 第 68 条。
+
+- **记忆的可移植与注入**（[ADR-050](ADR-050-memory-system.md) 第 2.3 节）：USER 记忆中只有标签 ≤ `INTERNAL` 的偏好与指令类可跨空间生效，事实类与 `CONFIDENTIAL` 及以上只在来源空间生效；标签高于当前 Turn 可用路由计划许可密级的记忆不注入，避免因记忆导致 `NO_ELIGIBLE_MODEL`。
+- 空间记忆与经验库同样只接受空间配置上限（默认 `INTERNAL`）以内的条目，并必须人审。
+- 来源 Turn 标签为 `SECRET` 时不抽取记忆。
+- 子 Agent `WITH_SUMMARY` 传入模式下，父会话摘要标签超过子授予 `maxDataLabel` 时降为 `ISOLATED`（[ADR-048](ADR-048-context-engineering.md) 第 3.1 节）。

@@ -110,3 +110,10 @@ CREATE TABLE skill_version (id VARCHAR(32) PRIMARY KEY, package_id VARCHAR(64) N
 - **新增 `execution` 段**（[ADR-046](ADR-046-execution-strategy.md)）：执行策略、策略参数、执行器、是否允许运行时覆盖。M3（EXE-01）只允许 `REACT` + `NATIVE`，其余取值发布校验拒绝；M4 开放 `PLAN_EXECUTE`、`REFLECT`；外部执行器（[ADR-047](ADR-047-external-executor.md)）在 M4 之后。
 - **ToolSet 增加「常用工具」可选字段**，供工具检索（ADR-016 修订 RT-13）使用。
 - **通用助手模板（AST-10，M4 之后）**：平台预置一个 TEAM 型模板 Agent，内置联网检索、文件、代码沙箱、Skill 库与临时子 Agent 模板，作为入口路由的兜底目标；只能克隆后使用。
+
+## 修订：记忆与上下文工程调研落地（2026-11-06）
+
+来由：[调研 03](../research/03-Agent记忆与上下文工程调研.md)；按负责人「有选项时按推荐方案直接写设计」的要求落地，见 ADR-029 第 68 条。
+
+- AgentSpec 新增两段，随版本冻结：`context`（有效预算上限、清理阈值、保留 Turn 数、不清理的工具、摘要补充说明、子 Agent 传入模式与回传上限，见 [ADR-048](ADR-048-context-engineering.md) 第 5 节）与 `memory`（读取范围、写入模式、默认 Agent 亲和，见 [ADR-050](ADR-050-memory-system.md) 第 5 节）。M3 由 AST-11 预留并固定为默认值，M4 由 CTX-02、MEM-01 开放配置。
+- 发布校验增加一条：Agent 指令中出现时间类变量占位时给出警告，提示改到环境信息段（[ADR-049](ADR-049-prompt-caching.md) 规则 C1）。
