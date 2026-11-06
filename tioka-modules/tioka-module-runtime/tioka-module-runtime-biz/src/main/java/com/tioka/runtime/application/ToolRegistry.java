@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 @Component
 public class ToolRegistry {
@@ -14,6 +15,22 @@ public class ToolRegistry {
 
     public ToolRegistry(List<ToolProvider> providers) {
         this.providers = providers;
+    }
+
+    public record ResolvedTool(ToolProvider provider, ToolProvider.ToolDescriptor descriptor) {}
+
+    public Optional<ResolvedTool> resolve(String agentVersionId, String toolName) {
+        if (agentVersionId == null || agentVersionId.isBlank() || toolName == null || toolName.isBlank()) {
+            return Optional.empty();
+        }
+        for (ToolProvider p : providers) {
+            for (ToolProvider.ToolDescriptor d : p.listTools(agentVersionId)) {
+                if (toolName.equals(d.name())) {
+                    return Optional.of(new ResolvedTool(p, d));
+                }
+            }
+        }
+        return Optional.empty();
     }
 
     public List<ToolProvider.ToolDescriptor> listAll(String agentVersionId) {
@@ -26,16 +43,9 @@ public class ToolRegistry {
 
     public ToolProvider.ToolResult invoke(String agentVersionId, String toolName, Map<String, Object> args) {
         Map<String, Object> safeArgs = args == null ? Map.of() : args;
-        if (agentVersionId == null || agentVersionId.isBlank()) {
-            return new ToolProvider.ToolResult(false, "tool not found: " + toolName);
-        }
-        for (ToolProvider p : providers) {
-            boolean known = p.listTools(agentVersionId).stream().anyMatch(t -> t.name().equals(toolName));
-            if (known) {
-                return p.invoke(agentVersionId, toolName, safeArgs);
-            }
-        }
-        return new ToolProvider.ToolResult(false, "tool not found: " + toolName);
+        return resolve(agentVersionId, toolName)
+                .map(r -> r.provider().invoke(agentVersionId, toolName, safeArgs))
+                .orElseGet(() -> new ToolProvider.ToolResult(false, "tool not found: " + toolName));
     }
 
     public List<Map<String, Object>> asOpenAiTools(String agentVersionId) {

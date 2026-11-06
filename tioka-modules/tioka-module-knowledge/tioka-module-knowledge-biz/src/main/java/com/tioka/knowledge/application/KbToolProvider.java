@@ -1,6 +1,7 @@
 package com.tioka.knowledge.application;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.tioka.framework.security.Permissions;
 import com.tioka.runtime.api.spi.ToolProvider;
 import org.springframework.stereotype.Component;
 
@@ -25,29 +26,39 @@ public class KbToolProvider implements ToolProvider {
     @Override
     public List<ToolDescriptor> listTools(String agentVersionId) {
         return List.of(
-                new ToolDescriptor(
-                        "kb.search",
-                        "Search knowledge base",
-                        Map.of("type", "object",
+                ToolDescriptor.builder()
+                        .name("kb.search")
+                        .description("Search knowledge base")
+                        .requiredPermission(Permissions.KB_READ)
+                        .inputSchema(Map.of(
+                                "type", "object",
                                 "properties", Map.of(
                                         "kbId", Map.of("type", "string"),
+                                        "kbIds", Map.of("type", "array", "items", Map.of("type", "string")),
                                         "query", Map.of("type", "string"),
                                         "topK", Map.of("type", "integer")),
-                                "required", List.of("kbId", "query"))),
-                new ToolDescriptor(
-                        "kb.read_chunk",
-                        "Read a knowledge chunk by chunkId",
-                        Map.of("type", "object",
+                                "required", List.of("query")))
+                        .build(),
+                ToolDescriptor.builder()
+                        .name("kb.read_chunk")
+                        .description("Read a knowledge chunk by chunkId")
+                        .requiredPermission(Permissions.KB_READ)
+                        .inputSchema(Map.of(
+                                "type", "object",
                                 "properties", Map.of("chunkId", Map.of("type", "string")),
-                                "required", List.of("chunkId"))),
-                new ToolDescriptor(
-                        "kb.read_document",
-                        "Read document text by docId (optional maxChunks)",
-                        Map.of("type", "object",
+                                "required", List.of("chunkId")))
+                        .build(),
+                ToolDescriptor.builder()
+                        .name("kb.read_document")
+                        .description("Read document text by docId (optional maxChunks)")
+                        .requiredPermission(Permissions.KB_READ)
+                        .inputSchema(Map.of(
+                                "type", "object",
                                 "properties", Map.of(
                                         "docId", Map.of("type", "string"),
                                         "maxChunks", Map.of("type", "integer")),
                                 "required", List.of("docId")))
+                        .build()
         );
     }
 
@@ -65,21 +76,42 @@ public class KbToolProvider implements ToolProvider {
         }
     }
 
+    @SuppressWarnings("unchecked")
     private ToolResult invokeSearch(Map<String, Object> arguments) throws Exception {
-        String kbId = String.valueOf(arguments.get("kbId"));
         String query = String.valueOf(arguments.get("query"));
         int topK = arguments.get("topK") == null ? 3 : Integer.parseInt(String.valueOf(arguments.get("topK")));
-        var hits = knowledgeService.search(kbId, query, topK);
+        List<String> kbIds = new ArrayList<>();
+        Object multi = arguments.get("kbIds");
+        if (multi instanceof List<?> list) {
+            for (Object o : list) {
+                if (o != null && !String.valueOf(o).isBlank()) {
+                    kbIds.add(String.valueOf(o));
+                }
+            }
+        }
+        if (arguments.get("kbId") != null && !String.valueOf(arguments.get("kbId")).isBlank()) {
+            String id = String.valueOf(arguments.get("kbId"));
+            if (!kbIds.contains(id)) {
+                kbIds.add(id);
+            }
+        }
+        if (kbIds.isEmpty()) {
+            return new ToolResult(false, "kbId/kbIds required");
+        }
         List<Map<String, Object>> out = new ArrayList<>();
-        for (var h : hits) {
-            Map<String, Object> m = new LinkedHashMap<>();
-            m.put("citationId", h.citationId());
-            m.put("chunkId", h.chunkId());
-            m.put("docId", h.docId());
-            m.put("text", h.text());
-            m.put("score", h.score());
-            m.put("title", h.title());
-            out.add(m);
+        for (String kbId : kbIds) {
+            var hits = knowledgeService.search(kbId, query, topK);
+            for (var h : hits) {
+                Map<String, Object> m = new LinkedHashMap<>();
+                m.put("citationId", h.citationId());
+                m.put("chunkId", h.chunkId());
+                m.put("docId", h.docId());
+                m.put("kbId", kbId);
+                m.put("text", h.text());
+                m.put("score", h.score());
+                m.put("title", h.title());
+                out.add(m);
+            }
         }
         return new ToolResult(true, mapper.writeValueAsString(out));
     }

@@ -2,6 +2,8 @@ package com.tioka.runtime.kernel.application;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.tioka.agent.api.AgentSnapshotApi;
+import com.tioka.agent.api.spec.AgentSpec;
 import com.tioka.framework.error.BizException;
 import com.tioka.framework.error.ErrorCode;
 import com.tioka.framework.security.Principal;
@@ -33,6 +35,10 @@ import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
@@ -58,6 +64,7 @@ public class TurnRunner {
     private final RuntimeEventFactory events;
     private final ObjectProvider<RuntimeTestHooks> testHooks;
     private final TurnDispatchQueue dispatchQueue;
+    private final ObjectProvider<AgentSnapshotApi> agentSnapshots;
 
     public TurnRunner(TurnRepository turns,
                       RuntimeSessionRepository sessions,
@@ -73,7 +80,8 @@ public class TurnRunner {
                       EventStream streams,
                       RuntimeEventFactory events,
                       ObjectProvider<RuntimeTestHooks> testHooks,
-                      TurnDispatchQueue dispatchQueue) {
+                      TurnDispatchQueue dispatchQueue,
+                      ObjectProvider<AgentSnapshotApi> agentSnapshots) {
         this.turns = turns;
         this.sessions = sessions;
         this.sessionLock = sessionLock;
@@ -89,6 +97,7 @@ public class TurnRunner {
         this.events = events;
         this.testHooks = testHooks;
         this.dispatchQueue = dispatchQueue;
+        this.agentSnapshots = agentSnapshots;
     }
 
     public void run(String turnId) {
@@ -136,6 +145,9 @@ public class TurnRunner {
                     // RT-06：崩溃续跑从已累计的 step_count 继续（中断前 model 步已 increment）
                     int startStep = turn.getStepCount() == null ? 0 : turn.getStepCount();
                     String approvalPolicy = parseApprovalPolicy(turn.getOptionsJson());
+                    List<String> toolAllowList = parseToolAllowList(turn.getOptionsJson());
+                    Map<String, Object> agentToolConfig = agentToolConfigOf(
+                            session == null ? null : session.getAgentVersionId());
                     LoopContext ctx = new LoopContext(threadId, turnId, finalLv,
                             maxSteps, props.getLoop().getRepeatCallLimit(), startStep,
                             c -> {
@@ -148,7 +160,10 @@ public class TurnRunner {
                             session == null ? null : session.getRoutingPlanId(),
                             session == null ? null : session.getWorkspaceId(),
                             runAs.userId(),
-                            approvalPolicy);
+                            approvalPolicy,
+                            session == null ? null : session.getOrigin(),
+                            toolAllowList,
+                            agentToolConfig);
                     return agentLoop.run(ctx);
                 });
                 if (result.status() == TurnStatus.WAITING_APPROVAL) {
@@ -266,6 +281,55 @@ public class TurnRunner {
             return p == null || p.isBlank() ? null : p;
         } catch (Exception e) {
             return null;
+        }
+    }
+
+    private List<String> parseToolAllowList(String optionsJson) {
+        if (optionsJson == null || optionsJson.isBlank()) {
+            return List.of();
+        }
+        try {
+            JsonNode n = mapper.readTree(optionsJson).path("toolAllowList");
+            if (!n.isArray()) {
+                return List.of();
+            }
+            List<String> out = new ArrayList<>();
+            for (JsonNode item : n) {
+                if (item != null && item.isTextual() && !item.asText().isBlank()) {
+                    out.add(item.asText());
+                }
+            }
+            return out;
+        } catch (Exception e) {
+            return List.of();
+        }
+    }
+
+    /** CON-01：从 Agent 快照抽出 mcpGrants 放入 ToolCallContext.agentToolConfig。 */
+    private Map<String, Object> agentToolConfigOf(String agentVersionId) {
+        if (agentVersionId == null || agentVersionId.isBlank()) {
+            return Map.of();
+        }
+        AgentSnapshotApi snapshots = agentSnapshots.getIfAvailable();
+        if (snapshots == null) {
+            return Map.of();
+        }
+        try {
+            AgentSpec.ToolSet tools = snapshots.get(agentVersionId).spec().tools();
+            if (tools == null || tools.mcp() == null || tools.mcp().isEmpty()) {
+                return Map.of("mcpGrants", List.of());
+            }
+            List<Map<String, Object>> grants = new ArrayList<>();
+            for (AgentSpec.ToolSet.McpBinding b : tools.mcp()) {
+                Map<String, Object> g = new LinkedHashMap<>();
+                g.put("serverId", b.serverId());
+                g.put("allowlist", b.allowlist() == null ? List.of() : b.allowlist());
+                grants.add(g);
+            }
+            return Map.of("mcpGrants", grants);
+        } catch (RuntimeException e) {
+            log.warn("load agentToolConfig failed version={}: {}", agentVersionId, e.toString());
+            return Map.of();
         }
     }
 

@@ -12,6 +12,8 @@ import org.springframework.stereotype.Component;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
 
 /**
  * 将 Agent 版本快照内的 MCP 工具暴露给 Runtime ToolRegistry（AST-01：读 AgentSpec.tools.mcp）。
@@ -20,10 +22,12 @@ import java.util.Map;
 public class McpToolProvider implements ToolProvider {
     private final McpAdminService mcpAdminService;
     private final AgentSnapshotApi snapshots;
+    private final McpStore store;
 
-    public McpToolProvider(McpAdminService mcpAdminService, AgentSnapshotApi snapshots) {
+    public McpToolProvider(McpAdminService mcpAdminService, AgentSnapshotApi snapshots, McpStore store) {
         this.mcpAdminService = mcpAdminService;
         this.snapshots = snapshots;
+        this.store = store;
     }
 
     @Override
@@ -32,11 +36,22 @@ public class McpToolProvider implements ToolProvider {
     @Override
     public List<ToolDescriptor> listTools(String agentVersionId) {
         if (agentVersionId == null || agentVersionId.isBlank()) return List.of();
-        List<McpAdminService.McpBinding> bindings = bindingsOf(agentVersionId);
+        List<McpAdminService.McpBinding> bindings;
+        try {
+            bindings = bindingsOf(agentVersionId);
+        } catch (BizException e) {
+            // 解析扫描时版本可能尚未绑定 MCP；视为无工具而非致命错误
+            return List.of();
+        }
         List<McpStore.Tool> tools = mcpAdminService.toolsForMcpBindings(bindings);
         List<ToolDescriptor> out = new ArrayList<>();
         for (McpStore.Tool t : tools) {
-            out.add(new ToolDescriptor(t.name(), t.description(), t.inputSchema(), parseRisk(t.risk())));
+            out.add(ToolDescriptor.builder()
+                    .name(t.name())
+                    .description(t.description())
+                    .inputSchema(t.inputSchema())
+                    .risk(parseRisk(t.risk()))
+                    .build());
         }
         return out;
     }
@@ -64,6 +79,29 @@ public class McpToolProvider implements ToolProvider {
         }
         var r = mcpAdminService.callToolWithMcpBindings(bindingsOf(agentVersionId), toolName, arguments);
         return new ToolResult(r.ok(), r.content());
+    }
+
+    @Override
+    public Optional<String> mcpServerId(String agentVersionId, String toolName) {
+        for (McpAdminService.McpBinding b : bindingsOf(agentVersionId)) {
+            if (b == null || b.serverId() == null) continue;
+            if (b.allowlist() != null && !b.allowlist().isEmpty() && !b.allowlist().contains(toolName)) {
+                continue;
+            }
+            for (McpStore.Tool t : store.tools(b.serverId())) {
+                if (Objects.equals(t.name(), toolName)) {
+                    return Optional.of(b.serverId());
+                }
+            }
+        }
+        return Optional.empty();
+    }
+
+    @Override
+    public Optional<String> egressUrl(String agentVersionId, String toolName) {
+        return mcpServerId(agentVersionId, toolName).flatMap(sid ->
+                store.getServer(sid).map(McpStore.McpServer::baseUrl)
+                        .filter(u -> u != null && !u.isBlank() && !u.startsWith("mock://")));
     }
 
     private List<McpAdminService.McpBinding> bindingsOf(String agentVersionId) {
