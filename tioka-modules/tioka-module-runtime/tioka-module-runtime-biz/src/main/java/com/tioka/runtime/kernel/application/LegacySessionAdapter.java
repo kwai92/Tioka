@@ -72,8 +72,10 @@ public class LegacySessionAdapter implements RuntimeSessionApi {
 
     @Override
     public TurnView append(String sessionId, AppendRequest request) {
+        String clientMsgId = request.clientMsgId() == null || request.clientMsgId().isBlank()
+                ? Ids.newId("cm") : request.clientMsgId();
         RuntimeApi.TurnHandle handle = runtime.startTurn(sessionId, new RuntimeApi.StartTurnCmd(
-                request.clientMsgId(),
+                clientMsgId,
                 List.of(RuntimeApi.InputItem.text(request.text())),
                 null,
                 "chat",

@@ -76,6 +76,10 @@ public class KernelRuntimeService implements RuntimeApi {
     @Override
     @Transactional
     public ThreadView createThread(CreateThreadCmd cmd) {
+        if (cmd == null) {
+            throw new BizException(ErrorCode.BAD_REQUEST, "CreateThreadCmd 必填");
+        }
+        requireText(cmd.agentVersionId(), "agentVersionId");
         Principal p = principals.current();
         AgentQueryApi.AgentVersionView ver = agents.requirePublished(cmd.agentVersionId());
         String id = Ids.newId("thr");
@@ -87,7 +91,7 @@ public class KernelRuntimeService implements RuntimeApi {
         row.setWorkspaceId(p.workspaceId());
         row.setOwnerId(p.userId());
         row.setLastItemSeq(0L);
-        row.setOrigin(cmd.origin() == null ? "chat" : cmd.origin());
+        row.setOrigin(blankToNull(cmd.origin()) == null ? "chat" : cmd.origin());
         row.setOriginRef(cmd.originRef());
         row.setDepth(0);
         if (cmd.metadata() != null && !cmd.metadata().isEmpty()) {
@@ -104,13 +108,16 @@ public class KernelRuntimeService implements RuntimeApi {
     @Override
     @Transactional
     public TurnHandle startTurn(String threadId, StartTurnCmd cmd) {
+        requireText(threadId, "threadId");
+        if (cmd == null) {
+            throw new BizException(ErrorCode.BAD_REQUEST, "StartTurnCmd 必填");
+        }
+        requireText(cmd.clientMsgId(), "clientMsgId");
         requireThread(threadId);
-        if (cmd.clientMsgId() != null) {
-            var existing = turns.findBySessionAndClientMsgId(threadId, cmd.clientMsgId());
-            if (existing.isPresent()) {
-                RuntimeTurnDO t = existing.get();
-                return new TurnHandle(t.getId(), TurnStatus.valueOf(t.getStatus()), eventsUrl(threadId));
-            }
+        var existing = turns.findBySessionAndClientMsgId(threadId, cmd.clientMsgId());
+        if (existing.isPresent()) {
+            RuntimeTurnDO t = existing.get();
+            return new TurnHandle(t.getId(), TurnStatus.valueOf(t.getStatus()), eventsUrl(threadId));
         }
         int active = turns.countActive(threadId);
         if (active >= props.getMaxQueuedPerThread()) {
@@ -122,7 +129,7 @@ public class KernelRuntimeService implements RuntimeApi {
         t.setSessionId(threadId);
         t.setSeq(turns.nextSeq(threadId));
         t.setStatus(TurnStatus.QUEUED.name());
-        t.setOrigin(cmd.origin() == null ? "chat" : cmd.origin());
+        t.setOrigin(blankToNull(cmd.origin()) == null ? "chat" : cmd.origin());
         t.setOriginRef(cmd.originRef());
         t.setClientMsgId(cmd.clientMsgId());
         t.setRunAsJson(runAsJson());
@@ -167,6 +174,7 @@ public class KernelRuntimeService implements RuntimeApi {
 
     @Override
     public void interrupt(String turnId) {
+        requireText(turnId, "turnId");
         RuntimeTurnDO t = turns.findById(turnId)
                 .orElseThrow(() -> new BizException(ErrorCode.NOT_FOUND, "turn 不存在"));
         requireThread(t.getSessionId());
@@ -175,6 +183,7 @@ public class KernelRuntimeService implements RuntimeApi {
 
     @Override
     public void steer(String turnId, String text) {
+        requireText(turnId, "turnId");
         RuntimeTurnDO t = turns.findById(turnId)
                 .orElseThrow(() -> new BizException(ErrorCode.NOT_FOUND, "turn 不存在"));
         requireThread(t.getSessionId());
@@ -183,11 +192,16 @@ public class KernelRuntimeService implements RuntimeApi {
 
     @Override
     public void decideApproval(String approvalId, ApprovalDecision decision) {
+        requireText(approvalId, "approvalId");
+        if (decision == null) {
+            throw new BizException(ErrorCode.BAD_REQUEST, "ApprovalDecision 必填");
+        }
         throw NotImplemented.of("runtime-approval", "RT-07");
     }
 
     @Override
     public TurnView getTurn(String turnId) {
+        requireText(turnId, "turnId");
         RuntimeTurnDO t = turns.findById(turnId)
                 .orElseThrow(() -> new BizException(ErrorCode.NOT_FOUND, "turn 不存在"));
         requireThread(t.getSessionId());
@@ -196,14 +210,23 @@ public class KernelRuntimeService implements RuntimeApi {
 
     @Override
     public List<ItemView> listItems(String threadId, long afterSeq, int limit) {
+        requireText(threadId, "threadId");
+        if (afterSeq < 0) {
+            throw new BizException(ErrorCode.BAD_REQUEST, "afterSeq 不能为负");
+        }
         requireThread(threadId);
-        return items.listAfterSeq(threadId, afterSeq, limit).stream()
+        int capped = Math.min(Math.max(limit, 1), 500);
+        return items.listAfterSeq(threadId, afterSeq, capped).stream()
                 .map(this::toItemView)
                 .toList();
     }
 
     @Override
     public ThreadView fork(String threadId, long atSeq) {
+        requireText(threadId, "threadId");
+        if (atSeq < 0) {
+            throw new BizException(ErrorCode.BAD_REQUEST, "atSeq 不能为负");
+        }
         throw NotImplemented.of("runtime-fork", "M3");
     }
 
@@ -293,5 +316,15 @@ public class KernelRuntimeService implements RuntimeApi {
         } catch (Exception e) {
             throw new BizException(ErrorCode.INTERNAL, "JSON 序列化失败");
         }
+    }
+
+    private static void requireText(String value, String name) {
+        if (value == null || value.isBlank()) {
+            throw new BizException(ErrorCode.BAD_REQUEST, name + " 必填");
+        }
+    }
+
+    private static String blankToNull(String value) {
+        return value == null || value.isBlank() ? null : value;
     }
 }
