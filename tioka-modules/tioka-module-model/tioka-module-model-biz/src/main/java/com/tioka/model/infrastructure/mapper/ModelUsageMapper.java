@@ -127,4 +127,20 @@ public interface ModelUsageMapper extends BaseMapper<ModelUsageDO> {
             WHERE session_id = #{sessionId}
             """)
     Map<String, Object> sessionAggregate(@Param("sessionId") String sessionId);
+
+    /** GOV-03 对账：workspace / user / agent 本窗口 token 合计。 */
+    @Select("""
+            SELECT COALESCE(SUM(prompt_tokens), 0) + COALESCE(SUM(completion_tokens), 0)
+            FROM model_usage
+            WHERE create_at >= #{from} AND create_at < #{to}
+              AND (
+                   (#{scopeType} = 'workspace' AND workspace_id = #{scopeId})
+                OR (#{scopeType} = 'user' AND user_id = #{scopeId})
+                OR (#{scopeType} = 'agent' AND agent_id = #{scopeId})
+              )
+            """)
+    Long sumTokensByScope(@Param("scopeType") String scopeType,
+                          @Param("scopeId") String scopeId,
+                          @Param("from") Instant from,
+                          @Param("to") Instant to);
 }

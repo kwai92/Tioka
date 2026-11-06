@@ -9,6 +9,7 @@ import com.tioka.model.api.gateway.ModelGateway;
 import com.tioka.model.domain.ModelEntities;
 import com.tioka.model.infrastructure.provider.ProviderClient;
 import com.tioka.model.infrastructure.provider.ProviderHttpException;
+import com.tioka.system.api.spi.QuotaGuard;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
@@ -19,8 +20,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 
 /**
- * MH-04 骨架 + MH-01 冻结 resolve + MH-02 故障接力 + MH-05 用量记账。
- * 配额/限流/重试退避由后续工作项填入。
+ * MH-04 骨架 + MH-01 冻结 resolve + MH-02 故障接力 + MH-05 用量记账 + GOV-03 配额。
+ * 限流/重试退避由 MH-03 填入。
  */
 @Service
 public class DefaultModelGateway implements ModelGateway {
@@ -29,6 +30,7 @@ public class DefaultModelGateway implements ModelGateway {
     private final ModelEntities entities;
     private final ApplicationEventPublisher events;
     private final UsageRecorder usage;
+    private final QuotaGuard quota;
     private final int failoverMax;
 
     public DefaultModelGateway(BindingResolver resolver,
@@ -36,17 +38,20 @@ public class DefaultModelGateway implements ModelGateway {
                                ModelEntities entities,
                                ApplicationEventPublisher events,
                                UsageRecorder usage,
+                               QuotaGuard quota,
                                @Value("${tioka.model.failover-max:2}") int failoverMax) {
         this.resolver = resolver;
         this.provider = provider;
         this.entities = entities;
         this.events = events;
         this.usage = usage;
+        this.quota = quota;
         this.failoverMax = Math.max(0, failoverMax);
     }
 
     @Override
     public ChatResult chat(ModelCallContext ctx, ChatRequest request, Consumer<StreamDelta> onDelta) {
+        precheck(ctx);
         BindingResolver.Resolution sel = resolver.resolve(ctx);
         List<String> chain = new ArrayList<>(sel.fallbackChain() == null ? List.of() : sel.fallbackChain());
         int failovers = 0;
@@ -159,6 +164,22 @@ public class DefaultModelGateway implements ModelGateway {
         long out = sel.binding() == null ? 0L : sel.binding().outputPriceMicros();
         usage.record(ctx, sel.bindingId(), sel.modelRef(),
                 promptTokens, completionTokens, in, out, latencyMs, status);
+        consume(ctx, promptTokens, completionTokens);
+    }
+
+    private void precheck(ModelCallContext ctx) {
+        if (ctx == null || ctx.principal() == null) {
+            return;
+        }
+        quota.precheckTokens(ctx.principal().workspaceId(), ctx.principal().userId(), ctx.agentId());
+    }
+
+    private void consume(ModelCallContext ctx, int promptTokens, int completionTokens) {
+        long tokens = (long) Math.max(0, promptTokens) + Math.max(0, completionTokens);
+        if (tokens <= 0 || ctx == null || ctx.principal() == null) {
+            return;
+        }
+        quota.consumeTokens(ctx.principal().workspaceId(), ctx.principal().userId(), ctx.agentId(), tokens);
     }
 
     private static int elapsedMs(long t0Nanos) {
@@ -172,6 +193,7 @@ public class DefaultModelGateway implements ModelGateway {
 
     @Override
     public EmbeddingResult embed(ModelCallContext ctx, EmbeddingRequest request) {
+        precheck(ctx);
         String forced = request == null ? null : request.bindingId();
         List<String> inputs = request == null || request.inputs() == null ? List.of() : request.inputs();
         long t0 = System.nanoTime();
@@ -190,6 +212,7 @@ public class DefaultModelGateway implements ModelGateway {
                 int promptTokens = inputs.stream().mapToInt(s -> s == null ? 0 : Math.max(1, s.length() / 3)).sum();
                 usage.record(ctx, "bnd_mock_local", "hash-embed@mock",
                         promptTokens, 0, 0L, 0L, elapsedMs(t0), "SUCCESS");
+                consume(ctx, promptTokens, 0);
                 return new EmbeddingResult(vectors, dim, promptTokens, "bnd_mock_local");
             }
             List<float[]> vectors = provider.embed(

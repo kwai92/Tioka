@@ -29,6 +29,7 @@ import com.tioka.runtime.kernel.infrastructure.redis.SessionLock;
 import com.tioka.runtime.kernel.infrastructure.redis.SignalBus;
 import com.tioka.runtime.kernel.infrastructure.redis.TurnDispatchQueue;
 import com.tioka.system.api.spi.PrincipalLoaderApi;
+import com.tioka.system.api.spi.QuotaGuard;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
@@ -65,6 +66,7 @@ public class TurnRunner {
     private final ObjectProvider<RuntimeTestHooks> testHooks;
     private final TurnDispatchQueue dispatchQueue;
     private final ObjectProvider<AgentSnapshotApi> agentSnapshots;
+    private final QuotaGuard quota;
 
     public TurnRunner(TurnRepository turns,
                       RuntimeSessionRepository sessions,
@@ -81,7 +83,8 @@ public class TurnRunner {
                       RuntimeEventFactory events,
                       ObjectProvider<RuntimeTestHooks> testHooks,
                       TurnDispatchQueue dispatchQueue,
-                      ObjectProvider<AgentSnapshotApi> agentSnapshots) {
+                      ObjectProvider<AgentSnapshotApi> agentSnapshots,
+                      QuotaGuard quota) {
         this.turns = turns;
         this.sessions = sessions;
         this.sessionLock = sessionLock;
@@ -98,6 +101,7 @@ public class TurnRunner {
         this.testHooks = testHooks;
         this.dispatchQueue = dispatchQueue;
         this.agentSnapshots = agentSnapshots;
+        this.quota = quota;
     }
 
     public void run(String turnId) {
@@ -115,21 +119,41 @@ public class TurnRunner {
         ScheduledFuture<?> renewFuture = null;
         long leaseVersion = -1;
         boolean finished = false;
+        boolean holdConcurrent = false;
+        String quotaWs = null;
+        String quotaUser = null;
         try {
-            var acquired = turns.acquire(turnId, props.getInstanceId(), Instant.now().plus(props.getLeaseTtl()));
+            // 派发线程尚无 Principal：不可查 workspace 作用域表，从 run_as 解析配额 scope
+            quotaWs = peekRunAsWorkspaceId(turn.getRunAsJson());
+            quotaUser = peekRunAsUserId(turn.getRunAsJson());
+            Instant leaseUntil = Instant.now().plus(props.getLeaseTtl());
+            // GOV-03：并发占位成功才 acquire；失败保持 QUEUED，5 秒后重投
+            if (!quota.tryAcquireConcurrent(quotaWs, quotaUser, turnId, leaseUntil)) {
+                log.debug("concurrent quota full, requeue in 5s turnId={}", turnId);
+                renewScheduler.schedule(() -> dispatchQueue.offer(turnId, threadId), 5, TimeUnit.SECONDS);
+                return;
+            }
+            holdConcurrent = true;
+
+            var acquired = turns.acquire(turnId, props.getInstanceId(), leaseUntil);
             if (acquired.isEmpty()) {
                 return;
             }
             leaseVersion = acquired.getAsLong();
             long lv = leaseVersion;
+            String ws = quotaWs;
+            String user = quotaUser;
             renewFuture = renewScheduler.scheduleAtFixedRate(() -> {
                 RuntimeTestHooks hooks = testHooks.getIfAvailable();
                 if (hooks != null && hooks.isFrozen()) {
                     return;
                 }
+                Instant next = Instant.now().plus(props.getLeaseTtl());
                 boolean ok = lock.renew()
-                        && turns.renew(turnId, lv, Instant.now().plus(props.getLeaseTtl())) > 0;
-                if (!ok) {
+                        && turns.renew(turnId, lv, next) > 0;
+                if (ok) {
+                    quota.renewConcurrent(ws, user, turnId, next);
+                } else {
                     lost.set(true);
                 }
             }, props.getLeaseRenewInterval().toMillis(), props.getLeaseRenewInterval().toMillis(), TimeUnit.MILLISECONDS);
@@ -168,6 +192,8 @@ public class TurnRunner {
                 });
                 if (result.status() == TurnStatus.WAITING_APPROVAL) {
                     // 挂起已在 ApprovalSuspendService 内完成；释放锁与并发槽，不 enqueueNext
+                    quota.releaseConcurrent(quotaWs, quotaUser, turnId);
+                    holdConcurrent = false;
                 } else {
                     int n = turns.finish(turnId, finalLv, result.status(),
                             result.errorCode(), truncate(result.errorMessage()),
@@ -178,6 +204,8 @@ public class TurnRunner {
                 }
             } catch (LeaseLost e) {
                 log.warn("turn {} lease lost; leave terminal to reaper", turnId);
+                // 槽位随 ZSet score 过期清理；不在此释放，避免假死复活双占
+                holdConcurrent = false;
             } catch (CancelledSignal e) {
                 turns.finish(turnId, lv, TurnStatus.CANCELLED, e.reason(), null, null, null);
                 publishTerminal(threadId, turnId, TurnStatus.CANCELLED);
@@ -189,6 +217,7 @@ public class TurnRunner {
                         || (hooks != null && hooks.isFrozen())
                         || !props.isReleaseOnShutdown()) {
                     log.warn("turn {} left for reaper after crash abort: {}", turnId, root.toString());
+                    holdConcurrent = false;
                 } else {
                     log.error("turn {} failed", turnId, e);
                     try {
@@ -204,6 +233,9 @@ public class TurnRunner {
                 signalBus.unregister(turnId);
             }
         } finally {
+            if (holdConcurrent) {
+                quota.releaseConcurrent(quotaWs, quotaUser, turnId);
+            }
             if (renewFuture != null) {
                 renewFuture.cancel(false);
             }
@@ -231,6 +263,27 @@ public class TurnRunner {
         };
         streams.publish(threadId, null, type.wire(),
                 events.turnStatus(type, threadId, turnId, status.name()));
+    }
+
+    /** 仅解析字段供并发配额占位；完整 Principal 仍走 {@link #resolveRunAs}。 */
+    private String peekRunAsUserId(String runAsJson) {
+        return peekRunAsField(runAsJson, "userId");
+    }
+
+    private String peekRunAsWorkspaceId(String runAsJson) {
+        return peekRunAsField(runAsJson, "workspaceId");
+    }
+
+    private String peekRunAsField(String runAsJson, String field) {
+        if (runAsJson == null || runAsJson.isBlank()) {
+            return null;
+        }
+        try {
+            String v = mapper.readTree(runAsJson).path(field).asText(null);
+            return v == null || v.isBlank() || "0".equals(v) ? null : v;
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     /** ADR-029 §6：按 turn.runAsJson 重载发起人权限，禁止一律 SYSTEM。 */

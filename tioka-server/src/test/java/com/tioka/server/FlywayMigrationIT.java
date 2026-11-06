@@ -91,4 +91,21 @@ class FlywayMigrationIT {
                 (rs, i) -> rs.getString(1));
         assertTrue(versions.contains("121"), "missing V121: " + versions);
     }
+
+    /** GOV-03 / V122：sys_quota 已由 gov_quota 取代并删除。 */
+    @Test
+    void sysQuotaDropped() {
+        Set<String> tables = jdbc.query(
+                        "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'",
+                        (rs, i) -> rs.getString(1))
+                .stream()
+                .map(String::toLowerCase)
+                .collect(Collectors.toSet());
+        assertTrue(!tables.contains("sys_quota"), "V122 后不应再有 sys_quota");
+        assertTrue(tables.contains("gov_quota"), "gov_quota 应存在");
+        List<String> versions = jdbc.query(
+                "SELECT version FROM flyway_schema_history WHERE success = true",
+                (rs, i) -> rs.getString(1));
+        assertTrue(versions.contains("122"), "missing V122: " + versions);
+    }
 }
