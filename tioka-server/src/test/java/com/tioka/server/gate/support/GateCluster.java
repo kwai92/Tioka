@@ -181,9 +181,10 @@ public final class GateCluster implements AutoCloseable {
         m.put("tioka.gate.mcp-base-url", mcpBaseUrl);
         m.put("tioka.runtime.executor.max-concurrent-turns", 128);
         m.put("tioka.runtime.executor.queue-capacity", 512);
-        // 闸门 profile：租约 TTL 5s，便于 crash 后观察过期
+        // 闸门 profile：租约 TTL 5s，便于 crash 后观察过期；回收扫描加速
         m.put("tioka.runtime.lease-ttl", "5s");
         m.put("tioka.runtime.lease-renew-interval", "2s");
+        m.put("tioka.runtime.lease-reaper-interval-ms", "1000");
         m.put("tioka.runtime.release-on-shutdown", true);
         m.put("tioka.runtime.dispatcher-enabled", true);
         m.put("tioka.runtime.queued-sweeper-enabled", true);

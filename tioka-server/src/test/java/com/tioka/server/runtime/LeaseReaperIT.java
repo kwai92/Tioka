@@ -23,6 +23,9 @@ import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+/**
+ * RT-06 W6：租约过期后第一步 INTERRUPTED，第二步默认续跑为 QUEUED（不再直接 FAILED）。
+ */
 @SpringBootTest
 @Tag("it")
 class LeaseReaperIT {
@@ -39,7 +42,7 @@ class LeaseReaperIT {
     @Autowired JdbcTemplate jdbc;
 
     @Test
-    void crashedTurnFails() {
+    void crashedTurnRequeued() {
         String threadId = Ids.newId("thr");
         String turnId = Ids.newId("turn");
 
@@ -72,8 +75,10 @@ class LeaseReaperIT {
         reaper.reap();
 
         RuntimeTurnDO after = turns.findById(turnId).orElseThrow();
-        assertEquals(TurnStatus.FAILED.name(), after.getStatus());
-        assertEquals("LEASE_LOST", after.getErrorCode());
+        assertEquals(TurnStatus.QUEUED.name(), after.getStatus());
+        assertEquals(1, after.getRecoverCount());
+        assertNull(after.getErrorCode());
+        assertTrue(after.getLeaseVersion() >= 2, "续跑应 bump lease_version");
     }
 
     private static Principal user(String uid, String ws) {

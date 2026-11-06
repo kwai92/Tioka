@@ -59,6 +59,16 @@ public class RuntimeEventFactory {
         return json(root);
     }
 
+    public String itemDiscarded(String threadId, String turnId, String itemId, long seq, String itemType) {
+        ObjectNode root = base(RuntimeEventType.ITEM_DISCARDED, threadId, turnId);
+        ObjectNode it = root.putObject("item");
+        it.put("itemId", itemId);
+        it.put("seq", seq);
+        it.put("itemType", itemType == null ? "message" : itemType);
+        it.putObject("content");
+        return json(root);
+    }
+
     public String turnStatus(RuntimeEventType type, String threadId, String turnId, String status) {
         ObjectNode root = base(type, threadId, turnId);
         root.putObject("turn").put("status", status);

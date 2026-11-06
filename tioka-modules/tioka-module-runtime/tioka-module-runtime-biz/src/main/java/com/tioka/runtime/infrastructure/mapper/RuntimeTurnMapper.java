@@ -12,7 +12,8 @@ public interface RuntimeTurnMapper {
     @Select("""
             SELECT id, session_id AS sessionId, seq, status, origin, origin_ref AS originRef,
                    client_msg_id AS clientMsgId, run_as_json AS runAsJson, options_json AS optionsJson,
-                   step_count AS stepCount, worker_id AS workerId, lease_version AS leaseVersion,
+                   step_count AS stepCount, recover_count AS recoverCount,
+                   worker_id AS workerId, lease_version AS leaseVersion,
                    lease_until AS leaseUntil, error_code AS errorCode, error_message AS errorMessage,
                    prompt_tokens AS promptTokens, completion_tokens AS completionTokens,
                    started_at AS startedAt, ended_at AS endedAt, create_at AS createAt, update_at AS updateAt
@@ -23,7 +24,8 @@ public interface RuntimeTurnMapper {
     @Select("""
             SELECT id, session_id AS sessionId, seq, status, origin, origin_ref AS originRef,
                    client_msg_id AS clientMsgId, run_as_json AS runAsJson, options_json AS optionsJson,
-                   step_count AS stepCount, worker_id AS workerId, lease_version AS leaseVersion,
+                   step_count AS stepCount, recover_count AS recoverCount,
+                   worker_id AS workerId, lease_version AS leaseVersion,
                    lease_until AS leaseUntil, error_code AS errorCode, error_message AS errorMessage,
                    prompt_tokens AS promptTokens, completion_tokens AS completionTokens,
                    started_at AS startedAt, ended_at AS endedAt, create_at AS createAt, update_at AS updateAt
@@ -137,17 +139,33 @@ public interface RuntimeTurnMapper {
     @Update("""
             UPDATE runtime_turn
                SET status = 'FAILED', error_code = #{errorCode}, error_message = #{errorMessage},
-                   ended_at = now(), update_at = now()
+                   ended_at = now(), lease_until = NULL, update_at = now()
              WHERE id = #{turnId} AND status = 'INTERRUPTED'
             """)
     int failInterrupted(@Param("turnId") String turnId,
                          @Param("errorCode") String errorCode,
                          @Param("errorMessage") String errorMessage);
 
+    /**
+     * RT-06：INTERRUPTED → QUEUED 续跑；{@code lease_version + 1} 使假死复活的原执行者写不进去。
+     */
+    @Update("""
+            UPDATE runtime_turn
+               SET status = 'QUEUED',
+                   recover_count = recover_count + 1,
+                   lease_version = lease_version + 1,
+                   worker_id = NULL,
+                   lease_until = NULL,
+                   update_at = now()
+             WHERE id = #{turnId} AND status = 'INTERRUPTED'
+            """)
+    int requeueInterrupted(String turnId);
+
     @Select("""
             SELECT id, session_id AS sessionId, seq, status, origin, origin_ref AS originRef,
                    client_msg_id AS clientMsgId, run_as_json AS runAsJson, options_json AS optionsJson,
-                   step_count AS stepCount, worker_id AS workerId, lease_version AS leaseVersion,
+                   step_count AS stepCount, recover_count AS recoverCount,
+                   worker_id AS workerId, lease_version AS leaseVersion,
                    lease_until AS leaseUntil, error_code AS errorCode, error_message AS errorMessage,
                    prompt_tokens AS promptTokens, completion_tokens AS completionTokens,
                    started_at AS startedAt, ended_at AS endedAt, create_at AS createAt, update_at AS updateAt
@@ -161,7 +179,8 @@ public interface RuntimeTurnMapper {
     @Select("""
             SELECT id, session_id AS sessionId, seq, status, origin, origin_ref AS originRef,
                    client_msg_id AS clientMsgId, run_as_json AS runAsJson, options_json AS optionsJson,
-                   step_count AS stepCount, worker_id AS workerId, lease_version AS leaseVersion,
+                   step_count AS stepCount, recover_count AS recoverCount,
+                   worker_id AS workerId, lease_version AS leaseVersion,
                    lease_until AS leaseUntil, error_code AS errorCode, error_message AS errorMessage,
                    prompt_tokens AS promptTokens, completion_tokens AS completionTokens,
                    started_at AS startedAt, ended_at AS endedAt, create_at AS createAt, update_at AS updateAt

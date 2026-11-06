@@ -23,15 +23,28 @@ public class RuntimeTestHooks {
         return frozen.get();
     }
 
-    /** 工具调用入口：冻结时阻塞直到中断（崩溃关闭上下文）。 */
+    /**
+     * 工具调用入口：冻结时阻塞。关闭上下文中断线程时抛 {@link CrashFrozenAbort}，
+     * 由 {@link TurnRunner} 捕获后不写终态，留给 {@link LeaseReaper}。
+     */
     public void awaitUnfrozenOrInterrupt() {
         while (frozen.get()) {
             try {
                 Thread.sleep(50);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
+                if (frozen.get()) {
+                    throw new CrashFrozenAbort();
+                }
                 return;
             }
+        }
+    }
+
+    /** 崩溃模拟：冻结中被中断，Turn 不得自行 FAILED。 */
+    public static final class CrashFrozenAbort extends RuntimeException {
+        public CrashFrozenAbort() {
+            super("runtime test hook frozen abort");
         }
     }
 }

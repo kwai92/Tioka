@@ -133,8 +133,10 @@ public class TurnRunner {
                 principals.runAs(runAs, () -> {
                     RuntimeSessionDO session = sessions.find(threadId);
                     int maxSteps = props.getLoop().getMaxSteps();
+                    // RT-06：崩溃续跑从已累计的 step_count 继续（中断前 model 步已 increment）
+                    int startStep = turn.getStepCount() == null ? 0 : turn.getStepCount();
                     LoopContext ctx = new LoopContext(threadId, turnId, finalLv,
-                            maxSteps, props.getLoop().getRepeatCallLimit(), 0,
+                            maxSteps, props.getLoop().getRepeatCallLimit(), startStep,
                             c -> {
                                 if (lost.get()) {
                                     throw new LeaseLost();
@@ -161,14 +163,22 @@ public class TurnRunner {
                 publishTerminal(threadId, turnId, TurnStatus.CANCELLED);
                 finished = true;
             } catch (RuntimeException e) {
-                log.error("turn {} failed", turnId, e);
-                try {
-                    turns.finish(turnId, lv, TurnStatus.FAILED, "INTERNAL",
-                            truncate(e.getMessage()), null, null);
-                    publishTerminal(threadId, turnId, TurnStatus.FAILED);
-                    finished = true;
-                } catch (RuntimeException ignored) {
-                    // ignore
+                Throwable root = unwrap(e);
+                RuntimeTestHooks hooks = testHooks.getIfAvailable();
+                if (root instanceof RuntimeTestHooks.CrashFrozenAbort
+                        || (hooks != null && hooks.isFrozen())
+                        || !props.isReleaseOnShutdown()) {
+                    log.warn("turn {} left for reaper after crash abort: {}", turnId, root.toString());
+                } else {
+                    log.error("turn {} failed", turnId, e);
+                    try {
+                        turns.finish(turnId, lv, TurnStatus.FAILED, "INTERNAL",
+                                truncate(e.getMessage()), null, null);
+                        publishTerminal(threadId, turnId, TurnStatus.FAILED);
+                        finished = true;
+                    } catch (RuntimeException ignored) {
+                        // ignore
+                    }
                 }
             } finally {
                 signalBus.unregister(turnId);
@@ -229,6 +239,16 @@ public class TurnRunner {
         } catch (Exception e) {
             throw new BizException(ErrorCode.INTERNAL, "无法解析 turn.runAs: " + e.getMessage());
         }
+    }
+
+    private static Throwable unwrap(Throwable e) {
+        Throwable cur = e;
+        while (cur.getCause() != null
+                && (cur instanceof java.util.concurrent.CompletionException
+                || cur instanceof java.util.concurrent.ExecutionException)) {
+            cur = cur.getCause();
+        }
+        return cur;
     }
 
     private static String truncate(String msg) {

@@ -87,6 +87,10 @@ public class TurnRepository {
         return mapper.failInterrupted(turnId, errorCode, errorMessage);
     }
 
+    public int requeueInterrupted(String turnId) {
+        return mapper.requeueInterrupted(turnId);
+    }
+
     public Optional<RuntimeTurnDO> nextQueued(String sessionId) {
         return Optional.ofNullable(mapper.nextQueued(sessionId));
     }

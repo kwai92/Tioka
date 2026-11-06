@@ -87,7 +87,9 @@ public class ModelEntitiesRepositoryImpl implements ModelEntitiesRepository {
 
     @Override
     public Optional<String> getFreeze(String sessionId, String turnId) {
+        // 只选 binding_id：TIMESTAMPTZ → LocalDateTime 在续跑二次选模时会炸（P1 时区债）
         ModelTurnFreezeDO row = freezes.selectOne(new LambdaQueryWrapper<ModelTurnFreezeDO>()
+                .select(ModelTurnFreezeDO::getBindingId)
                 .eq(ModelTurnFreezeDO::getSessionId, sessionId)
                 .eq(ModelTurnFreezeDO::getTurnId, turnId)
                 .last("LIMIT 1"));
@@ -97,6 +99,7 @@ public class ModelEntitiesRepositoryImpl implements ModelEntitiesRepository {
     @Override
     public void putFreeze(String sessionId, String turnId, String bindingId) {
         ModelTurnFreezeDO existing = freezes.selectOne(new LambdaQueryWrapper<ModelTurnFreezeDO>()
+                .select(ModelTurnFreezeDO::getBindingId, ModelTurnFreezeDO::getSessionId, ModelTurnFreezeDO::getTurnId)
                 .eq(ModelTurnFreezeDO::getSessionId, sessionId)
                 .eq(ModelTurnFreezeDO::getTurnId, turnId)
                 .last("LIMIT 1"));

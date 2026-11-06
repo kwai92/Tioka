@@ -4,6 +4,7 @@ import com.tioka.agent.api.AgentQueryApi;
 import com.tioka.framework.error.BizException;
 import com.tioka.framework.error.ErrorCode;
 import com.tioka.mcp.domain.McpStore;
+import com.tioka.runtime.api.approval.ToolRisk;
 import com.tioka.runtime.api.spi.ToolProvider;
 import org.springframework.stereotype.Component;
 
@@ -34,9 +35,20 @@ public class McpToolProvider implements ToolProvider {
         List<McpStore.Tool> tools = mcpAdminService.toolsForGrantIds(grantIds);
         List<ToolDescriptor> out = new ArrayList<>();
         for (McpStore.Tool t : tools) {
-            out.add(new ToolDescriptor(t.name(), t.description(), t.inputSchema()));
+            out.add(new ToolDescriptor(t.name(), t.description(), t.inputSchema(), parseRisk(t.risk())));
         }
         return out;
+    }
+
+    private static ToolRisk parseRisk(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return ToolRisk.WRITE;
+        }
+        try {
+            return ToolRisk.valueOf(raw.trim());
+        } catch (IllegalArgumentException e) {
+            return ToolRisk.WRITE;
+        }
     }
 
     @Override

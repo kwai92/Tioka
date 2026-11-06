@@ -28,6 +28,11 @@ public class KernelProperties {
     private boolean dispatcherEnabled = true;
     /** 是否启用 QueuedSweeper（与 dispatcher 同理，普通 IT 关闭以免污染共享 Redis）。 */
     private boolean queuedSweeperEnabled = true;
+    /**
+     * 崩溃续跑上限：{@code recover_count >= maxRecover} 时标 FAILED(LEASE_LOST)。
+     * 配置键 {@code tioka.runtime.max-recover}，默认 2（即最多续跑 2 次，第 3 次中断放弃）。
+     */
+    private int maxRecover = 2;
 
     public String getInstanceId() { return instanceId; }
     public void setInstanceId(String instanceId) { this.instanceId = instanceId; }
@@ -43,6 +48,8 @@ public class KernelProperties {
     public void setQueuedSweeperEnabled(boolean queuedSweeperEnabled) {
         this.queuedSweeperEnabled = queuedSweeperEnabled;
     }
+    public int getMaxRecover() { return maxRecover; }
+    public void setMaxRecover(int maxRecover) { this.maxRecover = maxRecover; }
     public Executor getExecutor() { return executor; }
     public void setExecutor(Executor executor) { this.executor = executor; }
     public int getMaxQueuedPerThread() { return maxQueuedPerThread; }

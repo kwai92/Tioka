@@ -68,9 +68,15 @@ public class GatewayToolPort implements LoopPorts.ToolPort {
         for (LoopPorts.ToolCall c : calls) {
             futures.add(CompletableFuture.supplyAsync(() -> invokeOne(toolCtx, c), pool)
                     .orTimeout(timeoutMs, TimeUnit.MILLISECONDS)
-                    .exceptionally(ex -> {
-                        long dur = timeoutMs;
+                    .handle((ok, ex) -> {
+                        if (ex == null) {
+                            return ok;
+                        }
                         Throwable root = ex.getCause() == null ? ex : ex.getCause();
+                        if (root instanceof RuntimeTestHooks.CrashFrozenAbort abort) {
+                            throw abort;
+                        }
+                        long dur = timeoutMs;
                         if (root instanceof TimeoutException) {
                             return new LoopPorts.ToolOutcome(c.callId(), c.name(), false, "timeout", dur);
                         }
@@ -100,6 +106,8 @@ public class GatewayToolPort implements LoopPorts.ToolPort {
             ToolProvider.ToolResult r = gateway.call(toolCtx, c.name(), args);
             return new LoopPorts.ToolOutcome(c.callId(), c.name(), r.ok(), r.content(),
                     System.currentTimeMillis() - t0);
+        } catch (RuntimeTestHooks.CrashFrozenAbort e) {
+            throw e;
         } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
             return new LoopPorts.ToolOutcome(c.callId(), c.name(), false,
                     "arguments 不是合法 JSON：" + e.getMessage(), 0);

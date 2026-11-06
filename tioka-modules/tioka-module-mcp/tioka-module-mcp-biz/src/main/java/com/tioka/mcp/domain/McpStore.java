@@ -52,6 +52,7 @@ public class McpStore {
             row.setName(t.name());
             row.setDescription(t.description());
             row.setInputSchema(toJson(t.inputSchema()));
+            row.setRisk(t.risk() == null ? "WRITE" : t.risk());
             return row;
         }).toList();
         repo.replaceTools(serverId, rows);
@@ -59,7 +60,8 @@ public class McpStore {
 
     public List<Tool> tools(String serverId) {
         return repo.listTools(serverId).stream()
-                .map(r -> new Tool(r.getName(), r.getDescription(), fromMap(r.getInputSchema())))
+                .map(r -> new Tool(r.getName(), r.getDescription(), fromMap(r.getInputSchema()),
+                        r.getRisk() == null || r.getRisk().isBlank() ? "WRITE" : r.getRisk()))
                 .toList();
     }
 
@@ -119,6 +121,13 @@ public class McpStore {
     }
 
     public record McpServer(String id, String name, String baseUrl, String headerSecretRef, String status) {}
-    public record Tool(String name, String description, Map<String, Object> inputSchema) {}
+
+    /** {@code risk} 对应 mcp_tool.risk（V114），缺省 WRITE。 */
+    public record Tool(String name, String description, Map<String, Object> inputSchema, String risk) {
+        public Tool(String name, String description, Map<String, Object> inputSchema) {
+            this(name, description, inputSchema, "WRITE");
+        }
+    }
+
     public record Grant(String id, String agentId, String serverId, List<String> allowlist) {}
 }
