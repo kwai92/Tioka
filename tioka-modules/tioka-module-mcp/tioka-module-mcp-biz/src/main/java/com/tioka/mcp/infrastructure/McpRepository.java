@@ -41,6 +41,21 @@ public class McpRepository {
         return tools.selectList(Wrappers.<McpToolDO>lambdaQuery().eq(McpToolDO::getServerId, serverId));
     }
 
+    public McpToolDO findTool(String serverId, String toolName) {
+        return tools.selectOne(Wrappers.<McpToolDO>lambdaQuery()
+                .eq(McpToolDO::getServerId, serverId)
+                .eq(McpToolDO::getName, toolName));
+    }
+
+    /** @return false 若工具不存在 */
+    public boolean updateToolRisk(String serverId, String toolName, String risk) {
+        McpToolDO row = findTool(serverId, toolName);
+        if (row == null) return false;
+        row.setRisk(risk);
+        tools.updateById(row);
+        return true;
+    }
+
     public void upsertGrant(McpGrantDO row) {
         if (grants.selectById(row.getId()) == null) grants.insert(row);
         else grants.updateById(row);

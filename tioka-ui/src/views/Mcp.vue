@@ -43,11 +43,30 @@
 
     <el-card v-if="server" shadow="never" class="mb">
       <template #header>工具预览 · {{ server.name }} ({{ server.id }})</template>
-      <el-checkbox-group v-model="allowlist" class="tools">
-        <el-checkbox v-for="t in tools" :key="t.name" :label="t.name" :value="t.name">
-          {{ t.name }} — {{ t.description }}
-        </el-checkbox>
-      </el-checkbox-group>
+      <el-table :data="tools" size="small" stripe class="mb">
+        <el-table-column label="选用" width="72">
+          <template #default="{ row }">
+            <el-checkbox
+              :model-value="allowlist.includes(row.name)"
+              @change="(v) => toggleAllow(row.name, !!v)"
+            />
+          </template>
+        </el-table-column>
+        <el-table-column prop="name" label="名称" min-width="120" />
+        <el-table-column prop="description" label="描述" min-width="180" />
+        <el-table-column label="风险" width="170">
+          <template #default="{ row }">
+            <el-select
+              :model-value="row.risk || 'WRITE'"
+              size="small"
+              :disabled="riskBusy === row.name"
+              @change="(v) => onRiskChange(row, v)"
+            >
+              <el-option v-for="r in MCP_TOOL_RISKS" :key="r" :label="r" :value="r" />
+            </el-select>
+          </template>
+        </el-table-column>
+      </el-table>
       <el-divider />
       <el-form :inline="true">
         <el-form-item label="授权给 Agent">
@@ -86,6 +105,7 @@
 <script setup>
 import { onMounted, reactive, ref } from 'vue'
 import { api } from '../api'
+import { MCP_TOOL_RISKS, patchToolRisk } from './mcpToolRisk'
 
 const form = reactive({ name: 'mock-mcp', baseUrl: 'mock://mcp', bearerToken: 'tok' })
 const servers = ref([])
@@ -96,6 +116,7 @@ const tools = ref([])
 const allowlist = ref([])
 const agentId = ref('')
 const busy = ref(false)
+const riskBusy = ref('')
 const msg = ref('')
 const error = ref('')
 
@@ -145,6 +166,33 @@ async function refreshTools(s) {
   msg.value = `已刷新 ${s.id}`
 }
 
+function toggleAllow(name, checked) {
+  if (checked) {
+    if (!allowlist.value.includes(name)) allowlist.value = [...allowlist.value, name]
+  } else {
+    allowlist.value = allowlist.value.filter((n) => n !== name)
+  }
+}
+
+async function onRiskChange(row, risk) {
+  if (!server.value || !row?.name) return
+  const prev = row.risk || 'WRITE'
+  if (prev === risk) return
+  riskBusy.value = row.name
+  error.value = ''
+  row.risk = risk
+  try {
+    const updated = await patchToolRisk(api, server.value.id, row.name, risk)
+    row.risk = updated.risk
+    msg.value = `${row.name} 风险已更新为 ${updated.risk}`
+  } catch (e) {
+    row.risk = prev
+    error.value = e.message
+  } finally {
+    riskBusy.value = ''
+  }
+}
+
 async function grant() {
   try {
     const g = await api('/api/mcp/grants', {
@@ -170,5 +218,4 @@ onMounted(refresh)
 .muted { color: var(--muted); margin: 0 0 8px; }
 .mb { margin-bottom: 12px; }
 .card-head { display: flex; justify-content: space-between; align-items: center; }
-.tools { display: grid; gap: 6px; }
 </style>

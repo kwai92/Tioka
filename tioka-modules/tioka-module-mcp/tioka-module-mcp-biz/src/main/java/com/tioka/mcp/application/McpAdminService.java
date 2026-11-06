@@ -60,6 +60,31 @@ public class McpAdminService implements McpToolCallApi {
         return store.tools(serverId);
     }
 
+    /** FE-01：更新已登记工具的风险等级（V114 四态）。 */
+    public Tool updateToolRisk(String serverId, String toolName, String risk) {
+        if (store.getServer(serverId).isEmpty()) {
+            throw new BizException(ErrorCode.NOT_FOUND, "mcp server 不存在");
+        }
+        if (toolName == null || toolName.isBlank()) {
+            throw new BizException(ErrorCode.BAD_REQUEST, "toolName 不能为空");
+        }
+        String normalized = normalizeRisk(risk);
+        return store.updateToolRisk(serverId, toolName, normalized);
+    }
+
+    static String normalizeRisk(String risk) {
+        if (risk == null || risk.isBlank()) {
+            throw new BizException(ErrorCode.BAD_REQUEST, "risk 不能为空");
+        }
+        String trimmed = risk.trim();
+        try {
+            return com.tioka.runtime.api.approval.ToolRisk.valueOf(trimmed).name();
+        } catch (IllegalArgumentException e) {
+            throw new BizException(ErrorCode.BAD_REQUEST,
+                    "risk 须为 READ|WRITE|DESTRUCTIVE|EXTERNAL_SEND");
+        }
+    }
+
     public List<Tool> refreshTools(String serverId) {
         McpServer server = store.getServer(serverId)
                 .orElseThrow(() -> new BizException(ErrorCode.NOT_FOUND, "mcp server 不存在"));
@@ -75,7 +100,8 @@ public class McpAdminService implements McpToolCallApi {
         }
         store.replaceTools(serverId, tools);
         store.putServer(new McpServer(server.id(), server.name(), server.baseUrl(), server.headerSecretRef(), "READY"));
-        return tools;
+        // 返回库中行（含 FE-01 保留的 risk），勿直接回传发现结果
+        return store.tools(serverId);
     }
 
     private List<Tool> discoverHttp(McpServer server) {

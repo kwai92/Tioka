@@ -8,6 +8,10 @@ import com.tioka.mcp.infrastructure.persistence.McpServerDO;
 import com.tioka.mcp.infrastructure.persistence.McpToolDO;
 import org.springframework.stereotype.Repository;
 
+import com.tioka.framework.error.BizException;
+import com.tioka.framework.error.ErrorCode;
+
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -44,7 +48,16 @@ public class McpStore {
                 .toList();
     }
 
+    /**
+     * 全量替换工具列表。同名工具保留已配置 {@code risk}；新工具默认 WRITE（FE-01）。
+     */
     public void replaceTools(String serverId, List<Tool> tools) {
+        Map<String, String> existingRisk = new HashMap<>();
+        for (McpToolDO old : repo.listTools(serverId)) {
+            if (old.getRisk() != null && !old.getRisk().isBlank()) {
+                existingRisk.put(old.getName(), old.getRisk());
+            }
+        }
         List<McpToolDO> rows = tools.stream().map(t -> {
             McpToolDO row = new McpToolDO();
             row.setId(serverId + ":" + t.name());
@@ -52,10 +65,33 @@ public class McpStore {
             row.setName(t.name());
             row.setDescription(t.description());
             row.setInputSchema(toJson(t.inputSchema()));
-            row.setRisk(t.risk() == null ? "WRITE" : t.risk());
+            String preserved = existingRisk.get(t.name());
+            if (preserved != null) {
+                row.setRisk(preserved);
+            } else {
+                row.setRisk(t.risk() == null || t.risk().isBlank() ? "WRITE" : t.risk());
+            }
             return row;
         }).toList();
         repo.replaceTools(serverId, rows);
+    }
+
+    public Optional<Tool> findTool(String serverId, String toolName) {
+        McpToolDO row = repo.findTool(serverId, toolName);
+        if (row == null) return Optional.empty();
+        return Optional.of(new Tool(row.getName(), row.getDescription(), fromMap(row.getInputSchema()),
+                row.getRisk() == null || row.getRisk().isBlank() ? "WRITE" : row.getRisk()));
+    }
+
+    public Tool updateToolRisk(String serverId, String toolName, String risk) {
+        McpToolDO row = repo.findTool(serverId, toolName);
+        if (row == null) {
+            throw new BizException(ErrorCode.NOT_FOUND, "mcp tool 不存在");
+        }
+        if (!repo.updateToolRisk(serverId, toolName, risk)) {
+            throw new BizException(ErrorCode.NOT_FOUND, "mcp tool 不存在");
+        }
+        return new Tool(row.getName(), row.getDescription(), fromMap(row.getInputSchema()), risk);
     }
 
     public List<Tool> tools(String serverId) {

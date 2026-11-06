@@ -46,6 +46,15 @@ public class McpAdminController {
         return ApiResponse.ok(service.refreshTools(id));
     }
 
+    /** FE-01：编辑 mcp_tool.risk（V114 四态）。 */
+    @PatchMapping("/servers/{serverId}/tools/{toolName}")
+    public ApiResponse<McpStore.Tool> updateToolRisk(@PathVariable String serverId,
+                                                     @PathVariable String toolName,
+                                                     @RequestBody Map<String, String> body) {
+        return ApiResponse.ok(service.updateToolRisk(serverId, toolName,
+                body == null ? null : body.get("risk")));
+    }
+
     @PostMapping("/grants")
     public ApiResponse<McpStore.Grant> grant(@RequestBody Map<String, Object> body) {
         @SuppressWarnings("unchecked")
