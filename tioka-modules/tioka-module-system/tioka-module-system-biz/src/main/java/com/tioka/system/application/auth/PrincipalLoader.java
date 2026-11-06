@@ -6,6 +6,7 @@ import com.tioka.framework.error.BizException;
 import com.tioka.framework.error.ErrorCode;
 import com.tioka.framework.security.Principal;
 import com.tioka.framework.security.PrincipalType;
+import com.tioka.system.api.spi.PrincipalLoaderApi;
 import com.tioka.system.infrastructure.AuthUserRepository;
 import com.tioka.system.infrastructure.SysMemberRepository;
 import com.tioka.system.infrastructure.dataobject.SysMemberDO;
@@ -20,7 +21,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
-public class PrincipalLoader {
+public class PrincipalLoader implements PrincipalLoaderApi {
     private static final Duration CACHE_TTL = Duration.ofSeconds(60);
 
     private final AuthUserRepository users;
