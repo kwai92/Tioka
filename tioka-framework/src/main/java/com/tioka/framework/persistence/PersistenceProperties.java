@@ -10,6 +10,7 @@ public class PersistenceProperties {
     private List<String> workspaceScopedTables = new ArrayList<>(List.of(
             "agent_agent",
             "kb_base",
+            "kb_chunk",
             "flow_draft",
             "mcp_server",
             "skill_package",

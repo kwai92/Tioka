@@ -71,6 +71,16 @@ public final class LlmStubServer implements AutoCloseable {
         }
     }
 
+    /** 测试运行时替换/注入剧本（如 KNW-02 动态填入 kbIds）。 */
+    public void putScript(String name, Script script) {
+        scripts.put(name, script);
+        counters.remove(name);
+    }
+
+    public void resetCounter(String name) {
+        counters.remove(name);
+    }
+
     private Dispatcher dispatcher() {
         return new Dispatcher() {
             @Override

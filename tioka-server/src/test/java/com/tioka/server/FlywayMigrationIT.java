@@ -133,4 +133,29 @@ class FlywayMigrationIT {
                 Integer.class);
         assertEquals(1, bindingCol, "kb_base.embedding_binding_id 应存在");
     }
+
+    /** KNW-02 / V118：检索 ACL 列。 */
+    @Test
+    void knowledgeAclColumns() {
+        List<String> versions = jdbc.query(
+                "SELECT version FROM flyway_schema_history WHERE success = true",
+                (rs, i) -> rs.getString(1));
+        assertTrue(versions.contains("118"), "missing V118: " + versions);
+        Integer chunkWs = jdbc.queryForObject(
+                """
+                SELECT COUNT(*) FROM information_schema.columns
+                WHERE table_schema = 'public' AND table_name = 'kb_chunk'
+                  AND column_name = 'workspace_id'
+                """,
+                Integer.class);
+        assertEquals(1, chunkWs, "kb_chunk.workspace_id 应存在");
+        Integer docAcl = jdbc.queryForObject(
+                """
+                SELECT COUNT(*) FROM information_schema.columns
+                WHERE table_schema = 'public' AND table_name = 'kb_document'
+                  AND column_name = 'acl_principals'
+                """,
+                Integer.class);
+        assertEquals(1, docAcl, "kb_document.acl_principals 应存在（M1 建列不启用）");
+    }
 }

@@ -4,9 +4,12 @@ import com.tioka.framework.id.Ids;
 
 import com.tioka.framework.error.BizException;
 import com.tioka.framework.error.ErrorCode;
+import com.tioka.framework.security.AccessLevel;
 import com.tioka.framework.security.Principal;
 import com.tioka.framework.security.PrincipalHolder;
+import com.tioka.framework.security.ResourceGuard;
 import com.tioka.framework.security.SystemPrincipals;
+import com.tioka.framework.security.VisibilityFilter;
 import com.tioka.knowledge.api.KnowledgeSearchApi;
 import com.tioka.knowledge.infrastructure.KnowledgeRepository;
 import com.tioka.knowledge.infrastructure.parse.DocumentParser;
@@ -18,6 +21,7 @@ import com.tioka.model.api.BindingQueryApi;
 import com.tioka.model.api.gateway.ModelCallContext;
 import com.tioka.model.api.gateway.ModelGateway;
 import com.tioka.model.api.gateway.ModelPurpose;
+import com.tioka.system.api.authz.ResourceAclApi;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -32,6 +36,8 @@ public class KnowledgeService implements KnowledgeSearchApi {
     private final ModelGateway modelGateway;
     private final BindingQueryApi bindings;
     private final PrincipalHolder principals;
+    private final ResourceGuard guard;
+    private final ResourceAclApi resourceAcl;
     private final DocumentParser documentParser;
     private final int embeddingDim;
     private final TransactionTemplate tx;
@@ -40,6 +46,8 @@ public class KnowledgeService implements KnowledgeSearchApi {
                             ModelGateway modelGateway,
                             BindingQueryApi bindings,
                             PrincipalHolder principals,
+                            ResourceGuard guard,
+                            ResourceAclApi resourceAcl,
                             DocumentParser documentParser,
                             @Value("${tioka.knowledge.embedding-dim:1024}") int embeddingDim,
                             PlatformTransactionManager transactionManager) {
@@ -47,6 +55,8 @@ public class KnowledgeService implements KnowledgeSearchApi {
         this.modelGateway = modelGateway;
         this.bindings = bindings;
         this.principals = principals;
+        this.guard = guard;
+        this.resourceAcl = resourceAcl;
         this.documentParser = documentParser;
         this.embeddingDim = Math.max(1, embeddingDim);
         this.tx = new TransactionTemplate(transactionManager);
@@ -65,6 +75,10 @@ public class KnowledgeService implements KnowledgeSearchApi {
         row.setName(name);
         row.setEmbeddingBindingId(bindingId);
         repo.insertBase(row);
+        Principal p = principals.find().orElse(null);
+        if (p != null && p.userId() != null && !p.userId().isBlank()) {
+            resourceAcl.ensureOwner("kb", id, p.userId());
+        }
         return new KnowledgeBase(id, workspaceId, name, bindingId);
     }
 
@@ -115,6 +129,7 @@ public class KnowledgeService implements KnowledgeSearchApi {
     private Document indexDocument(String kbId, String title, String normalized, String sourceType, String format) {
         String id = Ids.newId("doc");
         String fmt = format == null ? "txt" : format;
+        String workspaceId = requireWorkspaceId(kbId);
         tx.executeWithoutResult(status -> {
             KbDocumentDO doc = new KbDocumentDO();
             doc.setId(id);
@@ -138,7 +153,7 @@ public class KnowledgeService implements KnowledgeSearchApi {
 
         return tx.execute(status -> {
             for (PreparedChunk c : prepared) {
-                repo.insertChunkWithVector(c.chunkId(), c.docId(), c.kbId(), c.text(), c.ordinal(),
+                repo.insertChunkWithVector(c.chunkId(), c.docId(), c.kbId(), workspaceId, c.text(), c.ordinal(),
                         toVectorLiteral(c.vec()));
             }
             KbDocumentDO doc = repo.findDocument(id);
@@ -188,26 +203,62 @@ public class KnowledgeService implements KnowledgeSearchApi {
     }
 
     public List<RetrievalHit> search(String kbId, String query, int topK) {
-        if (!repo.hasBase(kbId)) throw new BizException(ErrorCode.NOT_FOUND, "知识库不存在");
+        return retrieve(kbId == null ? null : List.of(kbId), query, topK);
+    }
+
+    /**
+     * KNW-02：权限过滤 → 向量召回（下推 ACL）。{@code kbIds == null} 表示当前空间内全部可见知识库。
+     */
+    public List<RetrievalHit> retrieve(List<String> kbIds, String query, int topK) {
+        VisibilityFilter vf = guard.filter("kb", AccessLevel.USE);
+        List<String> allowed = null;
+        if (kbIds != null) {
+            allowed = kbIds.stream()
+                    .filter(id -> id != null && !id.isBlank())
+                    .filter(id -> guard.allows("kb", id, AccessLevel.USE))
+                    .distinct()
+                    .toList();
+            if (allowed.isEmpty()) {
+                return List.of();
+            }
+        }
+        Principal p = principals.current();
+        String workspaceId = p.workspaceId();
+        if (workspaceId == null || workspaceId.isBlank()) {
+            return List.of();
+        }
+
+        String bindingId = resolveBindingForRetrieve(allowed);
         String q = query == null ? "" : query.toLowerCase();
-        String bindingId = resolveBindingId(kbId);
         double[] qVec = embed(bindingId, q);
         int limit = Math.max(1, topK);
 
+        Map<String, Object> params = new HashMap<>();
+        if (!vf.all()) {
+            params.putAll(vf.params());
+        }
+        params.put("vectorLiteral", toVectorLiteral(qVec));
+        params.put("workspaceId", workspaceId);
+        params.put("kbIds", allowed);
+        params.put("k", Math.max(limit * 5, 20));
+        params.put("vfAll", vf.all());
+        params.put("vfSql", vf.sqlForTableAlias("b"));
+
+        List<Map<String, Object>> rows = repo.searchVisible(params);
         List<ScoredChunk> keywordRanked = new ArrayList<>();
         List<ScoredChunk> vectorRanked = new ArrayList<>();
-
-        List<Map<String, Object>> rows = repo.searchNearest(kbId, toVectorLiteral(qVec), Math.max(limit * 5, 20));
         for (Map<String, Object> row : rows) {
             ScoredChunk sc = toScored(row, 0);
             double distance = row.get("distance") instanceof Number n ? n.doubleValue() : 1.0;
             double vector = 1.0 / (1.0 + Math.max(0, distance));
             int keyword = keywordScore(q, sc.text());
             if (keyword > 0 || q.isBlank()) {
-                keywordRanked.add(new ScoredChunk(sc.docId(), sc.chunkId(), sc.text(), sc.title(), sc.ordinal(), keyword));
+                keywordRanked.add(new ScoredChunk(sc.docId(), sc.chunkId(), sc.kbId(), sc.text(), sc.title(),
+                        sc.ordinal(), keyword));
             }
             if (vector > 0.01 || q.isBlank()) {
-                vectorRanked.add(new ScoredChunk(sc.docId(), sc.chunkId(), sc.text(), sc.title(), sc.ordinal(), vector));
+                vectorRanked.add(new ScoredChunk(sc.docId(), sc.chunkId(), sc.kbId(), sc.text(), sc.title(),
+                        sc.ordinal(), vector));
             }
         }
 
@@ -242,7 +293,8 @@ public class KnowledgeService implements KnowledgeSearchApi {
                     cit.setTitle(sc.title());
                     cit.setOrdinal(sc.ordinal());
                     repo.insertCitation(cit);
-                    return new RetrievalHit(sc.docId(), sc.chunkId(), sc.text(), e.getValue(), sc.title(), citationId);
+                    return new RetrievalHit(sc.docId(), sc.chunkId(), sc.kbId(), sc.text(), e.getValue(),
+                            sc.title(), citationId);
                 })
                 .toList();
     }
@@ -296,12 +348,34 @@ public class KnowledgeService implements KnowledgeSearchApi {
         return info.id();
     }
 
+    private String requireWorkspaceId(String kbId) {
+        KbBaseDO base = repo.findBase(kbId);
+        if (base == null) {
+            throw new BizException(ErrorCode.NOT_FOUND, "知识库不存在");
+        }
+        if (base.getWorkspaceId() == null || base.getWorkspaceId().isBlank()) {
+            throw new BizException(ErrorCode.INTERNAL, "知识库缺少 workspaceId");
+        }
+        return base.getWorkspaceId();
+    }
+
     private String resolveBindingId(String kbId) {
         KbBaseDO base = repo.findBase(kbId);
         if (base == null) {
             throw new BizException(ErrorCode.NOT_FOUND, "知识库不存在");
         }
         return base.getEmbeddingBindingId();
+    }
+
+    private String resolveBindingForRetrieve(List<String> allowedKbIds) {
+        if (allowedKbIds != null && !allowedKbIds.isEmpty()) {
+            return resolveBindingId(allowedKbIds.get(0));
+        }
+        Set<String> visible = guard.visibleIds("kb", AccessLevel.USE);
+        if (visible.isEmpty()) {
+            return null;
+        }
+        return resolveBindingId(visible.iterator().next());
     }
 
     private static int keywordScore(String q, String text) {
@@ -317,9 +391,11 @@ public class KnowledgeService implements KnowledgeSearchApi {
     private static ScoredChunk toScored(Map<String, Object> row, double score) {
         Object ordinal = row.get("ordinal");
         int ord = ordinal instanceof Number n ? n.intValue() : 0;
+        Object kb = row.get("kb_id");
         return new ScoredChunk(
                 String.valueOf(row.get("doc_id")),
                 String.valueOf(row.get("chunk_id")),
+                kb == null ? "" : String.valueOf(kb),
                 String.valueOf(row.get("text")),
                 String.valueOf(row.getOrDefault("title", "")),
                 ord,
@@ -351,7 +427,8 @@ public class KnowledgeService implements KnowledgeSearchApi {
         return out;
     }
 
-    private record ScoredChunk(String docId, String chunkId, String text, String title, int ordinal, double score) {}
+    private record ScoredChunk(String docId, String chunkId, String kbId, String text, String title,
+                               int ordinal, double score) {}
 
     public record KnowledgeBase(String id, String workspaceId, String name, String embeddingBindingId) {
         public KnowledgeBase(String id, String workspaceId, String name) {
@@ -359,7 +436,13 @@ public class KnowledgeService implements KnowledgeSearchApi {
         }
     }
     public record Document(String id, String kbId, String title, String sourceType, String status, String format) {}
-    public record RetrievalHit(String docId, String chunkId, String text, double score, String title, String citationId) {}
+    public record RetrievalHit(String docId, String chunkId, String kbId, String text, double score, String title,
+                               String citationId) {
+        /** 兼容旧调用：无 kbId。 */
+        public RetrievalHit(String docId, String chunkId, String text, double score, String title, String citationId) {
+            this(docId, chunkId, "", text, score, title, citationId);
+        }
+    }
     public record Citation(String id, String docId, String chunkId, String text, String title, int ordinal) {}
     public record ChunkView(String chunkId, String docId, String kbId, String text, int ordinal, String title) {}
     public record DocumentText(String docId, String kbId, String title, String text, List<String> chunkIds) {}

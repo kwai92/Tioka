@@ -47,8 +47,9 @@ public class KnowledgeRepository {
                 .last("LIMIT " + Math.max(1, limit)));
     }
 
-    public void insertChunkWithVector(String id, String docId, String kbId, String text, int ordinal, String vectorLiteral) {
-        chunks.insertWithVector(id, docId, kbId, text, ordinal, vectorLiteral);
+    public void insertChunkWithVector(String id, String docId, String kbId, String workspaceId,
+                                      String text, int ordinal, String vectorLiteral) {
+        chunks.insertWithVector(id, docId, kbId, workspaceId, text, ordinal, vectorLiteral);
     }
 
     public void updateChunkVector(String id, String vectorLiteral) {
@@ -66,6 +67,10 @@ public class KnowledgeRepository {
 
     public List<Map<String, Object>> searchNearest(String kbId, String vectorLiteral, int k) {
         return chunks.searchNearest(kbId, vectorLiteral, k);
+    }
+
+    public List<Map<String, Object>> searchVisible(Map<String, Object> params) {
+        return chunks.searchVisible(params);
     }
 
     public void insertWiki(KbWikiDO row) { wikis.insert(row); }

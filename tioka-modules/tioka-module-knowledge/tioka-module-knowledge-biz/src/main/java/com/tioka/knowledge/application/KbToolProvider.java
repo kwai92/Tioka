@@ -95,23 +95,20 @@ public class KbToolProvider implements ToolProvider {
                 kbIds.add(id);
             }
         }
-        if (kbIds.isEmpty()) {
-            return new ToolResult(false, "kbId/kbIds required");
-        }
+        // kbIds 空：检索当前主体全部可见知识库（KNW-02 / ADR-018）
+        List<KnowledgeService.RetrievalHit> hits = knowledgeService.retrieve(
+                kbIds.isEmpty() ? null : kbIds, query, topK);
         List<Map<String, Object>> out = new ArrayList<>();
-        for (String kbId : kbIds) {
-            var hits = knowledgeService.search(kbId, query, topK);
-            for (var h : hits) {
-                Map<String, Object> m = new LinkedHashMap<>();
-                m.put("citationId", h.citationId());
-                m.put("chunkId", h.chunkId());
-                m.put("docId", h.docId());
-                m.put("kbId", kbId);
-                m.put("text", h.text());
-                m.put("score", h.score());
-                m.put("title", h.title());
-                out.add(m);
-            }
+        for (var h : hits) {
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("citationId", h.citationId());
+            m.put("chunkId", h.chunkId());
+            m.put("docId", h.docId());
+            m.put("kbId", h.kbId());
+            m.put("text", h.text());
+            m.put("score", h.score());
+            m.put("title", h.title());
+            out.add(m);
         }
         return new ToolResult(true, mapper.writeValueAsString(out));
     }

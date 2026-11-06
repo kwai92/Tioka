@@ -27,4 +27,21 @@ public record VisibilityFilter(boolean all, String sql, Map<String, Object> para
     public static VisibilityFilter of(String sql, Map<String, Object> params) {
         return new VisibilityFilter(false, sql, params);
     }
+
+    /**
+     * 将 {@link ResourceGuard#filter} 产出的裸列名（{@code id}/{@code visibility}）限定到表别名，
+     * 便于 JOIN 场景（如 {@code kb_chunk c JOIN kb_base b}）下推 ACL。
+     */
+    public String sqlForTableAlias(String alias) {
+        if (all || sql == null || sql.isBlank()) {
+            return "TRUE";
+        }
+        String a = alias == null || alias.isBlank() ? "" : alias.trim();
+        if (a.isEmpty()) {
+            return sql;
+        }
+        return sql
+                .replaceAll("(?<!\\.)\\bvisibility\\b", a + ".visibility")
+                .replaceAll("(?<!\\.)\\bid\\b", a + ".id");
+    }
 }

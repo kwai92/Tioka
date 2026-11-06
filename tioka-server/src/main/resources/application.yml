@@ -44,6 +44,7 @@ tioka:
     workspace-scoped-tables:
       - agent_agent
       - kb_base
+      - kb_chunk
       - flow_draft
       - mcp_server
       - skill_package

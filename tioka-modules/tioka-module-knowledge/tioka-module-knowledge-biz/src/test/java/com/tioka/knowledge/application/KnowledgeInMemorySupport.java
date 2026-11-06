@@ -1,8 +1,11 @@
 package com.tioka.knowledge.application;
 
+import com.tioka.framework.security.AccessLevel;
 import com.tioka.framework.security.Principal;
 import com.tioka.framework.security.PrincipalHolder;
-import com.tioka.framework.security.SystemPrincipals;
+import com.tioka.framework.security.PrincipalType;
+import com.tioka.framework.security.ResourceGuard;
+import com.tioka.framework.security.VisibilityFilter;
 import com.tioka.knowledge.infrastructure.KnowledgeRepository;
 import com.tioka.knowledge.infrastructure.embedding.HashEmbeddingClient;
 import com.tioka.knowledge.infrastructure.parse.DocumentParser;
@@ -14,6 +17,7 @@ import com.tioka.knowledge.infrastructure.persistence.KbChunkDO;
 import com.tioka.knowledge.infrastructure.persistence.KbCitationDO;
 import com.tioka.knowledge.infrastructure.persistence.KbDocumentDO;
 import com.tioka.knowledge.infrastructure.persistence.KbDatasourceDO;
+import com.tioka.system.api.authz.ResourceAclApi;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -21,6 +25,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
@@ -49,11 +54,13 @@ final class KnowledgeInMemorySupport {
                         .limit(limit)
                         .toList();
             }
-            @Override public void insertChunkWithVector(String id, String docId, String kbId, String text, int ordinal, String vectorLiteral) {
+            @Override public void insertChunkWithVector(String id, String docId, String kbId, String workspaceId,
+                                                        String text, int ordinal, String vectorLiteral) {
                 KbChunkDO row = new KbChunkDO();
                 row.setId(id);
                 row.setDocId(docId);
                 row.setKbId(kbId);
+                row.setWorkspaceId(workspaceId);
                 row.setText(text);
                 row.setOrdinal(ordinal);
                 chunks.put(id, row);
@@ -69,13 +76,22 @@ final class KnowledgeInMemorySupport {
             @Override public void insertCitation(KbCitationDO row) { citations.put(row.getId(), row); }
             @Override public KbCitationDO findCitation(String id) { return citations.get(id); }
             @Override public List<Map<String, Object>> searchNearest(String kbId, String vectorLiteral, int k) {
+                return searchVisible(Map.of("kbIds", List.of(kbId), "k", k)).stream().limit(k).toList();
+            }
+            @Override public List<Map<String, Object>> searchVisible(Map<String, Object> params) {
+                @SuppressWarnings("unchecked")
+                List<String> kbIds = (List<String>) params.get("kbIds");
+                int k = params.get("k") instanceof Number n ? n.intValue() : 20;
                 List<Map<String, Object>> out = new ArrayList<>();
                 for (KbChunkDO c : chunks.values()) {
-                    if (!kbId.equals(c.getKbId())) continue;
+                    if (kbIds != null && !kbIds.isEmpty() && !kbIds.contains(c.getKbId())) {
+                        continue;
+                    }
                     KbDocumentDO d = docs.get(c.getDocId());
                     Map<String, Object> m = new HashMap<>();
                     m.put("chunk_id", c.getId());
                     m.put("doc_id", c.getDocId());
+                    m.put("kb_id", c.getKbId());
                     m.put("text", c.getText());
                     m.put("ordinal", c.getOrdinal());
                     m.put("title", d == null ? "" : d.getTitle());
@@ -122,12 +138,26 @@ final class KnowledgeInMemorySupport {
             }
         };
         BindingQueryApi bindings = bindingId -> Optional.empty();
+        Principal testUser = new Principal("1", "ws", PrincipalType.USER, Set.of("builder"), Set.of("*"), "test");
         PrincipalHolder holder = new PrincipalHolder() {
-            @Override public Principal current() { return SystemPrincipals.system(); }
-            @Override public java.util.Optional<Principal> find() { return java.util.Optional.of(SystemPrincipals.system()); }
+            @Override public Principal current() { return testUser; }
+            @Override public java.util.Optional<Principal> find() { return java.util.Optional.of(testUser); }
             @Override public <T> T runAs(Principal principal, java.util.function.Supplier<T> body) { return body.get(); }
         };
-        return new KnowledgeService(repo, gateway, bindings, holder, new DocumentParser(), 32,
+        ResourceGuard guard = new ResourceGuard() {
+            @Override public void check(String resourceType, String resourceId, AccessLevel level) {}
+            @Override public boolean allows(String resourceType, String resourceId, AccessLevel level) { return true; }
+            @Override public Set<String> visibleIds(String resourceType, AccessLevel level) { return Set.of(); }
+            @Override public VisibilityFilter filter(String resourceType, AccessLevel level) {
+                return VisibilityFilter.allowAll();
+            }
+        };
+        ResourceAclApi acls = new ResourceAclApi() {
+            @Override public void ensureOwner(String resourceType, String resourceId, String userId) {}
+            @Override public List<AclEntry> list(String resourceType, String resourceId) { return List.of(); }
+            @Override public void replace(String resourceType, String resourceId, List<AclEntry> entries) {}
+        };
+        return new KnowledgeService(repo, gateway, bindings, holder, guard, acls, new DocumentParser(), 32,
                 new PassthroughTxManager());
     }
 
