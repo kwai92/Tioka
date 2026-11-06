@@ -88,3 +88,10 @@ ROUTER 型 Agent 的 AgentSpec 增加 `router` 段：
 | RTE-02 | 向量匹配决策器（与 MH-06 共用） | M4 | P1 | 后端 2 | MH-06、KNW 嵌入别名 | 同一决策器在模型路由 BRANCH 模式下可用 |
 | RTE-03 | 受控交接与粘滞；Chat 与飞书入口接入；路由评测接入 EVO-02 | M4 | P1 | 后端 1 | RTE-01、EVO-02 | 交接后链根身份不变；评测报告出混淆矩阵 |
 | FE-28 | 路由 Agent 配置页（候选、示例话术、阈值、试运行）与会话头部当前目标显示 | M4 | P1 | 前端 4 | RTE-01 | — |
+
+## 修订：记忆与上下文工程调研落地（2026-11-06）
+
+来由：[调研 03](../research/03-Agent记忆与上下文工程调研.md)；按负责人「有选项时按推荐方案直接写设计」的要求落地，见 ADR-029 第 68 条。
+
+- **交接带入历史的形态**：前一 Agent 的回答改写为叙述形式（「〔前序助手：X〕说：……」）作为目标 Agent 本轮输入的一部分，不以 assistant 角色出现；工具调用与结果不带入；`SUMMARY` 模式用 `sys.compaction` 的结构化栏目；带入内容进入目标 thread 的会话快照区并保持不变（[ADR-048](ADR-048-context-engineering.md) 第 3.2 节，CTX-02）。
+- ROUTER 型 Agent 的 `memory` 段默认 `NONE`（[ADR-050](ADR-050-memory-system.md) 第 5 节）。

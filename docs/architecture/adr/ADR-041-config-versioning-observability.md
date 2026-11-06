@@ -306,3 +306,13 @@
 ## 补充：凭证、连接配置与模型参数（2026-11-06）
 
 API Key 管理（多 Key、有效期与到期提醒、轮换与紧急吊销、按 Key 限额）、供应商连接的详细配置、模型默认参数与分层覆盖，见 [ADR-042](ADR-042-provider-credentials-model-params.md) 与 ADR-029 第 63 条。凭证是即时型对象，密钥值不进入任何版本快照。
+
+## 修订：记忆与上下文工程调研落地（2026-11-06）
+
+来由：[调研 03](../research/03-Agent记忆与上下文工程调研.md)；按负责人「有选项时按推荐方案直接写设计」的要求落地，见 ADR-029 第 68 条。
+
+- **模型对象**：binding 进版本的内容增加缓存模式、最小缓存长度、有效期选项、是否支持亲和键、缓存写入单价与读取单价（[ADR-049](ADR-049-prompt-caching.md) 第 2.1 节）。
+- **用量明细**：在「缓存命中 token 数」之外增加「缓存写入 token 数」；成本按三种单价计算；日汇总增加缓存写入 token 与缓存节省金额（ADR-049 第 3 节）。
+- **指标**：`tioka_model_tokens_total` 的 `direction` 增加 `cache_write`；新增 `tioka_model_cache_hit_ratio`；告警模板增加缓存命中率过低与写多读少两条（ADR-049 第 4 节）。
+- **系统内置 Prompt** 增加 `sys.memory.extract`；`sys.compaction` 改为结构化栏目（[ADR-048](ADR-048-context-engineering.md) 第 2.3 节），两者都跟随最新版本。
+- **上下文清单**（ADR-048 第 4 节）与用量明细一一对应，记录本次调用用到的 Prompt 模板版本、经验条目、记忆条目，按版本统计时可用。

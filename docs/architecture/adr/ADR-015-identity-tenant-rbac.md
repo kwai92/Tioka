@@ -93,6 +93,12 @@ ALTER TABLE auth_user ADD COLUMN external_subject VARCHAR(255);
 
 见 [ADR-029](ADR-029-design-rulings.md) 第 22 条：多租户不是硬需求，每家企业独立部署，`tenant_id` 固定为 `default`，不做租户开通与租户管理界面。
 
+## 修订：记忆与上下文工程调研落地（2026-11-06）
+
+来由：[调研 03](../research/03-Agent记忆与上下文工程调研.md)；按负责人「有选项时按推荐方案直接写设计」的要求落地，见 ADR-029 第 68 条。
+
+- 新增权限点 `memory:space:read`（默认空间成员）、`memory:space:write`、`memory:space:review`（默认空间管理员）、`memory:admin`（默认系统管理员）。用户管理自己的个人记忆不需要权限点；系统管理员不能浏览他人个人记忆正文，调取须走四眼审批（[ADR-050](ADR-050-memory-system.md) 第 6.1 节）。
+
 ## 修订：Foundation 基础平台（2026-11-06）
 
 见 [ADR-051](ADR-051-foundation-platform.md)〜[ADR-054](ADR-054-engineering-base-subsystem-microfrontend.md) 与 ADR-029 第 69 条：M4 之后的 F 阶段，系统级角色、用户与组迁出到独立的 Foundation 平台，`PrincipalLoader` 改读授权快照；空间成员、资源 ACL、API Key 仍在 Tioka。M1 按本 ADR 照做，不返工。

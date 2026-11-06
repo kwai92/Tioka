@@ -85,3 +85,11 @@ CREATE TABLE runtime_job (id VARCHAR(32) PRIMARY KEY, thread_id VARCHAR(64) NOT 
 - **结构化笔记**：上下文压缩（RT-10）时，Agent 写在工作盘 `scratch/notes` 下的待办与笔记文件不参与摘要、原样保留路径引用，压缩摘要中注明其存在，供长任务续接。
 - **代码即动作**：ADR-046 的 `CODE_ACT`（M4 之后）在本 ADR 的沙箱中运行，代码中的平台工具调用经工具桥回到 ToolGateway。
 - **外部执行器**：外部 Agent 进程运行在本 ADR 的沙箱中，规则见 [ADR-047](ADR-047-external-executor.md)（M4 之后）。
+
+## 修订：记忆与上下文工程调研落地（2026-11-06）
+
+来由：[调研 03](../research/03-Agent记忆与上下文工程调研.md)；按负责人「有选项时按推荐方案直接写设计」的要求落地，见 ADR-029 第 68 条。
+
+- **上下文组装与压缩（RT-10）的组装顺序、压缩阈值与工具结果规则由 [ADR-048](ADR-048-context-engineering.md) 取代**：四区组装（稳定前缀 → 会话快照 → 历史 → 本轮尾部），用户记忆、经验、知识自动检索结果移到本轮尾部；有效预算取模型上下文 75% 与 AgentSpec 上限（默认 100K）的较小值；削减分卸载、清理、摘要、失败四级；摘要为结构化栏目且摘要时不提供工具。新增工作项 CTX-01（M3，与 RT-10 一起做）。
+- **子 Agent（RT-12）**：`agent.delegate` 的 `context` 参数改为结构化任务简报与显式引用；默认 `ISOLATED`，不继承父历史；回传结果默认上限 2000 token，超出部分转为产物引用（ADR-048 第 3.1 节，CTX-02，M4）。
+- 提示缓存的五条规则见 [ADR-049](ADR-049-prompt-caching.md)。
