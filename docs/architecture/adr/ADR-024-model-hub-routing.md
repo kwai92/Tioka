@@ -94,3 +94,4 @@ CREATE TABLE model_usage_daily (day DATE, workspace_id VARCHAR(64), agent_id VAR
 - 供应商、binding、别名、路由计划都是发布型对象。上文的 `model_routing_plan_version` 不再单独建表，并入通用的 `cfg_version`。
 - MH-07「成本与路由看板」并入 MH-11（统计与版本对比）；`model_usage_daily` 的维度按 ADR-041 第 6 节扩展。
 - 供给侧配额（供应商、binding、别名）在选模的候选过滤阶段生效，命中时跳过该候选，并写一条路由事件。
+- （2026-11-06，ADR-042）路由组可以带模型参数覆盖；路由事件记录最终参数与 binding 默认值的差异。凭证选用在选定 binding 之后进行，不随 Turn 冻结。

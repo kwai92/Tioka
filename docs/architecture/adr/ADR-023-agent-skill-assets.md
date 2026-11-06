@@ -100,3 +100,4 @@ CREATE TABLE skill_version (id VARCHAR(32) PRIMARY KEY, package_id VARCHAR(64) N
 - 新增 Prompt 模板资产（AST-07），有变量定义和版本。`instructions` 的每一段可以是内联文本，也可以引用模板；Agent 发布时把引用钉成固定版本。
 - AST-02 发布校验增加一项：模板版本已发布，且变量取值满足定义。
 - CHT-06 的提示词库基于个人级、空间级模板实现。Prompt 的发布评测（AST-09）与 EVO-06 共用同一套机制。
+- （2026-11-06，ADR-042）`ModelPolicy` 增加 `params`（模型参数覆盖），只能设置候选 binding 声明为可覆盖的参数；AST-02 增加参数合法性检查。
