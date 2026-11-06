@@ -5,7 +5,7 @@
 - 覆盖工作项：KNW-11、KNW-20（新增）；修订 KNW-03；KNW-09 作废（由文档解析专题接管）
 - 来由：[调研 04](../research/04-Knowledge与RAG及外部知识库对接调研.md) 第 2、3 节，选项 P1；ADR-029 第 70 条
 - 相关：[ADR-018](ADR-018-knowledge-ingest-retrieval.md)、[ADR-036](ADR-036-business-ontology-domain-pack.md)、[ADR-040](ADR-040-dataset-policy-data-label.md)、[ADR-049](ADR-049-prompt-caching.md)、[ADR-056](ADR-056-retrieval-qa-evaluation.md)、[M3-03](../construction/M3-03-业务本体与文档层.md) 第 2、3 节
-- 分工：**解析引擎、OCR、版面模型与外部 OCR / 解析产品对接由文档解析专题（ADR-060 起）负责**；本 ADR 只规定 Knowledge 对解析结果的输入契约，以及解析之后的切块与入库。两者冲突时，解析部分以文档解析专题为准，本 ADR 第 1 节随之修订。
+- 分工：**解析引擎、OCR、版面模型与外部 OCR / 解析产品对接由文档解析专题（ADR-060〜062、ADR-029 第 71 条，PR #21）负责**；本 ADR 只规定 Knowledge 对解析结果的输入契约，以及解析之后的切块与入库。两者冲突时，解析部分以文档解析专题为准，本 ADR 第 1 节随之修订。
 - 约束：与 [ADR-029](ADR-029-design-rulings.md) 定案冲突时以定案为准；修改本 ADR 走 [ADR-030](ADR-030-anti-drift-process.md) 的变更流程。
 - 写法说明：只用文字和表格，不附代码。
 
@@ -26,20 +26,32 @@ Knowledge 自带的 `DocumentParser` 只输出纯文本：标题层级、表格�
 
 ### 1.1 Knowledge 需要的字段
 
+解析服务的输出契约为 `tioka.parse/v1`（[ADR-060](ADR-060-document-parsing-service.md) 第 3 节，PR #21），是本节的超集。字段名以 ADR-060 为准，下表只列 Knowledge 依赖的部分。
+
 | 层级 | 必需字段 | 可选字段 | Knowledge 的用途 |
 | --- | --- | --- | --- |
-| 文档 | 文件哈希、MIME、页数、解析器版本 | 解析方式（文字层 / OCR / 版面模型 / 外部产品）、质量指标、降级原因 | 去重；知识库页展示解析质量 |
-| 页 | 页号 | 来源、宽高 | 引用定位 |
-| 块 | 块类型（标题、段落、列表项、表格、图、图注、公式、页眉、页脚、代码）、阅读顺序、文本 | 标题级别与标题路径、位置框、置信度、表格结构（行、列、表头行）与 Markdown 形式 | 切块与标题前缀；表格规则；高亮；低置信提示 |
+| 文档 | `source`（文件哈希、检测到的类型、页数）、`profile`（方案键与版本）、`status` | `quality`、`flags`、`warnings`、`engines` | 去重；`PARTIAL` 时入库并在知识库页提示失败页；展示解析质量 |
+| 页 | `pageNo` | `kind` | 引用定位 |
+| 块 | `blockId`、`seq`、`type`、`role`、`text` | `parentId`、`level`、`listLabel`、`regions`、`confidence`、`flags`、`attrs.tableId` | 切块与标题路径（由 `parentId` 与 `level` 推出）；表格规则；高亮；低置信提示 |
+| 表格 | `tableId`、`cells` | `markdown`、`html`、`continuedFrom` | 表格切块用 `markdown` 视图并重复表头行；续表按合并后的表处理 |
 
-- 标题路径缺失时，Knowledge 按标题块的级别自行推算；仍无法推算的（如纯扫描件没有识别出标题）按段落切块。
-- Excel 每个工作表视为一页、整表为表格块；PPT 每张幻灯片视为一页。
-- 页眉、页脚块默认不进入切块。图块在解析服务提供图片说明文本前只保留图注。
+- 只消费 `role = BODY` 的块；`FURNITURE`（页眉、页脚、页码）与 `ANNOTATION`（批注）不进入切块。`TABLE_CELL` 块不单独成块，随所属表格处理；`SEAL`、`SIGNATURE`、`CHECKBOX`、`BLANK_FIELD` 对知识检索无用，跳过。
+- 标题层级缺失时（如纯扫描件没有识别出标题），按段落切块。
+- 图块（`PICTURE`）在解析服务提供图片说明文本前只保留 `CAPTION`。
+- Excel 每个工作表视为一页、整表为表格；PPT 每张幻灯片视为一页（具体由解析方案定）。
 
 ### 1.2 调用约定
 
 | 项 | 约定 |
 | --- | --- |
+| 接口 | KNW-11 在 M3 调用 `docparse-api` 中的 `DocParseApi`；M4 实现迁入 `docparse-biz` 对 Knowledge 透明 |
+| 解析缓存 | 由解析服务按「文件哈希 + 解析方案版本 + 空间」缓存；同一空间、同一方案下，合同与知识库对同一文件只解析一次 |
+| 解析策略 | 知识库配置一个解析方案键，缺省「自动」= 空间默认方案；方案的取值与内容由文档解析专题定（ADR-060 第 4 节） |
+| 数据标签 | 入库时把知识库或文档的数据标签传给解析服务，由其保证不发往去向许可之外的引擎（第 52 条） |
+| 失败 | `FAILED` 时 Knowledge 的入库任务在解析阶段按 ADR-018 的规则重试；`PARTIAL` 时照常入库，失败页与降级原因写到文档上 |
+| Excel 大表 | 超过 2000 行的表在知识库页给出提示：需要按数据分析的表应登记为数据集（DAT-01），不放进知识库 |
+
+--- | --- |
 | 解析缓存 | 由解析服务按「文件哈希 + 解析器版本 + 解析方式」缓存；同一文件被合同与知识库同时使用时只解析一次 |
 | 解析方式选择 | 知识库配置一个解析策略（缺省「自动」），原样传给解析服务；取值与选择规则由文档解析专题定 |
 | 数据标签 | 入库时把知识库或文档的数据标签传给解析服务，由其保证不发往去向许可之外的引擎（第 52 条） |
@@ -57,7 +69,7 @@ Knowledge 自带的 `DocumentParser` 只输出纯文本：标题层级、表格�
 | 标题路径前缀 | 子块嵌入与写全文索引时，在正文前加「文档标题 > 各级标题」；展示与送给模型时不重复加 |
 | 表格 | 小于 1500 字的表整表成一个子块（Markdown 形式）；更大的表按行组切块，每块重复表头行；表格前后最近的一段说明文字作为该表各块的上下文前缀 |
 | 列表 | 同一列表尽量留在同一子块 |
-| 页码与位置 | 每个块记录起止页与位置框，引用可以跳到原文页并高亮 |
+| 页码与位置 | 每个块记录起止页与来源 `blockId` 列表，引用可以跳到原文页并按解析结果的 `regions` 高亮 |
 | 小文档 | 全文不超过父块上限时，整篇一个父块 |
 | FAQ 型知识库 | 每个问答对一个块，问题部分参与向量与全文索引，答案作为正文 |
 
@@ -78,8 +90,8 @@ Knowledge 自带的 `DocumentParser` 只输出纯文本：标题层级、表格�
 | 表 | 增加字段 | 说明 |
 | --- | --- | --- |
 | `kb_base` | 解析策略（取值由文档解析专题定，缺省「自动」）、上下文增强开关 | 与已有的切块策略并列 |
-| `kb_document` | 解析方式、解析器版本、质量指标（JSON）、降级原因 | 取自解析服务返回，知识库页显示 |
-| `kb_chunk` | 块类型、起止页、位置框（JSON）、上下文前缀（可空） | `heading_path` 已有 |
+| `kb_document` | 解析 ID（`parseId`）、方案键与版本、解析状态、质量指标（JSON）、警告 | 取自解析服务返回，知识库页显示 |
+| `kb_chunk` | 块类型、起止页、来源块 ID 列表（`blockId`，用于高亮与回溯）、上下文前缀（可空） | `heading_path` 已有；坐标按 `blockId` 从解析结果取，不在 Knowledge 重复存 |
 
 迁移号在写 M3 施工设计时登记（与 V211 合并）。
 
@@ -90,7 +102,7 @@ Knowledge 自带的 `DocumentParser` 只输出纯文本：标题层级、表格�
 | `SharedParserIT` | 同一 PDF 先被合同引用、再上传到知识库，只解析一次；两边的页与块一致 |
 | `KnowledgeScanIngestIT` | 扫描件 PDF 与 JPG 上传到知识库后可检索到其中的条款文字 |
 | `TableChunkTest` | 大表切块后每块都有表头；表格不与相邻段落混在同一子块 |
-| `ParseContractTest` | 只有必需字段（无标题路径、无位置框）的解析结果也能完成切块 |
+| `ParseContractTest` | 只有必需字段（无 `parentId`、`level`、`regions`）的 `tioka.parse/v1` 结果也能完成切块；`FURNITURE` 块不进入切块 |
 | `StructuredChunkerTest`（KNW-03 已有） | Markdown、Word、PDF、Excel、PPT 样本快照一致 |
 
 ## 7. 工作项

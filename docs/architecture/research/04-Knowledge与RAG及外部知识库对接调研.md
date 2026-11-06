@@ -4,7 +4,7 @@
 - 来由：负责人提出「针对 Knowledge / RAG 进行深入调研与设计，并考虑采购外部知识库产品的适配与对接设计」
 - 对照：[ADR-018](../adr/ADR-018-knowledge-ingest-retrieval.md)、[ADR-036](../adr/ADR-036-business-ontology-domain-pack.md)（文档层）、[ADR-040](../adr/ADR-040-dataset-policy-data-label.md)、[ADR-048](../adr/ADR-048-context-engineering.md)、[ADR-050](../adr/ADR-050-memory-system.md)、ADR-029 第 23、51、52、66、68 条、[M3-06](../construction/M3-06-平台补齐与G3闸门基座.md) 第 2〜4 节、34 号计划 KNW 表
 - 落地：按负责人「有选项时按推荐方案直接写设计」的要求，写成 [ADR-055](../adr/ADR-055-knowledge-ingest-chunking.md)、[ADR-056](../adr/ADR-056-retrieval-qa-evaluation.md)、[ADR-057](../adr/ADR-057-external-knowledge-providers.md) 与 ADR-029 第 70 条；备选列在第 9 节供复核
-- 分工：文档解析、OCR、版面模型与外部 OCR / 解析产品的深入调研与设计由另一份专题负责（ADR-060 起）；本文第 2 节只做概览，Knowledge 把解析结果当作输入契约（ADR-055 第 1 节）。
+- 分工：文档解析、OCR、版面模型与外部 OCR / 解析产品的深入调研与设计由另一份专题负责（ADR-060〜062、第 71 条，PR #21，调研 05）；本文第 2 节只做概览，Knowledge 把解析结果当作输入契约（ADR-055 第 1 节）。
 - 写法说明：只用文字和表格，不附代码。产品接口字段以 2026-11 查阅的官方文档为准，接入前按所采购版本复核。
 
 ---
@@ -13,7 +13,7 @@
 
 1. **现有代码的「混合检索」其实只有向量召回**。`KnowledgeService.search` 在 pgvector 分支里先取向量近邻，再在这些近邻上算关键词分，关键词召回从未独立执行；向量没找到但字面命中的条款永远召不回来。同时还有固定 200 字切块、每次检索写 citation、只能查单个知识库。ADR-018 已经定了改法，但施工排在 M3 W42–W44，而**记忆（ADR-050）也复用这个召回组件**，所以独立关键词召回要和 KNW-03 一起在 M3 做（KNW-12）。
 2. **解析有两套**。Knowledge 自带 `DocumentParser`（PDFBox、POI，只取纯文本），文档层（DOC-01、DOC-02，M3 W27–W29）又做了一套带页、版面块、OCR 合并的解析。第 51 条只规定两者**不共用表**，没有禁止共用解析。建议 Knowledge 入库改用文档层的解析服务，按 ADR-055 第 1 节的输入契约消费解析结果，删掉自带解析器，扫描件与图片从此对知识库也可用。
-3. **版面解析是 RAG 质量的第一个决定因素**。OmniDocBench 榜首已经是 1B 以下的小型视觉语言模型（PaddleOCR-VL 系列、MinerU 2.5），可以私有化部署。引擎选型、OCR 与外部解析产品对接由文档解析专题（ADR-060 起）负责，本文只给概览（第 2 节）。
+3. **版面解析是 RAG 质量的第一个决定因素**。OmniDocBench 榜首已经是 1B 以下的小型视觉语言模型（PaddleOCR-VL 系列、MinerU 2.5），可以私有化部署。引擎选型、OCR 与外部解析产品对接由文档解析专题（ADR-060〜062，PR #21）负责，本文只给概览（第 2 节）。
 4. **嵌入模型建议定为 1024 维**：公有云部署用百炼 `text-embedding-v4`（支持 64〜2048 维，默认 1024），私有化部署用 `Qwen3-Embedding-0.6B`（原生 1024 维，Apache-2.0）。两者都是 1024 维，换模型只需重嵌入，不改表结构，也远低于 pgvector HNSW 对 `vector` 类型 2000 维的上限。Rerank 用百炼 `qwen3-rerank` 或私有化 `Qwen3-Reranker-0.6B`。这是 2026-11-06 整体规划里的负责人待定项，本文按推荐写入第 70 条，负责人可改。
 5. **检索链路补三件事**：多轮对话下的查询改写（把追问改成独立问题）、检索轨迹记录与命中测试、知识使用模式（自动注入、作为工具、两者都开）。Agentic RAG 不另建框架，用 Runtime 的 ReAct 循环加 `kb.*` 工具实现。
 6. **GraphRAG 不建议在 M4 做全量实现**。微软 GraphRAG 索引成本高；LazyGraphRAG 的索引成本与向量 RAG 相同，约为完整 GraphRAG 的 0.1%；LightRAG 可以全部放在 PostgreSQL 上。Tioka 的结构化知识已经有业务本体（ADR-036）承担。KNW-10 改为「M4 之后、按评测证明有需要再做」，届时用 LightRAG 式的轻量实体索引放在 PostgreSQL 上。
