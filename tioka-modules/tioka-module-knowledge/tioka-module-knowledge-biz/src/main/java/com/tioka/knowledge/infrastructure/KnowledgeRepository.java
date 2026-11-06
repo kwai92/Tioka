@@ -13,15 +13,18 @@ import java.util.Map;
 @Repository
 public class KnowledgeRepository {
     private final KbBaseMapper bases;
+    private final KbBaseLockMapper baseLocks;
     private final KbDocumentMapper documents;
     private final KbChunkMapper chunks;
     private final KbCitationMapper citations;
     private final KbWikiMapper wikis;
     private final KbDatasourceMapper datasources;
 
-    public KnowledgeRepository(KbBaseMapper bases, KbDocumentMapper documents, KbChunkMapper chunks,
+    public KnowledgeRepository(KbBaseMapper bases, KbBaseLockMapper baseLocks,
+                               KbDocumentMapper documents, KbChunkMapper chunks,
                                KbCitationMapper citations, KbWikiMapper wikis, KbDatasourceMapper datasources) {
         this.bases = bases;
+        this.baseLocks = baseLocks;
         this.documents = documents;
         this.chunks = chunks;
         this.citations = citations;
@@ -31,6 +34,9 @@ public class KnowledgeRepository {
 
     public void insertBase(KbBaseDO row) { bases.insert(row); }
     public boolean hasBase(String id) { return bases.selectById(id) != null; }
+
+    /** AST-02：FOR SHARE 确认知识库存在且未删除。 */
+    public boolean lockBaseExists(String id) { return baseLocks.selectIdForShare(id) != null; }
     public void insertDocument(KbDocumentDO row) { documents.insert(row); }
     public void updateDocument(KbDocumentDO row) { documents.updateById(row); }
     public KbDocumentDO findDocument(String id) { return documents.selectById(id); }

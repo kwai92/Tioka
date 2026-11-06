@@ -96,6 +96,9 @@ class ModelRouterFreezeTest {
         public Optional<ModelRoutingPlanDO> getPlan(String id) { return Optional.ofNullable(plans.get(id)); }
 
         @Override
+        public Optional<ModelRoutingPlanDO> lockPlanForShare(String id) { return getPlan(id); }
+
+        @Override
         public List<ModelRoutingPlanDO> plans() { return new ArrayList<>(plans.values()); }
 
         @Override

@@ -14,15 +14,18 @@ public class ModelEntitiesRepositoryImpl implements ModelEntitiesRepository {
     private final ModelLogicalMapper logicals;
     private final ModelBindingMapper bindings;
     private final ModelRoutingPlanMapper plans;
+    private final ModelRoutingPlanLockMapper planLocks;
     private final ModelTurnFreezeMapper freezes;
 
     public ModelEntitiesRepositoryImpl(ModelProviderMapper providers, ModelLogicalMapper logicals,
                                        ModelBindingMapper bindings, ModelRoutingPlanMapper plans,
+                                       ModelRoutingPlanLockMapper planLocks,
                                        ModelTurnFreezeMapper freezes) {
         this.providers = providers;
         this.logicals = logicals;
         this.bindings = bindings;
         this.plans = plans;
+        this.planLocks = planLocks;
         this.freezes = freezes;
     }
 
@@ -78,6 +81,11 @@ public class ModelEntitiesRepositoryImpl implements ModelEntitiesRepository {
     @Override
     public Optional<ModelRoutingPlanDO> getPlan(String id) {
         return Optional.ofNullable(plans.selectById(id));
+    }
+
+    @Override
+    public Optional<ModelRoutingPlanDO> lockPlanForShare(String id) {
+        return Optional.ofNullable(planLocks.selectForShare(id));
     }
 
     @Override

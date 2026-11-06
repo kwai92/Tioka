@@ -28,9 +28,10 @@ final class KnowledgeInMemorySupport {
         Map<String, KbCitationDO> citations = new ConcurrentHashMap<>();
         Map<String, KbDatasourceDO> datasources = new ConcurrentHashMap<>();
 
-        return new KnowledgeRepository(null, null, null, null, null, null) {
+        return new KnowledgeRepository(null, null, null, null, null, null, null) {
             @Override public void insertBase(KbBaseDO row) { bases.put(row.getId(), row); }
             @Override public boolean hasBase(String id) { return bases.containsKey(id); }
+            @Override public boolean lockBaseExists(String id) { return bases.containsKey(id); }
             @Override public void insertDocument(KbDocumentDO row) { docs.put(row.getId(), row); }
             @Override public void updateDocument(KbDocumentDO row) { docs.put(row.getId(), row); }
             @Override public KbDocumentDO findDocument(String id) { return docs.get(id); }

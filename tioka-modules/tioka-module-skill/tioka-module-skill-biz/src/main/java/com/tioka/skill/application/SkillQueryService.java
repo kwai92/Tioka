@@ -23,6 +23,19 @@ public class SkillQueryService implements SkillQueryApi {
         return Optional.of(new SkillView(row.getId(), row.getName(), row.getSkillMd(), desc));
     }
 
+    @Override
+    public Optional<SkillVersionRef> lockVersion(String skillVersionId) {
+        if (skillVersionId == null || skillVersionId.isBlank()) {
+            return Optional.empty();
+        }
+        SkillPackageDO row = packages.lockForShare(skillVersionId);
+        if (row == null) {
+            return Optional.empty();
+        }
+        // M1：无脚本落库；恒 false。AST-05 补齐后据此拒绝启用。
+        return Optional.of(new SkillVersionRef(row.getId(), Boolean.TRUE.equals(row.getPublished()), false));
+    }
+
     private static String firstLine(String md) {
         if (md == null || md.isBlank()) return "";
         String[] lines = md.split("\n");

@@ -77,6 +77,56 @@ public class DefaultEgressGuard implements EgressGuard {
         deny("not-allowed", rawUrl);
     }
 
+    @Override
+    public boolean isValidHostPattern(String host) {
+        if (host == null || host.isBlank()) {
+            return false;
+        }
+        String raw = host.trim();
+        if (raw.contains("://") || raw.contains("/") || raw.contains("?") || raw.contains("#")
+                || raw.contains("@") || raw.contains(" ") || raw.contains(":")) {
+            return false;
+        }
+        String pattern = lower(raw);
+        String hostname = pattern;
+        if (pattern.startsWith("*.")) {
+            hostname = pattern.substring(2);
+            if (hostname.isBlank() || hostname.contains("*")) {
+                return false;
+            }
+        } else if (pattern.contains("*")) {
+            return false;
+        }
+        try {
+            String ascii = IDN.toASCII(hostname);
+            if (ascii == null || ascii.isBlank()) {
+                return false;
+            }
+            // 标签：字母数字与连字符；至少一段
+            String[] labels = ascii.split("\\.");
+            if (labels.length == 0) {
+                return false;
+            }
+            for (String label : labels) {
+                if (label.isEmpty() || label.length() > 63) {
+                    return false;
+                }
+                if (label.startsWith("-") || label.endsWith("-")) {
+                    return false;
+                }
+                for (int i = 0; i < label.length(); i++) {
+                    char c = label.charAt(i);
+                    if (!(c >= 'a' && c <= 'z') && !(c >= '0' && c <= '9') && c != '-') {
+                        return false;
+                    }
+                }
+            }
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
     public boolean isRestrictive() {
         return props.getMode() != EgressProperties.Mode.OPEN;
     }

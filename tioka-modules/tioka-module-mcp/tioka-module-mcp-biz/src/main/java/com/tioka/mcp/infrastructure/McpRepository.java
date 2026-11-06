@@ -2,6 +2,7 @@ package com.tioka.mcp.infrastructure;
 
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.tioka.mcp.infrastructure.mapper.McpGrantMapper;
+import com.tioka.mcp.infrastructure.mapper.McpServerLockMapper;
 import com.tioka.mcp.infrastructure.mapper.McpServerMapper;
 import com.tioka.mcp.infrastructure.mapper.McpToolMapper;
 import com.tioka.mcp.infrastructure.persistence.McpGrantDO;
@@ -14,11 +15,14 @@ import java.util.List;
 @Repository
 public class McpRepository {
     private final McpServerMapper servers;
+    private final McpServerLockMapper serverLocks;
     private final McpToolMapper tools;
     private final McpGrantMapper grants;
 
-    public McpRepository(McpServerMapper servers, McpToolMapper tools, McpGrantMapper grants) {
+    public McpRepository(McpServerMapper servers, McpServerLockMapper serverLocks,
+                         McpToolMapper tools, McpGrantMapper grants) {
         this.servers = servers;
+        this.serverLocks = serverLocks;
         this.tools = tools;
         this.grants = grants;
     }
@@ -29,6 +33,9 @@ public class McpRepository {
     }
 
     public McpServerDO findServer(String id) { return servers.selectById(id); }
+
+    /** AST-02：FOR SHARE 锁定 mcp_server。 */
+    public McpServerDO lockServerForShare(String id) { return serverLocks.selectForShare(id); }
 
     public List<McpServerDO> listServers() { return servers.selectList(null); }
 

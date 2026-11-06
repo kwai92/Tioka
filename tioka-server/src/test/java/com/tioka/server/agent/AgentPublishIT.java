@@ -53,18 +53,18 @@ class AgentPublishIT {
             String planId = publishPlan("frozen");
             var agent = agents.create("frozen-agent", ws);
             AgentSpec spec = baseSpec(agent.name(), planId, "v1",
-                    Map.of("erp.update", "approve"));
+                    List.of("echo"), Map.of("echo", "approve"));
             AgentService.PublishResult p1 = agents.publishSpec(agent.id(), spec);
             String hash1 = snapshots.get(p1.versionId()).contentHash();
             AgentSpec frozen = snapshots.get(p1.versionId()).spec();
 
             AgentService.DraftView draft = agents.getDraft(agent.id());
             agents.saveDraft(agent.id(), baseSpec(agent.name(), planId, "v2-draft",
-                    Map.of("erp.update", "auto")), draft.revision());
+                    List.of("echo"), Map.of("echo", "auto")), draft.revision());
             // 已发布版本不受草稿改动影响
             assertEquals(hash1, snapshots.get(p1.versionId()).contentHash());
             assertEquals("v1", frozen.instructions().sections().get(0).text());
-            assertEquals("approve", snapshots.get(p1.versionId()).spec().approval().toolPolicies().get("erp.update"));
+            assertEquals("approve", snapshots.get(p1.versionId()).spec().approval().toolPolicies().get("echo"));
         });
     }
 
@@ -75,13 +75,13 @@ class AgentPublishIT {
             String planId = publishPlan("pin");
             var agent = agents.create("pin-agent", ws);
             AgentService.PublishResult v1 = agents.publishSpec(agent.id(),
-                    baseSpec(agent.name(), planId, "old", Map.of()));
+                    baseSpec(agent.name(), planId, "old", List.of(), Map.of()));
             var thr = runtime.createThread(new RuntimeApi.CreateThreadCmd(
                     v1.versionId(), "chat", null, "test", null));
             assertEquals(v1.versionId(), thr.agentVersionId());
 
             AgentService.PublishResult v2 = agents.publishSpec(agent.id(),
-                    baseSpec(agent.name(), planId, "new", Map.of()));
+                    baseSpec(agent.name(), planId, "new", List.of(), Map.of()));
             String pinned = jdbc.queryForObject(
                     "SELECT agent_version_id FROM runtime_session WHERE id=?",
                     String.class, thr.threadId());
@@ -101,10 +101,10 @@ class AgentPublishIT {
             String planId = publishPlan("rb");
             var agent = agents.create("rb-agent", ws);
             AgentService.PublishResult v1 = agents.publishSpec(agent.id(),
-                    baseSpec(agent.name(), planId, "one", Map.of()));
+                    baseSpec(agent.name(), planId, "one", List.of(), Map.of()));
             String hash1 = agentRepo.findVersion(v1.versionId()).getSnapshotHash();
             AgentService.PublishResult v2 = agents.publishSpec(agent.id(),
-                    baseSpec(agent.name(), planId, "two", Map.of()));
+                    baseSpec(agent.name(), planId, "two", List.of(), Map.of()));
             assertEquals(v2.versionId(), snapshots.currentPublished(agent.id()).versionId());
 
             agents.rollback(agent.id(), v1.versionId());
@@ -123,13 +123,14 @@ class AgentPublishIT {
         return planId;
     }
 
-    private static AgentSpec baseSpec(String name, String planId, String text, Map<String, String> policies) {
+    private static AgentSpec baseSpec(String name, String planId, String text,
+                                      List<String> builtin, Map<String, String> policies) {
         return new AgentSpec(
                 1,
                 new AgentSpec.Profile(name, null, null, List.of(), "CHAT"),
                 new AgentSpec.Instructions(List.of(new AgentSpec.Instructions.Section("main", text))),
                 new AgentSpec.ModelPolicy(planId, false),
-                AgentSpec.ToolSet.empty(),
+                new AgentSpec.ToolSet(builtin, List.of(), List.of(), List.of()),
                 List.of(),
                 AgentSpec.KnowledgeBinding.empty(),
                 AgentSpec.SandboxPolicy.defaults(),
