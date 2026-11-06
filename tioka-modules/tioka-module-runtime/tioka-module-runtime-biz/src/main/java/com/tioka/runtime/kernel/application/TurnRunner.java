@@ -118,24 +118,32 @@ public class TurnRunner {
             }, props.getLeaseRenewInterval().toMillis(), props.getLeaseRenewInterval().toMillis(), TimeUnit.MILLISECONDS);
 
             signalBus.register(turnId);
-            RuntimeSessionDO session = sessions.find(threadId);
-            Principal runAs = resolveRunAs(turn);
-            int maxSteps = props.getLoop().getMaxSteps();
-            LoopContext ctx = new LoopContext(threadId, turnId, lv,
-                    maxSteps, props.getLoop().getRepeatCallLimit(), 0,
-                    c -> {
-                        if (lost.get()) {
-                            throw new LeaseLost();
-                        }
-                        signalPort.checkpoint(c);
-                    },
-                    session == null ? null : session.getAgentVersionId(),
-                    session == null ? null : session.getRoutingPlanId(),
-                    session == null ? null : session.getWorkspaceId(),
-                    runAs.userId());
             try {
+                // 必须先 resolveRunAs：sessions.find 走行级过滤，无 Principal 会炸
+                Principal runAs;
+                try {
+                    runAs = resolveRunAs(turn);
+                } catch (RuntimeException e) {
+                    log.warn("turn {} runAs invalid: {}", turnId, e.toString());
+                    failTurn(turnId, lv, threadId, "RUN_AS_INVALID", e.getMessage());
+                    return;
+                }
                 long finalLv = lv;
                 principals.runAs(runAs, () -> {
+                    RuntimeSessionDO session = sessions.find(threadId);
+                    int maxSteps = props.getLoop().getMaxSteps();
+                    LoopContext ctx = new LoopContext(threadId, turnId, finalLv,
+                            maxSteps, props.getLoop().getRepeatCallLimit(), 0,
+                            c -> {
+                                if (lost.get()) {
+                                    throw new LeaseLost();
+                                }
+                                signalPort.checkpoint(c);
+                            },
+                            session == null ? null : session.getAgentVersionId(),
+                            session == null ? null : session.getRoutingPlanId(),
+                            session == null ? null : session.getWorkspaceId(),
+                            runAs.userId());
                     LoopResult result = agentLoop.run(ctx);
                     int n = turns.finish(turnId, finalLv, result.status(),
                             result.errorCode(), truncate(result.errorMessage()),
@@ -154,14 +162,7 @@ public class TurnRunner {
                 streams.expireAfterTurn(threadId);
             } catch (RuntimeException e) {
                 log.error("turn {} failed", turnId, e);
-                try {
-                    turns.finish(turnId, lv, TurnStatus.FAILED, "INTERNAL",
-                            truncate(e.getMessage()), null, null);
-                    publishTerminal(threadId, turnId, TurnStatus.FAILED);
-                    streams.expireAfterTurn(threadId);
-                } catch (RuntimeException ignored) {
-                    // ignore
-                }
+                failTurn(turnId, lv, threadId, "INTERNAL", e.getMessage());
             } finally {
                 signalBus.unregister(turnId);
             }
@@ -171,6 +172,18 @@ public class TurnRunner {
             }
             lock.close();
             // 同 thread 下一条 / 失败重试由 TurnScheduler 在 release 后统一调度
+        }
+    }
+
+    private void failTurn(String turnId, long leaseVersion, String threadId,
+                          String errorCode, String errorMessage) {
+        try {
+            turns.finish(turnId, leaseVersion, TurnStatus.FAILED, errorCode,
+                    truncate(errorMessage), null, null);
+            publishTerminal(threadId, turnId, TurnStatus.FAILED);
+            streams.expireAfterTurn(threadId);
+        } catch (RuntimeException ignored) {
+            // ignore
         }
     }
 

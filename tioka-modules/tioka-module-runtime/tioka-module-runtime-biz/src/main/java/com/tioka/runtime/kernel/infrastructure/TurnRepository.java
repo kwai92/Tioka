@@ -79,6 +79,10 @@ public class TurnRepository {
         return mapper.findExpired(OffsetDateTime.ofInstant(now, ZoneOffset.UTC), limit);
     }
 
+    public List<String> findOrphanQueuedHeads(int limit) {
+        return mapper.findOrphanQueuedHeads(limit);
+    }
+
     public int markInterrupted(String turnId) {
         return mapper.markInterrupted(turnId);
     }

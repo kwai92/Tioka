@@ -159,11 +159,12 @@ public class KernelRuntimeService implements RuntimeApi {
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
                 @Override
                 public void afterCommit() {
-                    scheduler.submit(turnId);
+                    // 池满时保持 QUEUED，由 QueuedTurnRescanner 补调度；勿抛 503（响应已 202）
+                    scheduler.trySubmit(turnId);
                 }
             });
         } else {
-            scheduler.submit(turnId);
+            scheduler.trySubmit(turnId);
         }
     }
 
