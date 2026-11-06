@@ -1,0 +1,6 @@
+# MH-02：首 delta 前失败（after_chars=0），无 discarded，结果来自备用
+calls:
+  - fail: { status: 503, after_chars: 0 }
+  - content: "failover-before-ok"
+    stream_chunk_chars: 4
+    usage: { prompt: 6, completion: 12 }

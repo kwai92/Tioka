@@ -136,6 +136,13 @@ class ModelRouterFreezeTest {
         }
 
         @Override
+        public void recordFailover(String sessionId, String turnId, String bindingId, String reason) {
+            String key = sessionId + "|" + turnId;
+            freezes.put(key, bindingId);
+            freezeReasons.put(key, reason);
+        }
+
+        @Override
         public List<ModelTurnFreezeDO> listFreezes(String sessionId) {
             List<ModelTurnFreezeDO> out = new ArrayList<>();
             for (Map.Entry<String, String> e : freezes.entrySet()) {

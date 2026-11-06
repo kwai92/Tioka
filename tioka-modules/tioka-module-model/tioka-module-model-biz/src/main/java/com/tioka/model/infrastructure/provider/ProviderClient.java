@@ -92,7 +92,7 @@ public class ProviderClient {
                 .build();
         HttpResponse<String> resp = http.send(req, HttpResponse.BodyHandlers.ofString());
         if (resp.statusCode() >= 300) {
-            throw new IllegalStateException("openai compatible embedding error: " + resp.statusCode() + " " + resp.body());
+            throw toHttpException(resp.statusCode(), resp.body());
         }
         JsonNode data = mapper.readTree(resp.body()).path("data");
         List<float[]> vectors = new ArrayList<>();
@@ -174,20 +174,52 @@ public class ProviderClient {
                 .POST(HttpRequest.BodyPublishers.ofString(mapper.writeValueAsString(body)))
                 .build();
 
-        if (!stream) {
-            HttpResponse<String> resp = http.send(req, HttpResponse.BodyHandlers.ofString());
-            if (resp.statusCode() >= 300) {
-                throw new IllegalStateException("openai compatible error: " + resp.statusCode() + " " + resp.body());
+        try {
+            if (!stream) {
+                HttpResponse<String> resp = http.send(req, HttpResponse.BodyHandlers.ofString());
+                if (resp.statusCode() >= 300) {
+                    throw toHttpException(resp.statusCode(), resp.body());
+                }
+                return parse(resp.body());
             }
-            return parse(resp.body());
-        }
 
-        HttpResponse<InputStream> resp = http.send(req, HttpResponse.BodyHandlers.ofInputStream());
-        if (resp.statusCode() >= 300) {
-            String err = new String(resp.body().readAllBytes(), StandardCharsets.UTF_8);
-            throw new IllegalStateException("openai compatible stream error: " + resp.statusCode() + " " + err);
+            HttpResponse<InputStream> resp = http.send(req, HttpResponse.BodyHandlers.ofInputStream());
+            if (resp.statusCode() >= 300) {
+                byte[] raw = resp.body().readAllBytes();
+                String err = new String(raw, StandardCharsets.UTF_8);
+                // ENG-04b fail after_chars：错误响应体可含已发出的 SSE 增量
+                if (looksLikeSse(err)) {
+                    parseSse(new java.io.ByteArrayInputStream(raw), onDelta);
+                }
+                throw toHttpException(resp.statusCode(), err);
+            }
+            return parseSse(resp.body(), onDelta);
+        } catch (ProviderHttpException e) {
+            throw e;
+        } catch (java.net.http.HttpTimeoutException e) {
+            throw ProviderHttpException.transport("模型调用超时: " + e.getMessage(), e);
+        } catch (java.io.IOException e) {
+            throw ProviderHttpException.transport("模型连接失败: " + e.getMessage(), e);
         }
-        return parseSse(resp.body(), onDelta);
+    }
+
+    private static ProviderHttpException toHttpException(int status, String body) {
+        boolean switchable = ProviderHttpException.isSwitchableStatus(status);
+        if (!switchable && !ProviderHttpException.isNonSwitchableStatus(status)) {
+            // 其他 4xx 视为不可切换，与 400 族一致
+            switchable = false;
+        }
+        return new ProviderHttpException(status,
+                "openai compatible error: " + status + " " + (body == null ? "" : body),
+                switchable);
+    }
+
+    private static boolean looksLikeSse(String body) {
+        if (body == null || body.isBlank()) {
+            return false;
+        }
+        String t = body.trim();
+        return t.startsWith("data:") || t.contains("\ndata:");
     }
 
     private CompletionResult parseSse(InputStream body, Consumer<StreamDelta> onDelta) throws Exception {

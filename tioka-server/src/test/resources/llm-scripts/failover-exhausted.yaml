@@ -1,0 +1,5 @@
+# MH-02：主 + 备用均 503，链耗尽 → MODEL_UNAVAILABLE
+calls:
+  - fail: { status: 503, after_chars: 0 }
+  - fail: { status: 503, after_chars: 0 }
+  - fail: { status: 503, after_chars: 0 }

@@ -42,10 +42,11 @@ public class ModelRouterService implements ModelRouterApi {
         if (next == null || next.isBlank()) {
             throw new BizException(ErrorCode.BAD_REQUEST, "未配置 fallbackBinding");
         }
-        entities.putFreeze(sessionId, tid, next);
         String routeReason = "failover:" + (reason == null ? "unspecified" : reason);
+        entities.recordFailover(sessionId, tid, next, routeReason);
         ModelSelection sel = resolveBinding(next, routeReason);
-        events.publishEvent(new FailoverEvent(sessionId, sel.modelRef(), reason == null ? "failover" : reason));
+        events.publishEvent(new FailoverEvent(sessionId, sel.modelRef(),
+                reason == null ? "failover" : reason, tid, null));
         return sel;
     }
 

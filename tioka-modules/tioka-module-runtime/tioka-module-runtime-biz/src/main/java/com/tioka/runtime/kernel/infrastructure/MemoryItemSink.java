@@ -55,6 +55,18 @@ public class MemoryItemSink implements LoopPorts.ItemSink {
     }
 
     @Override
+    public void discardInFlight(LoopContext ctx) {
+        StreamState st = streaming.remove(ctx.turnId());
+        streams.clearCurrentEntry(ctx.threadId());
+        if (st == null) {
+            return;
+        }
+        streams.publish(ctx.threadId(), EventId.of(st.seq).toString(),
+                RuntimeEventType.ITEM_DISCARDED.wire(),
+                events.itemDiscarded(ctx.threadId(), ctx.turnId(), st.itemId, st.seq, ItemType.MESSAGE.wire()));
+    }
+
+    @Override
     public void completeMessage(LoopContext ctx, int step, String text) {
         StreamState st = streaming.remove(ctx.turnId());
         RuntimeItemDO item;

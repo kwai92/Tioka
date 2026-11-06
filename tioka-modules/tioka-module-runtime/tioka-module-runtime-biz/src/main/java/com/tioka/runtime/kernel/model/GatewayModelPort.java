@@ -21,6 +21,7 @@ import java.util.function.Consumer;
 
 /**
  * MH-04：经 {@link ModelGateway} 调模型；取消时在 onDelta 抛 {@link CancelledSignal}。
+ * MH-02：将 {@link ModelGateway.StreamDelta#discard()} 转为 {@link Delta#discard()}。
  */
 @Component
 public class GatewayModelPort implements LoopPorts.ModelPort {
@@ -49,7 +50,13 @@ public class GatewayModelPort implements LoopPorts.ModelPort {
                         if (signals.isCancelFlag(ctx.turnId())) {
                             throw new CancelledSignal();
                         }
-                        if (d != null && !d.discarded() && d.textDelta() != null && !d.textDelta().isEmpty()
+                        if (d != null && d.discarded()) {
+                            if (onDelta != null) {
+                                onDelta.accept(Delta.discard());
+                            }
+                            return;
+                        }
+                        if (d != null && d.textDelta() != null && !d.textDelta().isEmpty()
                                 && onDelta != null) {
                             onDelta.accept(new Delta(d.textDelta(), d.reasoningDelta()));
                         }

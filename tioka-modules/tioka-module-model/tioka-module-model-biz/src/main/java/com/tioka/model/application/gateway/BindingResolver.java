@@ -122,14 +122,15 @@ public class BindingResolver {
                 true, null, null);
     }
 
-    private Resolution ofBinding(String bindingId, List<String> chain, String reason) {
+    /** MH-02：按指定 binding 构造 Resolution（故障接力切到链上下一个）。 */
+    public Resolution ofBinding(String bindingId, List<String> chain, String reason) {
         Binding b = entities.getBinding(bindingId)
                 .orElseThrow(() -> new BizException(ErrorCode.NOT_FOUND, "binding 丢失"));
         Provider p = entities.getProvider(b.providerId())
                 .orElseThrow(() -> new BizException(ErrorCode.NOT_FOUND, "provider 丢失"));
         String modelRef = b.logicalModelId() + "@" + b.modelName();
         return new Resolution(bindingId, modelRef, p.baseUrl(), p.apiKeyRef(), b.modelName(),
-                chain, reason, b);
+                chain == null ? List.of() : List.copyOf(chain), reason, b);
     }
 
     private static List<String> fallbackChain(RoutingPlan plan) {

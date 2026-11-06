@@ -127,6 +127,11 @@ public class ModelEntities {
         repo.putFreeze(sessionId, turnId, bindingId);
     }
 
+    /** MH-02：冻结切到 nextBinding，failover_count + 1。 */
+    public void recordFailover(String sessionId, String turnId, String nextBinding, String reason) {
+        repo.recordFailover(sessionId, turnId, nextBinding, reason);
+    }
+
     public List<Freeze> listFreezes(String sessionId) {
         return repo.listFreezes(sessionId).stream()
                 .map(r -> new Freeze(

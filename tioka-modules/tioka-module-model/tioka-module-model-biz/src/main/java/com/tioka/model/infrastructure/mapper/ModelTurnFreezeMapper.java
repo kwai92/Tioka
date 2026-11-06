@@ -6,6 +6,7 @@ import org.apache.ibatis.annotations.Insert;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
+import org.apache.ibatis.annotations.Update;
 
 import java.util.List;
 
@@ -37,4 +38,19 @@ public interface ModelTurnFreezeMapper extends BaseMapper<ModelTurnFreezeDO> {
             ORDER BY create_at
             """)
     List<ModelTurnFreezeDO> listBySession(@Param("sessionId") String sessionId);
+
+    /** MH-02：切换冻结 binding，failover_count + 1。 */
+    @Update("""
+            UPDATE model_turn_freeze
+            SET binding_id = #{bindingId},
+                reason = #{reason},
+                failover_count = COALESCE(failover_count, 0) + 1,
+                update_by = 'system',
+                update_at = now()
+            WHERE session_id = #{sessionId} AND turn_id = #{turnId}
+            """)
+    int recordFailover(@Param("sessionId") String sessionId,
+                       @Param("turnId") String turnId,
+                       @Param("bindingId") String bindingId,
+                       @Param("reason") String reason);
 }

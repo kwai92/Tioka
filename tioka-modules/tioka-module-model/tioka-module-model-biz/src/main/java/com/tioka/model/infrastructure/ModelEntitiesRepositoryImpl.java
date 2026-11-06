@@ -136,6 +136,15 @@ public class ModelEntitiesRepositoryImpl implements ModelEntitiesRepository {
     }
 
     @Override
+    public void recordFailover(String sessionId, String turnId, String bindingId, String reason) {
+        int n = freezes.recordFailover(sessionId, turnId, bindingId, reason);
+        if (n == 0) {
+            freezes.insertIfAbsent(sessionId, turnId, bindingId, reason);
+            freezes.recordFailover(sessionId, turnId, bindingId, reason);
+        }
+    }
+
+    @Override
     public List<ModelTurnFreezeDO> listFreezes(String sessionId) {
         return freezes.listBySession(sessionId);
     }

@@ -30,5 +30,8 @@ public interface ModelEntitiesRepository {
     /** 故障接力等场景覆盖已有冻结。 */
     void putFreeze(String sessionId, String turnId, String bindingId);
 
+    /** MH-02：更新冻结 binding 并 failover_count + 1；无冻结行时插入。 */
+    void recordFailover(String sessionId, String turnId, String bindingId, String reason);
+
     List<ModelTurnFreezeDO> listFreezes(String sessionId);
 }

@@ -11,7 +11,16 @@ public final class LoopPorts {
         Result chat(LoopContext ctx, List<Map<String, Object>> messages, List<Map<String, Object>> tools,
                     Consumer<Delta> onDelta);
 
-        record Delta(String text, String reasoning) {}
+        /** {@code discarded=true} 表示本步已流出增量作废（MH-02）。 */
+        record Delta(String text, String reasoning, boolean discarded) {
+            public Delta(String text, String reasoning) {
+                this(text, reasoning, false);
+            }
+
+            public static Delta discard() {
+                return new Delta(null, null, true);
+            }
+        }
 
         record Result(String text, String reasoning, List<ToolCall> toolCalls,
                       int promptTokens, int completionTokens, String modelRef) {
@@ -29,6 +38,12 @@ public final class LoopPorts {
 
     public interface ItemSink {
         void delta(LoopContext ctx, ModelPort.Delta delta);
+
+        /**
+         * MH-02：作废本 Turn 当前流式 item（发 {@code item.discarded}，清预占 seq）。
+         * 默认空实现，便于单测桩。
+         */
+        default void discardInFlight(LoopContext ctx) {}
 
         void completeMessage(LoopContext ctx, int step, String text);
 

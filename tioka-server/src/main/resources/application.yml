@@ -60,6 +60,7 @@ tioka:
   model:
     # local/slice 默认 mock；保真请叠加 profile=fidelity（见 application-fidelity.yml）
     mock: true
+    failover-max: 2
   mcp:
     # local/slice 默认 mock；fidelity profile 关闭
     mock: true

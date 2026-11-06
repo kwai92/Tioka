@@ -7,6 +7,7 @@ import com.tioka.runtime.kernel.approval.PendingToolCall;
 import com.tioka.runtime.kernel.approval.ToolApprovalCoordinator;
 import com.tioka.runtime.kernel.infrastructure.TurnRepository;
 import com.tioka.runtime.kernel.infrastructure.persistence.RuntimeItemDO;
+import com.tioka.runtime.kernel.model.TurnCallScope;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -70,11 +71,21 @@ public final class AgentLoop {
                 applySteers(ctx, step);
                 boolean last = step >= ctx.maxSteps() || ctx.isForceFinalAnswer();
                 List<Map<String, Object>> messages = contextBuilder.build(itemLoader.apply(ctx.threadId()));
-                LoopPorts.ModelPort.Result r = modelPort.chat(ctx, messages, last ? List.of() : tools,
-                        delta -> {
-                            ctx.checkpoint();
-                            sink.delta(ctx, delta);
-                        });
+                TurnCallScope.open(ctx, sink, step);
+                LoopPorts.ModelPort.Result r;
+                try {
+                    r = modelPort.chat(ctx, messages, last ? List.of() : tools,
+                            delta -> {
+                                ctx.checkpoint();
+                                if (delta != null && delta.discarded()) {
+                                    sink.discardInFlight(ctx);
+                                    return;
+                                }
+                                sink.delta(ctx, delta);
+                            });
+                } finally {
+                    TurnCallScope.close();
+                }
                 promptTokens += r.promptTokens();
                 completionTokens += r.completionTokens();
                 if (r.reasoning() != null && !r.reasoning().isBlank()) {
