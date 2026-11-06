@@ -151,7 +151,7 @@ M3 期间，固定步骤的多 Agent 场景（如商业租赁合同审查）先�
 
 ## 修订：Agent 架构调研落地（2026-11-06）
 
-来由：[调研 01](../research/01-Agent与多Agent架构调研.md)、[调研 02](../research/02-Agent执行策略与执行器插件调研.md)；负责人同意按调研建议设计，见 ADR-029 第 66 条。
+来由：[调研 01](../research/01-Agent与多Agent架构调研.md)、[调研 02](../research/02-Agent执行策略与执行器插件调研.md)；负责人同意按调研建议设计，见 ADR-029 第 67 条。
 
 依据调研 01 第 3 节（Anthropic 多 Agent 研究系统、Cognition、MAST 失败分类），在不改变主体的前提下做四处修订，合并为工作项 MAS-08（M4 P1，后端 3 人日，随 MAS-04、MAS-05、EVO-06）：
 

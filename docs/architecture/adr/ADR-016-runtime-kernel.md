@@ -105,7 +105,7 @@ Chat、Flow、Orchestration、IM 四个入口只使用 `RuntimeApi`，不再各�
 
 ## 修订：Agent 架构调研落地（2026-11-06）
 
-来由：[调研 01](../research/01-Agent与多Agent架构调研.md)、[调研 02](../research/02-Agent执行策略与执行器插件调研.md)；负责人同意按调研建议设计，见 ADR-029 第 66 条。
+来由：[调研 01](../research/01-Agent与多Agent架构调研.md)、[调研 02](../research/02-Agent执行策略与执行器插件调研.md)；负责人同意按调研建议设计，见 ADR-029 第 67 条。
 
 - **执行策略**：执行循环中「组装本步提示 → 调模型 → 解释结果」一段改为可插拔的执行策略，默认 `REACT` 即本 ADR 的循环，行为不变；其他策略见 [ADR-046](ADR-046-execution-strategy.md)。所有策略共用本 ADR 的状态机、租约、审批挂起、取消与插话、item 落库与推送。`runtime_item.type` 增加 `plan`、`reflection`。
 - **工具检索（RT-13，M4 P2）**：本 Turn 授予内的工具超过 15 个或工具定义合计超过 10K token 时，`listTools` 只给模型「常用工具」（Agent 配置的固定集合，缺省为最近 30 天调用最多的 8 个）与内置工具 `tool.search`；其余工具标记为延迟加载，模型经 `tool.search`（按名称、描述做关键词与向量检索，范围限于授予内）取得定义后才可调用。检索结果作为普通工具结果入库。延迟加载不影响提示缓存：常用工具集合在一个 Turn 内不变。

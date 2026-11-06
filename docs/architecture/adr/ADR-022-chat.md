@@ -79,6 +79,6 @@ ALTER TABLE runtime_session ADD COLUMN fork_seq BIGINT;
 
 ## 修订：Agent 架构调研落地（2026-11-06）
 
-来由：[调研 01](../research/01-Agent与多Agent架构调研.md)、[调研 02](../research/02-Agent执行策略与执行器插件调研.md)；负责人同意按调研建议设计，见 ADR-029 第 66 条。
+来由：[调研 01](../research/01-Agent与多Agent架构调研.md)、[调研 02](../research/02-Agent执行策略与执行器插件调研.md)；负责人同意按调研建议设计，见 ADR-029 第 67 条。
 
 - **入口路由**：会话可选择 ROUTER 型 Agent（[ADR-044](ADR-044-entry-intent-routing.md)）。会话表增加「当前目标」与「粘滞到期时间」；交接只在 Turn 边界发生，每个 Turn 记录实际执行的 Agent 版本（与上文「Agent 版本」规则一致）。用户在会话头部手动改选目标时记为路由负反馈。

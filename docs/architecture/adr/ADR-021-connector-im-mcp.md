@@ -83,7 +83,7 @@ CREATE TABLE mcp_server_snapshot (id VARCHAR(32) PRIMARY KEY, server_id VARCHAR(
 
 ## 修订：Agent 架构调研落地（2026-11-06）
 
-来由：[调研 01](../research/01-Agent与多Agent架构调研.md)、[调研 02](../research/02-Agent执行策略与执行器插件调研.md)；负责人同意按调研建议设计，见 ADR-029 第 66 条。
+来由：[调研 01](../research/01-Agent与多Agent架构调研.md)、[调研 02](../research/02-Agent执行策略与执行器插件调研.md)；负责人同意按调研建议设计，见 ADR-029 第 67 条。
 
 **MCP 规范版本（CON-05，M3）**：MCP 已于 2025-12 捐给 Linux Foundation 下的 Agentic AI Foundation，并在 2026-07-28 发布新版规范：去掉 initialize 握手与 `Mcp-Session-Id`，每个请求在 `_meta` 携带协议版本与能力，新增 `server/discover`；订阅改为 `subscriptions/listen`；Tasks 移到扩展；服务端发起的 sampling、elicitation、roots 改为「input_required」多轮请求；废弃 Roots、Sampling、Logging、HTTP+SSE 传输与动态客户端注册。上文「MCP 管理」表按此修订：
 
@@ -98,6 +98,6 @@ CREATE TABLE mcp_server_snapshot (id VARCHAR(32) PRIMARY KEY, server_id VARCHAR(
 | Tioka 作为 MCP Server | 同时声明两个版本；无状态实现，任何实例都可处理请求；OAuth 校验不变 |
 | 客户端注册 | 采用 Client ID Metadata Documents，不做动态客户端注册 |
 
-CON-05 因此净增后端约 2 人日（ADR-029 第 66 条）。
+CON-05 因此净增后端约 2 人日（ADR-029 第 67 条）。
 
 **A2A**：Agent 之间跨系统互通的映射与安全边界见 [ADR-045](ADR-045-a2a-interop.md)；实现在 M4 之后。外部 Agent 作为执行器见 [ADR-047](ADR-047-external-executor.md)。

@@ -2,8 +2,8 @@
 
 - 状态：Accepted（设计定案，待实现）
 - 日期：2026-11-06
-- 覆盖工作项：EXE-01〜04、FE-22（新增）
-- 来由：[调研 02](../research/02-Agent执行策略与执行器插件调研.md) 第 1、4 节，选项 I0〜I3；ADR-029 第 66 条
+- 覆盖工作项：EXE-01〜04、FE-29（新增）
+- 来由：[调研 02](../research/02-Agent执行策略与执行器插件调研.md) 第 1、4 节，选项 I0〜I3；ADR-029 第 67 条
 - 相关：[ADR-016](ADR-016-runtime-kernel.md)、[ADR-020](ADR-020-orchestration.md)、[ADR-023](ADR-023-agent-skill-assets.md)、[ADR-024](ADR-024-model-hub-routing.md)、[ADR-027](ADR-027-runtime-sandbox-subagent.md)、[ADR-031](ADR-031-agent-eval-experience.md)、[ADR-037](ADR-037-structured-outputs.md)、[ADR-038](ADR-038-multi-agent-team.md)、[ADR-043](ADR-043-flow-orchestration-detail.md)
 - 约束：与 [ADR-029](ADR-029-design-rulings.md) 定案冲突时以定案为准；修改本 ADR 走 [ADR-030](ADR-030-anti-drift-process.md) 的变更流程。
 - 写法说明：只用文字和表格，不附代码。
@@ -102,6 +102,6 @@ ADR-031 实验的变量增加「执行策略与参数」。建议每个打算切
 | --- | --- | --- | --- | --- | --- | --- |
 | EXE-01 | 契约预留：AgentSpec `execution` 段（只允许 REACT + NATIVE），`plan`、`reflection` item 类型登记 | M3 | P1 | 后端 0.5 | AST-01 | 其他取值发布校验拒绝 |
 | EXE-02 | 执行策略 SPI；`PLAN_EXECUTE`（含 `plan.update`、重规划、规划与执行分组选模）；`REFLECT`（接评估器 SPI） | M4 | P1 | 后端 8 | EVO-02、MH-06、SCH-01 | 同一回归集上两种策略都能跑通并出实验报告；策略内的模型调用全部计入 Turn 预算 |
-| FE-22 | 轨迹视图展示计划与反思；Studio 选择策略与参数 | M4 | P1 | 前端 3 | EXE-02 | — |
+| FE-29 | 轨迹视图展示计划与反思；Studio 选择策略与参数 | M4 | P1 | 前端 3 | EXE-02 | — |
 | EXE-03 | `CODE_ACT` 与工具桥 | M4 之后 | P2 | 后端 5 | RT-11、EXE-02 | 代码里调用授予外工具被拒 |
 | EXE-04 | `GOAL_LOOP`（目标清单、结构校验、`later` 续跑、上限） | M4 之后 | P2 | 后端 5，前端 2 | EXE-02、ORC-03 | 清单被改坏的 Run 记为失败 |

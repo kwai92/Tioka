@@ -104,7 +104,7 @@ CREATE TABLE skill_version (id VARCHAR(32) PRIMARY KEY, package_id VARCHAR(64) N
 
 ## 修订：Agent 架构调研落地（2026-11-06）
 
-来由：[调研 01](../research/01-Agent与多Agent架构调研.md)、[调研 02](../research/02-Agent执行策略与执行器插件调研.md)；负责人同意按调研建议设计，见 ADR-029 第 66 条。
+来由：[调研 01](../research/01-Agent与多Agent架构调研.md)、[调研 02](../research/02-Agent执行策略与执行器插件调研.md)；负责人同意按调研建议设计，见 ADR-029 第 67 条。
 
 - **`profile.type` 增加 ROUTER**（[ADR-044](ADR-044-entry-intent-routing.md)），对应新增 `router` 段；TEAM 见 ADR-038。
 - **新增 `execution` 段**（[ADR-046](ADR-046-execution-strategy.md)）：执行策略、策略参数、执行器、是否允许运行时覆盖。M3（EXE-01）只允许 `REACT` + `NATIVE`，其余取值发布校验拒绝；M4 开放 `PLAN_EXECUTE`、`REFLECT`；外部执行器（[ADR-047](ADR-047-external-executor.md)）在 M4 之后。

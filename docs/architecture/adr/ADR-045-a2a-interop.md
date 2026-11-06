@@ -3,7 +3,7 @@
 - 状态：Accepted（映射与边界定案；实现在 M4 之后）
 - 日期：2026-11-06
 - 覆盖工作项：A2A-01、A2A-02（新增，M4 之后）
-- 来由：[调研 01](../research/01-Agent与多Agent架构调研.md) 第 6 节、选项 F（第 1 步现在定映射，第 2、3 步放 M4 之后）；ADR-029 第 66 条
+- 来由：[调研 01](../research/01-Agent与多Agent架构调研.md) 第 6 节、选项 F（第 1 步现在定映射，第 2、3 步放 M4 之后）；ADR-029 第 67 条
 - 相关：[ADR-016](ADR-016-runtime-kernel.md)、[ADR-020](ADR-020-orchestration.md)、[ADR-021](ADR-021-connector-im-mcp.md)、[ADR-023](ADR-023-agent-skill-assets.md)、[ADR-033](ADR-033-reversible-actions.md)、[ADR-037](ADR-037-structured-outputs.md)、[ADR-038](ADR-038-multi-agent-team.md)〜[ADR-040](ADR-040-dataset-policy-data-label.md)
 - 约束：与 [ADR-029](ADR-029-design-rulings.md) 定案冲突时以定案为准；修改本 ADR 走 [ADR-030](ADR-030-anti-drift-process.md) 的变更流程。
 - 写法说明：只用文字和表格，不附代码。

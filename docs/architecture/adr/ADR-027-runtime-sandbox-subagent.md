@@ -80,7 +80,7 @@ CREATE TABLE runtime_job (id VARCHAR(32) PRIMARY KEY, thread_id VARCHAR(64) NOT 
 
 ## 修订：Agent 架构调研落地（2026-11-06）
 
-来由：[调研 01](../research/01-Agent与多Agent架构调研.md)、[调研 02](../research/02-Agent执行策略与执行器插件调研.md)；负责人同意按调研建议设计，见 ADR-029 第 66 条。
+来由：[调研 01](../research/01-Agent与多Agent架构调研.md)、[调研 02](../research/02-Agent执行策略与执行器插件调研.md)；负责人同意按调研建议设计，见 ADR-029 第 67 条。
 
 - **结构化笔记**：上下文压缩（RT-10）时，Agent 写在工作盘 `scratch/notes` 下的待办与笔记文件不参与摘要、原样保留路径引用，压缩摘要中注明其存在，供长任务续接。
 - **代码即动作**：ADR-046 的 `CODE_ACT`（M4 之后）在本 ADR 的沙箱中运行，代码中的平台工具调用经工具桥回到 ToolGateway。

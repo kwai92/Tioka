@@ -150,7 +150,7 @@ ALTER TABLE orch_rule_version ADD COLUMN emits_json TEXT;
 
 ## 修订：Agent 架构调研落地（2026-11-06）
 
-来由：[调研 01](../research/01-Agent与多Agent架构调研.md)、[调研 02](../research/02-Agent执行策略与执行器插件调研.md)；负责人同意按调研建议设计，见 ADR-029 第 66 条。
+来由：[调研 01](../research/01-Agent与多Agent架构调研.md)、[调研 02](../research/02-Agent执行策略与执行器插件调研.md)；负责人同意按调研建议设计，见 ADR-029 第 67 条。
 
 - **与 SuperAgent 的关系**：dsh-superagent（主动接活）与 DeerFlow 2.0（通用执行底座）两种「SuperAgent」，在 Tioka 中分别由本 ADR（接单、研判、Mandate、回执、跟进）和 Runtime / 子 Agent / 沙箱 / Skill（ADR-023、ADR-027、ADR-038）承担，不另设 SuperAgent 模块。开箱即用的「通用助手」模板（AST-10）在 M4 之后提供。
 - **长时目标**：跨天推进同一目标用 ADR-046 的 `GOAL_LOOP`（M4 之后），它复用本 ADR 的 `later` 与工单，不新增调度器。

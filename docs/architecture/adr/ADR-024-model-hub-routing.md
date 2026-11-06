@@ -98,7 +98,7 @@ CREATE TABLE model_usage_daily (day DATE, workspace_id VARCHAR(64), agent_id VAR
 
 ## 修订：Agent 架构调研落地（2026-11-06）
 
-来由：[调研 01](../research/01-Agent与多Agent架构调研.md)、[调研 02](../research/02-Agent执行策略与执行器插件调研.md)；负责人同意按调研建议设计，见 ADR-029 第 66 条。
+来由：[调研 01](../research/01-Agent与多Agent架构调研.md)、[调研 02](../research/02-Agent执行策略与执行器插件调研.md)；负责人同意按调研建议设计，见 ADR-029 第 67 条。
 
 - **向量匹配决策器（RTE-02，M4）**：内置决策器增加「向量匹配」：各类别配示例话术，按相似度给出类别与置信度，毫秒级，适合 BRANCH 模式；低于阈值时回落到配置的下一个决策器或兜底组。该决策器与入口意图路由（[ADR-044](ADR-044-entry-intent-routing.md)）共用实现。
 - **沿用上一模型的理由**：`preferPreviousInGroup` 除了保持回答风格一致，还直接影响提示缓存命中与成本，实现时不得默认关闭。

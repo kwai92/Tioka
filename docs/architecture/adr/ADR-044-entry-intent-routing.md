@@ -2,8 +2,8 @@
 
 - 状态：Accepted（设计定案，待实现）
 - 日期：2026-11-06
-- 覆盖工作项：RTE-01〜03、FE-21（新增）
-- 来由：[调研 01](../research/01-Agent与多Agent架构调研.md) 第 4 节、选项 B；负责人 2026-11-06 同意按调研建议设计（ADR-029 第 66 条）
+- 覆盖工作项：RTE-01〜03、FE-28（新增）
+- 来由：[调研 01](../research/01-Agent与多Agent架构调研.md) 第 4 节、选项 B；负责人 2026-11-06 同意按调研建议设计（ADR-029 第 67 条）
 - 相关：[ADR-020](ADR-020-orchestration.md)、[ADR-022](ADR-022-chat.md)、[ADR-023](ADR-023-agent-skill-assets.md)、[ADR-024](ADR-024-model-hub-routing.md)、[ADR-031](ADR-031-agent-eval-experience.md)、[ADR-038](ADR-038-multi-agent-team.md)
 - 约束：与 [ADR-029](ADR-029-design-rulings.md) 定案冲突时以定案为准；修改本 ADR 走 [ADR-030](ADR-030-anti-drift-process.md) 的变更流程。
 - 写法说明：只用文字和表格描述字段、接口与规则，不附代码、SQL 或 Java 片段。
@@ -87,4 +87,4 @@ ROUTER 型 Agent 的 AgentSpec 增加 `router` 段：
 | RTE-01 | ROUTER 型 Agent、RouterSpec 发布校验、候选过滤、分层级联、澄清与兜底、`route_decision` | M4 | P1 | 后端 4 | AST-02、MH-06 | 无权目标不会被选中；低置信时出澄清卡片 |
 | RTE-02 | 向量匹配决策器（与 MH-06 共用） | M4 | P1 | 后端 2 | MH-06、KNW 嵌入别名 | 同一决策器在模型路由 BRANCH 模式下可用 |
 | RTE-03 | 受控交接与粘滞；Chat 与飞书入口接入；路由评测接入 EVO-02 | M4 | P1 | 后端 1 | RTE-01、EVO-02 | 交接后链根身份不变；评测报告出混淆矩阵 |
-| FE-21 | 路由 Agent 配置页（候选、示例话术、阈值、试运行）与会话头部当前目标显示 | M4 | P1 | 前端 4 | RTE-01 | — |
+| FE-28 | 路由 Agent 配置页（候选、示例话术、阈值、试运行）与会话头部当前目标显示 | M4 | P1 | 前端 4 | RTE-01 | — |

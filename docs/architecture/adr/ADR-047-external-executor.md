@@ -3,7 +3,7 @@
 - 状态：Accepted（设计定案；实现在 M4 之后）
 - 日期：2026-11-06
 - 覆盖工作项：EXR-01〜03（新增，M4 之后）
-- 来由：[调研 02](../research/02-Agent执行策略与执行器插件调研.md) 第 2、5 节，选项 J1〜J3；ADR-029 第 66 条
+- 来由：[调研 02](../research/02-Agent执行策略与执行器插件调研.md) 第 2、5 节，选项 J1〜J3；ADR-029 第 67 条
 - 相关：[ADR-016](ADR-016-runtime-kernel.md)、[ADR-017](ADR-017-model-gateway-quota-audit.md)、[ADR-020](ADR-020-orchestration.md)、[ADR-021](ADR-021-connector-im-mcp.md)、[ADR-022](ADR-022-chat.md)、[ADR-027](ADR-027-runtime-sandbox-subagent.md)、[ADR-033](ADR-033-reversible-actions.md)、[ADR-034](ADR-034-autonomy-ladder.md)、[ADR-039](ADR-039-delegation-grant.md)、[ADR-046](ADR-046-execution-strategy.md)
 - 约束：与 [ADR-029](ADR-029-design-rulings.md) 定案冲突时以定案为准；修改本 ADR 走 [ADR-030](ADR-030-anti-drift-process.md) 的变更流程。
 - 写法说明：只用文字和表格，不附代码。
