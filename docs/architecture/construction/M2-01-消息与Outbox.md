@@ -225,3 +225,11 @@ OTEL_TRACES_SAMPLER_ARG: "1.0"
 - 至少一次投递、重复消息不重复执行；死信可查、可重放。
 - 事件环被熔断并告警；连续失败的规则自动暂停。
 - 一次 Turn 在 Jaeger 中完整可见。
+
+## 修订：关联上下文与外部交互台账（2026-11-07，ADR-029 第 75 条）
+
+- 信封除 `traceparent`、`replayOf` 外增加 `requestId`、`subject`；消费者恢复关联上下文；重放保留原 `requestId`（[ADR-073](../adr/ADR-073-correlation-trace-propagation.md)，OBS-03，3 人天，BE-A 随 GOV-08 在 W16）。
+- GOV-08 的 span 属性增加 `tioka.request_id`、`tioka.subject`、`tioka.origin`；`TracingIT` 增加用例：审批挂起后续跑，新 trace 有 span link 指回原 trace，且两段记录 `request_id` 相同。
+- 外部交互台账 OBS-04a（4 人天，BE-B，W19–W20，紧接 BE-A 的 CON-02 飞书入站之后接入；BE-B 负载 40 → 44）：飞书回调与发送、Webhook、`EgressClient` 写 `ext_interaction`（[ADR-074](../adr/ADR-074-external-interaction-ledger.md)）。
+- OBS-05（1.5 人天，BE-A，W17）：动作目录契约、审计转发进度表、定时任务数据库锁。
+- 以上 8.5 人天进入 M2 余量（BE-A 41 → 45.5，BE-B 40 → 44，每人容量 50），不改 M2 周数。

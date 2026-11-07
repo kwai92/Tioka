@@ -89,3 +89,11 @@ ALTER TABLE sys_workspace ADD COLUMN promotes_to VARCHAR(64);
 - `gov_safety_policy` 由版本化配置 `guardrail_policy` 取代（ADR-041 资产类型），迁移按 `(workspace_id, hook_point)` 映射。
 - GOV-10 的内置正则仍随 DAT-02 在 M3 交付；M4 的 GRD-04 替换为带校验位的识别器，并增加可逆假名化（缺省关闭）与密钥检测。
 - 输出渲染安全、生成内容标识与护栏评测见 [ADR-067](ADR-067-output-safety-guardrail-eval.md)。
+
+## 修订：审计、关联与时间线（2026-11-07）
+
+见 [ADR-072](ADR-072-audit-event-model-coverage.md)〜[ADR-075](ADR-075-unified-timeline-evidence.md) 与 ADR-029 第 75 条：
+
+- GOV-08：`audit_event`、`model_usage` 之外的记录表也带关联键；除 `trace_id` 外增加 `request_id`、`subject`；采样改为 Collector 尾部采样，日志聚合缺省 Loki（[ADR-073](ADR-073-correlation-trace-propagation.md)）。
+- GOV-09：提前到 M4 前段、P1；链覆盖审计、外部交互台账、运行清单；应用账号对这些表只有 INSERT 与 SELECT；外部锚点增加对象存储；保留与归档按 ADR-072 第 7 节。
+- 跨系统往来统一记入外部交互台账（[ADR-074](ADR-074-external-interaction-ledger.md)）；按请求与业务主体的时间线见 [ADR-075](ADR-075-unified-timeline-evidence.md)。

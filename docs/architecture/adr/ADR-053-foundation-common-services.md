@@ -24,3 +24,7 @@
 | 引入 XXL-Job 等调度中心 | Tioka 已有 scheduler 角色与 Redis 锁，再加一套调度增加运维面 |
 | 审计全部集中到 Foundation（含 Tioka 的工具调用审计） | Tioka 审计量大且与 Turn、traceId 强关联，集中会让 Foundation 进入热路径 |
 | 消息中心本期就替换 Tioka 通知 | 会改动 M3 已排的 NTF 工作，收益可以延后获得 |
+
+## 修订：保留口径统一（2026-11-07）
+
+见 [ADR-072](ADR-072-audit-event-model-coverage.md) 第 7 节与 ADR-029 第 75 条：Foundation 审计与登录日志按保留类别 `SEC`（在线 400 天、归档 3 年）执行，「不少于 180 天」作为下限保留；Foundation 自身审计链同样采用封印后归档、删分区的方式。动作名沿用 ADR-072 的命名规则，便于 Tioka 与 Foundation 的审计在 SIEM 侧合并查询。

@@ -79,3 +79,7 @@ ADR-015〜040 是 M0〜M4 的权威设计（ADR-032〜035 为可信放权，ADR-
 | [ADR-069](adr/ADR-069-launch-gates-rollout.md) | 场景 Agent 上线规程：评测规格、上线准入单、变更分级、双跑与比例灰度、别名灰度、哨兵评测（EVO-10〜12、MH-15、FE-45） |
 | [ADR-070](adr/ADR-070-model-selection-eval.md) | 模型选型评测：五轮漏斗、按角色、六维对比与推荐、复评触发（EVO-13a、EVO-13） |
 | [ADR-071](adr/ADR-071-feedback-loop-improvement.md) | 反馈回流与持续改进：原因码、漏报入口、分诊、正反例入集、标签版本、改进闭环（EVO-08a、EVO-14、FE-44） |
+| [ADR-072](adr/ADR-072-audit-event-model-coverage.md) | 统一审计事件模型：字段自动补齐、动作目录、写入语义、覆盖门禁、审计的审计、保留分级与归档、GOV-09 提前（OBS-01、OBS-02、OBS-05、OBS-09、OBS-10） |
+| [ADR-073](adr/ADR-073-correlation-trace-propagation.md) | 关联上下文与 Trace 传播：`request_id`、`subject`、跨异步边界、尾部采样与日志（OBS-03、OBS-11） |
+| [ADR-074](adr/ADR-074-external-interaction-ledger.md) | 外部交互台账：入站与出站统一记录、对方回执号、数据去向（OBS-04a、OBS-07） |
+| [ADR-075](adr/ADR-075-unified-timeline-evidence.md) | 统一时间线、运行清单与证据包（OBS-06、OBS-08、OBS-12、FE-46、FE-47） |
