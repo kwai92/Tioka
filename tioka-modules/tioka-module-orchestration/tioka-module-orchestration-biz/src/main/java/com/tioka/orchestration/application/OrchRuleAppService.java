@@ -82,8 +82,9 @@ public class OrchRuleAppService {
         row.setServiceAccountId(cmd.serviceAccountId());
         row.setStage("DRAFT");
         row.setCanaryPercent(null);
+        row.setContentHash(contentHash(row));
         repo.insertVersion(row);
-        return toVersionView(row, null, contentHash(row));
+        return toVersionView(row, null, row.getContentHash());
     }
 
     @Transactional
@@ -103,6 +104,10 @@ public class OrchRuleAppService {
         String previousEffective = "STABLE".equals(stage)
                 ? rule.getStableVersionId()
                 : rule.getCanaryVersionId();
+        String hash = contentHash(version);
+        version.setContentHash(hash);
+        version.setPublishNote(cmd.publishNote());
+        version.setPreviousVersionId(previousEffective);
 
         if ("CANARY".equals(stage)) {
             int percent = cmd.canaryPercent() == null ? 10 : cmd.canaryPercent();
@@ -132,7 +137,7 @@ public class OrchRuleAppService {
             rule.setStableVersionId(versionId);
             repo.updateRule(rule);
         }
-        return toVersionView(version, previousEffective, contentHash(version), cmd.publishNote());
+        return toVersionView(version, previousEffective, hash, cmd.publishNote());
     }
 
     public DryRunResult dryRun(String ruleId, String versionId, Map<String, Object> event) {
@@ -194,11 +199,16 @@ public class OrchRuleAppService {
                 rule.getOwnerId(),
                 rule.getStableVersionId(),
                 rule.getCanaryVersionId(),
-                versions.stream().map(v -> toVersionView(v, null, contentHash(v))).toList());
+                versions.stream().map(v -> toVersionView(
+                        v,
+                        v.getPreviousVersionId(),
+                        v.getContentHash() == null || v.getContentHash().isBlank()
+                                ? contentHash(v) : v.getContentHash(),
+                        v.getPublishNote())).toList());
     }
 
     private VersionView toVersionView(OrchRuleVersionDO v, String previousEffectiveId, String hash) {
-        return toVersionView(v, previousEffectiveId, hash, null);
+        return toVersionView(v, previousEffectiveId, hash, v.getPublishNote());
     }
 
     private VersionView toVersionView(OrchRuleVersionDO v, String previousEffectiveId,

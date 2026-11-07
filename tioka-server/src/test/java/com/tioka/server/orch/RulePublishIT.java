@@ -11,6 +11,8 @@ import com.tioka.model.api.dto.ProviderDtos.CreateModelBindingRequest;
 import com.tioka.model.api.dto.ProviderDtos.CreateProviderRequest;
 import com.tioka.model.api.dto.ProviderDtos.CreateRoutingPlanRequest;
 import com.tioka.model.application.ModelAdminService;
+import com.tioka.orchestration.infrastructure.OrchRuleRepository;
+import com.tioka.orchestration.infrastructure.persistence.OrchRuleVersionDO;
 import com.tioka.server.support.IntegrationTestSupport;
 import com.tioka.server.support.TestFixtures;
 import org.junit.jupiter.api.Tag;
@@ -29,6 +31,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -43,6 +49,7 @@ class RulePublishIT {
     @DynamicPropertySource
     static void containers(DynamicPropertyRegistry registry) {
         IntegrationTestSupport.register(registry);
+        registry.add("tioka.messaging.mode", () -> "in-memory");
     }
 
     @Autowired MockMvc mockMvc;
@@ -51,6 +58,7 @@ class RulePublishIT {
     @Autowired AgentService agents;
     @Autowired ModelAdminService models;
     @Autowired PrincipalHolder principals;
+    @Autowired OrchRuleRepository ruleRepo;
 
     @Test
     void badCelRejected() throws Exception {
@@ -142,6 +150,69 @@ class RulePublishIT {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.stage").value("STABLE"))
                 .andExpect(jsonPath("$.data.contentHash").isNotEmpty());
+
+        OrchRuleVersionDO stored = ruleRepo.findVersion(versionId);
+        assertNotNull(stored);
+        assertNotNull(stored.getContentHash());
+        assertFalse(stored.getContentHash().isBlank());
+        assertEquals("first", stored.getPublishNote());
+        assertNull(stored.getPreviousVersionId());
+    }
+
+    @Test
+    void publishPersistsF17ColumnsWithPreviousVersion() throws Exception {
+        TestFixtures.Actor actor = fixtures.newActor("workspace_admin");
+        String agentVersionId = principals.runAs(principal(actor), () -> publishAgent(actor.workspaceId(), "f17"));
+
+        String ruleId = objectMapper.readTree(mockMvc.perform(actor.auth(post("/api/orch/rules"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"f17-rule\"}"))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString())
+                .path("data").path("id").asText();
+
+        String v1Id = createVersion(actor, ruleId, agentVersionId, "demo.f17.a");
+        mockMvc.perform(actor.auth(post("/api/orch/rules/{id}/versions/{vid}/publish", ruleId, v1Id))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"stage\":\"STABLE\",\"publishNote\":\"v1\"}"))
+                .andExpect(status().isOk());
+
+        String v2Id = createVersion(actor, ruleId, agentVersionId, "demo.f17.b");
+        mockMvc.perform(actor.auth(post("/api/orch/rules/{id}/versions/{vid}/publish", ruleId, v2Id))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"stage\":\"STABLE\",\"publishNote\":\"v2\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.previousEffectiveVersionId").value(v1Id));
+
+        OrchRuleVersionDO v1 = ruleRepo.findVersion(v1Id);
+        OrchRuleVersionDO v2 = ruleRepo.findVersion(v2Id);
+        assertNotNull(v1.getContentHash());
+        assertFalse(v1.getContentHash().isBlank());
+        assertEquals("v1", v1.getPublishNote());
+        assertNull(v1.getPreviousVersionId());
+
+        assertNotNull(v2.getContentHash());
+        assertFalse(v2.getContentHash().isBlank());
+        assertEquals(64, v2.getContentHash().length());
+        assertEquals("v2", v2.getPublishNote());
+        assertEquals(v1Id, v2.getPreviousVersionId());
+    }
+
+    private String createVersion(TestFixtures.Actor actor, String ruleId, String agentVersionId, String eventType)
+            throws Exception {
+        return objectMapper.readTree(mockMvc.perform(actor.auth(post("/api/orch/rules/{id}/versions", ruleId))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "eventType":"%s",
+                                  "conditionCel":"true",
+                                  "actions":[{"type":"agent","agentVersionId":"%s"}],
+                                  "concurrency":"serial",
+                                  "acceptMode":"observe",
+                                  "serviceAccountId":"%s"
+                                }
+                                """.formatted(eventType, agentVersionId, actor.userId())))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString())
+                .path("data").path("id").asText();
     }
 
     private String publishAgent(String workspaceId, String tag) {

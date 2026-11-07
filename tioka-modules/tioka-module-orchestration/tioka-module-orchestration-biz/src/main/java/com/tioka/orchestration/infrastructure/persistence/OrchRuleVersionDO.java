@@ -6,8 +6,7 @@ import com.baomidou.mybatisplus.annotation.TableName;
 import com.tioka.framework.persistence.ImmutableSnapshotDO;
 
 /**
- * 规则版本内容不可变；仅 stage / canary_percent 可在发布时更新。
- * F17 的规范化哈希 / 发布说明 / 上一生效版本在应用层兑现（V132 契约无对应列）。
+ * 规则版本内容不可变；仅 stage / canary_percent 与 F17 发布型字段可在发布时更新。
  */
 @TableName("orch_rule_version")
 public class OrchRuleVersionDO extends ImmutableSnapshotDO {
@@ -27,6 +26,12 @@ public class OrchRuleVersionDO extends ImmutableSnapshotDO {
     private String serviceAccountId;
     private String stage;
     private Integer canaryPercent;
+    /** F17 / ADR-041：规范化内容哈希（SHA-256 hex） */
+    private String contentHash;
+    /** F17 / ADR-041：发布说明 */
+    private String publishNote;
+    /** F17 / ADR-041：上一个生效版本 id */
+    private String previousVersionId;
 
     public String getId() { return id; }
     public void setId(String id) { this.id = id; }
@@ -58,4 +63,10 @@ public class OrchRuleVersionDO extends ImmutableSnapshotDO {
     public void setStage(String stage) { this.stage = stage; }
     public Integer getCanaryPercent() { return canaryPercent; }
     public void setCanaryPercent(Integer canaryPercent) { this.canaryPercent = canaryPercent; }
+    public String getContentHash() { return contentHash; }
+    public void setContentHash(String contentHash) { this.contentHash = contentHash; }
+    public String getPublishNote() { return publishNote; }
+    public void setPublishNote(String publishNote) { this.publishNote = publishNote; }
+    public String getPreviousVersionId() { return previousVersionId; }
+    public void setPreviousVersionId(String previousVersionId) { this.previousVersionId = previousVersionId; }
 }
