@@ -55,6 +55,14 @@ public class TurnRepository {
         return lv == null ? OptionalLong.empty() : OptionalLong.of(lv);
     }
 
+    /** GOV-08：acquire 后写入当前 span 的 traceparent。 */
+    public int saveTraceparent(String turnId, String traceparent) {
+        if (turnId == null || traceparent == null || traceparent.isBlank()) {
+            return 0;
+        }
+        return mapper.saveTraceparent(turnId, traceparent);
+    }
+
     public int renew(String turnId, long leaseVersion, Instant leaseUntil) {
         return mapper.renew(turnId, leaseVersion, LocalDateTime.ofInstant(leaseUntil, ZoneOffset.UTC));
     }

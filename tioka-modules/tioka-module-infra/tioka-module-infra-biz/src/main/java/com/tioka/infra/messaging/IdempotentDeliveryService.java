@@ -15,6 +15,12 @@ import com.tioka.infra.messaging.infrastructure.SysConsumedRepository;
 import com.tioka.infra.messaging.infrastructure.SysDeadLetterRepository;
 import com.tioka.infra.messaging.infrastructure.persistence.SysDeadLetterDO;
 import com.tioka.system.api.spi.PrincipalLoaderApi;
+import io.opentelemetry.api.GlobalOpenTelemetry;
+import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.api.trace.propagation.W3CTraceContextPropagator;
+import io.opentelemetry.context.Context;
+import io.opentelemetry.context.Scope;
+import io.opentelemetry.context.propagation.TextMapGetter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
@@ -24,6 +30,7 @@ import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.Instant;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -115,22 +122,59 @@ public class IdempotentDeliveryService {
         if (!first) {
             return;
         }
-        Object payload = readPayload(consumer, envelope);
-        Principal runAs = resolveRunAs(envelope);
-        RequestContext previous = RequestContextHolder.getCorrelation();
-        try {
-            if (envelope.requestId() != null || envelope.subject() != null) {
-                RequestContextHolder.setCorrelation(
-                        new RequestContext(envelope.requestId(), envelope.subject(), null));
+        Context parent = extractParent(envelope.traceparent());
+        Span span = GlobalOpenTelemetry.getTracer("tioka")
+                .spanBuilder("messaging.consume")
+                .setParent(parent)
+                .setAttribute("tioka.messaging.consumer", consumer.resolvedConsumerName())
+                .setAttribute("tioka.messaging.event", envelope.event() == null ? "" : envelope.event())
+                .startSpan();
+        try (Scope ignored = span.makeCurrent()) {
+            Object payload = readPayload(consumer, envelope);
+            Principal runAs = resolveRunAs(envelope);
+            RequestContext previous = RequestContextHolder.getCorrelation();
+            try {
+                if (envelope.requestId() != null || envelope.subject() != null) {
+                    RequestContextHolder.setCorrelation(
+                            new RequestContext(envelope.requestId(), envelope.subject(), null));
+                }
+                principals.runAs(runAs, () -> {
+                    consumer.dispatch(envelope, payload);
+                    return null;
+                });
+            } finally {
+                RequestContextHolder.setCorrelation(previous);
             }
-            principals.runAs(runAs, () -> {
-                consumer.dispatch(envelope, payload);
-                return null;
-            });
+        } catch (RuntimeException e) {
+            span.recordException(e);
+            throw e;
         } finally {
-            RequestContextHolder.setCorrelation(previous);
+            span.end();
         }
     }
+
+    private static Context extractParent(String traceparent) {
+        if (traceparent == null || traceparent.isBlank()) {
+            return Context.current();
+        }
+        return W3CTraceContextPropagator.getInstance().extract(
+                Context.current(),
+                Map.of("traceparent", traceparent),
+                TRACEPARENT_GETTER);
+    }
+
+    private static final TextMapGetter<Map<String, String>> TRACEPARENT_GETTER =
+            new TextMapGetter<>() {
+                @Override
+                public Iterable<String> keys(Map<String, String> carrier) {
+                    return carrier == null ? Collections.emptySet() : carrier.keySet();
+                }
+
+                @Override
+                public String get(Map<String, String> carrier, String key) {
+                    return carrier == null ? null : carrier.get(key);
+                }
+            };
 
     private EventEnvelope readEnvelope(String payloadJson) {
         try {

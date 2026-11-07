@@ -145,8 +145,13 @@ tioka:
   observability:
     enabled: ${TIOKA_OTEL_ENABLED:false}
     service-name: ${OTEL_SERVICE_NAME:tioka}
+    # GOV-08：轨迹 / Observability 页拼 Jaeger 链接；占位符 {traceId}
+    trace-url-template: ${TIOKA_TRACE_URL_TEMPLATE:http://localhost:16686/trace/{traceId}}
     # OTEL_* 环境变量占位（由 OTel SDK / Java agent 读取，应用不强制绑定）：
-    # OTEL_EXPORTER_OTLP_ENDPOINT / OTEL_TRACES_EXPORTER / OTEL_METRICS_EXPORTER / OTEL_RESOURCE_ATTRIBUTES
+    # OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4317
+    # OTEL_TRACES_SAMPLER=parentbased_traceidratio
+    # OTEL_TRACES_SAMPLER_ARG=1.0
+    # OTEL_TRACES_EXPORTER / OTEL_METRICS_EXPORTER / OTEL_RESOURCE_ATTRIBUTES
 
 # RocketMQ 客户端：producer.group 常驻；name-server 仅环境/闸门注入时才真正建 Producer/Template。
 # （RocketMQAutoConfiguration 要求 name-server + producer.group 齐备才创建 DefaultMQProducer。）

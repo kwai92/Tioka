@@ -13,6 +13,9 @@ import com.tioka.system.api.audit.AuditApi;
 import com.tioka.system.api.audit.AuditDegradedSink;
 import com.tioka.system.api.audit.AuditEvent;
 import com.tioka.system.api.audit.AuditOutcome;
+import io.opentelemetry.api.GlobalOpenTelemetry;
+import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.context.Scope;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
@@ -74,6 +77,23 @@ public class DefaultToolGateway implements ToolGateway {
     @Override
     public ToolProvider.ToolResult call(ToolCallContext ctx, String toolName, Map<String, Object> args) {
         String name = toolName == null ? "" : toolName;
+        Span span = GlobalOpenTelemetry.getTracer("tioka").spanBuilder("tool.invoke")
+                .setAttribute("tioka.tool", name)
+                .startSpan();
+        try (Scope ignored = span.makeCurrent()) {
+            ToolProvider.ToolResult result = callTracked(ctx, name, args);
+            span.setAttribute("tioka.tool.ok", result.ok());
+            return result;
+        } catch (RuntimeException e) {
+            span.setAttribute("tioka.tool.ok", false);
+            span.recordException(e);
+            throw e;
+        } finally {
+            span.end();
+        }
+    }
+
+    private ToolProvider.ToolResult callTracked(ToolCallContext ctx, String name, Map<String, Object> args) {
         Map<String, Object> safeArgs = args == null ? Map.of() : args;
         long t0 = System.currentTimeMillis();
 

@@ -90,4 +90,7 @@ public interface RuntimeTurnMapper {
         List<RuntimeTurnDO> listByThread(@Param("threadId") String threadId,
                                      @Param("offset") int offset,
                                      @Param("limit") int limit);
+
+    /** GOV-08：写入 W3C traceparent（跨实例恢复）。 */
+    int saveTraceparent(@Param("turnId") String turnId, @Param("traceparent") String traceparent);
 }

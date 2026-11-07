@@ -31,6 +31,10 @@ import com.tioka.runtime.api.event.TurnCompletedEvent;
 import com.tioka.runtime.kernel.infrastructure.redis.TurnDispatchQueue;
 import com.tioka.system.api.spi.PrincipalLoaderApi;
 import com.tioka.system.api.spi.QuotaGuard;
+import io.opentelemetry.api.GlobalOpenTelemetry;
+import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.api.trace.SpanContext;
+import io.opentelemetry.context.Scope;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
@@ -110,11 +114,29 @@ public class TurnRunner {
     }
 
     public void run(String turnId) {
+        Span span = GlobalOpenTelemetry.getTracer("tioka").spanBuilder("turn.run")
+                .setAttribute("tioka.turn_id", turnId == null ? "" : turnId)
+                .startSpan();
+        try (Scope ignored = span.makeCurrent()) {
+            runTracked(turnId, span);
+        } catch (RuntimeException e) {
+            span.recordException(e);
+            throw e;
+        } finally {
+            span.end();
+        }
+    }
+
+    private void runTracked(String turnId, Span span) {
         RuntimeTurnDO turn = turns.findById(turnId).orElse(null);
         if (turn == null) {
             return;
         }
         String threadId = turn.getThreadId();
+        span.setAttribute("tioka.thread_id", threadId == null ? "" : threadId);
+        if (turn.getOrigin() != null) {
+            span.setAttribute("tioka.origin", turn.getOrigin());
+        }
         Optional<ThreadLock.Handle> lockOpt = threadLock.tryAcquire(threadId, turnId);
         if (lockOpt.isEmpty()) {
             return;
@@ -145,6 +167,7 @@ public class TurnRunner {
                 return;
             }
             leaseVersion = acquired.getAsLong();
+            turns.saveTraceparent(turnId, formatTraceparent(span.getSpanContext()));
             long lv = leaseVersion;
             String ws = quotaWs;
             String user = quotaUser;
@@ -179,6 +202,9 @@ public class TurnRunner {
                 long finalLv = lv;
                 LoopResult result = principals.runAs(runAs, () -> {
                     RuntimeThreadDO thread = threads.find(threadId);
+                    if (thread != null && thread.getAgentVersionId() != null) {
+                        span.setAttribute("tioka.agent_version_id", thread.getAgentVersionId());
+                    }
                     int maxSteps = props.getLoop().getMaxSteps();
                     // RT-06：崩溃续跑从已累计的 step_count 继续（中断前 model 步已 increment）
                     int startStep = turn.getStepCount() == null ? 0 : turn.getStepCount();
@@ -261,6 +287,14 @@ public class TurnRunner {
                 enqueueNext(threadId);
             }
         }
+    }
+
+    private static String formatTraceparent(SpanContext ctx) {
+        if (ctx == null || !ctx.isValid()) {
+            return null;
+        }
+        return "00-" + ctx.getTraceId() + "-" + ctx.getSpanId() + "-"
+                + (ctx.getTraceFlags().isSampled() ? "01" : "00");
     }
 
     /** LeaseReaper / 外部在终态后触发同 thread 下一条。 */

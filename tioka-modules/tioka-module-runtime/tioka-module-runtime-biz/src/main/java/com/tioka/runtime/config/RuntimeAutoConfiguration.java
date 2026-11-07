@@ -9,7 +9,7 @@ import org.springframework.data.redis.listener.RedisMessageListenerContainer;
 
 @Configuration
 @ComponentScan("com.tioka.runtime")
-@EnableConfigurationProperties(KernelProperties.class)
+@EnableConfigurationProperties({KernelProperties.class, ObservabilityProperties.class})
 public class RuntimeAutoConfiguration {
 
     @Bean

@@ -10,6 +10,9 @@ import com.tioka.model.domain.ModelEntities;
 import com.tioka.model.infrastructure.provider.ProviderClient;
 import com.tioka.model.infrastructure.provider.ProviderHttpException;
 import com.tioka.system.api.spi.QuotaGuard;
+import io.opentelemetry.api.GlobalOpenTelemetry;
+import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.context.Scope;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
@@ -63,8 +66,33 @@ public class DefaultModelGateway implements ModelGateway {
 
     @Override
     public ChatResult chat(ModelCallContext ctx, ChatRequest request, Consumer<StreamDelta> onDelta) {
+        Span span = GlobalOpenTelemetry.getTracer("tioka").spanBuilder("model.chat")
+                .setAttribute("gen_ai.system", "openai")
+                .startSpan();
+        try (Scope ignored = span.makeCurrent()) {
+            ChatResult result = chatTracked(ctx, request, onDelta, span);
+            span.setAttribute("gen_ai.usage.input_tokens", result.promptTokens());
+            span.setAttribute("gen_ai.usage.output_tokens", result.completionTokens());
+            span.setAttribute("tioka.failover_count", result.failoverCount());
+            if (result.modelRef() != null) {
+                span.setAttribute("gen_ai.request.model", result.modelRef());
+            }
+            return result;
+        } catch (RuntimeException e) {
+            span.recordException(e);
+            throw e;
+        } finally {
+            span.end();
+        }
+    }
+
+    private ChatResult chatTracked(ModelCallContext ctx, ChatRequest request,
+                                   Consumer<StreamDelta> onDelta, Span span) {
         precheck(ctx);
         ModelBindingResolver.Resolution sel = resolver.resolve(ctx);
+        if (sel.modelName() != null) {
+            span.setAttribute("gen_ai.request.model", sel.modelName());
+        }
         List<String> chain = new ArrayList<>(sel.fallbackChain() == null ? List.of() : sel.fallbackChain());
         int failovers = 0;
         AtomicBoolean emitted = new AtomicBoolean(false);

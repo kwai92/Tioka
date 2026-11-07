@@ -11,7 +11,8 @@
                    worker_id AS workerId, lease_version AS leaseVersion,
                    lease_until AS leaseUntil, error_code AS errorCode, error_message AS errorMessage,
                    prompt_tokens AS promptTokens, completion_tokens AS completionTokens,
-                   started_at AS startedAt, ended_at AS endedAt, create_at AS createAt, update_at AS updateAt
+                   started_at AS startedAt, ended_at AS endedAt, create_at AS createAt, update_at AS updateAt,
+                   traceparent
             FROM runtime_turn WHERE id = #{id}
             
 ]]>
@@ -25,7 +26,8 @@
                    worker_id AS workerId, lease_version AS leaseVersion,
                    lease_until AS leaseUntil, error_code AS errorCode, error_message AS errorMessage,
                    prompt_tokens AS promptTokens, completion_tokens AS completionTokens,
-                   started_at AS startedAt, ended_at AS endedAt, create_at AS createAt, update_at AS updateAt
+                   started_at AS startedAt, ended_at AS endedAt, create_at AS createAt, update_at AS updateAt,
+                   traceparent
             FROM runtime_turn
             WHERE thread_id = #{threadId} AND client_msg_id = #{clientMsgId}
             
@@ -315,7 +317,8 @@ SELECT pg_advisory_unlock(hashtext('tioka.runtime.queued-sweeper'))
                    worker_id AS workerId, lease_version AS leaseVersion,
                    lease_until AS leaseUntil, error_code AS errorCode, error_message AS errorMessage,
                    prompt_tokens AS promptTokens, completion_tokens AS completionTokens,
-                   started_at AS startedAt, ended_at AS endedAt, create_at AS createAt, update_at AS updateAt
+                   started_at AS startedAt, ended_at AS endedAt, create_at AS createAt, update_at AS updateAt,
+                   traceparent
             FROM runtime_turn
             WHERE thread_id = #{threadId}
             ORDER BY seq
@@ -323,5 +326,14 @@ SELECT pg_advisory_unlock(hashtext('tioka.runtime.queued-sweeper'))
             
 ]]>
     </select>
+
+    <update id="saveTraceparent">
+        <![CDATA[
+            UPDATE runtime_turn
+               SET traceparent = #{traceparent}, update_at = now()
+             WHERE id = #{turnId}
+            
+]]>
+    </update>
 
 </mapper>
