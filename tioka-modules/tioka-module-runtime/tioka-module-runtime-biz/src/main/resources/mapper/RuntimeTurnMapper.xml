@@ -307,4 +307,21 @@ SELECT pg_advisory_unlock(hashtext('tioka.runtime.queued-sweeper'))
 ]]>
     </select>
 
+    <select id="listByThread" resultType="RuntimeTurnDO">
+        <![CDATA[
+            SELECT id, thread_id AS threadId, seq, status, origin, origin_ref AS originRef,
+                   client_msg_id AS clientMsgId, run_as_json AS runAsJson, options_json AS optionsJson,
+                   step_count AS stepCount, recover_count AS recoverCount,
+                   worker_id AS workerId, lease_version AS leaseVersion,
+                   lease_until AS leaseUntil, error_code AS errorCode, error_message AS errorMessage,
+                   prompt_tokens AS promptTokens, completion_tokens AS completionTokens,
+                   started_at AS startedAt, ended_at AS endedAt, create_at AS createAt, update_at AS updateAt
+            FROM runtime_turn
+            WHERE thread_id = #{threadId}
+            ORDER BY seq
+            LIMIT #{limit} OFFSET #{offset}
+            
+]]>
+    </select>
+
 </mapper>

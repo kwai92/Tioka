@@ -119,6 +119,11 @@ public class TurnRepository {
         return Optional.ofNullable(mapper.findActive(threadId));
     }
 
+    /** HCI-07b：轨迹 Turn 列表。 */
+    public List<RuntimeTurnDO> listByThread(String threadId, int offset, int limit) {
+        return mapper.listByThread(threadId, offset, limit);
+    }
+
     public List<RuntimeTurnDO> findStaleQueuedForDispatch() {
         return mapper.findStaleQueuedForDispatch();
     }

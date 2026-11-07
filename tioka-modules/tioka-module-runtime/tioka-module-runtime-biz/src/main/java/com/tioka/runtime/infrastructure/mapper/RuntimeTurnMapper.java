@@ -85,4 +85,9 @@ public interface RuntimeTurnMapper {
         boolean tryAdvisoryLockQueuedSweeper();
 
         boolean unlockAdvisoryLockQueuedSweeper();
+
+    /** HCI-07b：按 thread 分页列出 Turn（seq 升序）。 */
+        List<RuntimeTurnDO> listByThread(@Param("threadId") String threadId,
+                                     @Param("offset") int offset,
+                                     @Param("limit") int limit);
 }
