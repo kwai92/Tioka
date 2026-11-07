@@ -67,7 +67,11 @@ public class PersistenceProperties {
             "sys_role_permission",
             "sys_user_role",
             "sys_workspace",
-            "trace_span"
+            "trace_span",
+            // ORC-02 / V130：平台 outbox / 消费去重 / 死信（无 workspace_id）
+            "sys_outbox",
+            "sys_consumed",
+            "sys_dead_letter"
     ));
 
     public List<String> getWorkspaceScopeExemptTables() {
