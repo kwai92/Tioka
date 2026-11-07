@@ -3,12 +3,17 @@ package com.tioka.governance.infrastructure.persistence;
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
+import com.tioka.framework.persistence.TechnicalRecordDO;
 
 import java.time.LocalDateTime;
 
-/** cfg_version 行（ADR-041 §2 / V150）；写入后不可更新。 */
+/**
+ * cfg_version 行（ADR-041 §2 / V150）；写入后不可更新。
+ * 审计字段为 published_at/by（非 create_at/by），无 workspace_id，故用 {@link TechnicalRecordDO}
+ *（不用 ImmutableSnapshotDO，避免注入不存在的 create_* 列）。
+ */
 @TableName("cfg_version")
-public class CfgVersionDO {
+public class CfgVersionDO extends TechnicalRecordDO {
     @TableId(type = IdType.INPUT)
     private String versionId;
     private String objectType;

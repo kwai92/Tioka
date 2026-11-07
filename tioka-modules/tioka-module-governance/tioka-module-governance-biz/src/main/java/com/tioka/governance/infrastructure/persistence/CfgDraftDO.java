@@ -1,12 +1,16 @@
 package com.tioka.governance.infrastructure.persistence;
 
 import com.baomidou.mybatisplus.annotation.TableName;
+import com.tioka.framework.persistence.TechnicalRecordDO;
 
 import java.time.LocalDateTime;
 
-/** cfg_draft 行（ADR-041 §2 / V150）。复合主键，不套 BaseDO。 */
+/**
+ * cfg_draft 行（ADR-041 §2 / V150）。复合主键；仅有 update_at/by + revision，
+ * 无 create_* / deleted / workspace_id，故用 {@link TechnicalRecordDO}。
+ */
 @TableName("cfg_draft")
-public class CfgDraftDO {
+public class CfgDraftDO extends TechnicalRecordDO {
     private String objectType;
     private String objectId;
     private String spec;
