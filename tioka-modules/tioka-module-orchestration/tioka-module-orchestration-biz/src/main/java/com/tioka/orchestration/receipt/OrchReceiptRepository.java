@@ -5,8 +5,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tioka.framework.id.Ids;
 import com.tioka.orchestration.infrastructure.mapper.OrchRuleVersionMapper;
 import com.tioka.orchestration.infrastructure.mapper.OrchRunMapper;
+import com.tioka.orchestration.infrastructure.persistence.OrchFactDO;
 import com.tioka.orchestration.infrastructure.persistence.OrchRuleVersionDO;
 import com.tioka.orchestration.infrastructure.persistence.OrchRunDO;
+import com.tioka.orchestration.infrastructure.persistence.OrchWorkItemDO;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
@@ -22,15 +24,15 @@ public class OrchReceiptRepository {
 
     private final OrchRunMapper runs;
     private final OrchRuleVersionMapper versions;
-    private final OrchFactMapper facts;
-    private final OrchWorkItemMapper workItems;
+    private final OrchReceiptFactMapper facts;
+    private final OrchReceiptWorkItemMapper workItems;
     private final OrchTimerMapper timers;
     private final ObjectMapper mapper;
 
     public OrchReceiptRepository(OrchRunMapper runs,
                                  OrchRuleVersionMapper versions,
-                                 OrchFactMapper facts,
-                                 OrchWorkItemMapper workItems,
+                                 OrchReceiptFactMapper facts,
+                                 OrchReceiptWorkItemMapper workItems,
                                  OrchTimerMapper timers,
                                  ObjectMapper mapper) {
         this.runs = runs;
