@@ -7,7 +7,7 @@ import com.tioka.framework.security.Principal;
 import com.tioka.framework.security.PrincipalHolder;
 import com.tioka.framework.security.PrincipalType;
 import com.tioka.knowledge.application.KnowledgeService;
-import com.tioka.model.api.dto.ProviderDtos.CreateBindingRequest;
+import com.tioka.model.api.dto.ProviderDtos.CreateModelBindingRequest;
 import com.tioka.model.api.dto.ProviderDtos.CreateLogicalModelRequest;
 import com.tioka.model.api.dto.ProviderDtos.CreateProviderRequest;
 import com.tioka.model.application.ModelAdminService;
@@ -97,7 +97,7 @@ class KnowledgeEmbeddingIT {
         principals.runAs(user("1", ws), () -> {
             var provider = models.createProvider(new CreateProviderRequest(Ids.newId("p"), "mock://openai", "k"));
             String lm = models.createLogicalModel(new CreateLogicalModelRequest(Ids.newId("m"), "chat"));
-            String chat = models.createBinding(new CreateBindingRequest(lm, provider.id(), "gpt"));
+            String chat = models.createModelBinding(new CreateModelBindingRequest(lm, provider.id(), "gpt"));
             BizException ex = assertThrows(BizException.class,
                     () -> knowledge.createBase(ws, "kb-chat", chat));
             assertEquals(ErrorCode.BAD_REQUEST, ex.getErrorCode());
@@ -108,7 +108,7 @@ class KnowledgeEmbeddingIT {
     private String seedEmbeddingBinding(int dim) {
         var provider = models.createProvider(new CreateProviderRequest(Ids.newId("p"), "mock://openai", "k"));
         String lm = models.createLogicalModel(new CreateLogicalModelRequest(Ids.newId("m"), "embed"));
-        return models.createBinding(new CreateBindingRequest(lm, provider.id(), "text-embedding", "embedding", dim));
+        return models.createModelBinding(new CreateModelBindingRequest(lm, provider.id(), "text-embedding", "embedding", dim));
     }
 
     private static Principal user(String uid, String ws) {

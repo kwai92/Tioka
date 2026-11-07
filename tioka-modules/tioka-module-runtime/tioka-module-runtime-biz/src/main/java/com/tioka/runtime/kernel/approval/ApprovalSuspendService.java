@@ -19,9 +19,10 @@ import com.tioka.runtime.kernel.events.EventStream;
 import com.tioka.runtime.kernel.events.RuntimeEventFactory;
 import com.tioka.runtime.kernel.infrastructure.ApprovalRepository;
 import com.tioka.runtime.kernel.infrastructure.ItemRepository;
+import com.tioka.runtime.kernel.infrastructure.ItemWrite;
 import com.tioka.runtime.kernel.infrastructure.TurnRepository;
-import com.tioka.runtime.kernel.infrastructure.persistence.RuntimeApprovalDO;
-import com.tioka.runtime.kernel.infrastructure.persistence.RuntimeItemDO;
+import com.tioka.runtime.infrastructure.persistence.RuntimeApprovalDO;
+import com.tioka.runtime.infrastructure.persistence.RuntimeItemDO;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -108,8 +109,8 @@ public class ApprovalSuspendService {
             card.put("args", p.args());
             card.put("risk", risk.name());
             card.put("reason", req.reason());
-            RuntimeItemDO cardItem = items.append(ctx.threadId(), ctx.turnId(), ctx.leaseVersion(), step,
-                    ItemType.CARD.wire(), "system", json(card), null);
+            RuntimeItemDO cardItem = items.append(ItemWrite.append(ctx.threadId(), ctx.turnId(), ctx.leaseVersion(), step,
+                    ItemType.CARD.wire(), "system", json(card), null));
             streams.publish(ctx.threadId(), EventId.of(cardItem.getSeq()).toString(),
                     RuntimeEventType.ITEM_COMPLETED.wire(),
                     events.itemCompleted(ctx.threadId(), cardItem));

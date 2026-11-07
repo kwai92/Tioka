@@ -46,7 +46,7 @@ CREATE TABLE model_routing_plan (
     deleted BOOLEAN NOT NULL DEFAULT FALSE
 );
 CREATE TABLE model_turn_freeze (
-    session_id VARCHAR(64) NOT NULL,
+    thread_id VARCHAR(64) NOT NULL,
     turn_id VARCHAR(64) NOT NULL,
     binding_id VARCHAR(64) NOT NULL,
     reason VARCHAR(255),
@@ -55,5 +55,5 @@ CREATE TABLE model_turn_freeze (
     update_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     create_by VARCHAR(64) NOT NULL DEFAULT 'system',
     update_by VARCHAR(64) NOT NULL DEFAULT 'system',
-    PRIMARY KEY (session_id, turn_id)
+    PRIMARY KEY (thread_id, turn_id)
 );

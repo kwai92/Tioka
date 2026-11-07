@@ -11,8 +11,8 @@ import com.tioka.runtime.kernel.events.EventStream;
 import com.tioka.runtime.kernel.events.RuntimeEventFactory;
 import com.tioka.runtime.kernel.infrastructure.ItemRepository;
 import com.tioka.runtime.kernel.infrastructure.TurnRepository;
-import com.tioka.runtime.kernel.infrastructure.persistence.RuntimeItemDO;
-import com.tioka.runtime.kernel.infrastructure.persistence.RuntimeTurnDO;
+import com.tioka.runtime.infrastructure.persistence.RuntimeItemDO;
+import com.tioka.runtime.infrastructure.persistence.RuntimeTurnDO;
 import com.tioka.server.gate.support.DualInstance;
 import com.tioka.server.gate.support.GateSeed;
 import com.tioka.server.gate.support.SseCollector;
@@ -54,7 +54,7 @@ class G1RecoveryGateIT {
             boolean sawToolCall = false;
             String workerId = null;
             while (System.currentTimeMillis() < deadline) {
-                List<RuntimeItemDO> calls = itemsA.listBySession(thr.threadId()).stream()
+                List<RuntimeItemDO> calls = itemsA.listByThread(thr.threadId()).stream()
                         .filter(i -> ItemType.TOOL_CALL.wire().equals(i.getType()))
                         .toList();
                 if (!calls.isEmpty()) {
@@ -108,7 +108,7 @@ class G1RecoveryGateIT {
                 assertEquals(survivorId, finalRow.getWorkerId());
 
                 List<RuntimeItemDO> lost = di.cluster().instance(survivorIdx).getBean(ItemRepository.class)
-                        .listBySession(thr.threadId()).stream()
+                        .listByThread(thr.threadId()).stream()
                         .filter(i -> ItemType.TOOL_RESULT.wire().equals(i.getType()))
                         .filter(i -> i.getContentJson() != null
                                 && i.getContentJson().contains(LeaseReaper.LOST_TOOL_OUTPUT))
@@ -126,7 +126,7 @@ class G1RecoveryGateIT {
         RuntimeEventFactory events = ctx.getBean(RuntimeEventFactory.class);
         JdbcTemplate jdbc = ctx.getBean(JdbcTemplate.class);
         Long seq = jdbc.queryForObject(
-                "UPDATE runtime_session SET last_item_seq = last_item_seq + 1, update_at = now() "
+                "UPDATE runtime_thread SET last_item_seq = last_item_seq + 1, update_at = now() "
                         + "WHERE id = ? RETURNING last_item_seq",
                 Long.class, threadId);
         assertNotNull(seq);

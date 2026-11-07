@@ -2,6 +2,7 @@ package com.tioka.system.application.oidc;
 
 import com.tioka.framework.error.BizException;
 import com.tioka.framework.error.ErrorCode;
+import com.tioka.system.api.spi.EgressClient;
 import com.tioka.system.config.OidcProperties;
 import org.springframework.stereotype.Component;
 
@@ -19,12 +20,12 @@ public class OidcProviderRegistry {
     private final OidcProperties props;
     private final Map<String, IdPAdapter> adapters;
 
-    public OidcProviderRegistry(OidcProperties props) {
+    public OidcProviderRegistry(OidcProperties props, EgressClient egress) {
         this.props = props;
         this.adapters = new LinkedHashMap<>();
         if (props.getProviders() != null) {
             for (String idp : props.getProviders().keySet()) {
-                adapters.put(idp, new OidcIdPAdapter(idp, props.getProviders().get(idp)));
+                adapters.put(idp, new OidcIdPAdapter(idp, props.getProviders().get(idp), egress));
             }
         }
     }

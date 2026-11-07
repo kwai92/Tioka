@@ -45,4 +45,34 @@ class ModuleDependencyArchTest {
                 .allowEmptyShould(true);
         rule.check(classes);
     }
+
+    @Test
+    void flowAndChatMustNotBypassToolGatewayViaMcpToolCallApi() {
+        ArchRule rule = noClasses()
+                .that().resideInAnyPackage("com.tioka.flow..", "com.tioka.chat..")
+                .should().dependOnClassesThat()
+                .haveFullyQualifiedName("com.tioka.mcp.api.McpToolCallApi")
+                .because("Flow/Chat 工具调用须经 ToolGateway，禁止直调 McpToolCallApi");
+        rule.check(classes);
+    }
+
+    @Test
+    void businessMustNotCreateRawHttpClient() {
+        ArchRule rule = noClasses()
+                .that().resideOutsideOfPackage("com.tioka.system.application.egress..")
+                .should().dependOnClassesThat()
+                .haveFullyQualifiedName("java.net.http.HttpClient")
+                .because("出网须经 EgressClient；仅 DefaultEgressClient 可持有 HttpClient");
+        rule.check(classes);
+    }
+
+    @Test
+    void chatFlowAgentMustNotDependOnDeprecatedOrchApi() {
+        ArchRule rule = noClasses()
+                .that().resideInAnyPackage("com.tioka.chat..", "com.tioka.flow..", "com.tioka.agent..")
+                .should().dependOnClassesThat()
+                .haveFullyQualifiedName("com.tioka.orchestration.api.OrchApi")
+                .because("Chat/Flow/Agent 人审面走 OrchAttentionApi；ingest 走 engine.OrchApi");
+        rule.check(classes);
+    }
 }

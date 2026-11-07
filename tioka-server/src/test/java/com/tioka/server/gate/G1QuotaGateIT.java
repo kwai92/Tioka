@@ -5,7 +5,7 @@ import com.tioka.framework.error.ErrorCode;
 import com.tioka.framework.id.Ids;
 import com.tioka.framework.security.Principal;
 import com.tioka.framework.security.PrincipalHolder;
-import com.tioka.model.api.dto.ProviderDtos.CreateBindingRequest;
+import com.tioka.model.api.dto.ProviderDtos.CreateModelBindingRequest;
 import com.tioka.model.api.dto.ProviderDtos.CreateLogicalModelRequest;
 import com.tioka.model.api.dto.ProviderDtos.CreateProviderRequest;
 import com.tioka.model.api.dto.ProviderDtos.CreateRoutingPlanRequest;
@@ -17,7 +17,7 @@ import com.tioka.runtime.api.kernel.ItemType;
 import com.tioka.runtime.api.kernel.RuntimeEventType;
 import com.tioka.runtime.api.kernel.TurnStatus;
 import com.tioka.runtime.kernel.infrastructure.ItemRepository;
-import com.tioka.runtime.kernel.infrastructure.persistence.RuntimeItemDO;
+import com.tioka.runtime.infrastructure.persistence.RuntimeItemDO;
 import com.tioka.server.gate.support.DualInstance;
 import com.tioka.server.gate.support.GateSeed;
 import com.tioka.server.gate.support.SseCollector;
@@ -57,7 +57,7 @@ class G1QuotaGateIT {
                 var provider = models.createProvider(
                         new CreateProviderRequest(Ids.newId("p"), di.llm().baseUrl(), "k"));
                 String lm = models.createLogicalModel(new CreateLogicalModelRequest(Ids.newId("m"), "tool"));
-                String binding = models.createBinding(new CreateBindingRequest(lm, provider.id(), "gpt"));
+                String binding = models.createModelBinding(new CreateModelBindingRequest(lm, provider.id(), "gpt"));
                 String id = models.createPlan(new CreateRoutingPlanRequest(Ids.newId("rp"), "FIXED", binding)).id();
                 models.publish(id);
                 return id;
@@ -103,7 +103,7 @@ class G1QuotaGateIT {
                 sse.awaitEvent(RuntimeEventType.ITEM_DISCARDED.wire(), 20_000);
 
                 List<RuntimeItemDO> messages = di.a().getBean(ItemRepository.class)
-                        .listBySession(thr.threadId()).stream()
+                        .listByThread(thr.threadId()).stream()
                         .filter(i -> ItemType.MESSAGE.wire().equals(i.getType()))
                         .filter(i -> i.getDiscarded() == null || !i.getDiscarded())
                         .filter(i -> "assistant".equals(i.getRole()))
@@ -144,8 +144,8 @@ class G1QuotaGateIT {
             var provider = models.createProvider(
                     new CreateProviderRequest(Ids.newId("p"), di.llm().baseUrl(), "k"));
             String lm = models.createLogicalModel(new CreateLogicalModelRequest(Ids.newId("m"), "tool"));
-            String primary = models.createBinding(new CreateBindingRequest(lm, provider.id(), "gpt-primary"));
-            String fallback = models.createBinding(new CreateBindingRequest(lm, provider.id(), "gpt-fallback"));
+            String primary = models.createModelBinding(new CreateModelBindingRequest(lm, provider.id(), "gpt-primary"));
+            String fallback = models.createModelBinding(new CreateModelBindingRequest(lm, provider.id(), "gpt-fallback"));
             String planId = models.createPlan(
                     new CreateRoutingPlanRequest(Ids.newId("rp"), "PRIMARY_FALLBACK", primary, fallback, null)).id();
             models.publish(planId);

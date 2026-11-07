@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tioka.system.infrastructure.mapper.SysRolePermissionMapper">
+
+    <select id="permissionsOfRole" resultType="String">
+        <![CDATA[
+SELECT permission FROM sys_role_permission WHERE role_code = #{roleCode}
+]]>
+    </select>
+
+</mapper>

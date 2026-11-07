@@ -23,19 +23,19 @@ public class CardController {
 
     @PostMapping("/continue")
     @Audited(action = "chat.card.continue", resourceType = "card")
-    public ApiResponse<ChatStore.Message> continueCard(@RequestBody Map<String, String> body) {
+    public ApiResponse<ChatStore.CardMessage> continueCard(@RequestBody Map<String, String> body) {
         return ApiResponse.ok(cards.emitContinueCard(body.get("conversationId"), body.get("prompt")));
     }
 
     @PostMapping("/approval")
     @Audited(action = "chat.card.approval", resourceType = "card")
-    public ApiResponse<ChatStore.Message> approval(@RequestBody Map<String, String> body) {
+    public ApiResponse<ChatStore.CardMessage> approval(@RequestBody Map<String, String> body) {
         return ApiResponse.ok(cards.emitApprovalCard(body.get("conversationId"), body.get("runId"), body.get("title")));
     }
 
     @PostMapping("/continue/submit")
     @Audited(action = "chat.card.continue.submit", resourceType = "card")
-    public ApiResponse<ChatStore.Message> submitContinue(@RequestBody Map<String, String> body) {
+    public ApiResponse<ChatStore.CardMessage> submitContinue(@RequestBody Map<String, String> body) {
         return ApiResponse.ok(cards.submitContinue(
                 body.get("conversationId"),
                 body.get("messageIdOrPartHint"),
@@ -44,7 +44,7 @@ public class CardController {
 
     @PostMapping("/approval/submit")
     @Audited(action = "chat.card.approval.submit", resourceType = "card")
-    public ApiResponse<ChatStore.Message> submitApproval(@RequestBody Map<String, Object> body) {
+    public ApiResponse<ChatStore.CardMessage> submitApproval(@RequestBody Map<String, Object> body) {
         String conversationId = body.get("conversationId") == null ? null : String.valueOf(body.get("conversationId"));
         String attentionId = body.get("attentionId") == null ? null : String.valueOf(body.get("attentionId"));
         boolean approved = Boolean.TRUE.equals(body.get("approved"))

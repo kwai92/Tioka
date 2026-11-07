@@ -5,7 +5,7 @@ import com.tioka.framework.security.Principal;
 import com.tioka.framework.security.PrincipalHolder;
 import com.tioka.framework.security.PrincipalType;
 import com.tioka.knowledge.application.KnowledgeService;
-import com.tioka.model.api.dto.ProviderDtos.CreateBindingRequest;
+import com.tioka.model.api.dto.ProviderDtos.CreateModelBindingRequest;
 import com.tioka.model.api.dto.ProviderDtos.CreateLogicalModelRequest;
 import com.tioka.model.api.dto.ProviderDtos.CreateProviderRequest;
 import com.tioka.model.application.ModelAdminService;
@@ -130,7 +130,7 @@ class KnowledgeAclIT {
         String id = Ids.newId("emb");
         var provider = models.createProvider(new CreateProviderRequest(id + "-p", "mock://openai", "k"));
         String lm = models.createLogicalModel(new CreateLogicalModelRequest(id + "-m", "embed"));
-        return models.createBinding(new CreateBindingRequest(lm, provider.id(), "text-embedding", "embedding", 32));
+        return models.createModelBinding(new CreateModelBindingRequest(lm, provider.id(), "text-embedding", "embedding", 32));
     }
 
     private Principal adminPrincipal(TestFixtures.Actor admin) {

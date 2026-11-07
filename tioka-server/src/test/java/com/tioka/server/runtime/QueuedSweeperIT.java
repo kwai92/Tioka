@@ -5,7 +5,7 @@ import com.tioka.runtime.api.kernel.TurnStatus;
 import com.tioka.runtime.kernel.application.QueuedSweeper;
 import com.tioka.runtime.kernel.application.TurnDispatcher;
 import com.tioka.runtime.kernel.infrastructure.TurnRepository;
-import com.tioka.runtime.kernel.infrastructure.persistence.RuntimeTurnDO;
+import com.tioka.runtime.infrastructure.persistence.RuntimeTurnDO;
 import com.tioka.server.gate.support.DualInstance;
 import com.tioka.server.gate.support.GateSeed;
 import org.junit.jupiter.api.Tag;
@@ -54,7 +54,7 @@ class QueuedSweeperIT {
 
             JdbcTemplate jdbc = di.a().getBean(JdbcTemplate.class);
             jdbc.update(
-                    "UPDATE runtime_turn SET update_at = now() - interval '20 seconds' WHERE session_id = ?",
+                    "UPDATE runtime_turn SET update_at = now() - interval '20 seconds' WHERE thread_id = ?",
                     thr.threadId());
 
             StringRedisTemplate redis = di.a().getBean(StringRedisTemplate.class);

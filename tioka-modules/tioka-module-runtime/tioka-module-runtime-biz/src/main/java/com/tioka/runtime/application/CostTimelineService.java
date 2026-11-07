@@ -17,8 +17,8 @@ public class CostTimelineService {
         this.costs = costs;
     }
 
-    public List<CostEvent> timeline(String sessionId) {
-        return costs.sessionTimeline(sessionId).stream()
+    public List<CostEvent> timeline(String threadId) {
+        return costs.sessionTimeline(threadId).stream()
                 .map(u -> new CostEvent(
                         u.turnId(),
                         u.step(),

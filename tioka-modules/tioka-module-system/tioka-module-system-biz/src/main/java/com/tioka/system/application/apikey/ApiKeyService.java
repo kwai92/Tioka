@@ -1,5 +1,7 @@
 package com.tioka.system.application.apikey;
 
+import com.tioka.system.api.authz.SystemRoles;
+
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -107,7 +109,7 @@ public class ApiKeyService {
         requireAnyManage();
         List<SysApiKeyDO> rows;
         if (p.hasPermission(Permissions.TENANT_ADMIN) || p.hasPermission("*")
-                || p.roles().contains("tenant_admin")) {
+                || p.roles().contains(SystemRoles.SYSTEM_ADMIN)) {
             rows = keys.listAll();
         } else {
             rows = keys.listByWorkspace(p.workspaceId());
@@ -204,7 +206,7 @@ public class ApiKeyService {
     private void requireManageApiKeys(String workspaceId) {
         Principal p = principals.current();
         if (p.hasPermission(Permissions.TENANT_ADMIN) || p.hasPermission("*")
-                || p.roles().contains("tenant_admin")) {
+                || p.roles().contains(SystemRoles.SYSTEM_ADMIN)) {
             return;
         }
         if (!p.hasPermission(Permissions.WORKSPACE_MANAGE)) {

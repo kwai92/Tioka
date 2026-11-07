@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tioka.system.infrastructure.mapper.SysGroupMapper">
+
+    <select id="listAll" resultType="SysGroupDO">
+        <![CDATA[
+SELECT id, name, source, external_id AS externalId FROM sys_group ORDER BY name
+]]>
+    </select>
+
+    <select id="findBySourceAndExternalId" resultType="SysGroupDO">
+        <![CDATA[
+            SELECT id, name, source, external_id AS externalId
+            FROM sys_group
+            WHERE source = #{source} AND external_id = #{externalId}
+            
+]]>
+    </select>
+
+    <select id="listByUser" resultType="SysGroupDO">
+        <![CDATA[
+            SELECT g.id, g.name, g.source, g.external_id AS externalId
+            FROM sys_group g
+            JOIN sys_group_member m ON m.group_id = g.id
+            WHERE m.user_id = #{userId}
+            
+]]>
+    </select>
+
+    <select id="groupIdsOfUserBySource" resultType="String">
+        <![CDATA[
+            SELECT g.id
+            FROM sys_group g
+            JOIN sys_group_member m ON m.group_id = g.id
+            WHERE m.user_id = #{userId} AND g.source = #{source}
+            
+]]>
+    </select>
+
+</mapper>

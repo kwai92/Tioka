@@ -5,8 +5,8 @@ import com.tioka.framework.error.ErrorCode;
 import com.tioka.framework.id.Ids;
 import com.tioka.infra.api.ObjectStorageApi;
 import com.tioka.runtime.api.spi.WorkspaceFs;
-import com.tioka.runtime.infrastructure.RuntimeSessionRepository;
-import com.tioka.runtime.infrastructure.persistence.RuntimeSessionDO;
+import com.tioka.runtime.infrastructure.RuntimeThreadRepository;
+import com.tioka.runtime.infrastructure.persistence.RuntimeThreadDO;
 import org.springframework.stereotype.Service;
 
 import java.util.Map;
@@ -16,19 +16,19 @@ import java.util.concurrent.ConcurrentHashMap;
 public class UploadService {
     private final ObjectStorageApi objects;
     private final WorkspaceFs workspaceFs;
-    private final RuntimeSessionRepository sessions;
+    private final RuntimeThreadRepository threads;
     private final Map<String, UploadMeta> pending = new ConcurrentHashMap<>();
 
-    public UploadService(ObjectStorageApi objects, WorkspaceFs workspaceFs, RuntimeSessionRepository sessions) {
+    public UploadService(ObjectStorageApi objects, WorkspaceFs workspaceFs, RuntimeThreadRepository threads) {
         this.objects = objects;
         this.workspaceFs = workspaceFs;
-        this.sessions = sessions;
+        this.threads = threads;
     }
 
-    public PresignResult presign(String filename, String contentType, String sessionId) {
+    public PresignResult presign(String filename, String contentType, String threadId) {
         String uploadId = Ids.newId("up");
         String objectKey = "uploads/" + uploadId + "/" + sanitize(filename);
-        pending.put(uploadId, new UploadMeta(objectKey, sessionId, filename, contentType, false));
+        pending.put(uploadId, new UploadMeta(objectKey, threadId, filename, contentType, false));
         return new PresignResult(uploadId, objectKey, "/api/uploads/" + uploadId + "/content");
     }
 
@@ -36,18 +36,18 @@ public class UploadService {
         UploadMeta meta = pending.get(uploadId);
         if (meta == null) throw new BizException(ErrorCode.NOT_FOUND, "upload 不存在");
         objects.put(meta.objectKey(), body, meta.contentType());
-        pending.put(uploadId, new UploadMeta(meta.objectKey(), meta.sessionId(), meta.filename(), meta.contentType(), true));
+        pending.put(uploadId, new UploadMeta(meta.objectKey(), meta.threadId(), meta.filename(), meta.contentType(), true));
     }
 
-    public ConfirmResult confirm(String uploadId, String sessionId) {
+    public ConfirmResult confirm(String uploadId, String threadId) {
         UploadMeta meta = pending.get(uploadId);
         if (meta == null) throw new BizException(ErrorCode.NOT_FOUND, "upload 不存在");
         if (!meta.written()) throw new BizException(ErrorCode.BAD_REQUEST, "尚未上传内容");
-        if (sessionId != null && meta.sessionId() != null && !meta.sessionId().equals(sessionId)) {
+        if (threadId != null && meta.threadId() != null && !meta.threadId().equals(threadId)) {
             throw new BizException(ErrorCode.FORBIDDEN, "附件不属于当前会话");
         }
-        String sid = sessionId != null ? sessionId : meta.sessionId();
-        if (sid == null) throw new BizException(ErrorCode.BAD_REQUEST, "缺少 sessionId");
+        String sid = threadId != null ? threadId : meta.threadId();
+        if (sid == null) throw new BizException(ErrorCode.BAD_REQUEST, "缺少 threadId");
         String workspaceId = workspaceId(sid);
         String logical = "uploads/" + uploadId + "/" + sanitize(meta.filename());
         workspaceFs.materializeFromObject(workspaceId, sid, meta.objectKey(), logical);
@@ -59,17 +59,17 @@ public class UploadService {
         ));
     }
 
-    public WorkspaceFs.PublishedArtifact publish(String sessionId, String logicalSrc, String contentType) {
-        String workspaceId = workspaceId(sessionId);
-        return workspaceFs.publishArtifact(workspaceId, sessionId, logicalSrc, contentType);
+    public WorkspaceFs.PublishedArtifact publish(String threadId, String logicalSrc, String contentType) {
+        String workspaceId = workspaceId(threadId);
+        return workspaceFs.publishArtifact(workspaceId, threadId, logicalSrc, contentType);
     }
 
     public byte[] downloadByTicket(String ticket) {
         return objects.redeemTicket(ticket);
     }
 
-    private String workspaceId(String sessionId) {
-        RuntimeSessionDO row = sessions.find(sessionId);
+    private String workspaceId(String threadId) {
+        RuntimeThreadDO row = threads.find(threadId);
         if (row == null || row.getWorkspaceId() == null || row.getWorkspaceId().isBlank()) {
             throw new BizException(ErrorCode.NOT_FOUND, "会话不存在");
         }
@@ -81,9 +81,9 @@ public class UploadService {
         return name.replaceAll("[^a-zA-Z0-9._-]", "_");
     }
 
-    private record UploadMeta(String objectKey, String sessionId, String filename, String contentType, boolean written) {}
+    private record UploadMeta(String objectKey, String threadId, String filename, String contentType, boolean written) {}
 
     public record PresignResult(String uploadId, String objectKey, String putUrl) {}
 
-    public record ConfirmResult(String uploadId, String logicalPath, Map<String, Object> fileRefPart) {}
+    public record ConfirmResult(String uploadId, String logicalPath, Map<String, Object> fileRef) {}
 }

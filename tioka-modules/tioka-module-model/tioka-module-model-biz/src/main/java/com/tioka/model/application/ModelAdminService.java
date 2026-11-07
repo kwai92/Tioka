@@ -53,7 +53,7 @@ public class ModelAdminService {
         return id;
     }
 
-    public String createBinding(CreateBindingRequest req) {
+    public String createModelBinding(CreateModelBindingRequest req) {
         if (!entities.hasLogical(req.logicalModelId()) || entities.getProvider(req.providerId()).isEmpty()) {
             throw new BizException(ErrorCode.NOT_FOUND, "logicalModel 或 provider 不存在");
         }
@@ -61,7 +61,7 @@ public class ModelAdminService {
         Integer embeddingDim = req.embeddingDim();
         requireEmbeddingDim(kind, embeddingDim);
         String id = Ids.newId("bnd");
-        entities.putBinding(new Binding(
+        entities.putBinding(new ModelBinding(
                 id, req.logicalModelId(), req.providerId(), req.modelName(),
                 kind, req.contextWindow(), embeddingDim,
                 req.inputPriceMicros() == null ? 0L : req.inputPriceMicros(),
@@ -71,17 +71,17 @@ public class ModelAdminService {
         return id;
     }
 
-    public List<BindingView> listBindings() {
-        return entities.bindings().stream().map(this::toBindingView).toList();
+    public List<ModelBindingView> listModelBindings() {
+        return entities.bindings().stream().map(this::toModelBindingView).toList();
     }
 
-    public BindingView updateBinding(String id, UpdateBindingRequest req) {
-        Binding existing = entities.getBinding(id)
+    public ModelBindingView updateModelBinding(String id, UpdateModelBindingRequest req) {
+        ModelBinding existing = entities.getModelBinding(id)
                 .orElseThrow(() -> new BizException(ErrorCode.NOT_FOUND, "binding 不存在"));
         String kind = req.kind() == null || req.kind().isBlank() ? existing.kind() : normalizeKind(req.kind());
         Integer embeddingDim = req.embeddingDim() != null ? req.embeddingDim() : existing.embeddingDim();
         requireEmbeddingDim(kind, embeddingDim);
-        Binding updated = new Binding(
+        ModelBinding updated = new ModelBinding(
                 existing.id(), existing.logicalModelId(), existing.providerId(), existing.modelName(),
                 kind,
                 req.contextWindow() != null ? req.contextWindow() : existing.contextWindow(),
@@ -92,7 +92,7 @@ public class ModelAdminService {
                 req.tpmLimit() != null ? req.tpmLimit() : existing.tpmLimit(),
                 req.enabled() != null ? req.enabled() : existing.enabled());
         entities.putBinding(updated);
-        return toBindingView(updated);
+        return toModelBindingView(updated);
     }
 
     public RoutingPlanView createPlan(CreateRoutingPlanRequest req) {
@@ -175,8 +175,8 @@ public class ModelAdminService {
         return new DefaultPlanView(row.getPurpose(), row.getRoutingPlanId(), row.getBindingId());
     }
 
-    private BindingView toBindingView(Binding b) {
-        return new BindingView(
+    private ModelBindingView toModelBindingView(ModelBinding b) {
+        return new ModelBindingView(
                 b.id(), b.logicalModelId(), b.providerId(), b.modelName(),
                 b.kind(), b.contextWindow(), b.embeddingDim(),
                 b.inputPriceMicros(), b.outputPriceMicros(),

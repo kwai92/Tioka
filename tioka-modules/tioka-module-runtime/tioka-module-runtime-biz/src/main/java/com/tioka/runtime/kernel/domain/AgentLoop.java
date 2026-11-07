@@ -6,7 +6,7 @@ import com.tioka.runtime.api.kernel.ItemType;
 import com.tioka.runtime.kernel.approval.PendingToolCall;
 import com.tioka.runtime.kernel.approval.ToolApprovalCoordinator;
 import com.tioka.runtime.kernel.infrastructure.TurnRepository;
-import com.tioka.runtime.kernel.infrastructure.persistence.RuntimeItemDO;
+import com.tioka.runtime.infrastructure.persistence.RuntimeItemDO;
 import com.tioka.runtime.kernel.model.TurnCallScope;
 
 import java.util.ArrayDeque;

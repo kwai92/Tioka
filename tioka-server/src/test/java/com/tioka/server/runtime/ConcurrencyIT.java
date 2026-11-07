@@ -1,7 +1,7 @@
 package com.tioka.server.runtime;
 
 import com.tioka.framework.id.Ids;
-import com.tioka.runtime.kernel.infrastructure.redis.SessionLock;
+import com.tioka.runtime.kernel.infrastructure.redis.ThreadLock;
 import com.tioka.server.support.IntegrationTestSupport;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -34,7 +34,7 @@ class ConcurrencyIT {
         IntegrationTestSupport.register(registry);
     }
 
-    @Autowired SessionLock sessionLock;
+    @Autowired ThreadLock sessionLock;
 
     @Test
     void hundredThreadsDoNotBlock() throws Exception {
@@ -50,7 +50,7 @@ class ConcurrencyIT {
             String turnId = Ids.newId("turn");
             futures.add(pool.submit(() -> {
                 start.await();
-                try (SessionLock.Handle h = sessionLock.tryAcquire(threadId, turnId).orElseThrow()) {
+                try (ThreadLock.Handle h = sessionLock.tryAcquire(threadId, turnId).orElseThrow()) {
                     acquired.incrementAndGet();
                     Thread.sleep(500); // 模拟模型桩延迟
                 }

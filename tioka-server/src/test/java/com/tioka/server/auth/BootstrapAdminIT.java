@@ -21,7 +21,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * V110 起 tenant_admin 落在 {@code sys_user_role}，不再写入 {@code sys_member}。
+ * V110 起 system_admin 落在 {@code sys_user_role}，不再写入 {@code sys_member}。
  * 本用例不得依赖其它 IT（如 WorkspaceMemberIT）偶发回填 sys_member 才能通过。
  */
 @SpringBootTest
@@ -40,10 +40,10 @@ class BootstrapAdminIT {
 
     @Test
     void createsOnceAcrossTwoRunners() throws Exception {
-        assertTrue(userRoles.existsEnabledTenantAdmin(),
-                "BootstrapAdminRunner 应已写入 sys_user_role.tenant_admin");
-        // 共享 Testcontainers DB：其它 IT（OIDC 等）也可能写入 tenant_admin，只断言并发不增量
-        long before = userRoles.countByRole("tenant_admin");
+        assertTrue(userRoles.existsEnabledSystemAdmin(),
+                "BootstrapAdminRunner 应已写入 sys_user_role.system_admin");
+        // 共享 Testcontainers DB：其它 IT（OIDC 等）也可能写入 system_admin，只断言并发不增量
+        long before = userRoles.countByRole("system_admin");
 
         CountDownLatch start = new CountDownLatch(1);
         CountDownLatch done = new CountDownLatch(2);
@@ -65,8 +65,8 @@ class BootstrapAdminIT {
         assertTrue(done.await(30, TimeUnit.SECONDS));
         pool.shutdownNow();
         assertEquals(0, errors.get());
-        assertTrue(userRoles.existsEnabledTenantAdmin());
-        assertEquals(before, userRoles.countByRole("tenant_admin"),
-                "并发二次 bootstrap 不得再增加 tenant_admin 行数");
+        assertTrue(userRoles.existsEnabledSystemAdmin());
+        assertEquals(before, userRoles.countByRole("system_admin"),
+                "并发二次 bootstrap 不得再增加 system_admin 行数");
     }
 }

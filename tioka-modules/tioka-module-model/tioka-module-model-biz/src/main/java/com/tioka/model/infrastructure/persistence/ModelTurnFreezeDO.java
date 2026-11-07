@@ -10,7 +10,7 @@ import java.time.LocalDateTime;
  */
 @TableName("model_turn_freeze")
 public class ModelTurnFreezeDO extends AppendOnlyDO {
-    private String sessionId;
+    private String threadId;
     private String turnId;
     private String bindingId;
     private String reason;
@@ -18,8 +18,8 @@ public class ModelTurnFreezeDO extends AppendOnlyDO {
     private LocalDateTime updateAt;
     private String updateBy;
 
-    public String getSessionId() { return sessionId; }
-    public void setSessionId(String sessionId) { this.sessionId = sessionId; }
+    public String getThreadId() { return threadId; }
+    public void setThreadId(String threadId) { this.threadId = threadId; }
     public String getTurnId() { return turnId; }
     public void setTurnId(String turnId) { this.turnId = turnId; }
     public String getBindingId() { return bindingId; }

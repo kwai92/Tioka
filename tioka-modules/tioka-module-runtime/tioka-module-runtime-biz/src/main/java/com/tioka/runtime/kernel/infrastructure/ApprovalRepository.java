@@ -1,7 +1,8 @@
 package com.tioka.runtime.kernel.infrastructure;
 
 import com.tioka.runtime.infrastructure.mapper.RuntimeApprovalMapper;
-import com.tioka.runtime.kernel.infrastructure.persistence.RuntimeApprovalDO;
+import com.tioka.runtime.infrastructure.persistence.RuntimeApprovalDO;
+import com.tioka.runtime.infrastructure.persistence.WaitingTurnRow;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -56,7 +57,7 @@ public class ApprovalRepository {
         return mapper.expirePendingForSubject(subjectType, subjectId, decidedBy);
     }
 
-    public List<RuntimeApprovalMapper.WaitingTurnRow> findWaitingWithoutPending() {
+    public List<WaitingTurnRow> findWaitingWithoutPending() {
         return mapper.findWaitingWithoutPending();
     }
 }

@@ -125,7 +125,7 @@ M0 编码开工时（分支 `feat/G0-multistep-stream-concurrency`）裁定。�
 
 | # | 涉及 | 问题 | 定案 |
 | --- | --- | --- | --- |
-| 60 | 第 19、22 条；ADR-009；persistence-guardrails；Cursor 架构规则 | 第 19/22 条要求业务表加 `tenant_id` 并保留租户拦截器，与护栏「禁止 tenantId」及单企业独立部署现实冲突 | **废止第 19、22 条中「加 `tenant_id` / 保留租户拦截器」的要求。** 禁止在 DO、迁移、API 引入 `tenant_id` / `sys_tenant`；隔离边界为空间（`workspace_id`）+ 私有资源的 `owner_id`。持久层只用 workspace 行级过滤。角色 `tenant_admin` 保留历史角色码，界面显示「系统管理员」，`sys_role.scope` 取值 `SYSTEM` / `WORKSPACE`。`Principal` 不再含 `tenantId`。未落地的契约脚本（V100 起）按本条改写；M1/M2 契约同步去掉 `tenant_id` |
+| 60 | 第 19、22 条；ADR-009；persistence-guardrails；Cursor 架构规则 | 第 19/22 条要求业务表加 `tenant_id` 并保留租户拦截器，与护栏「禁止 tenantId」及单企业独立部署现实冲突 | **废止第 19、22 条中「加 `tenant_id` / 保留租户拦截器」的要求。** 禁止在 DO、迁移、API 引入 `tenant_id` / `sys_tenant`；隔离边界为空间（`workspace_id`）+ 私有资源的 `owner_id`。持久层只用 workspace 行级过滤。`sys_role.scope` 取值 `SYSTEM` / `WORKSPACE`。`Principal` 不再含 `tenantId`。未落地的契约脚本（V100 起）按本条改写；M1/M2 契约同步去掉 `tenant_id`。**（2026-11-07 修订）** 废止「保留历史角色码 `tenant_admin`」：权威角色码为 **`system_admin`**（界面「系统管理员」）；OIDC 组映射配置键 `tenant-role` / 字段 `tenantRole` 改为 **`system-role` / `systemRole`**；`AuditEvent` 删除占位字段 `tenantId`。存量库由 Flyway 将 `tenant_admin` 改写为 `system_admin`。名词见 [47-GL](../enterprise/47-GL-统一名词释义.md)。 |
 
 ## M1 排期定案（2026-11-06）
 
@@ -242,3 +242,9 @@ M0 编码开工时（分支 `feat/G0-multistep-stream-concurrency`）裁定。�
 | # | 涉及 | 问题 | 定案 |
 | --- | --- | --- | --- |
 | 77 | M2-00、M1-00、00-施工总纲、`docs/contracts/db`（V136、V143、V146）；新增 M2-06 | 负责人 2026-11-07 问：M2 已在推进，能否让 Cursor 同步并发推进。核查发现：main 上 M2 代码尚未开始；本机有未推送的 ORC-02 事件契约提交与约 240 个文件未提交的名词对齐、编码规约改动，后者基线落后 main 两个合并，其 `V127__rename_tenant_admin_to_system_admin` 与 main 的 `V127__m1_audit_request_id` 撞号，`RuntimeMqTopics`、`OrchestrationMqTopics` 被两批改动同时修改；M2-00 让 HCI-05b 先合 V143，而 V143 含 `DROP TABLE flow_run`，会让旧 Flow 引擎在 W15 到 W21 之间不可用 | 按推荐方案写 [M2-06](../construction/M2-06-并行开发任务包.md)：① **先串行打地基再扇出**：W14 前 3 天依次合入名词对齐（PK-00a）、事件契约（PK-00b）、前后端骨架（PK-00c、PK-00d，共 2.5 人天，出自 M2 余量），期间 main 只接受闸门基座 PK-01。② **一包一分支一工作树一 PR**，Cursor 只开 PR 不合并；契约先行；8 把热点文件锁（Runtime 执行内核、Runtime 审批、构建与配置、闸门基座、静态闸门、事件与主题、前端公共文件、迁移号）同一时间只由一个未合入 PR 持有，执行内核按 GOV-08 → OBS-03 → RT-09 → TRU-05 轮转。③ 建议并发度每名后端 2 个会话、前端 2 个、全队开着的 PR ≤ 8。④ HCI-06b 从 W21 提前为旁路包；OBS-04a 拆为不依赖 CON-02 的台账与出网部分和 CON-02 之后的 IM 记账部分；ORC-03、FND-08、CON-02、TRU-05 各拆子包并行。⑤ **迁移**：名词对齐的 tenant_admin 改名改用 V136，V128、V129 保留；V143 拆为审批台与轨迹列（随 HCI-05b）与 V146 `flow_run`、`flow_node_run` 重建（随 FLW-03）；V131 定为随 GOV-08 带入。⑥ **M3 与 M2 并发**（负责人同日追问「M3 不能和 M2 并发吗」）：按依赖分三组，约 132.5 后端人天不依赖 M2、约 33 人天只依赖 M2 前半段，其余等 G2 冻结；卡点是人手（M2 已排 133.5 / 150）不是依赖，按方案 B 在 W16、W18 检查点用实测人天比 r 算可拉入人天（150 × 剩余周 ÷ 10 − M2 剩余估算 × r − 15），按五档顺序拉活（原 26 人天提前池 → 合同主链前段 → 平台链 → 依赖 M2 前半段的项 → 其余），r = 0.7 约提前 3 周、r = 0.6 约 4 周；锁、迁移号、不接线、主链落后即停的约束见 M2-06 第 8.5 节；备选 A 只做提前池、C 按假设速度直接排、D 外包业务系统或加人（可与 B 叠加）。M2 范围、人天与计划周不变，实际偏移按第 76 条⑤在 G2 通过时记录。未采用的备选：不建骨架、各包自带依赖与接口（冲突集中在 pom 与 `-api`，rebase 成本高）；按人而不按模块分包（同一模块多人同时改）；把名词对齐推迟到 M2 之后（M2 新代码会继续用旧名，之后要再改一遍） |
+
+## 变更记录（ADR-030）
+
+| 日期 | 条目 | 说明 |
+| --- | --- | --- |
+| 2026-11-07 | 第 60 条 | 废止保留 `tenant_admin`；权威码 `system_admin`；OIDC `system-role`；`AuditEvent` 去 `tenantId`。见 47-GL / coding-conventions-glossary design。 |

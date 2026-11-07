@@ -92,14 +92,11 @@ class GoldenPathE2EIT {
                 // ordered: 按名称过滤后的 MCP 工具列表，断言本用例写入的 echo
                 .andExpect(jsonPath("$.data[0].name").value("mcp_echo"));
 
-        mockMvc.perform(post("/api/mcp/grants")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"agentId\":\"" + agentId + "\",\"serverId\":\"" + serverId + "\",\"allowlist\":[\"mcp_echo\"]}"))
-                .andExpect(status().isOk());
-
         String versionId = json(mockMvc.perform(post("/api/agents/" + agentId + "/drafts")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"instructions\":\"you are helpful\",\"routingPlanId\":\"" + planId + "\",\"mcpGrantIds\":[]}"))
+                        .content("{\"instructions\":\"you are helpful\",\"routingPlanId\":\"" + planId
+                                + "\",\"tools\":{\"mcp\":[{\"serverId\":\"" + serverId
+                                + "\",\"allowlist\":[\"mcp_echo\"]}]}}"))
                 .andExpect(status().isOk())
                 .andReturn(), "$.data.id");
 

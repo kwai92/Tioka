@@ -3,7 +3,7 @@ package com.tioka.server.model;
 import com.tioka.framework.id.Ids;
 import com.tioka.framework.security.Principal;
 import com.tioka.framework.security.PrincipalHolder;
-import com.tioka.model.api.dto.ProviderDtos.CreateBindingRequest;
+import com.tioka.model.api.dto.ProviderDtos.CreateModelBindingRequest;
 import com.tioka.model.api.dto.ProviderDtos.CreateLogicalModelRequest;
 import com.tioka.model.api.dto.ProviderDtos.CreateProviderRequest;
 import com.tioka.model.api.dto.ProviderDtos.CreateRoutingPlanRequest;
@@ -39,7 +39,7 @@ class UsageIT {
 
             principals.runAs(p, () -> {
                 gateway.chat(
-                        new ModelCallContext(p, seeded.sessionId(), Ids.newId("turn"), null,
+                        new ModelCallContext(p, seeded.threadId(), Ids.newId("turn"), null,
                                 seeded.planId(), ModelPurpose.CHAT),
                         new ModelGateway.ChatRequest(
                                 List.of(Map.of("role", "user", "content", "ping")),
@@ -82,7 +82,7 @@ class UsageIT {
             Principal p = GateSeed.user(seeded.userId(), seeded.workspaceId());
 
             ModelGateway.ChatResult result = principals.runAs(p, () -> gateway.chat(
-                    new ModelCallContext(p, seeded.sessionId(), seeded.turnId(), null,
+                    new ModelCallContext(p, seeded.threadId(), seeded.turnId(), null,
                             seeded.planId(), ModelPurpose.CHAT),
                     new ModelGateway.ChatRequest(
                             List.of(Map.of("role", "user", "content", "ping")),
@@ -98,10 +98,10 @@ class UsageIT {
                     """
                     SELECT binding_id, status, model_ref
                     FROM model_usage
-                    WHERE session_id = ? AND turn_id = ?
+                    WHERE thread_id = ? AND turn_id = ?
                     ORDER BY create_at, id
                     """,
-                    seeded.sessionId(), seeded.turnId());
+                    seeded.threadId(), seeded.turnId());
             assertEquals(2, rows.size(), "故障接力应写 2 条 usage: " + rows);
             assertEquals("FAILOVER", rows.get(0).get("status"));
             assertEquals(seeded.primaryBindingId(), rows.get(0).get("binding_id"));
@@ -119,10 +119,10 @@ class UsageIT {
             var provider = models.createProvider(
                     new CreateProviderRequest(Ids.newId("p"), di.llm().baseUrl(), "k"));
             String lm = models.createLogicalModel(new CreateLogicalModelRequest(Ids.newId("m"), "tool"));
-            String primary = models.createBinding(new CreateBindingRequest(lm, provider.id(), "gpt-primary"));
-            String fallback = models.createBinding(new CreateBindingRequest(lm, provider.id(), "gpt-fallback"));
-            String embed = models.createBinding(
-                    new CreateBindingRequest(lm, provider.id(), "text-embedding", "embedding", 32));
+            String primary = models.createModelBinding(new CreateModelBindingRequest(lm, provider.id(), "gpt-primary"));
+            String fallback = models.createModelBinding(new CreateModelBindingRequest(lm, provider.id(), "gpt-fallback"));
+            String embed = models.createModelBinding(
+                    new CreateModelBindingRequest(lm, provider.id(), "text-embedding", "embedding", 32));
             String planId = models.createPlan(
                     new CreateRoutingPlanRequest(Ids.newId("rp"), "PRIMARY_FALLBACK", primary, fallback, null)).id();
             models.publish(planId);
@@ -133,5 +133,5 @@ class UsageIT {
 
     private record Seeded(String userId, String workspaceId, String planId,
                           String primaryBindingId, String fallbackBindingId, String embeddingBindingId,
-                          String sessionId, String turnId) {}
+                          String threadId, String turnId) {}
 }

@@ -9,6 +9,7 @@ import net.sf.jsqlparser.expression.StringValue;
 
 /**
  * 复用 MyBatis-Plus TenantLine 机制做 workspace_id 行级过滤（禁止 tenant_id）。
+ * deny-by-default：仅 exempt 表与无 workspace 的 SYSTEM 旁路。
  */
 public final class ScopeLineHandler implements TenantLineHandler {
     private final String column;
@@ -39,9 +40,10 @@ public final class ScopeLineHandler implements TenantLineHandler {
     @Override
     public boolean ignoreTable(String tableName) {
         Principal p = holder.find().orElse(null);
-        if (p != null && p.type() == PrincipalType.SYSTEM) {
+        if (p != null && p.type() == PrincipalType.SYSTEM
+                && (p.workspaceId() == null || p.workspaceId().isBlank())) {
             return true;
         }
-        return !tables.workspaceScoped(tableName);
+        return tables.isExempt(tableName);
     }
 }

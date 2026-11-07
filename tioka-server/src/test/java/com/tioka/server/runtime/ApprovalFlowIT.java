@@ -9,7 +9,7 @@ import com.tioka.runtime.api.kernel.ItemType;
 import com.tioka.runtime.api.kernel.RuntimeApi;
 import com.tioka.runtime.api.kernel.TurnStatus;
 import com.tioka.runtime.kernel.infrastructure.ItemRepository;
-import com.tioka.runtime.kernel.infrastructure.persistence.RuntimeItemDO;
+import com.tioka.runtime.infrastructure.persistence.RuntimeItemDO;
 import com.tioka.server.gate.support.DualInstance;
 import com.tioka.server.gate.support.GateSeed;
 import org.junit.jupiter.api.Tag;
@@ -69,7 +69,7 @@ class ApprovalFlowIT {
             assertEquals(TurnStatus.COMPLETED, done.status());
             assertTrue(di.mcp().calls().isEmpty(), "拒绝后不应调用 MCP");
             List<RuntimeItemDO> results = di.a().getBean(ItemRepository.class)
-                    .listBySession(thr.threadId()).stream()
+                    .listByThread(thr.threadId()).stream()
                     .filter(i -> ItemType.TOOL_RESULT.wire().equals(i.getType()))
                     .toList();
             assertFalse(results.isEmpty());

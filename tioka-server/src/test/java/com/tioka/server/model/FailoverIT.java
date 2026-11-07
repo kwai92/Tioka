@@ -5,7 +5,7 @@ import com.tioka.framework.error.ErrorCode;
 import com.tioka.framework.id.Ids;
 import com.tioka.framework.security.Principal;
 import com.tioka.framework.security.PrincipalHolder;
-import com.tioka.model.api.dto.ProviderDtos.CreateBindingRequest;
+import com.tioka.model.api.dto.ProviderDtos.CreateModelBindingRequest;
 import com.tioka.model.api.dto.ProviderDtos.CreateLogicalModelRequest;
 import com.tioka.model.api.dto.ProviderDtos.CreateProviderRequest;
 import com.tioka.model.api.dto.ProviderDtos.CreateRoutingPlanRequest;
@@ -89,8 +89,8 @@ class FailoverIT {
             assertEquals(ErrorCode.MODEL_ERROR, ex.getErrorCode());
             assertEquals(seeded.primaryBindingId(),
                     di.a().getBean(JdbcTemplate.class).queryForObject(
-                            "SELECT binding_id FROM model_turn_freeze WHERE session_id = ? AND turn_id = ?",
-                            String.class, seeded.sessionId(), seeded.turnId()),
+                            "SELECT binding_id FROM model_turn_freeze WHERE thread_id = ? AND turn_id = ?",
+                            String.class, seeded.threadId(), seeded.turnId()),
                     "400 不得切换冻结 binding");
             assertEquals(0, freezeFailoverCount(di, seeded));
         }
@@ -116,7 +116,7 @@ class FailoverIT {
         PrincipalHolder principals = di.a().getBean(PrincipalHolder.class);
         Principal p = GateSeed.user(seeded.userId(), seeded.workspaceId());
         return principals.runAs(p, () -> gateway.chat(
-                new ModelCallContext(p, seeded.sessionId(), seeded.turnId(), null,
+                new ModelCallContext(p, seeded.threadId(), seeded.turnId(), null,
                         seeded.planId(), ModelPurpose.CHAT),
                 new ModelGateway.ChatRequest(
                         List.of(Map.of("role", "user", "content", "ping")),
@@ -126,8 +126,8 @@ class FailoverIT {
 
     private static int freezeFailoverCount(DualInstance di, Seeded seeded) {
         Integer n = di.a().getBean(JdbcTemplate.class).queryForObject(
-                "SELECT failover_count FROM model_turn_freeze WHERE session_id = ? AND turn_id = ?",
-                Integer.class, seeded.sessionId(), seeded.turnId());
+                "SELECT failover_count FROM model_turn_freeze WHERE thread_id = ? AND turn_id = ?",
+                Integer.class, seeded.threadId(), seeded.turnId());
         return n == null ? 0 : n;
     }
 
@@ -142,8 +142,8 @@ class FailoverIT {
             var provider = models.createProvider(
                     new CreateProviderRequest(Ids.newId("p"), di.llm().baseUrl(), "k"));
             String lm = models.createLogicalModel(new CreateLogicalModelRequest(Ids.newId("m"), "tool"));
-            String primary = models.createBinding(new CreateBindingRequest(lm, provider.id(), "gpt-primary"));
-            String fallback = models.createBinding(new CreateBindingRequest(lm, provider.id(), "gpt-fallback"));
+            String primary = models.createModelBinding(new CreateModelBindingRequest(lm, provider.id(), "gpt-primary"));
+            String fallback = models.createModelBinding(new CreateModelBindingRequest(lm, provider.id(), "gpt-fallback"));
             String planId = models.createPlan(
                     new CreateRoutingPlanRequest(Ids.newId("rp"), "PRIMARY_FALLBACK", primary, fallback, null)).id();
             models.publish(planId);
@@ -152,13 +152,13 @@ class FailoverIT {
             ModelEntities.RoutingPlan plan = entities.getPlan(planId).orElseThrow();
             assertNotNull(plan.fallbackBindingId());
 
-            String sessionId = Ids.newId("sess");
+            String threadId = Ids.newId("sess");
             String turnId = Ids.newId("turn");
-            return new Seeded(login.userId(), login.workspaceId(), planId, primary, fallback, sessionId, turnId);
+            return new Seeded(login.userId(), login.workspaceId(), planId, primary, fallback, threadId, turnId);
         });
     }
 
     private record Seeded(String userId, String workspaceId, String planId,
                           String primaryBindingId, String fallbackBindingId,
-                          String sessionId, String turnId) {}
+                          String threadId, String turnId) {}
 }

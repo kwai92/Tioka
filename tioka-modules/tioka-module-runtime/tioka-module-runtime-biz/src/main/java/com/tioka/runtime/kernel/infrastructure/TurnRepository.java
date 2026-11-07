@@ -4,7 +4,7 @@ import com.tioka.framework.error.BizException;
 import com.tioka.framework.error.ErrorCode;
 import com.tioka.runtime.api.kernel.TurnStatus;
 import com.tioka.runtime.infrastructure.mapper.RuntimeTurnMapper;
-import com.tioka.runtime.kernel.infrastructure.persistence.RuntimeTurnDO;
+import com.tioka.runtime.infrastructure.persistence.RuntimeTurnDO;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,18 +28,18 @@ public class TurnRepository {
         return Optional.ofNullable(mapper.findById(id));
     }
 
-    public Optional<RuntimeTurnDO> findBySessionAndClientMsgId(String sessionId, String clientMsgId) {
-        return Optional.ofNullable(mapper.findBySessionAndClientMsgId(sessionId, clientMsgId));
+    public Optional<RuntimeTurnDO> findByThreadAndClientMsgId(String threadId, String clientMsgId) {
+        return Optional.ofNullable(mapper.findByThreadAndClientMsgId(threadId, clientMsgId));
     }
 
-    public int countActive(String sessionId) {
-        return mapper.countActive(sessionId);
+    public int countActive(String threadId) {
+        return mapper.countActive(threadId);
     }
 
     @Transactional
-    public int nextSeq(String sessionId) {
-        mapper.lockSession(sessionId);
-        return mapper.nextSeq(sessionId);
+    public int nextSeq(String threadId) {
+        mapper.lockThread(threadId);
+        return mapper.nextSeq(threadId);
     }
 
     public void insert(RuntimeTurnDO t) {
@@ -111,12 +111,12 @@ public class TurnRepository {
         return mapper.requeueInterrupted(turnId);
     }
 
-    public Optional<RuntimeTurnDO> nextQueued(String sessionId) {
-        return Optional.ofNullable(mapper.nextQueued(sessionId));
+    public Optional<RuntimeTurnDO> nextQueued(String threadId) {
+        return Optional.ofNullable(mapper.nextQueued(threadId));
     }
 
-    public Optional<RuntimeTurnDO> findActive(String sessionId) {
-        return Optional.ofNullable(mapper.findActive(sessionId));
+    public Optional<RuntimeTurnDO> findActive(String threadId) {
+        return Optional.ofNullable(mapper.findActive(threadId));
     }
 
     public List<RuntimeTurnDO> findStaleQueuedForDispatch() {

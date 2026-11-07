@@ -68,8 +68,9 @@ class AuditForwarderIT {
                 "文件 sink 应收到转发记录");
 
         List<Map<String, Object>> rows = repository.query(
-                admin.workspaceId(), admin.userId(), action, null, null,
-                AuditOutcome.SUCCESS.name(), null, null, 10, 0);
+                new com.tioka.system.infrastructure.persistence.AuditEventQuery(
+                        admin.workspaceId(), admin.userId(), action, null, null,
+                        AuditOutcome.SUCCESS.name(), null, null, 10, 0));
         assertFalse(rows.isEmpty());
         assertTrue(rows.stream().allMatch(r -> Boolean.TRUE.equals(r.get("forwarded"))
                         || "true".equalsIgnoreCase(String.valueOf(r.get("forwarded")))),

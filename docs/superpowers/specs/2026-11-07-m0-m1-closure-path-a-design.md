@@ -1,7 +1,7 @@
 # M0/M1 路径 A 收口设计
 
 > 日期：2026-11-07  
-> 状态：**已完成**（Path A 实现落地于 worktree `fix/m0-m1-closure-path-a`；待授权提交/PR）  
+> 状态：**已完成**（Path A 实现落地于 worktree `fix/m0-m1-closure-path-a`；已合入 main / PR #27）  
 > 依据：`M1-00` 第 3/12 节；`M0-01` ENG-11；ADR-029 第 10/20/60 条；ADR-072（OBS-01/02）；34 号计划 OBS 节；调研 09  
 > 选定方案：路径 A — 最小闭环后再开 M2
 

@@ -63,7 +63,12 @@ class AuditCoverageIT {
             new WhitelistEntry("/api/ops/chat/{id}/fork", WhitelistKind.NOT_IMPLEMENTED, "会话 fork 未实现"),
             new WhitelistEntry("/api/connector/im/feishu/text", WhitelistKind.INBOUND_LEDGER, "飞书入站回调台账"),
             new WhitelistEntry("/api/flows/publications/webhook/{versionId}", WhitelistKind.INBOUND_LEDGER, "Flow webhook 入站"),
-            new WhitelistEntry("/api/flows/publications/internal/{versionId}", WhitelistKind.INBOUND_LEDGER, "Flow 内部触发入站")
+            new WhitelistEntry("/api/flows/publications/internal/{versionId}", WhitelistKind.INBOUND_LEDGER, "Flow 内部触发入站"),
+            // V132 仅迁表：旧 claim/attention/heartbeat 显式未实现，ORC-05 另波
+            new WhitelistEntry("/api/orch/runs/claim", WhitelistKind.NOT_IMPLEMENTED, "V132 stub；ORC-05"),
+            new WhitelistEntry("/api/orch/runs/{id}/heartbeat", WhitelistKind.NOT_IMPLEMENTED, "V132 stub；ORC-05"),
+            new WhitelistEntry("/api/orch/attentions", WhitelistKind.NOT_IMPLEMENTED, "V132 stub；ORC-05"),
+            new WhitelistEntry("/api/orch/attentions/{id}/answer", WhitelistKind.NOT_IMPLEMENTED, "V132 stub；ORC-05")
     );
 
     private static final Set<String> PATH_WHITELIST = WHITELIST.stream()
@@ -98,24 +103,19 @@ class AuditCoverageIT {
             "com.tioka.knowledge.api.KnowledgeController#ingest",
             "com.tioka.knowledge.api.KnowledgeController#syncDatasource",
             "com.tioka.knowledge.api.KnowledgeController#upload",
-            "com.tioka.mcp.api.McpAdminController#grant",
             "com.tioka.mcp.api.McpAdminController#refresh",
             "com.tioka.mcp.api.McpAdminController#register",
             "com.tioka.mcp.api.McpAdminController#updateToolRisk",
             "com.tioka.mcp.api.McpHealthController#trial",
-            "com.tioka.model.api.ModelAdminController#createBinding",
+            "com.tioka.model.api.ModelAdminController#createModelBinding",
             "com.tioka.model.api.ModelAdminController#createLogicalModel",
             "com.tioka.model.api.ModelAdminController#createPlan",
             "com.tioka.model.api.ModelAdminController#createProvider",
             "com.tioka.model.api.ModelAdminController#publish",
-            "com.tioka.model.api.ModelAdminController#updateBinding",
+            "com.tioka.model.api.ModelAdminController#updateModelBinding",
             "com.tioka.model.api.ModelAdminController#upsertDefaultPlan",
             "com.tioka.orchestration.api.LaterController#schedule",
-            "com.tioka.orchestration.api.OrchController#answer",
-            "com.tioka.orchestration.api.OrchController#claim",
-            "com.tioka.orchestration.api.OrchController#heartbeat",
             "com.tioka.orchestration.api.OrchController#ingest",
-            "com.tioka.orchestration.api.OrchController#open",
             "com.tioka.orchestration.api.OrchController#publishRule",
             "com.tioka.orchestration.api.OrchController#saveRule",
             "com.tioka.runtime.api.UploadController#confirm",

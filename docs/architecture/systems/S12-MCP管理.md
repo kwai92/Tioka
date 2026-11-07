@@ -66,7 +66,7 @@
 | **McpAuth** | none/bearer/oauth；secretRef |
 | **McpToolDescriptor** | name、description、inputSchema、cachedAt |
 | **McpServerVersion** | 发现快照 |
-| **McpGrant** | 授权给 Agent 或角色：serverId + toolAllowlist |
+| **McpBinding** | Agent Spec `tools.mcp[]`：serverId + allowlist（表 `mcp_grant` / GrantApi 已废止，见 47-GL） |
 | **McpOutboundEndpoint** | Tioka 作为 Server 的出口配置 |
 
 ### HTTP 传输配置示例（逻辑）
@@ -97,7 +97,7 @@ mcp-biz
 └── probe/        管理面试调用
 ```
 
-执行路径：Runtime **ToolGateway** ← McpGrant 快照 ← McpToolProvider ← transport（ADR-014 D3；禁止绕过 Gateway）。
+执行路径：Runtime **ToolGateway** ← AgentSpec `tools.mcp`（McpBinding）← McpToolProvider ← transport（ADR-014 D3；禁止绕过 Gateway）。
 
 ---
 
@@ -119,7 +119,7 @@ Agent 发布时固化其 Grant 快照到 AgentVersion（可选跟随最新）。
 | --- | --- |
 | McpServerApi | CRUD、testConnection |
 | McpDiscoverApi | refreshTools、listTools |
-| McpGrantApi | grantToAgent、listByAgent |
+| （废止）McpGrantApi | 绑定进 AgentSpec；管理面用 ACL USE |
 | McpHealthApi | status、metrics |
 | McpOutboundApi | 出口开关与 scope |
 | McpProbeApi | invokeTool（管理试跑） |
@@ -137,7 +137,7 @@ Runtime 订阅刷新工具表。
 
 `mcp_server` `mcp_transport` `mcp_auth_ref`  
 `mcp_tool` `mcp_tool_snapshot`  
-`mcp_grant` `mcp_outbound` `mcp_health`
+`mcp_outbound` `mcp_health`（`mcp_grant` 已删，见 V125）
 
 工具 schema 存 JSONB；大 schema 可外置对象存储。
 

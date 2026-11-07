@@ -6,11 +6,12 @@ import com.tioka.framework.security.PrincipalHolder;
 import com.tioka.framework.security.PrincipalType;
 import com.tioka.runtime.api.kernel.ItemType;
 import com.tioka.runtime.api.kernel.RuntimeEventType;
-import com.tioka.runtime.infrastructure.RuntimeSessionRepository;
-import com.tioka.runtime.infrastructure.persistence.RuntimeSessionDO;
+import com.tioka.runtime.infrastructure.RuntimeThreadRepository;
+import com.tioka.runtime.infrastructure.persistence.RuntimeThreadDO;
 import com.tioka.runtime.kernel.events.EventStream;
 import com.tioka.runtime.kernel.events.RuntimeEventFactory;
 import com.tioka.runtime.kernel.infrastructure.ItemRepository;
+import com.tioka.runtime.kernel.infrastructure.ItemWrite;
 import com.tioka.server.support.IntegrationTestSupport;
 import com.tioka.system.application.AuthService;
 import org.junit.jupiter.api.Tag;
@@ -48,7 +49,7 @@ class ThreadEventsIT {
     @Autowired EventStream streams;
     @Autowired RuntimeEventFactory events;
     @Autowired ItemRepository items;
-    @Autowired RuntimeSessionRepository sessions;
+    @Autowired RuntimeThreadRepository sessions;
     @Autowired AuthService auth;
     @Autowired PrincipalHolder principals;
 
@@ -67,9 +68,9 @@ class ThreadEventsIT {
             streams.publish(threadId, "5." + i, RuntimeEventType.ITEM_DELTA.wire(),
                     events.itemDelta(threadId, "turn_x", itemId, i, "d" + i, null));
         }
-        var completed = new com.tioka.runtime.kernel.infrastructure.persistence.RuntimeItemDO();
+        var completed = new com.tioka.runtime.infrastructure.persistence.RuntimeItemDO();
         completed.setId(itemId);
-        completed.setSessionId(threadId);
+        completed.setThreadId(threadId);
         completed.setTurnId("turn_x");
         completed.setSeq(5L);
         completed.setStep(0);
@@ -94,8 +95,8 @@ class ThreadEventsIT {
 
         principals.runAs(user(login.user().id()), () -> {
             for (int i = 1; i <= 3; i++) {
-                items.appendWithoutLease(threadId, "turn_done", 0,
-                        ItemType.MESSAGE.wire(), "assistant", "{\"text\":\"m" + i + "\"}");
+                items.appendWithoutLease(ItemWrite.withoutLease(threadId, "turn_done", 0,
+                        ItemType.MESSAGE.wire(), "assistant", "{\"text\":\"m" + i + "\"}"));
             }
         });
 
@@ -107,7 +108,7 @@ class ThreadEventsIT {
 
     private void seedSession(String threadId, String ownerId) {
         principals.runAs(user(ownerId), () -> {
-            RuntimeSessionDO row = new RuntimeSessionDO();
+            RuntimeThreadDO row = new RuntimeThreadDO();
             row.setId(threadId);
             row.setStatus("ACTIVE");
             row.setAgentVersionId("av_x");

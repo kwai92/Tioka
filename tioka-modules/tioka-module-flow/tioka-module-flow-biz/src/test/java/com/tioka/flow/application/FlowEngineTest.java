@@ -50,7 +50,8 @@ class FlowEngineTest {
                 new LlmNodeExecutor(gwProvider),
                 new AgentNodeExecutor(provider(null), provider(null)),
                 new RetrieveNodeExecutor(provider(null)),
-                new HttpNodeExecutor(provider(null), provider(null),
+                new HttpNodeExecutor(provider(null),
+                        org.mockito.Mockito.mock(com.tioka.system.api.spi.EgressClient.class),
                         new com.fasterxml.jackson.databind.ObjectMapper()),
                 new McpNodeExecutor(provider(null)),
                 new HumanCardNodeExecutor(provider(null))

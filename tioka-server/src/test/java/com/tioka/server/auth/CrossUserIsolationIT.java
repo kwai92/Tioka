@@ -14,10 +14,10 @@ import com.tioka.knowledge.infrastructure.KnowledgeRepository;
 import com.tioka.knowledge.infrastructure.persistence.KbBaseDO;
 import com.tioka.runtime.api.kernel.RuntimeApi;
 import com.tioka.runtime.api.kernel.TurnStatus;
-import com.tioka.runtime.infrastructure.RuntimeSessionRepository;
-import com.tioka.runtime.infrastructure.persistence.RuntimeSessionDO;
+import com.tioka.runtime.infrastructure.RuntimeThreadRepository;
+import com.tioka.runtime.infrastructure.persistence.RuntimeThreadDO;
 import com.tioka.runtime.kernel.infrastructure.TurnRepository;
-import com.tioka.runtime.kernel.infrastructure.persistence.RuntimeTurnDO;
+import com.tioka.runtime.infrastructure.persistence.RuntimeTurnDO;
 import com.tioka.server.support.IntegrationTestSupport;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -44,7 +44,7 @@ class CrossUserIsolationIT {
     @Autowired ChatRepository chats;
     @Autowired PrincipalHolder principals;
     @Autowired RuntimeApi runtime;
-    @Autowired RuntimeSessionRepository sessions;
+    @Autowired RuntimeThreadRepository sessions;
     @Autowired TurnRepository turns;
 
     @Test
@@ -85,7 +85,7 @@ class CrossUserIsolationIT {
             c.setId(convId);
             c.setTitle("private");
             c.setAgentVersionId("av_x");
-            c.setRuntimeSessionId(Ids.newId("thr"));
+            c.setRuntimeThreadId(Ids.newId("thr"));
             chats.insertConversation(c);
             assertNotNull(chats.findConversation(convId));
             assertTrue(chats.listConversations().stream().anyMatch(x -> convId.equals(x.getId())));
@@ -106,7 +106,7 @@ class CrossUserIsolationIT {
         String turnId = Ids.newId("turn");
 
         principals.runAs(user("10", wsA), () -> {
-            RuntimeSessionDO s = new RuntimeSessionDO();
+            RuntimeThreadDO s = new RuntimeThreadDO();
             s.setId(threadId);
             s.setStatus("OPEN");
             s.setAgentVersionId("av_x");
@@ -119,7 +119,7 @@ class CrossUserIsolationIT {
 
             RuntimeTurnDO t = new RuntimeTurnDO();
             t.setId(turnId);
-            t.setSessionId(threadId);
+            t.setThreadId(threadId);
             t.setSeq(1);
             t.setStatus(TurnStatus.QUEUED.name());
             t.setOrigin("chat");

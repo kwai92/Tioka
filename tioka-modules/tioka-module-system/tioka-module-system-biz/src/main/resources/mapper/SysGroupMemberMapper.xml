@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tioka.system.infrastructure.mapper.SysGroupMemberMapper">
+
+    <select id="groupIdsOfUser" resultType="String">
+        <![CDATA[
+SELECT group_id FROM sys_group_member WHERE user_id = #{userId}
+]]>
+    </select>
+
+    <select id="userIdsOfGroup" resultType="String">
+        <![CDATA[
+SELECT user_id FROM sys_group_member WHERE group_id = #{groupId}
+]]>
+    </select>
+
+    <insert id="insert">
+        <![CDATA[
+            INSERT INTO sys_group_member (group_id, user_id, create_at)
+            VALUES (#{groupId}, #{userId}, now())
+            ON CONFLICT DO NOTHING
+            
+]]>
+    </insert>
+
+    <delete id="deleteAllOfGroup">
+        <![CDATA[
+DELETE FROM sys_group_member WHERE group_id = #{groupId}
+]]>
+    </delete>
+
+    <delete id="delete">
+        <![CDATA[
+DELETE FROM sys_group_member WHERE group_id = #{groupId} AND user_id = #{userId}
+]]>
+    </delete>
+
+    <delete id="deleteUserFromSource">
+        <![CDATA[
+            DELETE FROM sys_group_member m
+            USING sys_group g
+            WHERE m.group_id = g.id
+              AND m.user_id = #{userId}
+              AND g.source = #{source}
+            
+]]>
+    </delete>
+
+</mapper>

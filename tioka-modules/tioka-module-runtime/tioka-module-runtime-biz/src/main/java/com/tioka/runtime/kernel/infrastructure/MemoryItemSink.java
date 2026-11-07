@@ -9,7 +9,7 @@ import com.tioka.runtime.kernel.domain.LoopPorts;
 import com.tioka.runtime.kernel.events.EventId;
 import com.tioka.runtime.kernel.events.EventStream;
 import com.tioka.runtime.kernel.events.RuntimeEventFactory;
-import com.tioka.runtime.kernel.infrastructure.persistence.RuntimeItemDO;
+import com.tioka.runtime.infrastructure.persistence.RuntimeItemDO;
 import org.springframework.stereotype.Component;
 
 import java.util.LinkedHashMap;
@@ -74,11 +74,11 @@ public class MemoryItemSink implements LoopPorts.ItemSink {
         StreamState st = streaming.remove(ctx.turnId());
         RuntimeItemDO item;
         if (st != null) {
-            items.insertReserved(st.seq, ctx.threadId(), ctx.turnId(), st.leaseVersion, step,
-                    ItemType.MESSAGE.wire(), "assistant", json(Map.of("text", text)), null);
+            items.insertReserved(ItemWrite.reserved(st.seq, ctx.threadId(), ctx.turnId(), st.leaseVersion, step,
+                    ItemType.MESSAGE.wire(), "assistant", json(Map.of("text", text)), null));
             item = new RuntimeItemDO();
             item.setId(st.itemId);
-            item.setSessionId(ctx.threadId());
+            item.setThreadId(ctx.threadId());
             item.setTurnId(ctx.turnId());
             item.setSeq(st.seq);
             item.setStep(step);
@@ -87,8 +87,8 @@ public class MemoryItemSink implements LoopPorts.ItemSink {
             item.setContentJson(json(Map.of("text", text)));
             streams.clearCurrentEntry(ctx.threadId());
         } else {
-            item = items.append(ctx.threadId(), ctx.turnId(), ctx.leaseVersion(), step,
-                    ItemType.MESSAGE.wire(), "assistant", json(Map.of("text", text)), null);
+            item = items.append(ItemWrite.append(ctx.threadId(), ctx.turnId(), ctx.leaseVersion(), step,
+                    ItemType.MESSAGE.wire(), "assistant", json(Map.of("text", text)), null));
         }
         streams.publish(ctx.threadId(), EventId.of(item.getSeq()).toString(),
                 RuntimeEventType.ITEM_COMPLETED.wire(),
@@ -105,11 +105,11 @@ public class MemoryItemSink implements LoopPorts.ItemSink {
         content.put("text", st.text());
         content.put("interrupted", true);
         String contentJson = json(content);
-        items.insertReserved(st.seq, ctx.threadId(), ctx.turnId(), st.leaseVersion, step,
-                ItemType.MESSAGE.wire(), "assistant", contentJson, null);
+        items.insertReserved(ItemWrite.reserved(st.seq, ctx.threadId(), ctx.turnId(), st.leaseVersion, step,
+                ItemType.MESSAGE.wire(), "assistant", contentJson, null));
         RuntimeItemDO item = new RuntimeItemDO();
         item.setId(st.itemId);
-        item.setSessionId(ctx.threadId());
+        item.setThreadId(ctx.threadId());
         item.setTurnId(ctx.turnId());
         item.setSeq(st.seq);
         item.setStep(step);
@@ -124,7 +124,7 @@ public class MemoryItemSink implements LoopPorts.ItemSink {
 
     @Override
     public void complete(LoopContext ctx, int step, String type, String role, String contentJson) {
-        RuntimeItemDO item = items.append(ctx.threadId(), ctx.turnId(), ctx.leaseVersion(), step, type, role, contentJson, null);
+        RuntimeItemDO item = items.append(ItemWrite.append(ctx.threadId(), ctx.turnId(), ctx.leaseVersion(), step, type, role, contentJson, null));
         streams.publish(ctx.threadId(), EventId.of(item.getSeq()).toString(),
                 RuntimeEventType.ITEM_COMPLETED.wire(),
                 events.itemCompleted(ctx.threadId(), item));
@@ -136,8 +136,8 @@ public class MemoryItemSink implements LoopPorts.ItemSink {
         content.put("callId", call.callId());
         content.put("name", call.name());
         content.put("arguments", parseArgs(call.argumentsJson()));
-        RuntimeItemDO item = items.append(ctx.threadId(), ctx.turnId(), ctx.leaseVersion(), step,
-                ItemType.TOOL_CALL.wire(), "assistant", json(content), null);
+        RuntimeItemDO item = items.append(ItemWrite.append(ctx.threadId(), ctx.turnId(), ctx.leaseVersion(), step,
+                ItemType.TOOL_CALL.wire(), "assistant", json(content), null));
         streams.publish(ctx.threadId(), EventId.of(item.getSeq()).toString(),
                 RuntimeEventType.ITEM_COMPLETED.wire(),
                 events.itemCompleted(ctx.threadId(), item));
@@ -155,8 +155,8 @@ public class MemoryItemSink implements LoopPorts.ItemSink {
         if (outcome.approvedBy() != null && !outcome.approvedBy().isBlank()) {
             content.put("approvedBy", outcome.approvedBy());
         }
-        RuntimeItemDO item = items.append(ctx.threadId(), ctx.turnId(), ctx.leaseVersion(), step,
-                ItemType.TOOL_RESULT.wire(), "tool", json(content), null);
+        RuntimeItemDO item = items.append(ItemWrite.append(ctx.threadId(), ctx.turnId(), ctx.leaseVersion(), step,
+                ItemType.TOOL_RESULT.wire(), "tool", json(content), null));
         streams.publish(ctx.threadId(), EventId.of(item.getSeq()).toString(),
                 RuntimeEventType.ITEM_COMPLETED.wire(),
                 events.itemCompleted(ctx.threadId(), item));
@@ -164,8 +164,8 @@ public class MemoryItemSink implements LoopPorts.ItemSink {
 
     @Override
     public void status(LoopContext ctx, int step, String kind) {
-        RuntimeItemDO item = items.append(ctx.threadId(), ctx.turnId(), ctx.leaseVersion(), step,
-                ItemType.STATUS.wire(), "system", json(Map.of("kind", kind)), null);
+        RuntimeItemDO item = items.append(ItemWrite.append(ctx.threadId(), ctx.turnId(), ctx.leaseVersion(), step,
+                ItemType.STATUS.wire(), "system", json(Map.of("kind", kind)), null));
         streams.publish(ctx.threadId(), EventId.of(item.getSeq()).toString(),
                 RuntimeEventType.ITEM_COMPLETED.wire(),
                 events.itemCompleted(ctx.threadId(), item));

@@ -3,7 +3,7 @@ package com.tioka.runtime.kernel.approval;
 import com.tioka.framework.security.PrincipalHolder;
 import com.tioka.framework.security.SystemPrincipals;
 import com.tioka.runtime.api.kernel.ApprovalSubjectType;
-import com.tioka.runtime.infrastructure.mapper.RuntimeApprovalMapper;
+import com.tioka.runtime.infrastructure.persistence.WaitingTurnRow;
 import com.tioka.runtime.kernel.infrastructure.ApprovalRepository;
 import com.tioka.runtime.kernel.infrastructure.TurnRepository;
 import com.tioka.runtime.kernel.infrastructure.redis.TurnDispatchQueue;
@@ -37,13 +37,13 @@ public class ApprovalResumeSweeper {
     @Scheduled(fixedDelayString = "${tioka.runtime.approval-resume-sweeper-interval-ms:30000}")
     public void sweep() {
         principals.runAs(SystemPrincipals.system(), () -> {
-            for (RuntimeApprovalMapper.WaitingTurnRow row : approvals.findWaitingWithoutPending()) {
+            for (WaitingTurnRow row : approvals.findWaitingWithoutPending()) {
                 if (approvals.countPending(ApprovalSubjectType.TURN.wire(), row.id()) > 0) {
                     continue;
                 }
                 int n = turns.requeueFromWaitingApproval(row.id());
                 if (n > 0) {
-                    dispatchQueue.offer(row.id(), row.sessionId());
+                    dispatchQueue.offer(row.id(), row.threadId());
                     log.debug("ApprovalResumeSweeper requeued turn {}", row.id());
                 }
             }

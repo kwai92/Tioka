@@ -16,7 +16,7 @@ public class ModelUsageDO extends AppendOnlyDO {
     private String workspaceId;
     private String userId;
     private String agentId;
-    private String sessionId;
+    private String threadId;
     private String turnId;
     private String purpose;
     private String bindingId;
@@ -35,8 +35,8 @@ public class ModelUsageDO extends AppendOnlyDO {
     public void setUserId(String userId) { this.userId = userId; }
     public String getAgentId() { return agentId; }
     public void setAgentId(String agentId) { this.agentId = agentId; }
-    public String getSessionId() { return sessionId; }
-    public void setSessionId(String sessionId) { this.sessionId = sessionId; }
+    public String getThreadId() { return threadId; }
+    public void setThreadId(String threadId) { this.threadId = threadId; }
     public String getTurnId() { return turnId; }
     public void setTurnId(String turnId) { this.turnId = turnId; }
     public String getPurpose() { return purpose; }

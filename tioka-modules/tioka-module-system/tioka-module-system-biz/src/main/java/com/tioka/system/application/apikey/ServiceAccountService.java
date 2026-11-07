@@ -1,5 +1,7 @@
 package com.tioka.system.application.apikey;
 
+import com.tioka.system.api.authz.SystemRoles;
+
 import com.tioka.framework.error.BizException;
 import com.tioka.framework.error.ErrorCode;
 import com.tioka.framework.security.Permissions;
@@ -51,7 +53,7 @@ public class ServiceAccountService {
     @Audited(action = "service_account.create", resourceType = "user",
             include = {"name", "workspaceId", "role"})
     public Created create(String name, String workspaceId, String role) {
-        requireTenantAdmin();
+        requireSystemAdmin();
         if (name == null || name.isBlank()) {
             throw new BizException(ErrorCode.BAD_REQUEST, "name 必填");
         }
@@ -82,10 +84,10 @@ public class ServiceAccountService {
         return new Created(String.valueOf(id));
     }
 
-    private void requireTenantAdmin() {
+    private void requireSystemAdmin() {
         var p = principals.current();
         if (!p.hasPermission(Permissions.TENANT_ADMIN) && !p.hasPermission("*")
-                && !p.roles().contains("tenant_admin")) {
+                && !p.roles().contains(SystemRoles.SYSTEM_ADMIN)) {
             throw new BizException(ErrorCode.FORBIDDEN);
         }
     }

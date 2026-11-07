@@ -7,6 +7,8 @@
 - 阅读版：[Tioka 推进规划与详细设计](https://claude.ai/artifact/V3wtabWCVSwAC3ewNerFNi)
 - 约束：与 [ADR-029](ADR-029-design-rulings.md) 定案冲突时以定案为准；修改本 ADR 走 [ADR-030](ADR-030-anti-drift-process.md) 的变更流程。
 
+> **术语取代注（2026-11-07）**：标题中的「租户」及正文里的 `tenant_id` / `tenant_admin` / `Principal.tenantId` 等表述，已被 [ADR-029 第 60 条](ADR-029-design-rulings.md) 与 [47-GL](../enterprise/47-GL-统一名词释义.md) 取代。权威隔离边界为 **Workspace**；平台管理员角色码为 **`system_admin`**；新建 DO/API 禁止 `tenantId`。下文保留历史设计叙述，实施与对账勿再按旧码落地。
+
 覆盖 FND-01〜05、FND-07、GOV-01、CHT-01。核心决定是：**每个请求和每个后台任务都携带一个不可变的 `Principal`**，数据隔离在持久层自动生效，资源权限在应用层显式校验。
 
 **请求链路**

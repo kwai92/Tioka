@@ -13,10 +13,11 @@ import com.tioka.runtime.kernel.events.EventStream;
 import com.tioka.runtime.kernel.events.RuntimeEventFactory;
 import com.tioka.runtime.kernel.infrastructure.ApprovalRepository;
 import com.tioka.runtime.kernel.infrastructure.ItemRepository;
+import com.tioka.runtime.kernel.infrastructure.ItemWrite;
 import com.tioka.runtime.kernel.infrastructure.TurnRepository;
-import com.tioka.runtime.kernel.infrastructure.persistence.RuntimeApprovalDO;
-import com.tioka.runtime.kernel.infrastructure.persistence.RuntimeItemDO;
-import com.tioka.runtime.kernel.infrastructure.persistence.RuntimeTurnDO;
+import com.tioka.runtime.infrastructure.persistence.RuntimeApprovalDO;
+import com.tioka.runtime.infrastructure.persistence.RuntimeItemDO;
+import com.tioka.runtime.infrastructure.persistence.RuntimeTurnDO;
 import com.tioka.runtime.kernel.infrastructure.redis.SignalBus;
 import org.springframework.stereotype.Service;
 
@@ -79,8 +80,8 @@ public class TurnSignalService {
             if (n > 0) {
                 String payload = events.turnStatus(
                         com.tioka.runtime.api.kernel.RuntimeEventType.TURN_CANCELLED,
-                        turn.getSessionId(), turnId, TurnStatus.CANCELLED.name());
-                streams.publish(turn.getSessionId(), null,
+                        turn.getThreadId(), turnId, TurnStatus.CANCELLED.name());
+                streams.publish(turn.getThreadId(), null,
                         com.tioka.runtime.api.kernel.RuntimeEventType.TURN_CANCELLED.wire(), payload);
             }
             return;
@@ -100,8 +101,8 @@ public class TurnSignalService {
                     approvalDecide.notifyDecided(a);
                 }
                 String payload = events.turnStatus(RuntimeEventType.TURN_CANCELLED,
-                        turn.getSessionId(), turnId, TurnStatus.CANCELLED.name());
-                streams.publish(turn.getSessionId(), null, RuntimeEventType.TURN_CANCELLED.wire(), payload);
+                        turn.getThreadId(), turnId, TurnStatus.CANCELLED.name());
+                streams.publish(turn.getThreadId(), null, RuntimeEventType.TURN_CANCELLED.wire(), payload);
             }
             return;
         }
@@ -142,11 +143,11 @@ public class TurnSignalService {
     private void appendSteerItem(RuntimeTurnDO turn, String text) {
         try {
             String content = mapper.writeValueAsString(Map.of("text", text, "steer", true));
-            RuntimeItemDO item = items.appendWithoutLease(
-                    turn.getSessionId(), turn.getId(), 0, ItemType.MESSAGE.wire(), "user", content);
-            streams.publish(turn.getSessionId(), EventId.of(item.getSeq()).toString(),
+            RuntimeItemDO item = items.appendWithoutLease(ItemWrite.withoutLease(
+                    turn.getThreadId(), turn.getId(), 0, ItemType.MESSAGE.wire(), "user", content));
+            streams.publish(turn.getThreadId(), EventId.of(item.getSeq()).toString(),
                     com.tioka.runtime.api.kernel.RuntimeEventType.ITEM_COMPLETED.wire(),
-                    events.itemCompleted(turn.getSessionId(), item));
+                    events.itemCompleted(turn.getThreadId(), item));
         } catch (BizException e) {
             throw e;
         } catch (Exception e) {

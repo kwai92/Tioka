@@ -4,7 +4,7 @@ import com.tioka.framework.id.Ids;
 
 import com.tioka.knowledge.api.WikiApi;
 import com.tioka.knowledge.infrastructure.KnowledgeRepository;
-import com.tioka.knowledge.infrastructure.persistence.KbWikiDO;
+import com.tioka.knowledge.infrastructure.persistence.WikiPageDO;
 import org.springframework.stereotype.Service;
 
 
@@ -22,7 +22,7 @@ public class WikiService implements WikiApi {
     public WikiPageView upsert(String kbId, String title, String body) {
         String id = Ids.newId("wiki");
         WikiPageView page = new WikiPageView(id, kbId, title, body);
-        KbWikiDO row = new KbWikiDO();
+        WikiPageDO row = new WikiPageDO();
         row.setId(page.id());
         row.setKbId(page.kbId());
         row.setTitle(page.title());

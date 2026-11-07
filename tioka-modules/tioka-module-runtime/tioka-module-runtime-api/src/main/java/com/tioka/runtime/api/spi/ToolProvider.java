@@ -12,7 +12,7 @@ public interface ToolProvider {
     ToolResult invoke(String toolName, Map<String, Object> arguments);
 
     /**
-     * ENG-06：带 {@code agentToolConfig}（含 mcpGrants）的列举；默认回退仅 agentVersionId。
+     * ENG-06：带 {@code agentToolConfig}（含 {@code mcp} / McpBinding）的列举；默认回退仅 agentVersionId。
      * MCP 提供方须覆盖本方法，禁止反查 Agent。
      */
     default List<ToolDescriptor> listTools(String agentVersionId, Map<String, Object> agentToolConfig) {

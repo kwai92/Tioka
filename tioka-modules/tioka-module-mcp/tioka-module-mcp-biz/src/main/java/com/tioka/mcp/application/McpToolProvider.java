@@ -15,7 +15,7 @@ import java.util.Optional;
 
 /**
  * 将 Agent 快照内的 MCP 工具暴露给 Runtime ToolRegistry。
- * ENG-06：只读 {@code agentToolConfig.mcpGrants}，不再依赖 agent-api。
+ * ENG-06：只读 {@code agentToolConfig.mcp}（McpBinding），不再依赖 agent-api。
  */
 @Component
 public class McpToolProvider implements ToolProvider {
@@ -117,7 +117,7 @@ public class McpToolProvider implements ToolProvider {
         if (agentToolConfig == null || agentToolConfig.isEmpty()) {
             return List.of();
         }
-        Object raw = agentToolConfig.get("mcpGrants");
+        Object raw = agentToolConfig.get("mcp");
         if (!(raw instanceof List<?> list) || list.isEmpty()) {
             return List.of();
         }

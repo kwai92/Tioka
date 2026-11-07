@@ -3,7 +3,7 @@ package com.tioka.server.model;
 import com.tioka.framework.id.Ids;
 import com.tioka.framework.security.Principal;
 import com.tioka.framework.security.PrincipalHolder;
-import com.tioka.model.api.dto.ProviderDtos.CreateBindingRequest;
+import com.tioka.model.api.dto.ProviderDtos.CreateModelBindingRequest;
 import com.tioka.model.api.dto.ProviderDtos.CreateLogicalModelRequest;
 import com.tioka.model.api.dto.ProviderDtos.CreateProviderRequest;
 import com.tioka.model.api.dto.ProviderDtos.CreateRoutingPlanRequest;
@@ -11,8 +11,8 @@ import com.tioka.model.api.gateway.ModelCallContext;
 import com.tioka.model.api.gateway.ModelGateway;
 import com.tioka.model.api.gateway.ModelPurpose;
 import com.tioka.model.application.ModelAdminService;
-import com.tioka.model.application.gateway.BindingCooldownService;
-import com.tioka.model.application.gateway.BindingResolver;
+import com.tioka.model.application.gateway.ModelBindingCooldownService;
+import com.tioka.model.application.gateway.ModelBindingResolver;
 import com.tioka.server.gate.support.DualInstance;
 import com.tioka.server.gate.support.GateSeed;
 import com.tioka.server.gate.support.LlmStubServer;
@@ -44,11 +44,11 @@ class CooldownIT {
                 false)) {
             injectFailScript(di);
             Seeded seeded = seedWithFallback(di);
-            BindingCooldownService cooldown = di.a().getBean(BindingCooldownService.class);
+            ModelBindingCooldownService cooldown = di.a().getBean(ModelBindingCooldownService.class);
             StringRedisTemplate redis = di.a().getBean(StringRedisTemplate.class);
             redis.delete(List.of(
-                    BindingCooldownService.cooldownKey(seeded.primaryBindingId()),
-                    BindingCooldownService.failKey(seeded.primaryBindingId())));
+                    ModelBindingCooldownService.cooldownKey(seeded.primaryBindingId()),
+                    ModelBindingCooldownService.failKey(seeded.primaryBindingId())));
 
             // 直接打满失败计数（绕过脚本，保证阈值精确）
             for (int i = 0; i < 5; i++) {
@@ -56,23 +56,23 @@ class CooldownIT {
             }
             assertTrue(cooldown.isCooling(seeded.primaryBindingId()), "5 次失败后应进入冷却");
             assertEquals("1", redis.opsForValue().get(
-                    BindingCooldownService.cooldownKey(seeded.primaryBindingId())));
+                    ModelBindingCooldownService.cooldownKey(seeded.primaryBindingId())));
 
             // 新 Turn：resolve 应跳过主 binding，冻结写入备用
             PrincipalHolder principals = di.a().getBean(PrincipalHolder.class);
-            BindingResolver resolver = di.a().getBean(BindingResolver.class);
+            ModelBindingResolver resolver = di.a().getBean(ModelBindingResolver.class);
             Principal p = GateSeed.user(seeded.userId(), seeded.workspaceId());
-            String sessionId = Ids.newId("sess");
+            String threadId = Ids.newId("sess");
             String turnId = Ids.newId("turn");
-            BindingResolver.Resolution sel = principals.runAs(p, () ->
-                    resolver.resolve(new ModelCallContext(p, sessionId, turnId, null,
+            ModelBindingResolver.Resolution sel = principals.runAs(p, () ->
+                    resolver.resolve(new ModelCallContext(p, threadId, turnId, null,
                             seeded.planId(), ModelPurpose.CHAT)));
 
             assertEquals(seeded.fallbackBindingId(), sel.bindingId(),
                     "冷却期间新 Turn 应选备用");
             String frozen = di.a().getBean(JdbcTemplate.class).queryForObject(
-                    "SELECT binding_id FROM model_turn_freeze WHERE session_id = ? AND turn_id = ?",
-                    String.class, sessionId, turnId);
+                    "SELECT binding_id FROM model_turn_freeze WHERE thread_id = ? AND turn_id = ?",
+                    String.class, threadId, turnId);
             assertEquals(seeded.fallbackBindingId(), frozen, "冻结应写入备用 binding");
         }
     }
@@ -83,11 +83,11 @@ class CooldownIT {
                 Map.of("tioka.model.retry.max-attempts", "0"), false)) {
             injectFailScript(di);
             Seeded seeded = seedWithFallback(di);
-            BindingCooldownService cooldown = di.a().getBean(BindingCooldownService.class);
+            ModelBindingCooldownService cooldown = di.a().getBean(ModelBindingCooldownService.class);
             StringRedisTemplate redis = di.a().getBean(StringRedisTemplate.class);
             redis.delete(List.of(
-                    BindingCooldownService.cooldownKey(seeded.primaryBindingId()),
-                    BindingCooldownService.failKey(seeded.primaryBindingId())));
+                    ModelBindingCooldownService.cooldownKey(seeded.primaryBindingId()),
+                    ModelBindingCooldownService.failKey(seeded.primaryBindingId())));
 
             ModelGateway gateway = di.a().getBean(ModelGateway.class);
             PrincipalHolder principals = di.a().getBean(PrincipalHolder.class);
@@ -140,8 +140,8 @@ class CooldownIT {
             var provider = models.createProvider(
                     new CreateProviderRequest(Ids.newId("p"), di.llm().baseUrl(), "k"));
             String lm = models.createLogicalModel(new CreateLogicalModelRequest(Ids.newId("m"), "tool"));
-            String primary = models.createBinding(new CreateBindingRequest(lm, provider.id(), "gpt-primary"));
-            String fallback = models.createBinding(new CreateBindingRequest(lm, provider.id(), "gpt-fallback"));
+            String primary = models.createModelBinding(new CreateModelBindingRequest(lm, provider.id(), "gpt-primary"));
+            String fallback = models.createModelBinding(new CreateModelBindingRequest(lm, provider.id(), "gpt-fallback"));
             String planId = models.createPlan(
                     new CreateRoutingPlanRequest(Ids.newId("rp"), "PRIMARY_FALLBACK", primary, fallback, null)).id();
             models.publish(planId);

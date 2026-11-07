@@ -36,18 +36,9 @@ public class UsageRecorder implements SmartLifecycle {
         this.usages = usages;
     }
 
-    /**
-     * @param status SUCCESS / ERROR / FAILOVER
-     */
-    public void record(ModelCallContext ctx,
-                       String bindingId,
-                       String modelRef,
-                       int promptTokens,
-                       int completionTokens,
-                       long inputPriceMicros,
-                       long outputPriceMicros,
-                       int latencyMs,
-                       String status) {
+    /** @param cmd.status SUCCESS / ERROR / FAILOVER */
+    public void record(UsageRecordCommand cmd) {
+        ModelCallContext ctx = cmd.ctx();
         ModelUsageDO row = new ModelUsageDO();
         row.setId(Ids.newId("usage"));
         if (ctx != null && ctx.principal() != null) {
@@ -57,17 +48,18 @@ public class UsageRecorder implements SmartLifecycle {
         }
         if (ctx != null) {
             row.setAgentId(ctx.agentId());
-            row.setSessionId(ctx.sessionId());
+            row.setThreadId(ctx.threadId());
             row.setTurnId(ctx.turnId());
             row.setPurpose(ctx.purpose() == null ? null : ctx.purpose().name());
         }
-        row.setBindingId(bindingId);
-        row.setModelRef(modelRef);
-        row.setPromptTokens(Math.max(0, promptTokens));
-        row.setCompletionTokens(Math.max(0, completionTokens));
-        row.setCostMicros(costMicros(promptTokens, completionTokens, inputPriceMicros, outputPriceMicros));
-        row.setLatencyMs(Math.max(0, latencyMs));
-        row.setStatus(status == null ? "ERROR" : status);
+        row.setBindingId(cmd.bindingId());
+        row.setModelRef(cmd.modelRef());
+        row.setPromptTokens(Math.max(0, cmd.promptTokens()));
+        row.setCompletionTokens(Math.max(0, cmd.completionTokens()));
+        row.setCostMicros(costMicros(cmd.promptTokens(), cmd.completionTokens(),
+                cmd.inputPriceMicros(), cmd.outputPriceMicros()));
+        row.setLatencyMs(Math.max(0, cmd.latencyMs()));
+        row.setStatus(cmd.status() == null ? "ERROR" : cmd.status());
         row.setCreateAt(LocalDateTime.now());
         if (!queue.offer(row)) {
             log.warn("model_usage 队列拒绝写入 id={}", row.getId());

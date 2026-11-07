@@ -1,6 +1,8 @@
 package com.tioka.system.infrastructure;
 
 import com.tioka.system.infrastructure.mapper.AuditEventMapper;
+import com.tioka.system.infrastructure.persistence.AuditEventQuery;
+import com.tioka.system.infrastructure.persistence.AuditEventWriteRow;
 import org.springframework.stereotype.Repository;
 
 import java.time.Instant;
@@ -15,24 +17,19 @@ public class AuditEventRepository {
         this.mapper = mapper;
     }
 
-    public void insert(String id, Instant ts, String workspaceId, String actorType, String actorId,
-                       String action, String resourceType, String resourceId, String outcome,
-                       String reason, String traceId, String requestId, String clientIp, String detailsJson) {
-        mapper.insert(id, ts, workspaceId, actorType, actorId, action, resourceType, resourceId,
-                outcome, reason, traceId, requestId, clientIp, detailsJson);
+    public void insert(AuditEventWriteRow row) {
+        mapper.insert(row);
     }
 
-    public List<Map<String, Object>> query(String workspaceId, String actorId, String action,
-                                           String resourceType, String resourceId, String outcome,
-                                           Instant from, Instant to, int limit, int offset) {
-        return mapper.query(workspaceId, actorId, action, resourceType, resourceId, outcome,
-                from, to, limit, offset);
+    public List<Map<String, Object>> query(AuditEventQuery q) {
+        return mapper.query(q);
     }
 
     /** 兼容旧调用（FND-04 IT）。 */
     public List<Map<String, Object>> query(String workspaceId, String actorId, String action,
                                            String outcome, int limit) {
-        return query(workspaceId, actorId, action, null, null, outcome, null, null, limit, 0);
+        return query(new AuditEventQuery(workspaceId, actorId, action, null, null, outcome,
+                null, null, limit, 0));
     }
 
     public List<Map<String, Object>> listUnforwarded(int limit) {

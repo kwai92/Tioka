@@ -61,12 +61,12 @@ public class SystemCostController {
     }
 
     /**
-     * 非系统管理员强制限定当前空间；系统管理员（tenant_admin / *）可跨空间。
+     * 非系统管理员强制限定当前空间；系统管理员（system_admin / *）可跨空间。
      */
     private String workspaceFilter() {
         Principal p = principals.current();
         if (p.hasPermission(Permissions.TENANT_ADMIN) || p.hasPermission(Permissions.ALL)
-                || p.roles().contains("tenant_admin")) {
+                || p.roles().contains("system_admin")) {
             return null;
         }
         String ws = p.workspaceId();
