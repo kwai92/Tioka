@@ -1,0 +1,451 @@
+openapi: 3.0.3
+info:
+  title: Tioka Lease Business System API
+  description: |
+    租赁业务系统 OpenAPI（M3-04 §3 / BIZ-07）。
+    Tioka 经 CON-07a 以 `biz.lease.*` 工具调用；写操作须带 Idempotency-Key。
+    业务系统不提供改已确认模型或法务处置的接口给 Tioka。
+  version: 1.0.0
+servers:
+  - url: https://lease-biz.example.local
+    description: 业务系统（独立部署）
+tags:
+  - name: lease.read
+  - name: lease.draft.write
+  - name: lease.review.draft
+  - name: lease.state.write
+  - name: events
+paths:
+  /api/contracts/{contractKey}:
+    get:
+      operationId: getContract
+      tags: [lease.read]
+      summary: 主档、经办人、前序合同
+      x-tioka-reversibility: NONE
+      x-tioka-action-category: lease.read
+      parameters:
+        - $ref: '#/components/parameters/ContractKey'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Contract'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/contracts/{contractKey}/files:
+    get:
+      operationId: getContractFiles
+      tags: [lease.read]
+      summary: 返回 5 分钟有效的下载地址
+      x-tioka-reversibility: NONE
+      x-tioka-action-category: lease.read
+      parameters:
+        - $ref: '#/components/parameters/ContractKey'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [files]
+                properties:
+                  files:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ContractFileLink'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/stores/{storeCode}/models:
+    get:
+      operationId: getStoreModels
+      tags: [lease.read]
+      summary: 门店所有已确认版本号
+      x-tioka-reversibility: NONE
+      x-tioka-action-category: lease.read
+      parameters:
+        - $ref: '#/components/parameters/StoreCode'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [versions]
+                properties:
+                  versions:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/StoreModelVersion'
+
+  /api/contracts/{contractKey}/models/{version}:
+    get:
+      operationId: getConfirmedModel
+      tags: [lease.read]
+      summary: 已确认模型（ONT-02 拉取）
+      x-tioka-reversibility: NONE
+      x-tioka-action-category: lease.read
+      parameters:
+        - $ref: '#/components/parameters/ContractKey'
+        - name: version
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmedModel'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/checkpoint-sets/{version}:
+    get:
+      operationId: getCheckpoints
+      tags: [lease.read]
+      summary: 要点集；version=latest 取当前发布版
+      x-tioka-reversibility: NONE
+      x-tioka-action-category: lease.read
+      parameters:
+        - name: version
+          in: path
+          required: true
+          schema:
+            type: string
+            description: 版本号或 latest
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CheckpointSet'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/thresholds:
+    get:
+      operationId: getThresholds
+      tags: [lease.read]
+      summary: 阈值配置
+      x-tioka-reversibility: NONE
+      x-tioka-action-category: lease.read
+      parameters:
+        - name: configVersion
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ThresholdConfig'
+
+  /api/contracts/{contractKey}/model-drafts:
+    post:
+      operationId: proposeModelDraft
+      tags: [lease.draft.write]
+      summary: 提出模型草稿（新草稿覆盖旧草稿）
+      x-tioka-reversibility: REVERSIBLE
+      x-tioka-action-category: lease.draft.write
+      parameters:
+        - $ref: '#/components/parameters/ContractKey'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProposeModelDraftRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ModelDraftAck'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /api/review-runs/{reviewRunId}/findings:
+    post:
+      operationId: submitReviewDraft
+      tags: [lease.review.draft]
+      summary: 提交审查草稿结论（新一轮覆盖，未处置作废）
+      x-tioka-reversibility: REVERSIBLE
+      x-tioka-action-category: lease.review.draft
+      parameters:
+        - name: reviewRunId
+          in: path
+          required: true
+          schema:
+            type: string
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FindingList'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReviewDraftAck'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /api/stores/{storeCode}/lease-state:
+    put:
+      operationId: writeLeaseState
+      tags: [lease.state.write]
+      summary: 写租约状态（折叠投影钩子；不给 Agent）
+      x-tioka-reversibility: REVERSIBLE
+      x-tioka-action-category: lease.state.write
+      parameters:
+        - $ref: '#/components/parameters/StoreCode'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LeaseState'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LeaseStateAck'
+
+  /api/events:
+    post:
+      operationId: ingestBizEvent
+      tags: [events]
+      summary: 业务系统事件入口（HTTP；亦可经 RocketMQ）
+      description: 信封见 components.schemas.BizEventEnvelope
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BizEventEnvelope'
+      responses:
+        '202':
+          description: Accepted
+
+components:
+  parameters:
+    ContractKey:
+      name: contractKey
+      in: path
+      required: true
+      schema:
+        type: string
+        minLength: 1
+    StoreCode:
+      name: storeCode
+      in: path
+      required: true
+      schema:
+        type: string
+        minLength: 1
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema:
+        type: string
+        minLength: 8
+      description: 业务系统保存 24 小时内的键与响应
+
+  responses:
+    NotFound:
+      description: Not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorBody'
+    Conflict:
+      description: Conflict
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorBody'
+
+  schemas:
+    ErrorBody:
+      type: object
+      required: [code, message]
+      properties:
+        code: { type: string }
+        message: { type: string }
+
+    Contract:
+      type: object
+      required: [contractKey, storeCode, kind, assignee]
+      properties:
+        contractKey: { type: string }
+        storeCode: { type: string }
+        kind: { type: string, enum: [MASTER, SUPPLEMENT, OTHER] }
+        assignee: { type: string }
+        priorKeys:
+          type: array
+          items: { type: string }
+        title: { type: string }
+
+    ContractFileLink:
+      type: object
+      required: [fileId, downloadUrl, expiresAt, sha256, mime]
+      properties:
+        fileId: { type: string }
+        downloadUrl: { type: string, format: uri }
+        expiresAt: { type: string, format: date-time }
+        sha256: { type: string }
+        mime: { type: string }
+
+    StoreModelVersion:
+      type: object
+      required: [contractKey, version, contentHash]
+      properties:
+        contractKey: { type: string }
+        version: { type: integer, minimum: 1 }
+        contentHash: { type: string }
+        confirmedAt: { type: string, format: date-time }
+
+    ConfirmedModel:
+      type: object
+      required: [contractKey, version, contentHash, model]
+      properties:
+        contractKey: { type: string }
+        version: { type: integer, minimum: 1 }
+        contentHash: { type: string }
+        model: { type: object, additionalProperties: true }
+
+    CheckpointSet:
+      type: object
+      required: [version, checkpoints]
+      properties:
+        version: { type: string }
+        checkpoints:
+          type: array
+          items:
+            type: object
+            required: [code, title]
+            properties:
+              code: { type: string }
+              title: { type: string }
+              severity: { type: string }
+
+    ThresholdConfig:
+      type: object
+      required: [configVersion, thresholds]
+      properties:
+        configVersion: { type: string }
+        thresholds:
+          type: object
+          additionalProperties: true
+
+    ProposeModelDraftRequest:
+      type: object
+      required: [contentHash, draft]
+      properties:
+        contentHash: { type: string }
+        draft: { type: object, additionalProperties: true }
+        evidenceRefs:
+          type: array
+          items: { type: string }
+
+    ModelDraftAck:
+      type: object
+      required: [contractKey, draftId]
+      properties:
+        contractKey: { type: string }
+        draftId: { type: string }
+
+    FindingList:
+      type: object
+      description: lease.findingList@1
+      required: [findings]
+      properties:
+        findings:
+          type: array
+          items:
+            $ref: '#/components/schemas/Finding'
+
+    Finding:
+      type: object
+      required: [findingId, checkpointCode, conclusion]
+      properties:
+        findingId: { type: string }
+        checkpointCode: { type: string }
+        conclusion: { type: string }
+        severity: { type: string }
+        evidence:
+          type: array
+          items: { type: object, additionalProperties: true }
+        modelValues:
+          type: object
+          additionalProperties: true
+
+    ReviewDraftAck:
+      type: object
+      required: [reviewRunId, round]
+      properties:
+        reviewRunId: { type: string }
+        round: { type: integer, minimum: 1 }
+
+    LeaseState:
+      type: object
+      required: [storeCode, state]
+      properties:
+        storeCode: { type: string }
+        state: { type: object, additionalProperties: true }
+        inputHash: { type: string }
+
+    LeaseStateAck:
+      type: object
+      required: [storeCode, writtenAt]
+      properties:
+        storeCode: { type: string }
+        writtenAt: { type: string, format: date-time }
+
+    BizEventEnvelope:
+      type: object
+      required: [eventId, type, occurredAt, source, subjectKey, data]
+      properties:
+        eventId: { type: string }
+        type:
+          type: string
+          enum:
+            - lease.contract.submitted
+            - contract.model.confirmed
+            - lease.review.feedback
+            - lease.review.closed
+            - lease.kb.changed
+            - lease.performance.recorded
+        occurredAt: { type: string, format: date-time }
+        source:
+          type: string
+          const: lease-biz
+        subjectKey:
+          type: string
+          description: lease:{store}:{contract}:v{ver} 或 lease-store:{store}
+        data:
+          type: object
+          additionalProperties: true
