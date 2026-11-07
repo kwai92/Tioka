@@ -190,16 +190,17 @@ public class ApprovalDecideService {
     }
 
     private void publishApprovalDecided(RuntimeApprovalDO a, ApprovalView view) {
+        // DomainEvent 会对 payload 做 Map.copyOf，禁止 null value（如 comment 未填时）
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("approvalId", a.getId());
         payload.put("subjectType", a.getSubjectType());
         payload.put("subjectId", a.getSubjectId());
         payload.put("status", a.getStatus());
-        payload.put("decidedBy", a.getDecidedBy());
+        payload.put("decidedBy", a.getDecidedBy() == null ? "" : a.getDecidedBy());
         payload.put("decidedAt", view.decidedAt() == null ? Instant.now().toString() : view.decidedAt().toString());
-        payload.put("comment", view.comment());
+        payload.put("comment", view.comment() == null ? "" : view.comment());
         payload.put("answer", view.answer() == null ? Map.of() : view.answer());
-        payload.put("workspaceId", a.getWorkspaceId());
+        payload.put("workspaceId", a.getWorkspaceId() == null ? "" : a.getWorkspaceId());
         eventPublisher.publish(new DomainEvent(
                 RuntimeMqTopics.APPROVAL_DECIDED,
                 RuntimeMqTopics.TOPIC,
