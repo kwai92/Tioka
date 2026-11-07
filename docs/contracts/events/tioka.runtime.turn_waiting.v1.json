@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tioka.dev/schema/tioka.runtime.turn_waiting.v1.json",
+  "title": "tioka.runtime.turn_waiting.v1",
+  "description": "Turn entered a waiting state (approval / child / attention). Watched by orch-turn-watcher (M2-02).",
+  "type": "object",
+  "required": ["turnId", "threadId", "reason"],
+  "properties": {
+    "turnId": { "type": "string" },
+    "threadId": { "type": "string" },
+    "reason": { "type": "string", "description": "e.g. approval, child, attention" },
+    "origin": { "type": "string" },
+    "originRef": { "type": "string" },
+    "workspaceId": { "type": "string" }
+  },
+  "additionalProperties": true
+}

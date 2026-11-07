@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tioka.dev/schema/tioka.identity.member_removed.v1.json",
+  "title": "tioka.identity.member_removed.v1",
+  "description": "Workspace member removed; bridges MemberRemovedEvent via outbox (M1-01 F7, ID-BR).",
+  "type": "object",
+  "required": ["workspaceId", "userId", "source"],
+  "properties": {
+    "workspaceId": { "type": "string" },
+    "userId": { "type": "string" },
+    "source": { "type": "string" }
+  },
+  "additionalProperties": true
+}

@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tioka.dev/schema/tioka.flow.run_finished.v1.json",
+  "title": "tioka.flow.run_finished.v1",
+  "description": "Flow run reached a terminal status (M2-02/M2-04).",
+  "type": "object",
+  "required": ["runId", "status"],
+  "properties": {
+    "runId": { "type": "string" },
+    "status": { "type": "string" },
+    "publicationId": { "type": "string" },
+    "origin": { "type": "string" },
+    "originRef": { "type": "string" },
+    "workspaceId": { "type": "string" },
+    "output": { "type": "object" },
+    "errorCode": { "type": ["string", "null"] }
+  },
+  "additionalProperties": true
+}

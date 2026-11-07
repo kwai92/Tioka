@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tioka.dev/schema/tioka.connector.im_inbound.v1.json",
+  "title": "tioka.connector.im_inbound.v1",
+  "description": "Normalized inbound IM event after callback accept (M2-03).",
+  "type": "object",
+  "required": ["bindingId", "eventType", "event"],
+  "properties": {
+    "bindingId": { "type": "string" },
+    "eventType": { "type": "string" },
+    "event": { "type": "object", "additionalProperties": true },
+    "channel": { "type": "string" },
+    "workspaceId": { "type": "string" }
+  },
+  "additionalProperties": true
+}

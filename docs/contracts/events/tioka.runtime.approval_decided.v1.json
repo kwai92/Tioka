@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tioka.dev/schema/tioka.runtime.approval_decided.v1.json",
+  "title": "tioka.runtime.approval_decided.v1",
+  "description": "Approval decided; routed to ApprovalSubjectHandler via runtime-approval-router (M2-01).",
+  "type": "object",
+  "required": ["approvalId", "subjectType", "subjectId", "status"],
+  "properties": {
+    "approvalId": { "type": "string" },
+    "subjectType": { "type": "string" },
+    "subjectId": { "type": "string" },
+    "status": { "type": "string", "description": "APPROVED | REJECTED | EXPIRED | …" },
+    "decidedBy": { "type": ["string", "null"] },
+    "decidedAt": { "type": ["string", "null"], "format": "date-time" },
+    "comment": { "type": ["string", "null"] },
+    "answer": { "type": "object" },
+    "workspaceId": { "type": "string" }
+  },
+  "additionalProperties": true
+}
