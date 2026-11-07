@@ -25,6 +25,14 @@ function buildThreadStore(threadId: string) {
     const lastEventId = computed(() => state.value.lastEventId || (maxSeq(state.value) ? String(maxSeq(state.value)) : ''))
     const discardNotice = computed(() => state.value.discardNotice)
     const reconnecting = computed(() => state.value.reconnecting)
+    const approvals = computed(() => {
+      const map: Record<string, { approvalId: string; status: string; decidedBy?: string; toolName?: string }> =
+        {}
+      for (const [k, v] of state.value.approvals.entries()) {
+        map[k] = v
+      }
+      return map
+    })
     const turnBusy = computed(() => {
       const s = state.value.activeTurn?.status
       return !!s && !['COMPLETED', 'FAILED', 'CANCELLED'].includes(s)
@@ -69,6 +77,7 @@ function buildThreadStore(threadId: string) {
       lastEventId,
       discardNotice,
       reconnecting,
+      approvals,
       turnBusy,
       reset,
       seed,

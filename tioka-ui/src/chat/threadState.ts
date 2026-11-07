@@ -17,6 +17,13 @@ export type ActiveTurn = {
   status: string
 } | null
 
+export type ApprovalState = {
+  approvalId: string
+  status: string
+  decidedBy?: string
+  toolName?: string
+}
+
 export type ThreadState = {
   items: Map<string, ThreadItem>
   activeTurn: ActiveTurn
@@ -24,6 +31,8 @@ export type ThreadState = {
   /** 一次性提示：模型切换 / discarded */
   discardNotice: string | null
   reconnecting: boolean
+  /** approvalId → 最新审批态（HCI-04） */
+  approvals: Map<string, ApprovalState>
 }
 
 export type RuntimeEvent = {
@@ -46,6 +55,12 @@ export type RuntimeEvent = {
   turn?: {
     status?: string
   }
+  approval?: {
+    approvalId?: string
+    status?: string
+    toolName?: string
+    decidedBy?: string
+  }
   [key: string]: unknown
 }
 
@@ -67,7 +82,8 @@ export function createThreadState(): ThreadState {
     activeTurn: null,
     lastEventId: '',
     discardNotice: null,
-    reconnecting: false
+    reconnecting: false,
+    approvals: new Map()
   }
 }
 
@@ -242,6 +258,21 @@ export function applyRuntimeEvent(
       items,
       discardNotice: next.discardNotice ?? '模型已切换，正在重新生成'
     }
+  }
+
+  if (type === 'approval.requested' || type === 'approval.decided') {
+    const a = ev.approval
+    const approvalId = a?.approvalId
+    if (!approvalId) return next
+    const approvals = new Map(next.approvals)
+    const prev = approvals.get(approvalId)
+    approvals.set(approvalId, {
+      approvalId,
+      status: a?.status || prev?.status || (type === 'approval.requested' ? 'PENDING' : 'PENDING'),
+      decidedBy: a?.decidedBy || prev?.decidedBy,
+      toolName: a?.toolName || prev?.toolName
+    })
+    return { ...next, approvals }
   }
 
   return next

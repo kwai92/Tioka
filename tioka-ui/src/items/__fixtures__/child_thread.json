@@ -1,0 +1,29 @@
+[
+  {
+    "name": "basic",
+    "item": {
+      "itemId": "fix_child_thread_basic",
+      "seq": 1,
+      "itemType": "child_thread",
+      "role": "assistant",
+      "content": {
+        "ref": "child_thread-1"
+      }
+    }
+  },
+  {
+    "name": "edge",
+    "item": {
+      "itemId": "fix_child_thread_edge",
+      "seq": 1,
+      "itemType": "child_thread",
+      "role": "assistant",
+      "content": {
+        "note": "unknown-renderer-ok",
+        "payload": {
+          "nested": true
+        }
+      }
+    }
+  }
+]

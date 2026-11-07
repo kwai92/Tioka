@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
-import { gateSend, itemToPart, shouldAppendStreamPart, sidebarIsProductCost } from './chatUx'
+import { gateSend, shouldAppendStreamPart, sidebarIsProductCost } from './chatUx'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 const chatVue = readFileSync(join(root, 'views/Chat.vue'), 'utf8')
@@ -20,11 +20,12 @@ describe('CH-01 / HCI-02 Chat UX gates', () => {
     expect(shouldAppendStreamPart(true)).toBe(false)
   })
 
-  it('Chat.vue wires multi-conversation switch + PartRenderer + streamThread', () => {
+  it('Chat.vue wires multi-conversation switch + ItemList + streamThread', () => {
     expect(chatVue).toMatch(/v-for="c in conversations"/)
     expect(chatVue).toMatch(/@click="open\(c\.id\)"/)
     expect(chatVue).toMatch(/newConv/)
-    expect(chatVue).toMatch(/<PartRenderer/)
+    expect(chatVue).toMatch(/<ItemList/)
+    expect(chatVue).not.toMatch(/PartRenderer/)
     expect(chatVue).toMatch(/streamThread/)
     expect(chatVue).toMatch(/startChatTurn/)
     expect(chatVue).toMatch(/stopActiveTurn|function stop/)
@@ -46,14 +47,5 @@ describe('CH-01 / HCI-02 Chat UX gates', () => {
     expect(chatVue).not.toMatch(/JSON\.stringify\(.*env/i)
     expect(chatVue).not.toMatch(/<pre>[\s\S]*env/)
     expect(sidebarIsProductCost('成本 / 模型')).toBe(true)
-  })
-
-  it('itemToPart maps pending user text', () => {
-    expect(itemToPart({ itemType: 'message', role: 'user', content: {}, pending: true }).text).toBe(
-      '发送中…'
-    )
-    expect(
-      itemToPart({ itemType: 'message', role: 'user', content: { text: 'hi' }, pending: false }).text
-    ).toBe('hi')
   })
 })

@@ -147,4 +147,19 @@ describe('HCI-02 threadState', () => {
     })
     expect(s.activeTurn).toBeNull()
   })
+
+  it('approval.requested / decided 写入 approvals map', () => {
+    let s = createThreadState()
+    s = applyRuntimeEvent(s, {
+      type: 'approval.requested',
+      approval: { approvalId: 'apv_1', status: 'PENDING', toolName: 'echo' }
+    })
+    expect(s.approvals.get('apv_1')?.status).toBe('PENDING')
+    s = applyRuntimeEvent(s, {
+      type: 'approval.decided',
+      approval: { approvalId: 'apv_1', status: 'APPROVED', decidedBy: 'u1' }
+    })
+    expect(s.approvals.get('apv_1')?.status).toBe('APPROVED')
+    expect(s.approvals.get('apv_1')?.decidedBy).toBe('u1')
+  })
 })

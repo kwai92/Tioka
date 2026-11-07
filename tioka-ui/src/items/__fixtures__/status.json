@@ -1,0 +1,27 @@
+[
+  {
+    "name": "failover",
+    "item": {
+      "itemId": "fix_status_failover",
+      "seq": 1,
+      "itemType": "status",
+      "role": "system",
+      "content": {
+        "kind": "model_failover",
+        "to": "m2"
+      }
+    }
+  },
+  {
+    "name": "generic",
+    "item": {
+      "itemId": "fix_status_generic",
+      "seq": 1,
+      "itemType": "status",
+      "role": "system",
+      "content": {
+        "kind": "info"
+      }
+    }
+  }
+]

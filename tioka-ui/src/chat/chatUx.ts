@@ -23,26 +23,3 @@ export function shouldAppendStreamPart(cancelled: boolean): boolean {
 export function sidebarIsProductCost(asideTitle: string): boolean {
   return asideTitle.includes('成本') || asideTitle.toLowerCase().includes('cost')
 }
-
-/** item → PartRenderer 可消费的 part（HCI-04 前过渡）。 */
-export function itemToPart(item: {
-  itemType: string
-  role?: string
-  content: Record<string, unknown>
-  pending?: boolean
-}) {
-  const type = item.itemType === 'message' ? 'text' : item.itemType
-  const text =
-    typeof item.content.text === 'string'
-      ? item.content.text
-      : typeof item.content.reasoning === 'string'
-        ? item.content.reasoning
-        : typeof item.content.output === 'string'
-          ? item.content.output
-          : ''
-  return {
-    type,
-    text: item.pending && !text ? '发送中…' : text,
-    payload: { ...item.content, pending: item.pending, role: item.role }
-  }
-}
