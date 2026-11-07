@@ -1,5 +1,7 @@
 package com.tioka.agent.api;
 
+import com.tioka.system.api.audit.Audited;
+
 import com.tioka.agent.api.spec.AgentSpec;
 import com.tioka.agent.application.AgentService;
 import com.tioka.agent.domain.AgentStore;
@@ -35,12 +37,14 @@ public class AgentController {
 
     @RequirePermission(Permissions.AGENT_WRITE)
     @PostMapping
+    @Audited(action = "agent.create", resourceType = "agent")
     public ApiResponse<AgentStore.Agent> create(@Valid @RequestBody CreateAgentRequest body) {
         return ApiResponse.ok(service.create(body.getName(), body.getWorkspaceId(), body.getVisibility()));
     }
 
     @RequirePermission(Permissions.AGENT_WRITE)
     @PutMapping("/{id}")
+    @Audited(action = "agent.update", resourceType = "agent", resourceIdArg = "#id")
     public ApiResponse<AgentStore.Agent> update(@PathVariable String id, @RequestBody Map<String, Object> body) {
         String name = body.get("name") == null ? null : String.valueOf(body.get("name"));
         String visibility = body.get("visibility") == null ? null : String.valueOf(body.get("visibility"));
@@ -55,6 +59,7 @@ public class AgentController {
 
     @RequirePermission(Permissions.AGENT_WRITE)
     @PutMapping("/{id}/draft")
+    @Audited(action = "agent.draft.put", resourceType = "agent", resourceIdArg = "#id")
     public ApiResponse<AgentService.DraftView> putDraft(@PathVariable String id,
                                                         @RequestBody DraftBody body) {
         return ApiResponse.ok(service.saveDraft(id, body.spec(), body.revision()));
@@ -62,6 +67,7 @@ public class AgentController {
 
     @RequirePermission(Permissions.AGENT_WRITE)
     @PostMapping("/{id}/validate")
+    @Audited(action = "agent.validate", resourceType = "agent", resourceIdArg = "#id")
     public ApiResponse<AgentService.ValidateResult> validate(@PathVariable String id) {
         return ApiResponse.ok(service.validate(id));
     }

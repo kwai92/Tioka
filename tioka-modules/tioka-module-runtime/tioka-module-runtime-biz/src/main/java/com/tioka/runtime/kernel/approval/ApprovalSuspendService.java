@@ -27,7 +27,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.time.Instant;
-import java.time.OffsetDateTime;
+import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -95,7 +95,7 @@ public class ApprovalSuspendService {
                     "userIds", req.assignee().userIds(),
                     "roleCodes", req.assignee().roleCodes())));
             row.setStatus(ApprovalStatus.PENDING.name());
-            row.setExpiresAt(OffsetDateTime.ofInstant(expires, ZoneOffset.UTC));
+            row.setExpiresAt(LocalDateTime.ofInstant(expires, ZoneOffset.UTC));
             String by = principals.current() == null ? "system" : principals.current().userId();
             row.setCreateBy(by);
             row.setUpdateBy(by);

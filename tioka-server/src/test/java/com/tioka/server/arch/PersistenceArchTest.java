@@ -55,19 +55,17 @@ class PersistenceArchTest {
                 .should(new ArchCondition<>("extend agreed persistence base") {
                     @Override
                     public void check(JavaClass item, ConditionEvents events) {
-                        // RuntimeTurnDO：M0-03 明确无逻辑删、不继承 BaseDO；无 @TableName 时本规则本就不适用
                         boolean ok = item.isAssignableTo(BaseDO.class)
                                 || item.isAssignableTo(WorkspaceAwareDO.class)
                                 || item.isAssignableTo(ImmutableSnapshotDO.class)
                                 || item.isAssignableTo(AppendOnlyDO.class)
                                 || item.isAssignableTo(MutableRecordDO.class)
                                 || item.isAssignableTo(TechnicalRecordDO.class)
-                                || "RuntimeTurnDO".equals(item.getSimpleName())
                                 // AST-01：agent_draft 契约仅有 update_at/by + revision，无 create/deleted
                                 || "AgentDraftDO".equals(item.getSimpleName())
                                 // MH-04：model_default_plan 仅 purpose PK + update_at/by
                                 || "ModelDefaultPlanDO".equals(item.getSimpleName())
-                                // TIMESTAMPTZ 列用 Instant，不可继承 LocalDateTime 基类（PG JDBC 拒绝 TIMESTAMPTZ→LocalDateTime）
+                                // 历史 Instant 映射；新表优先 MutableRecordDO + UtcLocalDateTimeTypeHandler
                                 || "SysApiKeyDO".equals(item.getSimpleName())
                                 || "SysGroupDO".equals(item.getSimpleName())
                                 || "SysResourceAclDO".equals(item.getSimpleName());

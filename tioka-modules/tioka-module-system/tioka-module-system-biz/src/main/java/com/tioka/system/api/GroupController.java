@@ -1,5 +1,7 @@
 package com.tioka.system.api;
 
+import com.tioka.system.api.audit.Audited;
+
 import com.tioka.framework.error.ApiResponse;
 import com.tioka.framework.security.Permissions;
 import com.tioka.framework.security.RequirePermission;
@@ -26,12 +28,14 @@ public class GroupController {
 
     @RequirePermission(Permissions.TENANT_ADMIN)
     @PostMapping
+    @Audited(action = "group.create", resourceType = "group")
     public ApiResponse<GroupAdminService.GroupView> create(@RequestBody Map<String, String> body) {
         return ApiResponse.ok(groups.create(body.get("name")));
     }
 
     @RequirePermission(Permissions.TENANT_ADMIN)
     @PutMapping("/{id}/members")
+    @Audited(action = "group.members.replace", resourceType = "group", resourceIdArg = "#id")
     public ApiResponse<GroupAdminService.GroupView> members(@PathVariable String id,
                                                             @RequestBody Map<String, Object> body) {
         @SuppressWarnings("unchecked")

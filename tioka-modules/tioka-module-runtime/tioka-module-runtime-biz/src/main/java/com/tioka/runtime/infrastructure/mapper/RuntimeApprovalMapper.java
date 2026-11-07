@@ -3,7 +3,7 @@ package com.tioka.runtime.infrastructure.mapper;
 import com.tioka.runtime.kernel.infrastructure.persistence.RuntimeApprovalDO;
 import org.apache.ibatis.annotations.*;
 
-import java.time.OffsetDateTime;
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Mapper
@@ -98,7 +98,7 @@ public interface RuntimeApprovalMapper {
              WHERE status = 'PENDING' AND expires_at < #{now}
          RETURNING id
             """)
-    List<String> expireDue(@Param("now") OffsetDateTime now, @Param("decidedBy") String decidedBy);
+    List<String> expireDue(@Param("now") LocalDateTime now, @Param("decidedBy") String decidedBy);
 
     @Update("""
             UPDATE runtime_approval

@@ -1,11 +1,13 @@
 package com.tioka.runtime.kernel.infrastructure.persistence;
 
-import java.time.OffsetDateTime;
+import com.tioka.framework.persistence.MutableRecordDO;
+
+import java.time.LocalDateTime;
 
 /**
- * runtime_approval 行（V101）。无逻辑删，不继承 BaseDO。
+ * runtime_approval 行（V101）。无逻辑删；审计四列见 {@link MutableRecordDO}（M0-P2）。
  */
-public class RuntimeApprovalDO {
+public class RuntimeApprovalDO extends MutableRecordDO {
     private String id;
     private String workspaceId;
     private String subjectType;
@@ -19,13 +21,9 @@ public class RuntimeApprovalDO {
     private String assigneeJson;
     private String status;
     private String decidedBy;
-    private OffsetDateTime decidedAt;
+    private LocalDateTime decidedAt;
     private String answerJson;
-    private OffsetDateTime expiresAt;
-    private OffsetDateTime createAt;
-    private OffsetDateTime updateAt;
-    private String createBy;
-    private String updateBy;
+    private LocalDateTime expiresAt;
 
     public String getId() { return id; }
     public void setId(String id) { this.id = id; }
@@ -53,18 +51,10 @@ public class RuntimeApprovalDO {
     public void setStatus(String status) { this.status = status; }
     public String getDecidedBy() { return decidedBy; }
     public void setDecidedBy(String decidedBy) { this.decidedBy = decidedBy; }
-    public OffsetDateTime getDecidedAt() { return decidedAt; }
-    public void setDecidedAt(OffsetDateTime decidedAt) { this.decidedAt = decidedAt; }
+    public LocalDateTime getDecidedAt() { return decidedAt; }
+    public void setDecidedAt(LocalDateTime decidedAt) { this.decidedAt = decidedAt; }
     public String getAnswerJson() { return answerJson; }
     public void setAnswerJson(String answerJson) { this.answerJson = answerJson; }
-    public OffsetDateTime getExpiresAt() { return expiresAt; }
-    public void setExpiresAt(OffsetDateTime expiresAt) { this.expiresAt = expiresAt; }
-    public OffsetDateTime getCreateAt() { return createAt; }
-    public void setCreateAt(OffsetDateTime createAt) { this.createAt = createAt; }
-    public OffsetDateTime getUpdateAt() { return updateAt; }
-    public void setUpdateAt(OffsetDateTime updateAt) { this.updateAt = updateAt; }
-    public String getCreateBy() { return createBy; }
-    public void setCreateBy(String createBy) { this.createBy = createBy; }
-    public String getUpdateBy() { return updateBy; }
-    public void setUpdateBy(String updateBy) { this.updateBy = updateBy; }
+    public LocalDateTime getExpiresAt() { return expiresAt; }
+    public void setExpiresAt(LocalDateTime expiresAt) { this.expiresAt = expiresAt; }
 }

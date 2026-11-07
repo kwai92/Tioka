@@ -6,7 +6,7 @@ import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
-import java.time.OffsetDateTime;
+import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
@@ -49,7 +49,7 @@ public class ApprovalRepository {
 
     @Transactional
     public List<String> expireDue(Instant now) {
-        return mapper.expireDue(OffsetDateTime.ofInstant(now, ZoneOffset.UTC), "system");
+        return mapper.expireDue(LocalDateTime.ofInstant(now, ZoneOffset.UTC), "system");
     }
 
     public int expirePendingForSubject(String subjectType, String subjectId, String decidedBy) {

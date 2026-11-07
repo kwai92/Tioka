@@ -314,7 +314,7 @@ public class ApprovalDecideService {
         }
         api.record(new AuditEvent(null, Instant.now(), null, a.getWorkspaceId(),
                 p.type().name().toLowerCase(Locale.ROOT), p.userId(), "approval.decide",
-                "runtime_approval", a.getId(), AuditOutcome.SUCCESS, status.name(), null, null,
+                "runtime_approval", a.getId(), AuditOutcome.SUCCESS, status.name(), null, null, null,
                 Map.of("approved", status == ApprovalStatus.APPROVED)));
     }
 
@@ -351,11 +351,11 @@ public class ApprovalDecideService {
                 userIds,
                 roles,
                 a.getDecidedBy(),
-                a.getDecidedAt() == null ? null : a.getDecidedAt().toInstant(),
+                a.getDecidedAt() == null ? null : a.getDecidedAt().toInstant(java.time.ZoneOffset.UTC),
                 answer,
                 comment,
-                a.getExpiresAt() == null ? null : a.getExpiresAt().toInstant(),
-                a.getCreateAt() == null ? null : a.getCreateAt().toInstant(),
+                a.getExpiresAt() == null ? null : a.getExpiresAt().toInstant(java.time.ZoneOffset.UTC),
+                a.getCreateAt() == null ? null : a.getCreateAt().toInstant(java.time.ZoneOffset.UTC),
                 null);
     }
 

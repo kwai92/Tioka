@@ -10,6 +10,7 @@ import com.tioka.runtime.application.tool.ToolCallPipeline;
 import com.tioka.runtime.application.tool.ToolCallPipeline.AuthorizeResult;
 import com.tioka.runtime.application.tool.ToolCallPipeline.AuthorizedCall;
 import com.tioka.system.api.audit.AuditApi;
+import com.tioka.system.api.audit.AuditDegradedSink;
 import com.tioka.system.api.audit.AuditEvent;
 import com.tioka.system.api.audit.AuditOutcome;
 import org.slf4j.Logger;
@@ -42,15 +43,18 @@ public class DefaultToolGateway implements ToolGateway {
     private final ToolRegistry registry;
     private final ToolCallPipeline pipeline;
     private final ObjectProvider<AuditApi> auditApi;
+    private final ObjectProvider<AuditDegradedSink> degradedSink;
     private final ObjectMapper mapper;
 
     public DefaultToolGateway(ToolRegistry registry,
                               ToolCallPipeline pipeline,
                               ObjectProvider<AuditApi> auditApi,
+                              ObjectProvider<AuditDegradedSink> degradedSink,
                               ObjectMapper mapper) {
         this.registry = registry;
         this.pipeline = pipeline;
         this.auditApi = auditApi;
+        this.degradedSink = degradedSink;
         this.mapper = mapper;
     }
 
@@ -138,46 +142,51 @@ public class DefaultToolGateway implements ToolGateway {
         if (api == null) {
             return;
         }
+        Map<String, Object> details = new LinkedHashMap<>();
+        details.put("argsDigest", sha256(args));
+        details.put("argsPreview", argsPreview(args));
+        details.put("ok", ok);
+        details.put("durationMs", durationMs);
+        String content = result == null || result.content() == null ? "" : result.content();
+        details.put("outputChars", content.length());
+        if (denyReason != null) {
+            details.put("denyStep", denyReason);
+        }
+        if (ctx != null) {
+            details.put("threadId", ctx.threadId());
+            details.put("turnId", ctx.turnId());
+            details.put("origin", ctx.origin());
+        }
+        AuditOutcome outcome = denyReason != null
+                ? AuditOutcome.DENIED
+                : (ok ? AuditOutcome.SUCCESS : AuditOutcome.ERROR);
+        AuditEvent.Builder b = AuditEvent.builder()
+                .ts(Instant.now())
+                .action("tool.invoke")
+                .resourceType("tool")
+                .resourceId(name)
+                .outcome(outcome)
+                .reason(denyReason)
+                .details(details);
+        if (principal != null) {
+            b.workspaceId(principal.workspaceId())
+                    .actorType(principal.type().name().toLowerCase(Locale.ROOT))
+                    .actorId(principal.userId());
+        }
+        AuditEvent event = b.build();
         try {
-            Map<String, Object> details = new LinkedHashMap<>();
-            details.put("argsDigest", sha256(args));
-            details.put("argsPreview", argsPreview(args));
-            details.put("ok", ok);
-            details.put("durationMs", durationMs);
-            String content = result == null || result.content() == null ? "" : result.content();
-            details.put("outputChars", content.length());
-            if (denyReason != null) {
-                details.put("denyStep", denyReason);
-            }
-            if (ctx != null) {
-                details.put("threadId", ctx.threadId());
-                details.put("turnId", ctx.turnId());
-                details.put("origin", ctx.origin());
-            }
-            AuditOutcome outcome = denyReason != null
-                    ? AuditOutcome.DENIED
-                    : (ok ? AuditOutcome.SUCCESS : AuditOutcome.ERROR);
-            AuditEvent.Builder b = AuditEvent.builder()
-                    .ts(Instant.now())
-                    .action("tool.invoke")
-                    .resourceType("tool")
-                    .resourceId(name)
-                    .outcome(outcome)
-                    .reason(denyReason)
-                    .details(details);
-            if (principal != null) {
-                b.workspaceId(principal.workspaceId())
-                        .actorType(principal.type().name().toLowerCase(Locale.ROOT))
-                        .actorId(principal.userId());
-            }
-            AuditEvent event = b.build();
             if (outcome == AuditOutcome.SUCCESS) {
                 api.record(event);
             } else {
                 api.recordIndependent(event);
             }
         } catch (RuntimeException e) {
-            log.warn("tool.invoke 审计写入失败: {}", e.toString());
+            AuditDegradedSink sink = degradedSink.getIfAvailable();
+            if (sink != null) {
+                sink.append(event);
+            } else {
+                log.error("tool.invoke 审计写入失败且无降级 sink: {}", e.toString());
+            }
         }
     }
 

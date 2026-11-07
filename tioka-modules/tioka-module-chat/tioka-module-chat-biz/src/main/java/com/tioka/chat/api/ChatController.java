@@ -1,5 +1,7 @@
 package com.tioka.chat.api;
 
+import com.tioka.system.api.audit.Audited;
+
 import com.tioka.chat.application.ChatService;
 import com.tioka.chat.domain.ChatStore;
 import com.tioka.framework.error.ApiResponse;
@@ -29,6 +31,7 @@ public class ChatController {
     }
 
     @PostMapping("/conversations")
+    @Audited(action = "chat.conversation.create", resourceType = "conversation")
     public ApiResponse<ChatService.CreatedConversation> create(@RequestBody Map<String, String> body) {
         return ApiResponse.ok(chatService.create(body.get("title"), body.get("agentVersionId")));
     }
@@ -39,6 +42,7 @@ public class ChatController {
     }
 
     @DeleteMapping("/conversations/{id}")
+    @Audited(action = "chat.conversation.delete", resourceType = "conversation", resourceIdArg = "#id")
     public ApiResponse<Void> delete(@PathVariable String id) {
         chatService.delete(id);
         return ApiResponse.ok(null);
@@ -46,6 +50,7 @@ public class ChatController {
 
     @PostMapping("/conversations/{id}/messages")
     @ResponseStatus(HttpStatus.ACCEPTED)
+    @Audited(action = "chat.message.send", resourceType = "conversation", resourceIdArg = "#id")
     public ApiResponse<ChatService.SendAccepted> send(@PathVariable String id,
                                                       @RequestBody Map<String, Object> body) {
         return ApiResponse.ok(chatService.send(id, str(body.get("text")), str(body.get("clientMsgId"))));

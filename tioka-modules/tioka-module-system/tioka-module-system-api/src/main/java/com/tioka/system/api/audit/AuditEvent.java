@@ -16,8 +16,8 @@ import java.util.Objects;
 public record AuditEvent(String id, Instant ts, String tenantId, String workspaceId,
                          String actorType, String actorId, String action,
                          String resourceType, String resourceId,
-                         AuditOutcome outcome, String reason, String traceId, String clientIp,
-                         Map<String, Object> details) {
+                         AuditOutcome outcome, String reason, String traceId, String requestId,
+                         String clientIp, Map<String, Object> details) {
     public AuditEvent {
         details = details == null ? Map.of() : Map.copyOf(details);
     }
@@ -39,6 +39,7 @@ public record AuditEvent(String id, Instant ts, String tenantId, String workspac
         private AuditOutcome outcome;
         private String reason;
         private String traceId;
+        private String requestId;
         private String clientIp;
         private Map<String, Object> details = Map.of();
 
@@ -102,6 +103,11 @@ public record AuditEvent(String id, Instant ts, String tenantId, String workspac
             return this;
         }
 
+        public Builder requestId(String requestId) {
+            this.requestId = requestId;
+            return this;
+        }
+
         public Builder clientIp(String clientIp) {
             this.clientIp = clientIp;
             return this;
@@ -116,7 +122,7 @@ public record AuditEvent(String id, Instant ts, String tenantId, String workspac
             Objects.requireNonNull(action, "action");
             Objects.requireNonNull(outcome, "outcome");
             return new AuditEvent(id, ts, tenantId, workspaceId, actorType, actorId, action,
-                    resourceType, resourceId, outcome, reason, traceId, clientIp, details);
+                    resourceType, resourceId, outcome, reason, traceId, requestId, clientIp, details);
         }
     }
 }

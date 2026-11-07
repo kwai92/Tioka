@@ -1,5 +1,7 @@
 package com.tioka.knowledge.api;
 
+import com.tioka.system.api.audit.Audited;
+
 import com.tioka.framework.error.ApiResponse;
 import com.tioka.knowledge.application.DataSourceService;
 import com.tioka.knowledge.application.KnowledgeService;
@@ -29,6 +31,7 @@ public class KnowledgeController {
     }
 
     @PostMapping("/bases")
+    @Audited(action = "knowledge.base.create", resourceType = "kb")
     public ApiResponse<KnowledgeService.KnowledgeBase> createBase(@RequestBody Map<String, String> body) {
         return ApiResponse.ok(service.createBase(
                 body.getOrDefault("workspaceId", "ws_default"),
@@ -42,6 +45,7 @@ public class KnowledgeController {
     }
 
     @PostMapping("/bases/{id}/documents")
+    @Audited(action = "knowledge.document.ingest", resourceType = "kb", resourceIdArg = "#id")
     public ApiResponse<KnowledgeService.Document> ingest(@PathVariable String id, @RequestBody Map<String, String> body) {
         return ApiResponse.ok(service.ingest(
                 id,
@@ -52,6 +56,7 @@ public class KnowledgeController {
     }
 
     @PostMapping("/bases/{id}/documents/upload")
+    @Audited(action = "knowledge.document.upload", resourceType = "kb", resourceIdArg = "#id")
     public ApiResponse<KnowledgeService.Document> upload(@PathVariable String id,
                                                          @RequestParam("file") MultipartFile file,
                                                          @RequestParam(value = "title", required = false) String title)
@@ -73,6 +78,7 @@ public class KnowledgeController {
     }
 
     @PostMapping("/datasources")
+    @Audited(action = "knowledge.datasource.bind", resourceType = "kb_datasource")
     public ApiResponse<com.tioka.knowledge.api.DataSourceApi.DataSourceView> bindDatasource(@RequestBody Map<String, String> body) {
         return ApiResponse.ok(dataSourceService.bind(
                 body.get("kbId"),
@@ -81,6 +87,7 @@ public class KnowledgeController {
     }
 
     @PostMapping("/datasources/{id}/sync")
+    @Audited(action = "knowledge.datasource.sync", resourceType = "kb_datasource", resourceIdArg = "#id")
     public ApiResponse<Map<String, String>> syncDatasource(@PathVariable String id,
                                                            @RequestBody(required = false) Map<String, String> body) {
         String docId = dataSourceService.sync(id, body == null ? Map.of() : body);

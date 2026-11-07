@@ -17,9 +17,9 @@ public class AuditEventRepository {
 
     public void insert(String id, Instant ts, String workspaceId, String actorType, String actorId,
                        String action, String resourceType, String resourceId, String outcome,
-                       String reason, String traceId, String clientIp, String detailsJson) {
+                       String reason, String traceId, String requestId, String clientIp, String detailsJson) {
         mapper.insert(id, ts, workspaceId, actorType, actorId, action, resourceType, resourceId,
-                outcome, reason, traceId, clientIp, detailsJson);
+                outcome, reason, traceId, requestId, clientIp, detailsJson);
     }
 
     public List<Map<String, Object>> query(String workspaceId, String actorId, String action,

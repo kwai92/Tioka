@@ -1,5 +1,7 @@
 package com.tioka.flow.api;
 
+import com.tioka.system.api.audit.Audited;
+
 import com.tioka.framework.error.ApiResponse;
 import com.tioka.framework.error.BizException;
 import com.tioka.framework.error.ErrorCode;
@@ -31,6 +33,7 @@ public class FlowPublicationController {
     }
 
     @PostMapping("/tools")
+    @Audited(action = "flow.publication.as_tool", resourceType = "flow")
     public ApiResponse<String> asTool(@RequestBody Map<String, String> body) {
         return ApiResponse.ok(publicationService.publishAsTool(body.get("versionId"), body.get("toolName")));
     }

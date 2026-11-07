@@ -1,5 +1,7 @@
 package com.tioka.runtime.api;
 
+import com.tioka.system.api.audit.Audited;
+
 import com.tioka.framework.error.ApiResponse;
 import com.tioka.runtime.application.UploadService;
 import org.springframework.http.HttpHeaders;
@@ -22,6 +24,7 @@ public class UploadController {
     }
 
     @PostMapping("/presign")
+    @Audited(action = "upload.presign", resourceType = "upload")
     public ApiResponse<UploadService.PresignResult> presign(@RequestBody Map<String, String> body) {
         return ApiResponse.ok(uploads.presign(
                 body.getOrDefault("filename", "file.bin"),
@@ -30,18 +33,21 @@ public class UploadController {
     }
 
     @PutMapping("/{uploadId}/content")
+    @Audited(action = "upload.content.put", resourceType = "upload", resourceIdArg = "#uploadId")
     public ApiResponse<Void> put(@PathVariable String uploadId, @RequestBody byte[] body) {
         uploads.putContent(uploadId, body);
         return ApiResponse.ok(null);
     }
 
     @PostMapping("/{uploadId}/confirm")
+    @Audited(action = "upload.confirm", resourceType = "upload", resourceIdArg = "#uploadId")
     public ApiResponse<UploadService.ConfirmResult> confirm(@PathVariable String uploadId,
                                                             @RequestBody Map<String, String> body) {
         return ApiResponse.ok(uploads.confirm(uploadId, body.get("sessionId")));
     }
 
     @PostMapping("/sessions/{sessionId}/publish")
+    @Audited(action = "upload.session.publish", resourceType = "upload_session", resourceIdArg = "#sessionId")
     public ApiResponse<?> publish(@PathVariable String sessionId, @RequestBody Map<String, String> body) {
         return ApiResponse.ok(uploads.publish(sessionId, body.get("logicalPath"), body.get("contentType")));
     }

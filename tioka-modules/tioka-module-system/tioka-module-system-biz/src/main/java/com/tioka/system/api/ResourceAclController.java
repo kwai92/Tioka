@@ -1,5 +1,7 @@
 package com.tioka.system.api;
 
+import com.tioka.system.api.audit.Audited;
+
 import com.tioka.framework.error.ApiResponse;
 import com.tioka.framework.security.AccessLevel;
 import com.tioka.framework.security.RequirePermission;
@@ -28,6 +30,7 @@ public class ResourceAclController {
 
     @RequirePermission({})
     @PutMapping("/{type:agent|kb|flow|mcp|skill}/{id}/acl")
+    @Audited(action = "resource.acl.replace", resourceType = "acl", resourceIdArg = "#id")
     public ApiResponse<Void> replace(@PathVariable String type,
                                      @PathVariable String id,
                                      @RequestBody List<Map<String, String>> body) {

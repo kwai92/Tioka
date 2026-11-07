@@ -29,6 +29,7 @@ import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -37,125 +38,120 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * GOV-02 / 34 号验收：任意写操作可在审计中查到。
+ * GOV-02 / ADR-072：任意写操作可在审计中查到。
  *
- * <p>文档写「白名单除外」但未列明细（文档缺口）。本测试维护显式白名单；
- * 白名单外的每个 POST/PUT/DELETE/PATCH 必须已登记为 {@link Audited} 委托或手动审计。
- * 并对关键写路径实际调用一次，断言审计表有对应 action。
+ * <p>白名单仅允许 {@link WhitelistKind} 四类；「待补」非法。白名单外的每个
+ * POST/PUT/DELETE/PATCH 必须已登记为 {@link Audited} 委托或手动审计。
  */
 @SpringBootTest
 @AutoConfigureMockMvc
 @Tag("it")
 class AuditCoverageIT {
 
-    /**
-     * 显式白名单（pattern）。含：公开认证面、只读语义 POST、NotImplemented、
-     * 以及尚未挂 {@code @Audited}、计划在后续工作项补齐的写接口（文档缺口待补清单）。
-     */
-    private static final Set<String> PATH_WHITELIST = Set.of(
-            // 认证（AuthService 已写 auth.*，非 @Audited）
-            "/api/system/auth/login",
-            "/api/system/auth/refresh",
-            "/api/system/auth/logout",
-            "/api/system/auth/password",
-            "/api/system/auth/oidc/{idp}/authorize",
-            "/api/system/auth/oidc/{idp}/callback",
-            // 只读语义 POST
-            "/api/knowledge/bases/{id}/search",
-            "/api/model/router/failover",
-            // 未实现 / 运维桩
-            "/api/ops/interpreter",
-            "/api/ops/jobs",
-            "/api/ops/chat/{id}/fork",
-            // IM 回调
-            "/api/connector/im/feishu/text",
-            // Flow 内部/webhook（FND-06 改 API Key）
-            "/api/flows/publications/webhook/{versionId}",
-            "/api/flows/publications/internal/{versionId}",
-            // 待各域补 @Audited（GOV-02 管道已就绪；覆盖随域迭代收口）
-            "/api/agents",
-            "/api/agents/{id}",
-            "/api/agents/{id}/draft",
-            "/api/agents/{id}/validate",
-            "/api/ops/datasources",
-            "/api/ops/feishu/map",
-            "/api/ops/wiki",
-            "/api/ops/scim/sync",
-            "/api/ops/agents/{id}/share",
-            "/api/skills/import",
-            "/api/skills/{id}/publish",
-            "/api/mcp/servers",
-            "/api/mcp/servers/{id}/refresh-tools",
-            "/api/mcp/servers/{serverId}/tools/{toolName}",
-            "/api/mcp/grants",
-            "/api/mcp/servers/{id}/trial",
-            "/api/model/providers",
-            "/api/model/logical-models",
-            "/api/model/bindings",
-            "/api/model/bindings/{id}",
-            "/api/model/routing-plans",
-            "/api/model/routing-plans/{id}/publish",
-            "/api/model/default-plans/{purpose}",
-            "/api/flows/drafts",
-            "/api/flows/drafts/{id}/publish",
-            "/api/flows/versions/{id}/run",
-            "/api/flows/publications/tools",
-            "/api/knowledge/bases",
-            "/api/knowledge/bases/{id}/documents",
-            "/api/knowledge/bases/{id}/documents/upload",
-            "/api/knowledge/datasources",
-            "/api/knowledge/datasources/{id}/sync",
-            "/api/knowledge/eval/{kbId}",
-            "/api/chat/conversations",
-            "/api/chat/conversations/{id}/messages",
-            "/api/chat/cards/continue",
-            "/api/chat/cards/approval",
-            "/api/chat/cards/continue/submit",
-            "/api/chat/cards/approval/submit",
-            "/api/runtime/threads",
-            "/api/runtime/threads/{id}/turns",
-            "/api/runtime/turns/{id}/interrupt",
-            "/api/runtime/turns/{id}/steer",
-            "/api/uploads/presign",
-            "/api/uploads/{uploadId}/content",
-            "/api/uploads/{uploadId}/confirm",
-            "/api/uploads/sessions/{sessionId}/publish",
-            "/api/chat/conversations/{id}",
-            "/api/mcp/outbound/call",
-            "/api/system/workspaces",
-            "/api/system/workspaces/{id}/members/{userId}",
-            "/api/system/users",
-            "/api/system/groups",
-            "/api/system/groups/{id}/members",
-            "/api/system/roles",
-            "/api/system/roles/{code}",
-            "/api/system/quotas/{scopeType}/{scopeId}/{metric}",
-            "/api/{type:agent|kb|flow|mcp|skill}/{id}/acl",
-            "/api/orch/events",
-            "/api/orch/rules",
-            "/api/orch/rules/{id}/publish",
-            "/api/orch/runs/claim",
-            "/api/orch/runs/{id}/heartbeat",
-            "/api/orch/attentions",
-            "/api/orch/attentions/{id}/answer",
-            "/api/orch/later"
+    /** ADR-072 四类豁免；禁止再加入「待补」路径。 */
+    private static final List<WhitelistEntry> WHITELIST = List.of(
+            new WhitelistEntry("/api/system/auth/login", WhitelistKind.PUBLIC_AUTH, "AuthService 写 auth.login"),
+            new WhitelistEntry("/api/system/auth/refresh", WhitelistKind.PUBLIC_AUTH, "AuthService 写 auth.refresh"),
+            new WhitelistEntry("/api/system/auth/logout", WhitelistKind.PUBLIC_AUTH, "AuthService 写 auth.logout"),
+            new WhitelistEntry("/api/system/auth/password", WhitelistKind.PUBLIC_AUTH, "AuthService 写 auth.password"),
+            new WhitelistEntry("/api/system/auth/oidc/{idp}/authorize", WhitelistKind.PUBLIC_AUTH, "OIDC 授权跳转"),
+            new WhitelistEntry("/api/system/auth/oidc/{idp}/callback", WhitelistKind.PUBLIC_AUTH, "OIDC 回调写 auth.oidc.*"),
+            new WhitelistEntry("/api/knowledge/bases/{id}/search", WhitelistKind.READ_ONLY_POST, "知识库检索只读"),
+            new WhitelistEntry("/api/model/router/failover", WhitelistKind.READ_ONLY_POST, "路由 failover 探测只读"),
+            new WhitelistEntry("/api/ops/interpreter", WhitelistKind.NOT_IMPLEMENTED, "运维解释器未实现"),
+            new WhitelistEntry("/api/ops/jobs", WhitelistKind.NOT_IMPLEMENTED, "运维任务桩未实现"),
+            new WhitelistEntry("/api/ops/chat/{id}/fork", WhitelistKind.NOT_IMPLEMENTED, "会话 fork 未实现"),
+            new WhitelistEntry("/api/connector/im/feishu/text", WhitelistKind.INBOUND_LEDGER, "飞书入站回调台账"),
+            new WhitelistEntry("/api/flows/publications/webhook/{versionId}", WhitelistKind.INBOUND_LEDGER, "Flow webhook 入站"),
+            new WhitelistEntry("/api/flows/publications/internal/{versionId}", WhitelistKind.INBOUND_LEDGER, "Flow 内部触发入站")
     );
+
+    private static final Set<String> PATH_WHITELIST = WHITELIST.stream()
+            .map(WhitelistEntry::pattern)
+            .collect(Collectors.toUnmodifiableSet());
 
     /** Controller 方法 → 已由服务层 {@link Audited} 或手动 audit.record 覆盖。 */
     private static final Set<String> COVERED_METHODS = Set.of(
-            "com.tioka.agent.api.AgentController#publish",
-            "com.tioka.agent.api.AgentController#rollback",
+            "com.tioka.agent.api.AgentController#create",
             "com.tioka.agent.api.AgentController#disable",
             "com.tioka.agent.api.AgentController#enable",
+            "com.tioka.agent.api.AgentController#publish",
+            "com.tioka.agent.api.AgentController#putDraft",
+            "com.tioka.agent.api.AgentController#rollback",
+            "com.tioka.agent.api.AgentController#update",
+            "com.tioka.agent.api.AgentController#validate",
+            "com.tioka.chat.api.CardController#approval",
+            "com.tioka.chat.api.CardController#continueCard",
+            "com.tioka.chat.api.CardController#submitApproval",
+            "com.tioka.chat.api.CardController#submitContinue",
+            "com.tioka.chat.api.ChatController#create",
+            "com.tioka.chat.api.ChatController#delete",
+            "com.tioka.chat.api.ChatController#send",
+            "com.tioka.chat.api.ChatController#stop",
+            "com.tioka.flow.api.FlowController#publish",
+            "com.tioka.flow.api.FlowController#run",
+            "com.tioka.flow.api.FlowController#save",
+            "com.tioka.flow.api.FlowPublicationController#asTool",
+            "com.tioka.knowledge.api.EvalController#run",
+            "com.tioka.knowledge.api.KnowledgeController#bindDatasource",
+            "com.tioka.knowledge.api.KnowledgeController#createBase",
+            "com.tioka.knowledge.api.KnowledgeController#ingest",
+            "com.tioka.knowledge.api.KnowledgeController#syncDatasource",
+            "com.tioka.knowledge.api.KnowledgeController#upload",
+            "com.tioka.mcp.api.McpAdminController#grant",
+            "com.tioka.mcp.api.McpAdminController#refresh",
+            "com.tioka.mcp.api.McpAdminController#register",
+            "com.tioka.mcp.api.McpAdminController#updateToolRisk",
+            "com.tioka.mcp.api.McpHealthController#trial",
+            "com.tioka.model.api.ModelAdminController#createBinding",
+            "com.tioka.model.api.ModelAdminController#createLogicalModel",
+            "com.tioka.model.api.ModelAdminController#createPlan",
+            "com.tioka.model.api.ModelAdminController#createProvider",
+            "com.tioka.model.api.ModelAdminController#publish",
+            "com.tioka.model.api.ModelAdminController#updateBinding",
+            "com.tioka.model.api.ModelAdminController#upsertDefaultPlan",
+            "com.tioka.orchestration.api.LaterController#schedule",
+            "com.tioka.orchestration.api.OrchController#answer",
+            "com.tioka.orchestration.api.OrchController#claim",
+            "com.tioka.orchestration.api.OrchController#heartbeat",
+            "com.tioka.orchestration.api.OrchController#ingest",
+            "com.tioka.orchestration.api.OrchController#open",
+            "com.tioka.orchestration.api.OrchController#publishRule",
+            "com.tioka.orchestration.api.OrchController#saveRule",
+            "com.tioka.runtime.api.UploadController#confirm",
+            "com.tioka.runtime.api.UploadController#presign",
+            "com.tioka.runtime.api.UploadController#publish",
+            "com.tioka.runtime.api.UploadController#put",
+            "com.tioka.runtime.kernel.api.ApprovalController#decide",
+            "com.tioka.runtime.kernel.api.ThreadController#create",
+            "com.tioka.runtime.kernel.api.ThreadController#interrupt",
+            "com.tioka.runtime.kernel.api.ThreadController#startTurn",
+            "com.tioka.runtime.kernel.api.ThreadController#steer",
+            "com.tioka.server.mcp.TiokaMcpOutboundServer#call",
+            "com.tioka.server.ops.OpsFacadeController#ds",
+            "com.tioka.server.ops.OpsFacadeController#map",
+            "com.tioka.server.ops.OpsFacadeController#scim",
+            "com.tioka.server.ops.OpsFacadeController#share",
+            "com.tioka.server.ops.OpsFacadeController#wiki",
+            "com.tioka.skill.api.SkillController#importZip",
+            "com.tioka.skill.api.SkillController#publish",
+            "com.tioka.system.api.ApiKeyController#create",
+            "com.tioka.system.api.ApiKeyController#delete",
+            "com.tioka.system.api.GroupController#create",
+            "com.tioka.system.api.GroupController#members",
+            "com.tioka.system.api.QuotaController#put",
+            "com.tioka.system.api.ResourceAclController#replace",
+            "com.tioka.system.api.RoleController#createRole",
+            "com.tioka.system.api.RoleController#deleteRole",
+            "com.tioka.system.api.RoleController#updateRole",
+            "com.tioka.system.api.ServiceAccountController#create",
+            "com.tioka.system.api.UserController#create",
             "com.tioka.system.api.UserController#disable",
             "com.tioka.system.api.UserController#enable",
             "com.tioka.system.api.UserController#resetPassword",
-            "com.tioka.system.api.ApiKeyController#create",
-            "com.tioka.system.api.ApiKeyController#delete",
-            "com.tioka.system.api.ServiceAccountController#create",
+            "com.tioka.system.api.WorkspaceController#create",
             "com.tioka.system.api.WorkspaceController#deleteMember",
-            "com.tioka.chat.api.ChatController#stop",
-            "com.tioka.runtime.kernel.api.ApprovalController#decide"
+            "com.tioka.system.api.WorkspaceController#putMember"
     );
 
     @DynamicPropertySource
@@ -168,6 +164,18 @@ class AuditCoverageIT {
     @Autowired ObjectMapper objectMapper;
     @Autowired AuditApi audit;
     @Autowired ApplicationContext ctx;
+
+    @Test
+    void whitelistOnlyAllowsAdr072Kinds() {
+        assertFalse(WHITELIST.isEmpty());
+        for (WhitelistEntry e : WHITELIST) {
+            assertTrue(EnumSet.allOf(WhitelistKind.class).contains(e.kind()),
+                    "非法白名单类别: " + e);
+            assertFalse(e.reason().isBlank());
+            assertFalse(e.reason().contains("待补") || e.reason().contains("待各域"),
+                    "原因不得含「待补」: " + e);
+        }
+    }
 
     @Test
     void everyWriteEndpointAudited() throws Exception {

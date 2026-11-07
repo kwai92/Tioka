@@ -7,7 +7,7 @@ spring:
   profiles:
     active: local
   datasource:
-    url: jdbc:postgresql://${TIOKA_DB_HOST:localhost}:${TIOKA_DB_PORT:5432}/${TIOKA_DB_NAME:tioka}
+    url: jdbc:postgresql://${TIOKA_DB_HOST:localhost}:${TIOKA_DB_PORT:5432}/${TIOKA_DB_NAME:tioka}?options=-c%20TimeZone%3DUTC
     username: ${TIOKA_DB_USER:tioka}
     password: ${TIOKA_DB_PASSWORD:tioka}
     driver-class-name: org.postgresql.Driver
@@ -91,6 +91,9 @@ tioka:
     forward-batch-size: 100
     forward-delay-ms: 5000
     file-relative-path: audit/audit.jsonl
+    trusted-proxies: []
+    physical-purge-enabled: false
+    degraded-relative-path: audit/audit-degraded.jsonl
   knowledge:
     embedding-dim: ${TIOKA_EMBEDDING_DIM:1024}
     reindex-enabled: true

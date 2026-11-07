@@ -1,5 +1,7 @@
 package com.tioka.server.mcp;
 
+import com.tioka.system.api.audit.Audited;
+
 import com.tioka.flow.api.FlowInvokeApi;
 import com.tioka.framework.error.ApiResponse;
 import com.tioka.framework.security.Permissions;
@@ -33,6 +35,7 @@ public class TiokaMcpOutboundServer {
     }
 
     @PostMapping("/call")
+    @Audited(action = "mcp.outbound.call", resourceType = "mcp_tool")
     public ApiResponse<Object> call(@RequestBody Map<String, Object> body) {
         String name = String.valueOf(body.get("name"));
         @SuppressWarnings("unchecked")

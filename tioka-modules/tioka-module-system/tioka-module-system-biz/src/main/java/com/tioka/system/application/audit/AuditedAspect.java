@@ -4,6 +4,7 @@ import com.tioka.framework.error.BizException;
 import com.tioka.framework.security.Principal;
 import com.tioka.framework.security.PrincipalHolder;
 import com.tioka.system.api.audit.AuditApi;
+import com.tioka.system.api.audit.AuditDegradedSink;
 import com.tioka.system.api.audit.AuditEvent;
 import com.tioka.system.api.audit.AuditOutcome;
 import com.tioka.system.api.audit.Audited;
@@ -36,23 +37,47 @@ import java.util.Map;
 public class AuditedAspect {
     private final AuditApi audit;
     private final PrincipalHolder principals;
+    private final AuditDegradedSink degraded;
     private final ExpressionParser parser = new SpelExpressionParser();
 
-    public AuditedAspect(AuditApi audit, PrincipalHolder principals) {
+    public AuditedAspect(AuditApi audit, PrincipalHolder principals, AuditDegradedSink degraded) {
         this.audit = audit;
         this.principals = principals;
+        this.degraded = degraded;
     }
 
     @Around("@annotation(audited)")
     public Object around(ProceedingJoinPoint pjp, Audited audited) throws Throwable {
         try {
             Object result = pjp.proceed();
-            audit.record(build(audited, pjp, result, AuditOutcome.SUCCESS, null));
+            safeRecord(build(audited, pjp, result, AuditOutcome.SUCCESS, null), false);
             return result;
         } catch (BizException ex) {
             AuditOutcome outcome = ex.isDenied() ? AuditOutcome.DENIED : AuditOutcome.ERROR;
-            audit.recordIndependent(build(audited, pjp, null, outcome, ex.getMessage()));
+            safeRecord(build(audited, pjp, null, outcome, ex.getMessage()), true);
             throw ex;
+        } catch (RuntimeException ex) {
+            safeRecord(build(audited, pjp, null, AuditOutcome.ERROR, ex.getMessage()), true);
+            throw ex;
+        } catch (Error err) {
+            try {
+                safeRecord(build(audited, pjp, null, AuditOutcome.ERROR, err.getMessage()), true);
+            } catch (Throwable ignored) {
+                // 尽力记录；Error 仍原样抛出
+            }
+            throw err;
+        }
+    }
+
+    private void safeRecord(AuditEvent event, boolean independent) {
+        try {
+            if (independent) {
+                audit.recordIndependent(event);
+            } else {
+                audit.record(event);
+            }
+        } catch (RuntimeException auditEx) {
+            degraded.append(event);
         }
     }
 
@@ -74,6 +99,8 @@ public class AuditedAspect {
                 .resourceId(resourceId)
                 .outcome(outcome)
                 .reason(reason)
+                .traceId(AuditRequestContext.currentTraceId())
+                .requestId(AuditRequestContext.currentRequestId())
                 .details(details)
                 .build();
     }

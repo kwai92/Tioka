@@ -1,5 +1,7 @@
 package com.tioka.runtime.kernel.api;
 
+import com.tioka.system.api.audit.Audited;
+
 import com.tioka.framework.error.ApiResponse;
 import com.tioka.framework.security.Permissions;
 import com.tioka.framework.security.RequirePermission;
@@ -21,6 +23,7 @@ public class ThreadController {
     }
 
     @PostMapping("/threads")
+    @Audited(action = "runtime.thread.create", resourceType = "thread")
     public ApiResponse<RuntimeApi.ThreadView> create(@RequestBody Map<String, Object> body) {
         String agentVersionId = str(body.get("agentVersionId"));
         String origin = str(body.get("origin"));
@@ -35,6 +38,7 @@ public class ThreadController {
 
     @PostMapping("/threads/{id}/turns")
     @ResponseStatus(HttpStatus.ACCEPTED)
+    @Audited(action = "runtime.turn.start", resourceType = "thread", resourceIdArg = "#id")
     public ApiResponse<RuntimeApi.TurnHandle> startTurn(@PathVariable String id,
                                                         @RequestBody Map<String, Object> body) {
         String clientMsgId = str(body.get("clientMsgId"));
@@ -75,12 +79,14 @@ public class ThreadController {
     }
 
     @PostMapping("/turns/{id}/interrupt")
+    @Audited(action = "runtime.turn.interrupt", resourceType = "turn", resourceIdArg = "#id")
     public ApiResponse<Void> interrupt(@PathVariable String id) {
         runtime.interrupt(id);
         return ApiResponse.ok(null);
     }
 
     @PostMapping("/turns/{id}/steer")
+    @Audited(action = "runtime.turn.steer", resourceType = "turn", resourceIdArg = "#id")
     public ApiResponse<Void> steer(@PathVariable String id, @RequestBody Map<String, String> body) {
         runtime.steer(id, body.getOrDefault("text", ""));
         return ApiResponse.ok(null);

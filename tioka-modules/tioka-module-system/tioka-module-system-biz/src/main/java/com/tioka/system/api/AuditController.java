@@ -82,13 +82,13 @@ public class AuditController {
         response.setContentType("text/csv;charset=UTF-8");
         response.setHeader(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"audit.csv\"");
         PrintWriter w = response.getWriter();
-        w.println("id,ts,workspaceId,actorType,actorId,action,resourceType,resourceId,outcome,reason,traceId,clientIp");
+        w.println("id,ts,workspaceId,actorType,actorId,action,resourceType,resourceId,outcome,reason,traceId,requestId,clientIp");
         for (AuditEvent e : rows) {
-            w.printf("%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s%n",
+            w.printf("%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s%n",
                     csv(e.id()), csv(e.ts()), csv(e.workspaceId()), csv(e.actorType()), csv(e.actorId()),
                     csv(e.action()), csv(e.resourceType()), csv(e.resourceId()),
                     csv(e.outcome() == null ? null : e.outcome().name()),
-                    csv(e.reason()), csv(e.traceId()), csv(e.clientIp()));
+                    csv(e.reason()), csv(e.traceId()), csv(e.requestId()), csv(e.clientIp()));
         }
         w.flush();
     }

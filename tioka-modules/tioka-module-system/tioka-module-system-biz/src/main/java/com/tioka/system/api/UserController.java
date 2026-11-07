@@ -1,5 +1,7 @@
 package com.tioka.system.api;
 
+import com.tioka.system.api.audit.Audited;
+
 import com.tioka.framework.error.ApiResponse;
 import com.tioka.framework.security.Permissions;
 import com.tioka.framework.security.RequirePermission;
@@ -36,6 +38,7 @@ public class UserController {
 
     @RequirePermission(Permissions.TENANT_ADMIN)
     @PostMapping
+    @Audited(action = "user.create", resourceType = "user")
     public ApiResponse<UserAdminService.CreatedUser> create(@RequestBody Map<String, String> body) {
         return ApiResponse.ok(users.create(
                 body.get("username"),

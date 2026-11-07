@@ -103,42 +103,7 @@ public class AuditService implements AuditApi {
     }
 
     private void write(AuditEvent event) {
-        AuditEvent e = event;
-        if (e.id() == null || e.id().isBlank()) {
-            e = AuditEvent.builder()
-                    .id(Ids.newId("aud"))
-                    .ts(e.ts() == null ? Instant.now() : e.ts())
-                    .tenantId(e.tenantId())
-                    .workspaceId(e.workspaceId())
-                    .actorType(e.actorType())
-                    .actorId(e.actorId())
-                    .action(e.action())
-                    .resourceType(e.resourceType())
-                    .resourceId(e.resourceId())
-                    .outcome(e.outcome())
-                    .reason(e.reason())
-                    .traceId(e.traceId())
-                    .clientIp(e.clientIp())
-                    .details(e.details())
-                    .build();
-        } else if (e.ts() == null) {
-            e = AuditEvent.builder()
-                    .id(e.id())
-                    .ts(Instant.now())
-                    .tenantId(e.tenantId())
-                    .workspaceId(e.workspaceId())
-                    .actorType(e.actorType())
-                    .actorId(e.actorId())
-                    .action(e.action())
-                    .resourceType(e.resourceType())
-                    .resourceId(e.resourceId())
-                    .outcome(e.outcome())
-                    .reason(e.reason())
-                    .traceId(e.traceId())
-                    .clientIp(e.clientIp())
-                    .details(e.details())
-                    .build();
-        }
+        AuditEvent e = enrich(event);
         String detailsJson = null;
         if (e.details() != null && !e.details().isEmpty()) {
             try {
@@ -149,7 +114,36 @@ public class AuditService implements AuditApi {
         }
         repository.insert(e.id(), e.ts(), e.workspaceId(),
                 e.actorType(), e.actorId(), e.action(), e.resourceType(), e.resourceId(),
-                e.outcome().name(), e.reason(), e.traceId(), e.clientIp(), detailsJson);
+                e.outcome().name(), e.reason(), e.traceId(), e.requestId(), e.clientIp(), detailsJson);
+    }
+
+    /** OBS-01：补齐 id/ts/traceId/requestId。 */
+    private static AuditEvent enrich(AuditEvent e) {
+        String id = blank(e.id()) ? Ids.newId("aud") : e.id();
+        Instant ts = e.ts() == null ? Instant.now() : e.ts();
+        String trace = blank(e.traceId()) ? AuditRequestContext.currentTraceId() : e.traceId();
+        String requestId = blank(e.requestId()) ? AuditRequestContext.currentRequestId() : e.requestId();
+        return AuditEvent.builder()
+                .id(id)
+                .ts(ts)
+                .tenantId(e.tenantId())
+                .workspaceId(e.workspaceId())
+                .actorType(e.actorType())
+                .actorId(e.actorId())
+                .action(e.action())
+                .resourceType(e.resourceType())
+                .resourceId(e.resourceId())
+                .outcome(e.outcome())
+                .reason(e.reason())
+                .traceId(trace)
+                .requestId(requestId)
+                .clientIp(e.clientIp())
+                .details(e.details())
+                .build();
+    }
+
+    private static boolean blank(String s) {
+        return s == null || s.isBlank();
     }
 
     private AuditEvent toEvent(Map<String, Object> r) {
@@ -174,6 +168,7 @@ public class AuditService implements AuditApi {
                 .outcome(AuditOutcome.valueOf(str(r.get("outcome"))))
                 .reason(str(r.get("reason")))
                 .traceId(str(r.get("traceId")))
+                .requestId(str(r.get("requestId")))
                 .clientIp(str(r.get("clientIp")))
                 .details(details)
                 .build();
