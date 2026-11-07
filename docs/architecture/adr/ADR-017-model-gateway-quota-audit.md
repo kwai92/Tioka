@@ -91,3 +91,12 @@ CREATE INDEX idx_audit_ws_ts ON audit_event (workspace_id, ts);
 - 需求侧（空间、Agent、用户）增加「月度成本」指标。
 - 新增供给侧作用对象：供应商（月度 token、月度成本、账号级 RPM/TPM）、binding（月度 token、月度成本）、别名（月度成本）。命中时不拒绝请求，而是跳过该候选；全部候选耗尽时返回 `MODEL_BUDGET_EXHAUSTED`。
 - 每个配额增加预警比例（默认 80%），越线时发 `tioka.quota.threshold.v1`。配额修改写入 `cfg_change`。
+
+## 修订：统一审计事件模型（2026-11-07）
+
+见 [ADR-072](ADR-072-audit-event-model-coverage.md) 与 ADR-029 第 75 条：
+
+- `AuditEvent` 的主体与上下文字段（trace、`request_id`、`subject`、IP、委派链、Agent 版本）改由写入端自动补齐，调用方只传业务字段。
+- 「业务成功则审计必有」扩展为完整写入语义：失败与拒绝走独立事务，再失败写本地降级文件并告警，不允许只打日志；切面捕获所有异常。
+- 动作名登记在动作目录；覆盖测试白名单只允许四类豁免。
+- 保留不再按行删除，改为月分区封印、归档后删分区（ADR-072 第 7 节）。
