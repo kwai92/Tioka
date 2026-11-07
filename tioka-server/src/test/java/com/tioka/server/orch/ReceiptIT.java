@@ -17,7 +17,7 @@ import com.tioka.orchestration.infrastructure.mapper.OrchRuleVersionMapper;
 import com.tioka.orchestration.infrastructure.mapper.OrchRunMapper;
 import com.tioka.orchestration.infrastructure.persistence.OrchRuleVersionDO;
 import com.tioka.orchestration.infrastructure.persistence.OrchRunDO;
-import com.tioka.orchestration.receipt.OrchFactDO;
+import com.tioka.orchestration.infrastructure.persistence.OrchFactDO;
 import com.tioka.orchestration.receipt.OrchReceiptFactMapper;
 import com.tioka.orchestration.receipt.ReceiptFactKinds;
 import com.tioka.runtime.api.kernel.ItemType;
