@@ -74,7 +74,8 @@ class UsageIT {
 
     @Test
     void failoverRecordedTwice() {
-        try (DualInstance di = DualInstance.start("failover-before-delta", Map.of(), false)) {
+        try (DualInstance di = DualInstance.start("failover-before-delta",
+                Map.of("tioka.model.retry.base-delay", "1ms"), false)) {
             Seeded seeded = seedPlan(di);
             ModelGateway gateway = di.a().getBean(ModelGateway.class);
             PrincipalHolder principals = di.a().getBean(PrincipalHolder.class);

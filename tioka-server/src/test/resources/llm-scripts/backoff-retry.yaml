@@ -1,0 +1,6 @@
+# MH-03：同 binding 首次 503，重试后成功（不切备用）
+calls:
+  - fail: { status: 503, after_chars: 0 }
+  - content: "backoff-retry-ok"
+    stream_chunk_chars: 4
+    usage: { prompt: 4, completion: 8 }

@@ -92,7 +92,7 @@ public class ProviderClient {
                 .build();
         HttpResponse<String> resp = http.send(req, HttpResponse.BodyHandlers.ofString());
         if (resp.statusCode() >= 300) {
-            throw toHttpException(resp.statusCode(), resp.body());
+            throw toHttpException(resp.statusCode(), resp.body(), retryAfterHeader(resp));
         }
         JsonNode data = mapper.readTree(resp.body()).path("data");
         List<float[]> vectors = new ArrayList<>();
@@ -178,7 +178,7 @@ public class ProviderClient {
             if (!stream) {
                 HttpResponse<String> resp = http.send(req, HttpResponse.BodyHandlers.ofString());
                 if (resp.statusCode() >= 300) {
-                    throw toHttpException(resp.statusCode(), resp.body());
+                    throw toHttpException(resp.statusCode(), resp.body(), retryAfterHeader(resp));
                 }
                 return parse(resp.body());
             }
@@ -191,7 +191,7 @@ public class ProviderClient {
                 if (looksLikeSse(err)) {
                     parseSse(new java.io.ByteArrayInputStream(raw), onDelta);
                 }
-                throw toHttpException(resp.statusCode(), err);
+                throw toHttpException(resp.statusCode(), err, retryAfterHeader(resp));
             }
             return parseSse(resp.body(), onDelta);
         } catch (ProviderHttpException e) {
@@ -203,15 +203,24 @@ public class ProviderClient {
         }
     }
 
-    private static ProviderHttpException toHttpException(int status, String body) {
+    private static String retryAfterHeader(HttpResponse<?> resp) {
+        return resp.headers().firstValue("Retry-After").orElse(null);
+    }
+
+    private static ProviderHttpException toHttpException(int status, String body, String retryAfter) {
         boolean switchable = ProviderHttpException.isSwitchableStatus(status);
         if (!switchable && !ProviderHttpException.isNonSwitchableStatus(status)) {
             // 其他 4xx 视为不可切换，与 400 族一致
             switchable = false;
         }
+        Long retryAfterMs = status == 429 ? ProviderHttpException.parseRetryAfterMs(retryAfter) : null;
         return new ProviderHttpException(status,
                 "openai compatible error: " + status + " " + (body == null ? "" : body),
-                switchable);
+                switchable, retryAfterMs);
+    }
+
+    private static ProviderHttpException toHttpException(int status, String body) {
+        return toHttpException(status, body, null);
     }
 
     private static boolean looksLikeSse(String body) {

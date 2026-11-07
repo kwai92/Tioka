@@ -64,6 +64,20 @@ tioka:
     # local/slice 默认 mock；保真请叠加 profile=fidelity（见 application-fidelity.yml）
     mock: true
     failover-max: 2
+    # MH-03：同 binding 重试 / 冷却 / 限流排队
+    retry:
+      max-attempts: 2
+      base-delay: 500ms
+      budget: 20s
+    cooldown:
+      failures: 5
+      window: 60s
+      duration: 60s
+    rate-limit-max-wait: 10s
+    timeouts:
+      connect: 10s
+      first-byte: 60s
+      stream-idle: 60s
   mcp:
     # local/slice 默认 mock；fidelity profile 关闭
     mock: true

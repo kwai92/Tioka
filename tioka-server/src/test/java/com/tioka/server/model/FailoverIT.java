@@ -33,9 +33,13 @@ import static org.junit.jupiter.api.Assertions.*;
 @Tag("it")
 class FailoverIT {
 
+    private static final Map<String, Object> FAST_RETRY = Map.of(
+            "tioka.model.retry.base-delay", "1ms",
+            "tioka.model.retry.budget", "5s");
+
     @Test
     void beforeFirstDelta() {
-        try (DualInstance di = DualInstance.start("failover-before-delta", Map.of(), false)) {
+        try (DualInstance di = DualInstance.start("failover-before-delta", FAST_RETRY, false)) {
             Seeded seeded = seedWithFallback(di);
             List<ModelGateway.StreamDelta> deltas = new ArrayList<>();
             ModelGateway.ChatResult r = chat(di, seeded, deltas);
@@ -51,7 +55,7 @@ class FailoverIT {
 
     @Test
     void midStream() {
-        try (DualInstance di = DualInstance.start("failover-mid-stream", Map.of(), false)) {
+        try (DualInstance di = DualInstance.start("failover-mid-stream", FAST_RETRY, false)) {
             Seeded seeded = seedWithFallback(di);
             List<ModelGateway.StreamDelta> deltas = new ArrayList<>();
             AtomicInteger discardAt = new AtomicInteger(-1);
@@ -94,7 +98,7 @@ class FailoverIT {
 
     @Test
     void chainExhausted503() {
-        try (DualInstance di = DualInstance.start("failover-exhausted", Map.of(), false)) {
+        try (DualInstance di = DualInstance.start("failover-exhausted", FAST_RETRY, false)) {
             Seeded seeded = seedWithFallback(di);
             BizException ex = assertThrows(BizException.class, () -> chat(di, seeded, new ArrayList<>()));
             assertEquals(ErrorCode.MODEL_UNAVAILABLE, ex.getErrorCode());

@@ -14,14 +14,15 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 
 /**
- * MH-04 骨架 + MH-01 冻结 resolve + MH-02 故障接力 + MH-05 用量记账 + GOV-03 配额。
- * 限流/重试退避由 MH-03 填入。
+ * MH-04 骨架 + MH-01 冻结 + MH-02 故障接力 + MH-03 限流/同 binding 重试退避/冷却 + MH-05 用量 + GOV-03 配额。
  */
 @Service
 public class DefaultModelGateway implements ModelGateway {
@@ -31,6 +32,9 @@ public class DefaultModelGateway implements ModelGateway {
     private final ApplicationEventPublisher events;
     private final UsageRecorder usage;
     private final QuotaGuard quota;
+    private final ModelRateLimiter rateLimiter;
+    private final BindingCooldownService cooldown;
+    private final RetryBackoff backoff;
     private final int failoverMax;
 
     public DefaultModelGateway(BindingResolver resolver,
@@ -39,14 +43,22 @@ public class DefaultModelGateway implements ModelGateway {
                                ApplicationEventPublisher events,
                                UsageRecorder usage,
                                QuotaGuard quota,
-                               @Value("${tioka.model.failover-max:2}") int failoverMax) {
+                               ModelRateLimiter rateLimiter,
+                               BindingCooldownService cooldown,
+                               @Value("${tioka.model.failover-max:2}") int failoverMax,
+                               @Value("${tioka.model.retry.max-attempts:2}") int retryMaxAttempts,
+                               @Value("${tioka.model.retry.base-delay:500ms}") Duration retryBaseDelay,
+                               @Value("${tioka.model.retry.budget:20s}") Duration retryBudget) {
         this.resolver = resolver;
         this.provider = provider;
         this.entities = entities;
         this.events = events;
         this.usage = usage;
         this.quota = quota;
+        this.rateLimiter = rateLimiter;
+        this.cooldown = cooldown;
         this.failoverMax = Math.max(0, failoverMax);
+        this.backoff = new RetryBackoff(retryMaxAttempts, retryBaseDelay, retryBudget);
     }
 
     @Override
@@ -69,14 +81,17 @@ public class DefaultModelGateway implements ModelGateway {
         while (true) {
             long t0 = System.nanoTime();
             try {
-                ChatResult result = invokeChat(sel, request, sink, failovers);
+                ChatResult result = invokeChatWithRetry(sel, request, sink, failovers, emitted);
                 account(ctx, sel, result.promptTokens(), result.completionTokens(), elapsedMs(t0), "SUCCESS");
                 return result;
             } catch (BizException e) {
-                account(ctx, sel, 0, 0, elapsedMs(t0), "ERROR");
+                if (e.getErrorCode() != ErrorCode.RATE_LIMITED) {
+                    account(ctx, sel, 0, 0, elapsedMs(t0), "ERROR");
+                }
                 throw e;
             } catch (ProviderHttpException e) {
                 int latency = elapsedMs(t0);
+                cooldown.recordFailure(sel.bindingId());
                 if (!e.switchable()) {
                     account(ctx, sel, 0, 0, latency, "ERROR");
                     throw new BizException(ErrorCode.MODEL_ERROR, upstreamMessage(e));
@@ -94,6 +109,7 @@ public class DefaultModelGateway implements ModelGateway {
                 sel = resolver.ofBinding(nextId, chain, "failover");
             } catch (Exception e) {
                 int latency = elapsedMs(t0);
+                cooldown.recordFailure(sel.bindingId());
                 if (failovers >= failoverMax || chain.isEmpty()) {
                     account(ctx, sel, 0, 0, latency, "ERROR");
                     throw new BizException(ErrorCode.MODEL_UNAVAILABLE,
@@ -107,6 +123,93 @@ public class DefaultModelGateway implements ModelGateway {
                 sel = resolver.ofBinding(nextId, chain, "failover");
             }
         }
+    }
+
+    /**
+     * MH-03：限流 → 同 binding 重试（可切换错误）；耗尽后把最后一次异常抛给外层做 failover。
+     */
+    private ChatResult invokeChatWithRetry(BindingResolver.Resolution sel,
+                                           ChatRequest request,
+                                           Consumer<StreamDelta> sink,
+                                           int failovers,
+                                           AtomicBoolean emitted) throws Exception {
+        long reserved = acquireRateLimit(sel, request);
+        long spentBackoff = 0L;
+        int attempt = 0;
+        while (true) {
+            try {
+                ChatResult result = invokeChat(sel, request, sink, failovers);
+                reconcileTpm(sel, reserved, result.promptTokens() + result.completionTokens());
+                return result;
+            } catch (ProviderHttpException e) {
+                if (!e.switchable() || attempt >= backoff.maxAttempts()) {
+                    throw e;
+                }
+                long delay = backoff.delayMs(attempt, e.retryAfterMs(), spentBackoff);
+                if (delay < 0) {
+                    throw e;
+                }
+                cooldown.recordFailure(sel.bindingId());
+                if (emitted.get() && sink != null) {
+                    sink.accept(StreamDelta.discard());
+                    emitted.set(false);
+                }
+                sleepQuiet(delay);
+                spentBackoff += delay;
+                attempt++;
+            } catch (BizException e) {
+                throw e;
+            } catch (Exception e) {
+                if (attempt >= backoff.maxAttempts()) {
+                    throw e;
+                }
+                long delay = backoff.delayMs(attempt, null, spentBackoff);
+                if (delay < 0) {
+                    throw e;
+                }
+                cooldown.recordFailure(sel.bindingId());
+                if (emitted.get() && sink != null) {
+                    sink.accept(StreamDelta.discard());
+                    emitted.set(false);
+                }
+                sleepQuiet(delay);
+                spentBackoff += delay;
+                attempt++;
+            }
+        }
+    }
+
+    private long acquireRateLimit(BindingResolver.Resolution sel, ChatRequest request) {
+        if (sel == null || sel.binding() == null) {
+            return 0L;
+        }
+        long est = estimateTokens(request);
+        return rateLimiter.acquire(sel.bindingId(),
+                sel.binding().rpmLimit(), sel.binding().tpmLimit(), est);
+    }
+
+    private void reconcileTpm(BindingResolver.Resolution sel, long reserved, long actual) {
+        if (sel == null || sel.binding() == null || reserved <= 0) {
+            return;
+        }
+        rateLimiter.reconcileTpm(sel.bindingId(), sel.binding().tpmLimit(), reserved, actual);
+    }
+
+    static long estimateTokens(ChatRequest request) {
+        int chars = 0;
+        if (request != null && request.messages() != null) {
+            for (Map<String, Object> m : request.messages()) {
+                if (m == null) {
+                    continue;
+                }
+                Object c = m.get("content");
+                if (c != null) {
+                    chars += String.valueOf(c).length();
+                }
+            }
+        }
+        int maxTokens = request == null || request.maxTokens() == null ? 0 : Math.max(0, request.maxTokens());
+        return Math.max(1L, chars / 3L + maxTokens);
     }
 
     private ChatResult invokeChat(BindingResolver.Resolution sel,
@@ -191,6 +294,15 @@ public class DefaultModelGateway implements ModelGateway {
         return m == null || m.isBlank() ? ErrorCode.MODEL_ERROR.getMessage() : m;
     }
 
+    private static void sleepQuiet(long ms) {
+        try {
+            Thread.sleep(Math.max(1L, ms));
+        } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
+            throw new BizException(ErrorCode.MODEL_UNAVAILABLE, "重试等待被中断");
+        }
+    }
+
     @Override
     public EmbeddingResult embed(ModelCallContext ctx, EmbeddingRequest request) {
         precheck(ctx);
@@ -201,22 +313,32 @@ public class DefaultModelGateway implements ModelGateway {
         try {
             // KNW-01：不再回退本地哈希；必须经 BindingResolver 选到真实/mock Provider
             sel = resolver.resolve(ctx, forced);
+            long est = Math.max(1L, inputs.stream().mapToInt(s -> s == null ? 0 : s.length()).sum() / 3L);
+            long reserved = rateLimiter.acquire(sel.bindingId(),
+                    sel.binding().rpmLimit(), sel.binding().tpmLimit(), est);
             List<float[]> vectors = provider.embed(
                     sel.baseUrl(), sel.apiKeyRef(), sel.modelName(),
                     sel.binding().embeddingDim(), inputs);
             int dim = vectors.isEmpty() ? (sel.binding().embeddingDim() == null ? 0 : sel.binding().embeddingDim())
                     : vectors.get(0).length;
             int promptTokens = inputs.stream().mapToInt(s -> s == null ? 0 : Math.max(1, s.length() / 3)).sum();
+            rateLimiter.reconcileTpm(sel.bindingId(), sel.binding().tpmLimit(), reserved, promptTokens);
             account(ctx, sel, promptTokens, 0, elapsedMs(t0), "SUCCESS");
             return new EmbeddingResult(vectors, dim, promptTokens, sel.bindingId());
         } catch (BizException e) {
             accountEmbedError(ctx, sel, forced, elapsedMs(t0));
             throw e;
         } catch (ProviderHttpException e) {
+            if (sel != null) {
+                cooldown.recordFailure(sel.bindingId());
+            }
             accountEmbedError(ctx, sel, forced, elapsedMs(t0));
             throw new BizException(e.switchable() ? ErrorCode.MODEL_UNAVAILABLE : ErrorCode.MODEL_ERROR,
                     upstreamMessage(e));
         } catch (Exception e) {
+            if (sel != null) {
+                cooldown.recordFailure(sel.bindingId());
+            }
             accountEmbedError(ctx, sel, forced, elapsedMs(t0));
             throw new BizException(ErrorCode.DEPENDENCY, "嵌入调用失败: " + e.getMessage());
         }

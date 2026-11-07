@@ -88,7 +88,8 @@ class G1QuotaGateIT {
     /** 主模型流式中途 503：前端收到 item.discarded，最终文本只来自备用模型。 */
     @Test
     void failoverMidStream() throws Exception {
-        try (DualInstance di = DualInstance.start("failover-mid-stream", Map.of(), false)) {
+        try (DualInstance di = DualInstance.start("failover-mid-stream",
+                Map.of("tioka.model.retry.base-delay", "1ms"), false)) {
             GateSeed.Bundle bundle = seedAgentWithFallback(di);
             var thr = GateSeed.createThread(di.a(), bundle);
 
