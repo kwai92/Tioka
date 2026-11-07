@@ -3,12 +3,16 @@ package com.tioka.orchestration.infrastructure.persistence;
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
+import com.tioka.framework.persistence.TechnicalRecordDO;
 
 import java.time.LocalDateTime;
 
-/** V132 重建后的 orch_run（无逻辑删列）。ORC-03 完善写入路径。 */
+/**
+ * V132 {@code orch_run}：有 {@code workspace_id}/状态机更新，无逻辑删、无 create_by/update_by，
+ * 故用 {@link TechnicalRecordDO}（非 {@link com.tioka.framework.persistence.WorkspaceAwareDO}/{@code BaseDO}）。
+ */
 @TableName("orch_run")
-public class OrchRunDO {
+public class OrchRunDO extends TechnicalRecordDO {
     @TableId(type = IdType.INPUT)
     private String id;
     private String workspaceId;
