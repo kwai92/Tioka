@@ -1,8 +1,8 @@
-package com.tioka.server.m3gate;
+package com.tioka.server.gate.support;
 
-import com.tioka.server.m3gate.biz.LeaseBizStubServer;
-import com.tioka.server.m3gate.mail.SmtpCaptureStub;
-import com.tioka.server.m3gate.ocr.OcrStubServer;
+import com.tioka.server.gate.support.biz.LeaseBizStubServer;
+import com.tioka.server.gate.support.mail.SmtpCaptureStub;
+import com.tioka.server.gate.support.ocr.OcrStubServer;
 import org.junit.jupiter.api.Test;
 
 import java.net.URI;
@@ -14,7 +14,7 @@ import java.time.Duration;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-/** ENG-04d 三桩本地验收（不依赖 GateCluster / -Pgate）。 */
+/** ENG-04d 三桩本地验收（不依赖 -Pgate）。 */
 class M3GateStubsTest {
 
     private final HttpClient http = HttpClient.newHttpClient();

@@ -1,4 +1,4 @@
-package com.tioka.server.m3gate.ocr;
+package com.tioka.server.gate.support.ocr;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;

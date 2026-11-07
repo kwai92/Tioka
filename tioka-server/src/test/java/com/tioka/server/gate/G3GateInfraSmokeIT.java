@@ -1,9 +1,9 @@
-package com.tioka.server.m3gate;
+package com.tioka.server.gate;
 
 import com.tioka.server.gate.support.GateCluster;
-import com.tioka.server.m3gate.biz.LeaseBizStubServer;
-import com.tioka.server.m3gate.mail.SmtpCaptureStub;
-import com.tioka.server.m3gate.ocr.OcrStubServer;
+import com.tioka.server.gate.support.biz.LeaseBizStubServer;
+import com.tioka.server.gate.support.mail.SmtpCaptureStub;
+import com.tioka.server.gate.support.ocr.OcrStubServer;
 import com.tioka.server.support.TestContainers;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -21,7 +21,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * ENG-04d：G3 闸门基座冒烟 — 双实例 health + 业务/OCR/SMTP 桩。
- * 叠在 PK-01（GateCluster / TestContainers）之上；合入 main 后将桩迁入 {@code gate/support}。
  */
 @Tag("gate")
 class G3GateInfraSmokeIT {
@@ -44,8 +43,7 @@ class G3GateInfraSmokeIT {
             assertEquals(200, get(client, cluster.baseUrlB() + "/actuator/health").statusCode());
 
             assertFalse(biz.baseUrl().isBlank());
-            HttpResponse<String> contract = get(client, biz.baseUrl() + "/api/contracts/C-DEMO");
-            assertEquals(200, contract.statusCode());
+            assertEquals(200, get(client, biz.baseUrl() + "/api/contracts/C-DEMO").statusCode());
 
             HttpResponse<String> ocrMiss = client.send(
                     HttpRequest.newBuilder(URI.create(ocr.baseUrl() + "/ocr/recognize"))

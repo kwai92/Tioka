@@ -1,4 +1,4 @@
-package com.tioka.server.m3gate.mail;
+package com.tioka.server.gate.support.mail;
 
 import java.time.Duration;
 import java.util.ArrayList;

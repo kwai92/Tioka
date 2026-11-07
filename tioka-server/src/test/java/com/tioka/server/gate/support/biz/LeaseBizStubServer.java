@@ -1,4 +1,4 @@
-package com.tioka.server.m3gate.biz;
+package com.tioka.server.gate.support.biz;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
