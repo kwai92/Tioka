@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tioka.orchestration.infrastructure.mapper.OrchMandateMapper">
+
+    <select id="findLatestByWorkItem" resultType="com.tioka.orchestration.infrastructure.persistence.OrchMandateDO">
+        SELECT id, work_item_id, rule_version_id, service_account_id, strength, via,
+               requester_source, requester_external_id, requester_user_id, scope_json,
+               status, revoked_by, revoked_reason, create_at, revoked_at
+        FROM orch_mandate
+        WHERE work_item_id = #{workItemId}
+        ORDER BY create_at DESC
+        LIMIT 1
+    </select>
+
+</mapper>
