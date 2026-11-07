@@ -1,0 +1,26 @@
+[
+  {
+    "id": "dec_fixture_01",
+    "eventId": "evt_fixture_01",
+    "ruleVersionId": "rv_fixture_canary",
+    "ruleId": "rule_fixture_01",
+    "strength": "INFERRED",
+    "decision": "WOULD_ACCEPT",
+    "reason": "observe_inferred",
+    "workItemId": null,
+    "subjectKey": "feishu:chat_demo_01",
+    "createAt": "2026-11-07T08:00:00Z"
+  },
+  {
+    "id": "dec_fixture_02",
+    "eventId": "evt_fixture_02",
+    "ruleVersionId": "rv_fixture_canary",
+    "ruleId": "rule_fixture_01",
+    "strength": "INFERRED",
+    "decision": "WOULD_ACCEPT",
+    "reason": "observe_inferred",
+    "workItemId": null,
+    "subjectKey": "feishu:chat_demo_02",
+    "createAt": "2026-11-07T09:15:00Z"
+  }
+]
