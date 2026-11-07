@@ -5,6 +5,7 @@ import com.tioka.framework.error.NotImplemented;
 import com.tioka.framework.security.Permissions;
 import com.tioka.framework.security.RequirePermission;
 import com.tioka.orchestration.api.engine.OrchApi;
+import com.tioka.system.api.audit.Audited;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -31,6 +32,7 @@ public class OrchController {
 
     @PostMapping("/events")
     @RequirePermission(Permissions.ORCH_WRITE)
+    @Audited(action = "orch.event.ingest", resourceType = "orch_event")
     public ApiResponse<OrchApi.EventAck> ingest(@RequestBody Map<String, Object> body) {
         String source = str(body.get("source"));
         String type = str(body.get("type"));
@@ -62,6 +64,7 @@ public class OrchController {
 
     @PostMapping("/runs/{id}/cancel")
     @RequirePermission(Permissions.ORCH_OPERATE)
+    @Audited(action = "orch.run.cancel", resourceType = "orch_run", resourceIdArg = "#id")
     public ApiResponse<Void> cancel(@PathVariable String id, @RequestBody(required = false) Map<String, Object> body) {
         String reason = body == null ? null : str(body.get("reason"));
         orchApi.cancelRun(id, reason);
