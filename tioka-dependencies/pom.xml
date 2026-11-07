@@ -21,6 +21,10 @@
         <mapstruct.version>1.6.3</mapstruct.version>
         <json-schema-validator.version>1.5.3</json-schema-validator.version>
         <springdoc.version>2.6.0</springdoc.version>
+        <!-- M2：CEL / OTel / MockWebServer（PK-00c） -->
+        <cel.version>0.9.1</cel.version>
+        <opentelemetry.version>1.43.0</opentelemetry.version>
+        <okhttp.version>4.12.0</okhttp.version>
         <!-- Boot 3.2 自带 1.19.x，连不上 GitHub 运行器的 Docker 29（最低 API 1.44）；1.21.4 起兼容 -->
         <testcontainers.version>1.21.4</testcontainers.version>
         <revision>0.1.0-SNAPSHOT</revision>
@@ -233,6 +237,33 @@
                 <groupId>org.springdoc</groupId>
                 <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
                 <version>${springdoc.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>dev.cel</groupId>
+                <artifactId>cel</artifactId>
+                <version>${cel.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.opentelemetry</groupId>
+                <artifactId>opentelemetry-api</artifactId>
+                <version>${opentelemetry.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.opentelemetry</groupId>
+                <artifactId>opentelemetry-bom</artifactId>
+                <version>${opentelemetry.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <dependency>
+                <groupId>com.squareup.okhttp3</groupId>
+                <artifactId>okhttp</artifactId>
+                <version>${okhttp.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.squareup.okhttp3</groupId>
+                <artifactId>mockwebserver</artifactId>
+                <version>${okhttp.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
