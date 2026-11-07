@@ -1,9 +1,10 @@
 package com.tioka.system.infrastructure.persistence;
 
 import com.baomidou.mybatisplus.annotation.TableName;
+import com.tioka.framework.persistence.MutableRecordDO;
 
 @TableName("sys_resource_acl")
-public class SysResourceAclDO {
+public class SysResourceAclDO extends MutableRecordDO {
     private String resourceType;
     private String resourceId;
     private String subjectType;

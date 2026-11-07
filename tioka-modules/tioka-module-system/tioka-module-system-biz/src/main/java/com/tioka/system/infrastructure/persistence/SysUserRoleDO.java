@@ -1,9 +1,10 @@
 package com.tioka.system.infrastructure.persistence;
 
 import com.baomidou.mybatisplus.annotation.TableName;
+import com.tioka.framework.persistence.AppendOnlyDO;
 
 @TableName("sys_user_role")
-public class SysUserRoleDO {
+public class SysUserRoleDO extends AppendOnlyDO {
     private String userId;
     private String roleCode;
 

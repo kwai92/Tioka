@@ -3,10 +3,11 @@ package com.tioka.system.infrastructure.persistence;
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
+import com.tioka.framework.persistence.MutableRecordDO;
 
 /** sys_group：无逻辑删列（V110 / MutableRecord）。 */
 @TableName("sys_group")
-public class SysGroupDO {
+public class SysGroupDO extends MutableRecordDO {
     @TableId(type = IdType.INPUT)
     private String id;
     private String name;

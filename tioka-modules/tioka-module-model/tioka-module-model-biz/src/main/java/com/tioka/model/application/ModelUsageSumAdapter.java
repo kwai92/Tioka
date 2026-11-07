@@ -1,6 +1,6 @@
 package com.tioka.model.application;
 
-import com.tioka.model.infrastructure.mapper.ModelUsageMapper;
+import com.tioka.model.infrastructure.ModelUsageRepository;
 import com.tioka.system.api.spi.TokenUsageSumPort;
 import org.springframework.stereotype.Component;
 
@@ -11,9 +11,9 @@ import java.time.Instant;
  */
 @Component
 public class ModelUsageSumAdapter implements TokenUsageSumPort {
-    private final ModelUsageMapper usages;
+    private final ModelUsageRepository usages;
 
-    public ModelUsageSumAdapter(ModelUsageMapper usages) {
+    public ModelUsageSumAdapter(ModelUsageRepository usages) {
         this.usages = usages;
     }
 

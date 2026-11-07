@@ -4,6 +4,8 @@ import com.baomidou.mybatisplus.annotation.TableName;
 import com.tioka.framework.persistence.AppendOnlyDO;
 import com.tioka.framework.persistence.BaseDO;
 import com.tioka.framework.persistence.ImmutableSnapshotDO;
+import com.tioka.framework.persistence.MutableRecordDO;
+import com.tioka.framework.persistence.TechnicalRecordDO;
 import com.tioka.framework.persistence.WorkspaceAwareDO;
 import com.tngtech.archunit.core.domain.JavaClass;
 import com.tngtech.archunit.core.domain.JavaClasses;
@@ -58,6 +60,8 @@ class PersistenceArchTest {
                                 || item.isAssignableTo(WorkspaceAwareDO.class)
                                 || item.isAssignableTo(ImmutableSnapshotDO.class)
                                 || item.isAssignableTo(AppendOnlyDO.class)
+                                || item.isAssignableTo(MutableRecordDO.class)
+                                || item.isAssignableTo(TechnicalRecordDO.class)
                                 || "RuntimeTurnDO".equals(item.getSimpleName())
                                 // AST-01：agent_draft 契约仅有 update_at/by + revision，无 create/deleted
                                 || "AgentDraftDO".equals(item.getSimpleName())

@@ -7,8 +7,6 @@ import com.tioka.framework.security.RolePermissionExpander;
 import com.tioka.system.infrastructure.SysRolePermissionRepository;
 import com.tioka.system.infrastructure.SysRoleRepository;
 import com.tioka.system.infrastructure.SysUserRoleRepository;
-import com.tioka.system.infrastructure.mapper.SysRoleMapper;
-import com.tioka.system.infrastructure.mapper.SysRolePermissionWriteMapper;
 import com.tioka.system.infrastructure.persistence.SysRoleDO;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -24,25 +22,19 @@ public class RoleAdminService {
 
     private final SysRoleRepository roles;
     private final SysRolePermissionRepository rolePermissions;
-    private final SysRoleMapper roleMapper;
-    private final SysRolePermissionWriteMapper permissionWriter;
     private final SysUserRoleRepository userRoles;
 
     public RoleAdminService(SysRoleRepository roles,
                             SysRolePermissionRepository rolePermissions,
-                            SysRoleMapper roleMapper,
-                            SysRolePermissionWriteMapper permissionWriter,
                             SysUserRoleRepository userRoles) {
         this.roles = roles;
         this.rolePermissions = rolePermissions;
-        this.roleMapper = roleMapper;
-        this.permissionWriter = permissionWriter;
         this.userRoles = userRoles;
     }
 
     public List<RoleView> list() {
         List<RoleView> out = new ArrayList<>();
-        for (SysRoleDO r : roleMapper.listAll()) {
+        for (SysRoleDO r : roles.listAll()) {
             out.add(toView(r));
         }
         return out;
@@ -63,7 +55,7 @@ public class RoleAdminService {
         if (scope == null || (!"SYSTEM".equals(scope) && !"WORKSPACE".equals(scope))) {
             throw new BizException(ErrorCode.BAD_REQUEST, "scope 必须是 SYSTEM 或 WORKSPACE");
         }
-        permissionWriter.insertRole(code, name == null ? code : name, scope, false);
+        roles.insertRole(code, name == null ? code : name, scope, false);
         replacePermissions(code, permissions);
         return toView(roles.findByCode(code));
     }
@@ -77,7 +69,7 @@ public class RoleAdminService {
         if (Boolean.TRUE.equals(existing.getBuiltin())) {
             throw new BizException(ErrorCode.FORBIDDEN, "内置角色不可改");
         }
-        permissionWriter.updateRoleName(code, name == null ? existing.getName() : name);
+        roles.updateRoleName(code, name == null ? existing.getName() : name);
         replacePermissions(code, permissions);
         return toView(roles.findByCode(code));
     }
@@ -91,20 +83,20 @@ public class RoleAdminService {
         if (Boolean.TRUE.equals(existing.getBuiltin())) {
             throw new BizException(ErrorCode.FORBIDDEN, "内置角色不可删");
         }
-        if (userRoles.countByRole(code) > 0 || permissionWriter.countMembersWithRole(code) > 0) {
+        if (userRoles.countByRole(code) > 0 || roles.countMembersWithRole(code) > 0) {
             throw new BizException(ErrorCode.CONFLICT, "仍有成员使用该角色");
         }
-        permissionWriter.deletePermissions(code);
-        permissionWriter.softDeleteRole(code);
+        rolePermissions.deletePermissions(code);
+        roles.softDeleteRole(code);
     }
 
     private void replacePermissions(String code, List<String> permissions) {
-        permissionWriter.deletePermissions(code);
+        rolePermissions.deletePermissions(code);
         if (permissions == null) {
             return;
         }
         for (String raw : RolePermissionExpander.expand(permissions)) {
-            permissionWriter.insertPermission(code, raw);
+            rolePermissions.insertPermission(code, raw);
         }
     }
 

@@ -63,4 +63,9 @@ public class ModelUsageRepository {
     public Map<String, Object> sessionAggregate(String sessionId) {
         return mapper.sessionAggregate(sessionId);
     }
+
+    public Long sumTokensByScope(String scopeType, String scopeId, Instant from, Instant to) {
+        return mapper.sumTokensByScope(scopeType, scopeId, from, to);
+    }
 }
+
