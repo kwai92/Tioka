@@ -26,6 +26,8 @@ public class ModelUsageDO extends AppendOnlyDO {
     private Long costMicros;
     private Integer latencyMs;
     private String status;
+    /** V143：按 Turn 步对齐轨迹用量；历史行可空。 */
+    private Integer step;
 
     public String getId() { return id; }
     public void setId(String id) { this.id = id; }
@@ -55,4 +57,6 @@ public class ModelUsageDO extends AppendOnlyDO {
     public void setLatencyMs(Integer latencyMs) { this.latencyMs = latencyMs; }
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }
+    public Integer getStep() { return step; }
+    public void setStep(Integer step) { this.step = step; }
 }

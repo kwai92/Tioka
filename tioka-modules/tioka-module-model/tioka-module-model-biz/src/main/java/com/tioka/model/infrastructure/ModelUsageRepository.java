@@ -39,6 +39,14 @@ public class ModelUsageRepository {
                 .orderByAsc(ModelUsageDO::getId));
     }
 
+    public List<ModelUsageDO> findByTurnId(String turnId) {
+        return mapper.selectList(Wrappers.<ModelUsageDO>lambdaQuery()
+                .eq(ModelUsageDO::getTurnId, turnId)
+                .orderByAsc(ModelUsageDO::getStep)
+                .orderByAsc(ModelUsageDO::getCreateAt)
+                .orderByAsc(ModelUsageDO::getId));
+    }
+
     public List<Map<String, Object>> summaryByWorkspace(String workspaceId, Instant from, Instant to) {
         return mapper.summaryByWorkspace(workspaceId, from, to);
     }

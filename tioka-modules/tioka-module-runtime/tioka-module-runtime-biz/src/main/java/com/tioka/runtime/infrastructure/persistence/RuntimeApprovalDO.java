@@ -24,6 +24,11 @@ public class RuntimeApprovalDO extends MutableRecordDO {
     private LocalDateTime decidedAt;
     private String answerJson;
     private LocalDateTime expiresAt;
+    /** V143 审批台查询列。 */
+    private String requestedBy;
+    private String title;
+    private String risk;
+    private String agentId;
 
     public String getId() { return id; }
     public void setId(String id) { this.id = id; }
@@ -57,4 +62,12 @@ public class RuntimeApprovalDO extends MutableRecordDO {
     public void setAnswerJson(String answerJson) { this.answerJson = answerJson; }
     public LocalDateTime getExpiresAt() { return expiresAt; }
     public void setExpiresAt(LocalDateTime expiresAt) { this.expiresAt = expiresAt; }
+    public String getRequestedBy() { return requestedBy; }
+    public void setRequestedBy(String requestedBy) { this.requestedBy = requestedBy; }
+    public String getTitle() { return title; }
+    public void setTitle(String title) { this.title = title; }
+    public String getRisk() { return risk; }
+    public void setRisk(String risk) { this.risk = risk; }
+    public String getAgentId() { return agentId; }
+    public void setAgentId(String agentId) { this.agentId = agentId; }
 }
