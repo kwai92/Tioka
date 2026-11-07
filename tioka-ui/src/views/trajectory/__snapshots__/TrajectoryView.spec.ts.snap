@@ -1,0 +1,260 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`HCI-07 TrajectoryView snapshots > 三步工具任务 快照 1`] = `
+"<div data-v-b7472e07="" class="page trajectory" data-testid="trajectory-view">
+  <header data-v-b7472e07="" class="head">
+    <div data-v-b7472e07="">
+      <h1 data-v-b7472e07="">轨迹</h1>
+      <p data-v-b7472e07="" class="muted"> Turn 1 · SUCCEEDED · 300+120 tokens</p>
+    </div>
+    <div data-v-b7472e07="" class="actions"><a data-v-b7472e07="" data-testid="timeline-link" class="link" href="/observability/timeline?requestId=req_tools_01"> 查看完整时间线 </a><a data-v-b7472e07="" data-testid="jaeger-link" class="link" href="http://jaeger.local/trace/tools01" target="_blank" rel="noopener noreferrer"> 在 Jaeger 中查看 </a></div>
+  </header>
+  <div data-v-b7472e07="" class="layout">
+    <aside data-v-b7472e07="" class="turns" data-testid="turn-list">
+      <h2 data-v-b7472e07="">Turn 列表</h2><button data-v-b7472e07="" type="button" class="turn-row active">
+        <div data-v-b7472e07="" class="turn-top"><span data-v-b7472e07="" class="seq">#1</span><span data-v-b7472e07="" class="status">SUCCEEDED</span></div>
+        <div data-v-b7472e07="" class="turn-meta">3 步 · 300+120 tokens</div>
+        <div data-v-b7472e07="" class="turn-meta"> 成本 $0.0034 · 耗时 9.0s</div>
+      </button><button data-v-b7472e07="" type="button" class="turn-row">
+        <div data-v-b7472e07="" class="turn-top"><span data-v-b7472e07="" class="seq">#2</span><span data-v-b7472e07="" class="status">SUCCEEDED</span></div>
+        <div data-v-b7472e07="" class="turn-meta">2 步 · 260+110 tokens</div>
+        <div data-v-b7472e07="" class="turn-meta"> 成本 $0.0024 · 耗时 14.0s</div>
+      </button><button data-v-b7472e07="" type="button" class="turn-row">
+        <div data-v-b7472e07="" class="turn-top"><span data-v-b7472e07="" class="seq">#3</span><span data-v-b7472e07="" class="status">SUCCEEDED</span></div>
+        <div data-v-b7472e07="" class="turn-meta">2 步 · 180+70 tokens</div>
+        <div data-v-b7472e07="" class="turn-meta"> 成本 $0.0018 · 耗时 79.0s</div>
+      </button>
+      <!--v-if-->
+    </aside>
+    <section data-v-b7472e07="" class="timeline" data-testid="timeline">
+      <h2 data-v-b7472e07="">时间线</h2>
+      <div data-v-469a3576="" data-v-b7472e07="" class="virtual-list" data-testid="virtual-list" style="height: 560px;">
+        <div data-v-469a3576="" class="virtual-list__spacer" style="height: 960px;">
+          <div data-v-469a3576="" class="virtual-list__window" style="transform: translateY(0px);">
+            <div data-v-469a3576="" class="virtual-list__row" data-testid="timeline-row" style="height: 96px;">
+              <div data-v-b7472e07="" class="row step"><strong data-v-b7472e07="">第 1 步</strong></div>
+            </div>
+            <div data-v-469a3576="" class="virtual-list__row" data-testid="timeline-row" style="height: 96px;">
+              <div data-v-b7472e07="" class="row model"><span data-v-b7472e07="" class="tag">模型调用</span><strong data-v-b7472e07="">gpt-mock@primary</strong><span data-v-b7472e07="" class="meta">100+30 tokens</span><span data-v-b7472e07="" class="meta">600ms</span>
+                <!--v-if-->
+              </div>
+            </div>
+            <div data-v-469a3576="" class="virtual-list__row" data-testid="timeline-row" style="height: 96px;">
+              <div data-v-b7472e07="" class="row item">
+                <!--v-if-->
+                <!--v-if-->
+                <div data-v-b7472e07="" class="item-renderer-stub" data-type="message">message</div>
+              </div>
+            </div>
+            <div data-v-469a3576="" class="virtual-list__row" data-testid="timeline-row" style="height: 96px;">
+              <div data-v-b7472e07="" class="row step"><strong data-v-b7472e07="">第 2 步</strong></div>
+            </div>
+            <div data-v-469a3576="" class="virtual-list__row" data-testid="timeline-row" style="height: 96px;">
+              <div data-v-b7472e07="" class="row model"><span data-v-b7472e07="" class="tag">模型调用</span><strong data-v-b7472e07="">gpt-mock@primary</strong><span data-v-b7472e07="" class="meta">120+40 tokens</span><span data-v-b7472e07="" class="meta">1.1s</span>
+                <!--v-if-->
+              </div>
+            </div>
+            <div data-v-469a3576="" class="virtual-list__row" data-testid="timeline-row" style="height: 96px;">
+              <div data-v-b7472e07="" class="row item">
+                <!--v-if-->
+                <!--v-if-->
+                <div data-v-b7472e07="" class="item-renderer-stub" data-type="tool_call">tool_call</div>
+              </div>
+            </div>
+            <div data-v-469a3576="" class="virtual-list__row" data-testid="timeline-row" style="height: 96px;">
+              <div data-v-b7472e07="" class="row step"><strong data-v-b7472e07="">第 3 步</strong></div>
+            </div>
+            <div data-v-469a3576="" class="virtual-list__row" data-testid="timeline-row" style="height: 96px;">
+              <div data-v-b7472e07="" class="row model"><span data-v-b7472e07="" class="tag">模型调用</span><strong data-v-b7472e07="">gpt-mock@primary</strong><span data-v-b7472e07="" class="meta">80+50 tokens</span><span data-v-b7472e07="" class="meta">700ms</span>
+                <!--v-if-->
+              </div>
+            </div>
+            <div data-v-469a3576="" class="virtual-list__row" data-testid="timeline-row" style="height: 96px;">
+              <div data-v-b7472e07="" class="row item">
+                <!--v-if-->
+                <!--v-if-->
+                <div data-v-b7472e07="" class="item-renderer-stub" data-type="message">message</div>
+              </div>
+            </div>
+            <div data-v-469a3576="" class="virtual-list__row" data-testid="timeline-row" style="height: 96px;">
+              <div data-v-b7472e07="" class="row item">
+                <!--v-if-->
+                <!--v-if--><a data-v-b7472e07="" class="child-link" href="/chat?threadId=thd_child_01"> 子会话 子会话（预留）</a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!--v-if-->
+    </section>
+  </div>
+</div>"
+`;
+
+exports[`HCI-07 TrajectoryView snapshots > 含审批 快照 1`] = `
+"<div data-v-b7472e07="" class="page trajectory" data-testid="trajectory-view">
+  <header data-v-b7472e07="" class="head">
+    <div data-v-b7472e07="">
+      <h1 data-v-b7472e07="">轨迹</h1>
+      <p data-v-b7472e07="" class="muted"> Turn 3 · SUCCEEDED · 180+70 tokens</p>
+    </div>
+    <div data-v-b7472e07="" class="actions"><a data-v-b7472e07="" data-testid="timeline-link" class="link" href="/observability/timeline?requestId=req_approval_01"> 查看完整时间线 </a>
+      <!--v-if-->
+    </div>
+  </header>
+  <div data-v-b7472e07="" class="layout">
+    <aside data-v-b7472e07="" class="turns" data-testid="turn-list">
+      <h2 data-v-b7472e07="">Turn 列表</h2><button data-v-b7472e07="" type="button" class="turn-row">
+        <div data-v-b7472e07="" class="turn-top"><span data-v-b7472e07="" class="seq">#1</span><span data-v-b7472e07="" class="status">SUCCEEDED</span></div>
+        <div data-v-b7472e07="" class="turn-meta">3 步 · 300+120 tokens</div>
+        <div data-v-b7472e07="" class="turn-meta"> 成本 $0.0034 · 耗时 9.0s</div>
+      </button><button data-v-b7472e07="" type="button" class="turn-row">
+        <div data-v-b7472e07="" class="turn-top"><span data-v-b7472e07="" class="seq">#2</span><span data-v-b7472e07="" class="status">SUCCEEDED</span></div>
+        <div data-v-b7472e07="" class="turn-meta">2 步 · 260+110 tokens</div>
+        <div data-v-b7472e07="" class="turn-meta"> 成本 $0.0024 · 耗时 14.0s</div>
+      </button><button data-v-b7472e07="" type="button" class="turn-row active">
+        <div data-v-b7472e07="" class="turn-top"><span data-v-b7472e07="" class="seq">#3</span><span data-v-b7472e07="" class="status">SUCCEEDED</span></div>
+        <div data-v-b7472e07="" class="turn-meta">2 步 · 180+70 tokens</div>
+        <div data-v-b7472e07="" class="turn-meta"> 成本 $0.0018 · 耗时 79.0s</div>
+      </button>
+      <!--v-if-->
+    </aside>
+    <section data-v-b7472e07="" class="timeline" data-testid="timeline">
+      <h2 data-v-b7472e07="">时间线</h2>
+      <div data-v-469a3576="" data-v-b7472e07="" class="virtual-list" data-testid="virtual-list" style="height: 560px;">
+        <div data-v-469a3576="" class="virtual-list__spacer" style="height: 768px;">
+          <div data-v-469a3576="" class="virtual-list__window" style="transform: translateY(0px);">
+            <div data-v-469a3576="" class="virtual-list__row" data-testid="timeline-row" style="height: 96px;">
+              <div data-v-b7472e07="" class="row step"><strong data-v-b7472e07="">第 1 步</strong></div>
+            </div>
+            <div data-v-469a3576="" class="virtual-list__row" data-testid="timeline-row" style="height: 96px;">
+              <div data-v-b7472e07="" class="row model"><span data-v-b7472e07="" class="tag">模型调用</span><strong data-v-b7472e07="">gpt-mock@primary</strong><span data-v-b7472e07="" class="meta">100+30 tokens</span><span data-v-b7472e07="" class="meta">700ms</span>
+                <!--v-if-->
+              </div>
+            </div>
+            <div data-v-469a3576="" class="virtual-list__row" data-testid="timeline-row" style="height: 96px;">
+              <div data-v-b7472e07="" class="row item">
+                <!--v-if-->
+                <!--v-if-->
+                <div data-v-b7472e07="" class="item-renderer-stub" data-type="message">message</div>
+              </div>
+            </div>
+            <div data-v-469a3576="" class="virtual-list__row" data-testid="timeline-row" style="height: 96px;">
+              <div data-v-b7472e07="" class="row item">
+                <!--v-if-->
+                <div data-v-b7472e07="" class="approval-meta"><span data-v-b7472e07="" class="tag">审批</span><span data-v-b7472e07="">审批人 Alice</span><span data-v-b7472e07="" class="meta">2026-11-07T05:01:00Z</span></div>
+                <div data-v-b7472e07="" class="item-renderer-stub" data-type="card">card</div>
+              </div>
+            </div>
+            <div data-v-469a3576="" class="virtual-list__row" data-testid="timeline-row" style="height: 96px;">
+              <div data-v-b7472e07="" class="row step"><strong data-v-b7472e07="">第 2 步</strong></div>
+            </div>
+            <div data-v-469a3576="" class="virtual-list__row" data-testid="timeline-row" style="height: 96px;">
+              <div data-v-b7472e07="" class="row model"><span data-v-b7472e07="" class="tag">模型调用</span><strong data-v-b7472e07="">gpt-mock@primary</strong><span data-v-b7472e07="" class="meta">80+40 tokens</span><span data-v-b7472e07="" class="meta">500ms</span>
+                <!--v-if-->
+              </div>
+            </div>
+            <div data-v-469a3576="" class="virtual-list__row" data-testid="timeline-row" style="height: 96px;">
+              <div data-v-b7472e07="" class="row item">
+                <!--v-if-->
+                <!--v-if-->
+                <div data-v-b7472e07="" class="item-renderer-stub" data-type="tool_call">tool_call</div>
+              </div>
+            </div>
+            <div data-v-469a3576="" class="virtual-list__row" data-testid="timeline-row" style="height: 96px;">
+              <div data-v-b7472e07="" class="row item">
+                <!--v-if-->
+                <!--v-if-->
+                <div data-v-b7472e07="" class="item-renderer-stub" data-type="message">message</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!--v-if-->
+    </section>
+  </div>
+</div>"
+`;
+
+exports[`HCI-07 TrajectoryView snapshots > 含故障接力 快照 1`] = `
+"<div data-v-b7472e07="" class="page trajectory" data-testid="trajectory-view">
+  <header data-v-b7472e07="" class="head">
+    <div data-v-b7472e07="">
+      <h1 data-v-b7472e07="">轨迹</h1>
+      <p data-v-b7472e07="" class="muted"> Turn 2 · SUCCEEDED · 260+110 tokens</p>
+    </div>
+    <div data-v-b7472e07="" class="actions"><a data-v-b7472e07="" data-testid="timeline-link" class="link" href="/observability/timeline?requestId=req_failover_01"> 查看完整时间线 </a><a data-v-b7472e07="" data-testid="jaeger-link" class="link" href="http://jaeger.local/trace/failover01" target="_blank" rel="noopener noreferrer"> 在 Jaeger 中查看 </a></div>
+  </header>
+  <div data-v-b7472e07="" class="layout">
+    <aside data-v-b7472e07="" class="turns" data-testid="turn-list">
+      <h2 data-v-b7472e07="">Turn 列表</h2><button data-v-b7472e07="" type="button" class="turn-row">
+        <div data-v-b7472e07="" class="turn-top"><span data-v-b7472e07="" class="seq">#1</span><span data-v-b7472e07="" class="status">SUCCEEDED</span></div>
+        <div data-v-b7472e07="" class="turn-meta">3 步 · 300+120 tokens</div>
+        <div data-v-b7472e07="" class="turn-meta"> 成本 $0.0034 · 耗时 9.0s</div>
+      </button><button data-v-b7472e07="" type="button" class="turn-row active">
+        <div data-v-b7472e07="" class="turn-top"><span data-v-b7472e07="" class="seq">#2</span><span data-v-b7472e07="" class="status">SUCCEEDED</span></div>
+        <div data-v-b7472e07="" class="turn-meta">2 步 · 260+110 tokens</div>
+        <div data-v-b7472e07="" class="turn-meta"> 成本 $0.0024 · 耗时 14.0s</div>
+      </button><button data-v-b7472e07="" type="button" class="turn-row">
+        <div data-v-b7472e07="" class="turn-top"><span data-v-b7472e07="" class="seq">#3</span><span data-v-b7472e07="" class="status">SUCCEEDED</span></div>
+        <div data-v-b7472e07="" class="turn-meta">2 步 · 180+70 tokens</div>
+        <div data-v-b7472e07="" class="turn-meta"> 成本 $0.0018 · 耗时 79.0s</div>
+      </button>
+      <!--v-if-->
+    </aside>
+    <section data-v-b7472e07="" class="timeline" data-testid="timeline">
+      <h2 data-v-b7472e07="">时间线</h2>
+      <div data-v-469a3576="" data-v-b7472e07="" class="virtual-list" data-testid="virtual-list" style="height: 560px;">
+        <div data-v-469a3576="" class="virtual-list__spacer" style="height: 768px;">
+          <div data-v-469a3576="" class="virtual-list__window" style="transform: translateY(0px);">
+            <div data-v-469a3576="" class="virtual-list__row" data-testid="timeline-row" style="height: 96px;">
+              <div data-v-b7472e07="" class="row step"><strong data-v-b7472e07="">第 1 步</strong></div>
+            </div>
+            <div data-v-469a3576="" class="virtual-list__row" data-testid="timeline-row" style="height: 96px;">
+              <div data-v-b7472e07="" class="row model"><span data-v-b7472e07="" class="tag">模型调用</span><strong data-v-b7472e07="">gpt-mock@primary</strong><span data-v-b7472e07="" class="meta">140+20 tokens</span><span data-v-b7472e07="" class="meta">2.0s</span>
+                <!--v-if-->
+              </div>
+            </div>
+            <div data-v-469a3576="" class="virtual-list__row" data-testid="timeline-row" style="height: 96px;">
+              <div data-v-b7472e07="" class="row item discarded">
+                <div data-v-b7472e07="" class="discard-badge">已作废（模型切换）</div>
+                <!--v-if-->
+                <div data-v-b7472e07="" class="item-renderer-stub" data-type="message">message</div>
+              </div>
+            </div>
+            <div data-v-469a3576="" class="virtual-list__row" data-testid="timeline-row" style="height: 96px;">
+              <div data-v-b7472e07="" class="row item">
+                <!--v-if-->
+                <!--v-if-->
+                <div data-v-b7472e07="" class="item-renderer-stub" data-type="status">status</div>
+              </div>
+            </div>
+            <div data-v-469a3576="" class="virtual-list__row" data-testid="timeline-row" style="height: 96px;">
+              <div data-v-b7472e07="" class="row step"><strong data-v-b7472e07="">第 2 步</strong></div>
+            </div>
+            <div data-v-469a3576="" class="virtual-list__row" data-testid="timeline-row" style="height: 96px;">
+              <div data-v-b7472e07="" class="row model failover"><span data-v-b7472e07="" class="tag">模型调用</span><strong data-v-b7472e07="">gpt-mock@backup</strong><span data-v-b7472e07="" class="meta">120+90 tokens</span><span data-v-b7472e07="" class="meta">950ms</span><span data-v-b7472e07="" class="failover-badge">故障接力</span></div>
+            </div>
+            <div data-v-469a3576="" class="virtual-list__row" data-testid="timeline-row" style="height: 96px;">
+              <div data-v-b7472e07="" class="row item">
+                <!--v-if-->
+                <!--v-if-->
+                <div data-v-b7472e07="" class="item-renderer-stub" data-type="message">message</div>
+              </div>
+            </div>
+            <div data-v-469a3576="" class="virtual-list__row" data-testid="timeline-row" style="height: 96px;">
+              <div data-v-b7472e07="" class="row item">
+                <!--v-if-->
+                <!--v-if-->
+                <div data-v-b7472e07="" class="item-renderer-stub" data-type="data">data</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!--v-if-->
+    </section>
+  </div>
+</div>"
+`;
