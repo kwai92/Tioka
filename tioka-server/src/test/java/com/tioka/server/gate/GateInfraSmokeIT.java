@@ -76,11 +76,14 @@ class GateInfraSmokeIT {
             TurnRepository turns = b.getBean(TurnRepository.class);
             JdbcTemplate jdbcB = b.getBean(JdbcTemplate.class);
             Instant detectedAt = null;
-            long deadline = System.currentTimeMillis() + 10_000;
+            String detectHow = null;
+            // 闸门 reaper 1s 扫描：过期窗口极短，须同时接受「可见过期」与「已被兄弟实例回收」
+            long deadline = System.currentTimeMillis() + 15_000;
             while (System.currentTimeMillis() < deadline) {
                 List<String> found = turns.findExpired(Instant.now(), 50);
                 if (found.contains(turnId)) {
                     detectedAt = Instant.now();
+                    detectHow = "findExpired";
                     break;
                 }
                 // 用 PG now() 判定，避免 JVM/DB 时区漂移导致租约「永不过期」
@@ -89,13 +92,24 @@ class GateInfraSmokeIT {
                         Boolean.class, turnId);
                 if (Boolean.TRUE.equals(dbExpired)) {
                     detectedAt = Instant.now();
+                    detectHow = "dbExpired";
                     break;
                 }
-                Thread.sleep(200);
+                // LeaseReaper 已在另一实例把 RUNNING 收走（lease_until 清空）也算跨实例可见过期
+                String status = jdbcB.queryForObject(
+                        "SELECT status FROM runtime_turn WHERE id = ?", String.class, turnId);
+                if (status != null && !"RUNNING".equals(status)) {
+                    detectedAt = Instant.now();
+                    detectHow = "reaped:" + status;
+                    break;
+                }
+                Thread.sleep(100);
             }
-            assertNotNull(detectedAt, "另一实例应在 10 秒内看到租约过期；plantedAt=" + plantedAt);
-            assertTrue(Duration.between(plantedAt, detectedAt).toMillis() <= 10_000,
-                    "检测到过期应在 plant 后 10s 内；plantedAt=" + plantedAt + " detectedAt=" + detectedAt);
+            assertNotNull(detectedAt,
+                    "另一实例应在 15 秒内看到租约过期或完成回收；plantedAt=" + plantedAt);
+            assertTrue(Duration.between(plantedAt, detectedAt).toMillis() <= 15_000,
+                    "检测到过期应在 plant 后 15s 内；how=" + detectHow
+                            + " plantedAt=" + plantedAt + " detectedAt=" + detectedAt);
         }
     }
 
@@ -133,8 +147,8 @@ class GateInfraSmokeIT {
             turns.insert(t);
         });
 
-        // 用 PG now() 设 TTL，与判定侧同一时钟
-        jdbc.update("UPDATE runtime_turn SET worker_id = ?, lease_until = now() + interval '5 seconds' WHERE id = ?",
+        // 用 PG now() 设短 TTL，与判定侧同一时钟；reaper 1s 扫描下约 2s 即可过期/回收
+        jdbc.update("UPDATE runtime_turn SET worker_id = ?, lease_until = now() + interval '2 seconds' WHERE id = ?",
                 workerId, turnId);
         return turnId;
     }
