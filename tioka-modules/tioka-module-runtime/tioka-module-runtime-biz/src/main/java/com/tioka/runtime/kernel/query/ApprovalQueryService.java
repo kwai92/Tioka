@@ -14,8 +14,8 @@ import com.tioka.runtime.api.approval.ToolRisk;
 import com.tioka.runtime.api.kernel.ApprovalKind;
 import com.tioka.runtime.api.kernel.ApprovalStatus;
 import com.tioka.runtime.api.kernel.ApprovalSubjectType;
-import com.tioka.runtime.infrastructure.mapper.RuntimeApprovalQueryMapper;
 import com.tioka.runtime.infrastructure.persistence.RuntimeApprovalDO;
+import com.tioka.runtime.kernel.infrastructure.ApprovalQueryRepository;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
@@ -33,16 +33,16 @@ import java.util.stream.Collectors;
 @Service
 public class ApprovalQueryService implements ApprovalQueryApi {
 
-    private final RuntimeApprovalQueryMapper queryMapper;
+    private final ApprovalQueryRepository approvals;
     private final PrincipalHolder principals;
     private final ObjectMapper mapper;
     private final Map<String, ApprovalSubjectLinker> linkers;
 
-    public ApprovalQueryService(RuntimeApprovalQueryMapper queryMapper,
+    public ApprovalQueryService(ApprovalQueryRepository approvals,
                                 PrincipalHolder principals,
                                 ObjectMapper mapper,
                                 List<ApprovalSubjectLinker> linkerList) {
-        this.queryMapper = queryMapper;
+        this.approvals = approvals;
         this.principals = principals;
         this.mapper = mapper;
         this.linkers = linkerList.stream()
@@ -63,9 +63,9 @@ public class ApprovalQueryService implements ApprovalQueryApi {
         String risk = query.risk() == null ? null : query.risk().name();
         LocalDateTime from = toLdt(query.from());
         LocalDateTime to = toLdt(query.to());
-        long total = queryMapper.count(workspaceId, scope.name(), p.userId(), status, subjectType,
+        long total = approvals.count(workspaceId, scope.name(), p.userId(), status, subjectType,
                 query.agentId(), risk, from, to, query.keyword());
-        List<ApprovalView> items = queryMapper.list(workspaceId, scope.name(), p.userId(), status, subjectType,
+        List<ApprovalView> items = approvals.list(workspaceId, scope.name(), p.userId(), status, subjectType,
                         query.agentId(), risk, from, to, query.keyword(), (page - 1) * size, size)
                 .stream()
                 .map(this::toView)
@@ -76,10 +76,8 @@ public class ApprovalQueryService implements ApprovalQueryApi {
     @Override
     public ApprovalView get(String approvalId) {
         requirePrincipal();
-        RuntimeApprovalDO row = queryMapper.findById(approvalId);
-        if (row == null) {
-            throw new BizException(ErrorCode.NOT_FOUND, "审批不存在");
-        }
+        RuntimeApprovalDO row = approvals.findById(approvalId)
+                .orElseThrow(() -> new BizException(ErrorCode.NOT_FOUND, "审批不存在"));
         Principal p = principals.current();
         if (p.workspaceId() != null && row.getWorkspaceId() != null
                 && !p.workspaceId().equals(row.getWorkspaceId())
@@ -96,7 +94,7 @@ public class ApprovalQueryService implements ApprovalQueryApi {
         Scope s = scope == null ? Scope.ASSIGNED_TO_ME : scope;
         guardScope(s, p);
         String st = status == null ? null : status.name();
-        return queryMapper.count(p.workspaceId(), s.name(), p.userId(), st, null, null, null, null, null, null);
+        return approvals.count(p.workspaceId(), s.name(), p.userId(), st, null, null, null, null, null, null);
     }
 
     private void guardScope(Scope scope, Principal p) {
@@ -120,8 +118,8 @@ public class ApprovalQueryService implements ApprovalQueryApi {
         Map<String, Object> assignee = parseMap(a.getAssigneeJson());
         @SuppressWarnings("unchecked")
         List<String> roles = assignee.get("roleCodes") instanceof List<?> l ? (List<String>) l : List.of();
-        List<String> userIds = queryMapper.listAssigneeUserIds(a.getId());
-        if (userIds == null || userIds.isEmpty()) {
+        List<String> userIds = approvals.listAssigneeUserIds(a.getId());
+        if (userIds.isEmpty()) {
             @SuppressWarnings("unchecked")
             List<String> fromJson = assignee.get("userIds") instanceof List<?> l ? (List<String>) l : List.of();
             userIds = fromJson;
