@@ -128,7 +128,7 @@ class ResourceGuardIT {
 
         GroupAdminService.GroupView group = principals.runAs(
                 new Principal(admin.userId(), admin.workspaceId(), PrincipalType.USER,
-                        Set.of("tenant_admin"), Set.of("*"), "password"),
+                        Set.of("system_admin"), Set.of("*"), "password"),
                 () -> {
                     GroupAdminService.GroupView g = groups.create("acl-group");
                     return groups.replaceMembers(g.id(), List.of(peer.userId()));

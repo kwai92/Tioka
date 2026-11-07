@@ -10,7 +10,7 @@ import com.tioka.framework.security.Principal;
 import com.tioka.framework.security.PrincipalHolder;
 import com.tioka.mcp.application.McpAdminService;
 import com.tioka.mcp.domain.McpStore;
-import com.tioka.model.api.dto.ProviderDtos.CreateBindingRequest;
+import com.tioka.model.api.dto.ProviderDtos.CreateModelBindingRequest;
 import com.tioka.model.api.dto.ProviderDtos.CreateLogicalModelRequest;
 import com.tioka.model.api.dto.ProviderDtos.CreateProviderRequest;
 import com.tioka.model.api.dto.ProviderDtos.CreateRoutingPlanRequest;
@@ -24,7 +24,7 @@ import com.tioka.runtime.api.spi.ToolCallContexts;
 import com.tioka.runtime.api.spi.ToolGateway;
 import com.tioka.runtime.api.spi.ToolProvider;
 import com.tioka.runtime.kernel.infrastructure.ItemRepository;
-import com.tioka.runtime.kernel.infrastructure.persistence.RuntimeItemDO;
+import com.tioka.runtime.infrastructure.persistence.RuntimeItemDO;
 import com.tioka.server.gate.support.GateCluster;
 import com.tioka.server.gate.support.GateSeed;
 import com.tioka.server.gate.support.KeycloakGateSupport;
@@ -85,14 +85,14 @@ class G1EndToEndGateIT {
             assertEquals(200, aliceMe.statusCode(), aliceMe.body());
             JsonNode aliceMeData = json.readTree(aliceMe.body()).path("data");
             assertEquals("alice", aliceMeData.path("user").path("username").asText());
-            boolean hasTenantAdmin = false;
+            boolean hasSystemAdmin = false;
             for (JsonNode r : aliceMeData.path("roles")) {
-                if ("tenant_admin".equals(r.asText())) {
-                    hasTenantAdmin = true;
+                if ("system_admin".equals(r.asText())) {
+                    hasSystemAdmin = true;
                     break;
                 }
             }
-            assertTrue(hasTenantAdmin, " /me 应含 tenant_admin，body=" + aliceMe.body());
+            assertTrue(hasSystemAdmin, " /me 应含 system_admin，body=" + aliceMe.body());
 
             JdbcTemplate jdbc = cluster.a().getBean(JdbcTemplate.class);
             Long aliceUserId = jdbc.queryForObject(
@@ -284,7 +284,7 @@ class G1EndToEndGateIT {
             assertNotNull(bobUserId);
             Principal bobP = loader.load(bobUserId, WS_SALES);
 
-            Map<String, Object> toolCfg = Map.of("mcpGrants", List.of(
+            Map<String, Object> toolCfg = Map.of("mcp", List.of(
                     Map.of("serverId", published.mcpServerId(),
                             "allowlist", List.of("erp.query", "erp.update", "erp.slow"))));
 
@@ -323,7 +323,7 @@ class G1EndToEndGateIT {
         String tag = Ids.newId("g1e2e");
         var provider = models.createProvider(new CreateProviderRequest(tag + "-llm", llmBaseUrl, "sk-g1e2e"));
         String lm = models.createLogicalModel(new CreateLogicalModelRequest(tag + "-m", "tool"));
-        String binding = models.createBinding(new CreateBindingRequest(lm, provider.id(), "gpt-stub"));
+        String binding = models.createModelBinding(new CreateModelBindingRequest(lm, provider.id(), "gpt-stub"));
         String planId = models.createPlan(new CreateRoutingPlanRequest(tag + "-rp", "FIXED", binding)).id();
         models.publish(planId);
 
@@ -407,7 +407,7 @@ class G1EndToEndGateIT {
         ItemRepository items = ctx.getBean(ItemRepository.class);
         long deadline = System.currentTimeMillis() + timeoutMs;
         while (System.currentTimeMillis() < deadline) {
-            List<RuntimeItemDO> calls = items.listBySession(threadId).stream()
+            List<RuntimeItemDO> calls = items.listByThread(threadId).stream()
                     .filter(i -> ItemType.TOOL_CALL.wire().equals(i.getType()))
                     .filter(i -> i.getContentJson() != null && i.getContentJson().contains("erp.slow"))
                     .toList();
@@ -415,7 +415,7 @@ class G1EndToEndGateIT {
                 return;
             }
             // 若尚未写出 erp.slow，任意新 tool_call 后短暂等待亦可
-            long any = items.listBySession(threadId).stream()
+            long any = items.listByThread(threadId).stream()
                     .filter(i -> ItemType.TOOL_CALL.wire().equals(i.getType()))
                     .count();
             if (any >= 4) {

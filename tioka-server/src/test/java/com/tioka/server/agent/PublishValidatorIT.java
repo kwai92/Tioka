@@ -12,7 +12,7 @@ import com.tioka.framework.security.PrincipalType;
 import com.tioka.knowledge.application.KnowledgeService;
 import com.tioka.mcp.application.McpAdminService;
 import com.tioka.mcp.domain.McpStore;
-import com.tioka.model.api.dto.ProviderDtos.CreateBindingRequest;
+import com.tioka.model.api.dto.ProviderDtos.CreateModelBindingRequest;
 import com.tioka.model.api.dto.ProviderDtos.CreateLogicalModelRequest;
 import com.tioka.model.api.dto.ProviderDtos.CreateProviderRequest;
 import com.tioka.model.api.dto.ProviderDtos.CreateRoutingPlanRequest;
@@ -172,7 +172,7 @@ class PublishValidatorIT {
     private String publishPlan(String tag) {
         var provider = models.createProvider(new CreateProviderRequest(tag + "-p", "mock://x", "k"));
         String lm = models.createLogicalModel(new CreateLogicalModelRequest(tag + "-m", "tool"));
-        String binding = models.createBinding(new CreateBindingRequest(lm, provider.id(), "gpt"));
+        String binding = models.createModelBinding(new CreateModelBindingRequest(lm, provider.id(), "gpt"));
         String planId = models.createPlan(new CreateRoutingPlanRequest(tag + "-rp", "FIXED", binding)).id();
         models.publish(planId);
         return planId;
@@ -198,7 +198,7 @@ class PublishValidatorIT {
 
     private static Principal adminPrincipal(TestFixtures.Actor a) {
         return new Principal(a.userId(), a.workspaceId(), PrincipalType.USER,
-                Set.of("tenant_admin", "workspace_admin"), Set.of("*"), "test");
+                Set.of("system_admin", "workspace_admin"), Set.of("*"), "test");
     }
 
     private static Principal builderPrincipal(TestFixtures.Actor a) {

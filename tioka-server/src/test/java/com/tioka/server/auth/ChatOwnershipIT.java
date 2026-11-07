@@ -44,7 +44,7 @@ class ChatOwnershipIT {
             c.setId(convId);
             c.setTitle("mine");
             c.setAgentVersionId("av_x");
-            c.setRuntimeSessionId(Ids.newId("thr"));
+            c.setRuntimeThreadId(Ids.newId("thr"));
             chats.insertConversation(c);
             assertNotNull(chats.findConversation(convId));
         });
@@ -70,7 +70,7 @@ class ChatOwnershipIT {
             c.setId(convId);
             c.setTitle("private");
             c.setAgentVersionId("av_x");
-            c.setRuntimeSessionId(Ids.newId("thr"));
+            c.setRuntimeThreadId(Ids.newId("thr"));
             chats.insertConversation(c);
         });
 

@@ -56,8 +56,8 @@
 | **AgentVersion** | 不可变发布快照（指令、绑定、策略 JSON） |
 | **AgentDraft** | 可编辑草稿 |
 | **AgentToolPolicy** | 工具允许列表/拒绝列表 |
-| **AgentMcpBinding** | serverId + toolAllowlist |
-| **AgentSkillBinding** | skillId + mode |
+| **McpBinding** | Spec `tools.mcp[]`：serverId + allowlist（权威见 [47-GL §1.3](../enterprise/47-GL-统一名词释义.md)） |
+| **SkillRef** | Spec `skills[]`：skillVersionId + mode |
 | **AgentRouteBinding** | planId + scene + isDefault |
 | **AgentSandboxPolicy** | 权限档与路径 |
 | **AgentTemplate** | 模板来源 |

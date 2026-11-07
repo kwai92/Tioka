@@ -70,7 +70,7 @@ class OidcLoginIT {
         registry.add("tioka.auth.oidc.providers.keycloak.groups-claim", () -> "groups");
         registry.add("tioka.auth.oidc.providers.keycloak.auto-provision", () -> "true");
         registry.add("tioka.auth.oidc.providers.keycloak.group-role-mappings[0].group", () -> "/tioka/admins");
-        registry.add("tioka.auth.oidc.providers.keycloak.group-role-mappings[0].tenant-role", () -> "tenant_admin");
+        registry.add("tioka.auth.oidc.providers.keycloak.group-role-mappings[0].system-role", () -> "system_admin");
         registry.add("tioka.auth.oidc.providers.keycloak.group-role-mappings[1].group", () -> "/tioka/sales");
         registry.add("tioka.auth.oidc.providers.keycloak.group-role-mappings[1].workspace", () -> "ws_sales");
         registry.add("tioka.auth.oidc.providers.keycloak.group-role-mappings[1].role", () -> "member");
@@ -111,7 +111,7 @@ class OidcLoginIT {
         assertNotNull(userId);
         List<String> roles = jdbc.queryForList(
                 "SELECT role_code FROM sys_user_role WHERE user_id = ?", String.class, String.valueOf(userId));
-        assertTrue(roles.contains("tenant_admin"), "roles=" + roles);
+        assertTrue(roles.contains("system_admin"), "roles=" + roles);
 
         removeUserFromGroup("alice", "/tioka/admins");
         Thread.sleep(500);
@@ -121,7 +121,7 @@ class OidcLoginIT {
         assertTrue(token2.startsWith("tka_"), token2);
         List<String> after = jdbc.queryForList(
                 "SELECT role_code FROM sys_user_role WHERE user_id = ?", String.class, String.valueOf(userId));
-        assertFalse(after.contains("tenant_admin"), "after=" + after);
+        assertFalse(after.contains("system_admin"), "after=" + after);
 
         // 恢复组，避免影响同 JVM 其他 IT
         addUserToGroup("alice", "/tioka/admins");

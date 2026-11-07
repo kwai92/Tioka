@@ -1,6 +1,6 @@
 package com.tioka.system.infrastructure;
 
-import com.tioka.system.infrastructure.dataobject.SysMemberDO;
+import com.tioka.system.infrastructure.persistence.SysMemberDO;
 import com.tioka.system.infrastructure.mapper.SysMemberMapper;
 import org.springframework.stereotype.Repository;
 
@@ -14,8 +14,8 @@ public class SysMemberRepository {
         this.mapper = mapper;
     }
 
-    public boolean existsEnabledTenantAdmin() {
-        return mapper.existsEnabledTenantAdmin();
+    public boolean existsEnabledSystemAdmin() {
+        return mapper.existsEnabledSystemAdmin();
     }
 
     public void advisoryLockBootstrap() {

@@ -113,8 +113,8 @@ public class OidcProperties {
 
     public static class GroupRoleMapping {
         private String group;
-        /** 系统级角色（写入 {@code sys_user_role}），如 {@code tenant_admin}。 */
-        private String tenantRole;
+        /** 系统级角色（写入 {@code sys_user_role}），如 {@code system_admin}。 */
+        private String systemRole;
         private String workspace;
         private String role;
 
@@ -126,12 +126,12 @@ public class OidcProperties {
             this.group = group;
         }
 
-        public String getTenantRole() {
-            return tenantRole;
+        public String getSystemRole() {
+            return systemRole;
         }
 
-        public void setTenantRole(String tenantRole) {
-            this.tenantRole = tenantRole;
+        public void setSystemRole(String systemRole) {
+            this.systemRole = systemRole;
         }
 
         public String getWorkspace() {

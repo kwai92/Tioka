@@ -2,6 +2,8 @@ package com.tioka.flow.api.mq;
 
 /**
  * MQ Topic/Tag 常量（禁止在 biz 内硬编码字符串）。
+ *
+ * <p>{@link #TAG_PUBLICATION_CHANGED} 中的 publication = {@code FlowPublication}（47-GL §1.6）。
  */
 public final class FlowMqTopics {
 
@@ -11,6 +13,7 @@ public final class FlowMqTopics {
     public static final String TAG_VERSION_PUBLISHED = "version.published";
     public static final String TAG_RUN_STARTED = "run.started";
     public static final String TAG_RUN_COMPLETED = "run.completed";
+    /** FlowPublication 通道变更（≠ AgentVersion）。 */
     public static final String TAG_PUBLICATION_CHANGED = "publication.changed";
 
     private FlowMqTopics() {

@@ -2,11 +2,11 @@ package com.tioka.flow.infrastructure;
 
 import com.tioka.flow.infrastructure.mapper.FlowDraftMapper;
 import com.tioka.flow.infrastructure.mapper.FlowRunMapper;
-import com.tioka.flow.infrastructure.mapper.FlowToolPubMapper;
+import com.tioka.flow.infrastructure.mapper.FlowPublicationMapper;
 import com.tioka.flow.infrastructure.mapper.FlowVersionMapper;
 import com.tioka.flow.infrastructure.persistence.FlowDraftDO;
 import com.tioka.flow.infrastructure.persistence.FlowRunDO;
-import com.tioka.flow.infrastructure.persistence.FlowToolPubDO;
+import com.tioka.flow.infrastructure.persistence.FlowPublicationDO;
 import com.tioka.flow.infrastructure.persistence.FlowVersionDO;
 import org.springframework.stereotype.Repository;
 
@@ -17,10 +17,10 @@ public class FlowRepository {
     private final FlowDraftMapper drafts;
     private final FlowVersionMapper versions;
     private final FlowRunMapper runs;
-    private final FlowToolPubMapper pubs;
+    private final FlowPublicationMapper pubs;
 
     public FlowRepository(FlowDraftMapper drafts, FlowVersionMapper versions,
-                          FlowRunMapper runs, FlowToolPubMapper pubs) {
+                          FlowRunMapper runs, FlowPublicationMapper pubs) {
         this.drafts = drafts;
         this.versions = versions;
         this.runs = runs;
@@ -33,9 +33,9 @@ public class FlowRepository {
     public FlowVersionDO findVersion(String id) { return versions.selectById(id); }
     public void insertRun(FlowRunDO row) { runs.insert(row); }
     public void upsertToolPub(String toolName, String versionId) {
-        FlowToolPubDO row = pubs.selectById(toolName);
+        FlowPublicationDO row = pubs.selectById(toolName);
         if (row == null) {
-            row = new FlowToolPubDO();
+            row = new FlowPublicationDO();
             row.setToolName(toolName);
             row.setVersionId(versionId);
             pubs.insert(row);
@@ -44,6 +44,6 @@ public class FlowRepository {
             pubs.updateById(row);
         }
     }
-    public List<FlowToolPubDO> listToolPubs() { return pubs.selectList(null); }
-    public FlowToolPubDO findToolPub(String toolName) { return pubs.selectById(toolName); }
+    public List<FlowPublicationDO> listToolPubs() { return pubs.selectList(null); }
+    public FlowPublicationDO findToolPub(String toolName) { return pubs.selectById(toolName); }
 }

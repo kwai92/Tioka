@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tioka.model.infrastructure.mapper.ModelRoutingPlanLockMapper">
+
+    <select id="selectForShare" resultType="ModelRoutingPlanDO">
+        <![CDATA[
+            SELECT id, name, type, primary_binding_id AS primaryBindingId,
+                   fallback_binding_id AS fallbackBindingId, hard_binding_id AS hardBindingId,
+                   published, snapshot_hash AS snapshotHash, create_at AS createAt, create_by AS createBy
+            FROM model_routing_plan
+            WHERE id = #{id}
+            FOR SHARE
+            
+]]>
+    </select>
+
+</mapper>

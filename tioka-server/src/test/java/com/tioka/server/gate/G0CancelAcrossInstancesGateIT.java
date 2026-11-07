@@ -3,11 +3,11 @@ package com.tioka.server.gate;
 import com.tioka.framework.id.Ids;
 import com.tioka.framework.security.SystemPrincipals;
 import com.tioka.framework.security.TiokaAuthentication;
-import com.tioka.runtime.infrastructure.RuntimeSessionRepository;
-import com.tioka.runtime.infrastructure.persistence.RuntimeSessionDO;
+import com.tioka.runtime.infrastructure.RuntimeThreadRepository;
+import com.tioka.runtime.infrastructure.persistence.RuntimeThreadDO;
 import com.tioka.runtime.kernel.application.TurnSignalService;
 import com.tioka.runtime.kernel.infrastructure.TurnRepository;
-import com.tioka.runtime.kernel.infrastructure.persistence.RuntimeTurnDO;
+import com.tioka.runtime.infrastructure.persistence.RuntimeTurnDO;
 import com.tioka.runtime.kernel.infrastructure.redis.SignalBus;
 import com.tioka.server.gate.support.DualInstance;
 import org.junit.jupiter.api.Tag;
@@ -41,14 +41,14 @@ class G0CancelAcrossInstancesGateIT {
             ConfigurableApplicationContext b = di.b();
             SecurityContextHolder.getContext().setAuthentication(new TiokaAuthentication(SystemPrincipals.system()));
             try {
-                RuntimeSessionRepository sessions = a.getBean(RuntimeSessionRepository.class);
+                RuntimeThreadRepository sessions = a.getBean(RuntimeThreadRepository.class);
                 TurnRepository turns = a.getBean(TurnRepository.class);
                 TurnSignalService signalsB = b.getBean(TurnSignalService.class);
                 SignalBus busA = a.getBean(SignalBus.class);
                 StringRedisTemplate redis = a.getBean(StringRedisTemplate.class);
 
                 String threadId = Ids.newId("thr");
-                RuntimeSessionDO s = new RuntimeSessionDO();
+                RuntimeThreadDO s = new RuntimeThreadDO();
                 s.setId(threadId);
                 s.setStatus("OPEN");
                 s.setAgentVersionId("agent_v1");
@@ -103,7 +103,7 @@ class G0CancelAcrossInstancesGateIT {
     private static RuntimeTurnDO newTurn(TurnRepository turns, String threadId, String clientMsgId) {
         RuntimeTurnDO t = new RuntimeTurnDO();
         t.setId(Ids.newId("turn"));
-        t.setSessionId(threadId);
+        t.setThreadId(threadId);
         t.setSeq(turns.nextSeq(threadId));
         t.setStatus("QUEUED");
         t.setOrigin("chat");

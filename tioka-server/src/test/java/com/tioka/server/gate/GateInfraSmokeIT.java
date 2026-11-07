@@ -5,10 +5,10 @@ import com.tioka.framework.security.Principal;
 import com.tioka.framework.security.PrincipalHolder;
 import com.tioka.framework.security.PrincipalType;
 import com.tioka.runtime.api.kernel.TurnStatus;
-import com.tioka.runtime.infrastructure.RuntimeSessionRepository;
-import com.tioka.runtime.infrastructure.persistence.RuntimeSessionDO;
+import com.tioka.runtime.infrastructure.RuntimeThreadRepository;
+import com.tioka.runtime.infrastructure.persistence.RuntimeThreadDO;
 import com.tioka.runtime.kernel.infrastructure.TurnRepository;
-import com.tioka.runtime.kernel.infrastructure.persistence.RuntimeTurnDO;
+import com.tioka.runtime.infrastructure.persistence.RuntimeTurnDO;
 import com.tioka.server.gate.support.GateCluster;
 import com.tioka.server.gate.support.KeycloakGateSupport;
 import com.tioka.server.gate.support.KeycloakLogin;
@@ -116,14 +116,14 @@ class GateInfraSmokeIT {
     private static String plantRunningLease(ConfigurableApplicationContext ctx, String workerId) {
         PrincipalHolder principals = ctx.getBean(PrincipalHolder.class);
         TurnRepository turns = ctx.getBean(TurnRepository.class);
-        RuntimeSessionRepository sessions = ctx.getBean(RuntimeSessionRepository.class);
+        RuntimeThreadRepository sessions = ctx.getBean(RuntimeThreadRepository.class);
         JdbcTemplate jdbc = ctx.getBean(JdbcTemplate.class);
 
         String threadId = Ids.newId("thr");
         String turnId = Ids.newId("turn");
         principals.runAs(new Principal("10", "ws_gate", PrincipalType.USER,
                 Set.of("member"), Set.of("*"), "test"), () -> {
-            RuntimeSessionDO s = new RuntimeSessionDO();
+            RuntimeThreadDO s = new RuntimeThreadDO();
             s.setId(threadId);
             s.setStatus("OPEN");
             s.setAgentVersionId("av_gate");
@@ -136,7 +136,7 @@ class GateInfraSmokeIT {
 
             RuntimeTurnDO t = new RuntimeTurnDO();
             t.setId(turnId);
-            t.setSessionId(threadId);
+            t.setThreadId(threadId);
             t.setSeq(1);
             t.setStatus(TurnStatus.RUNNING.name());
             t.setOrigin("chat");

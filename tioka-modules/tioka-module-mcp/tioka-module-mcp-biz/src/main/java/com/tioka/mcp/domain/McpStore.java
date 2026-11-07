@@ -10,19 +10,15 @@ import org.springframework.stereotype.Repository;
 import com.tioka.framework.error.BizException;
 import com.tioka.framework.error.ErrorCode;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.ConcurrentHashMap;
 
 @Repository
 public class McpStore {
     private final McpRepository repo;
     private final ObjectMapper mapper;
-    /** V125 已删 mcp_grant；内存残留仅兼容过渡调用，新路径走 AgentSpec.tools.mcp。 */
-    private final ConcurrentHashMap<String, Grant> memoryGrants = new ConcurrentHashMap<>();
 
     public McpStore(McpRepository repo, ObjectMapper mapper) {
         this.mapper = mapper;
@@ -104,18 +100,6 @@ public class McpStore {
                 .toList();
     }
 
-    public void putGrant(Grant g) {
-        memoryGrants.put(g.id(), g);
-    }
-
-    public List<Grant> grants() {
-        return new ArrayList<>(memoryGrants.values());
-    }
-
-    public Optional<Grant> getGrant(String id) {
-        return Optional.ofNullable(memoryGrants.get(id));
-    }
-
     private String toJson(Map<String, Object> map) {
         try {
             return mapper.writeValueAsString(map == null ? Map.of() : map);
@@ -159,5 +143,4 @@ public class McpStore {
         }
     }
 
-    public record Grant(String id, String agentId, String serverId, List<String> allowlist) {}
 }

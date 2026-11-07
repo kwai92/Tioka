@@ -202,7 +202,7 @@ public final class GateCluster implements AutoCloseable {
             m.put("tioka.auth.oidc.providers.keycloak.groups-claim", "groups");
             m.put("tioka.auth.oidc.providers.keycloak.auto-provision", true);
             m.put("tioka.auth.oidc.providers.keycloak.group-role-mappings[0].group", "/tioka/admins");
-            m.put("tioka.auth.oidc.providers.keycloak.group-role-mappings[0].tenant-role", "tenant_admin");
+            m.put("tioka.auth.oidc.providers.keycloak.group-role-mappings[0].system-role", "system_admin");
             m.put("tioka.auth.oidc.providers.keycloak.group-role-mappings[1].group", "/tioka/sales");
             m.put("tioka.auth.oidc.providers.keycloak.group-role-mappings[1].workspace", "ws_sales");
             m.put("tioka.auth.oidc.providers.keycloak.group-role-mappings[1].role", "member");

@@ -8,7 +8,7 @@ import com.tioka.framework.id.Ids;
 import com.tioka.framework.security.Principal;
 import com.tioka.framework.security.PrincipalHolder;
 import com.tioka.framework.security.PrincipalType;
-import com.tioka.model.api.dto.ProviderDtos.CreateBindingRequest;
+import com.tioka.model.api.dto.ProviderDtos.CreateModelBindingRequest;
 import com.tioka.model.api.dto.ProviderDtos.CreateLogicalModelRequest;
 import com.tioka.model.api.dto.ProviderDtos.CreateProviderRequest;
 import com.tioka.model.api.dto.ProviderDtos.CreateRoutingPlanRequest;
@@ -50,7 +50,7 @@ class AgentPublishTxIT {
         principals.runAs(user("1", ws), () -> {
             var provider = models.createProvider(new CreateProviderRequest("p", "mock://x", "k"));
             String lm = models.createLogicalModel(new CreateLogicalModelRequest("m", "tool"));
-            String binding = models.createBinding(new CreateBindingRequest(lm, provider.id(), "gpt"));
+            String binding = models.createModelBinding(new CreateModelBindingRequest(lm, provider.id(), "gpt"));
             String planId = models.createPlan(new CreateRoutingPlanRequest("r", "FIXED", binding)).id();
             models.publish(planId);
 

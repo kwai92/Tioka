@@ -19,13 +19,13 @@ import com.tioka.runtime.kernel.domain.LeaseLost;
 import com.tioka.runtime.kernel.domain.LoopContext;
 import com.tioka.runtime.kernel.domain.LoopPorts;
 import com.tioka.runtime.kernel.domain.LoopResult;
-import com.tioka.runtime.infrastructure.RuntimeSessionRepository;
-import com.tioka.runtime.infrastructure.persistence.RuntimeSessionDO;
+import com.tioka.runtime.infrastructure.RuntimeThreadRepository;
+import com.tioka.runtime.infrastructure.persistence.RuntimeThreadDO;
 import com.tioka.runtime.kernel.events.EventStream;
 import com.tioka.runtime.kernel.events.RuntimeEventFactory;
 import com.tioka.runtime.kernel.infrastructure.TurnRepository;
-import com.tioka.runtime.kernel.infrastructure.persistence.RuntimeTurnDO;
-import com.tioka.runtime.kernel.infrastructure.redis.SessionLock;
+import com.tioka.runtime.infrastructure.persistence.RuntimeTurnDO;
+import com.tioka.runtime.kernel.infrastructure.redis.ThreadLock;
 import com.tioka.runtime.kernel.infrastructure.redis.SignalBus;
 import com.tioka.runtime.api.event.TurnCompletedEvent;
 import com.tioka.runtime.kernel.infrastructure.redis.TurnDispatchQueue;
@@ -53,8 +53,8 @@ public class TurnRunner {
     private static final Logger log = LoggerFactory.getLogger(TurnRunner.class);
 
     private final TurnRepository turns;
-    private final RuntimeSessionRepository sessions;
-    private final SessionLock sessionLock;
+    private final RuntimeThreadRepository threads;
+    private final ThreadLock threadLock;
     private final AgentLoop agentLoop;
     private final PrincipalHolder principals;
     private final PrincipalLoaderApi principalLoader;
@@ -72,8 +72,8 @@ public class TurnRunner {
     private final ApplicationEventPublisher appEvents;
 
     public TurnRunner(TurnRepository turns,
-                      RuntimeSessionRepository sessions,
-                      SessionLock sessionLock,
+                      RuntimeThreadRepository threads,
+                      ThreadLock threadLock,
                       AgentLoop agentLoop,
                       PrincipalHolder principals,
                       PrincipalLoaderApi principalLoader,
@@ -90,8 +90,8 @@ public class TurnRunner {
                       QuotaGuard quota,
                       ApplicationEventPublisher appEvents) {
         this.turns = turns;
-        this.sessions = sessions;
-        this.sessionLock = sessionLock;
+        this.threads = threads;
+        this.threadLock = threadLock;
         this.agentLoop = agentLoop;
         this.principals = principals;
         this.principalLoader = principalLoader;
@@ -114,12 +114,12 @@ public class TurnRunner {
         if (turn == null) {
             return;
         }
-        String threadId = turn.getSessionId();
-        Optional<SessionLock.Handle> lockOpt = sessionLock.tryAcquire(threadId, turnId);
+        String threadId = turn.getThreadId();
+        Optional<ThreadLock.Handle> lockOpt = threadLock.tryAcquire(threadId, turnId);
         if (lockOpt.isEmpty()) {
             return;
         }
-        SessionLock.Handle lock = lockOpt.get();
+        ThreadLock.Handle lock = lockOpt.get();
         AtomicBoolean lost = new AtomicBoolean(false);
         ScheduledFuture<?> renewFuture = null;
         long leaseVersion = -1;
@@ -165,7 +165,7 @@ public class TurnRunner {
 
             signalBus.register(turnId);
             try {
-                // 必须先 resolveRunAs：sessions.find 走行级过滤，无 Principal 会炸
+                // 必须先 resolveRunAs：threads.find 走行级过滤，无 Principal 会炸
                 // R-1：runAs 无效时立刻 FAILED(RUN_AS_INVALID)，释放配额，不续跑
                 Principal runAs;
                 try {
@@ -178,14 +178,14 @@ public class TurnRunner {
                 }
                 long finalLv = lv;
                 LoopResult result = principals.runAs(runAs, () -> {
-                    RuntimeSessionDO session = sessions.find(threadId);
+                    RuntimeThreadDO thread = threads.find(threadId);
                     int maxSteps = props.getLoop().getMaxSteps();
                     // RT-06：崩溃续跑从已累计的 step_count 继续（中断前 model 步已 increment）
                     int startStep = turn.getStepCount() == null ? 0 : turn.getStepCount();
                     String approvalPolicy = parseApprovalPolicy(turn.getOptionsJson());
                     List<String> toolAllowList = parseToolAllowList(turn.getOptionsJson());
                     Map<String, Object> agentToolConfig = agentToolConfigOf(
-                            session == null ? null : session.getAgentVersionId());
+                            thread == null ? null : thread.getAgentVersionId());
                     LoopContext ctx = new LoopContext(threadId, turnId, finalLv,
                             maxSteps, props.getLoop().getRepeatCallLimit(), startStep,
                             c -> {
@@ -194,12 +194,12 @@ public class TurnRunner {
                                 }
                                 signalPort.checkpoint(c);
                             },
-                            session == null ? null : session.getAgentVersionId(),
-                            session == null ? null : session.getRoutingPlanId(),
-                            session == null ? null : session.getWorkspaceId(),
+                            thread == null ? null : thread.getAgentVersionId(),
+                            thread == null ? null : thread.getRoutingPlanId(),
+                            thread == null ? null : thread.getWorkspaceId(),
                             runAs.userId(),
                             approvalPolicy,
-                            session == null ? null : session.getOrigin(),
+                            thread == null ? null : thread.getOrigin(),
                             toolAllowList,
                             agentToolConfig);
                     return agentLoop.run(ctx);
@@ -391,7 +391,7 @@ public class TurnRunner {
         }
     }
 
-    /** CON-01：从 Agent 快照抽出 mcpGrants 放入 ToolCallContext.agentToolConfig。 */
+    /** CON-01：从 Agent 快照抽出 McpBinding 列表，写入 agentToolConfig.mcp（47-GL）。 */
     private Map<String, Object> agentToolConfigOf(String agentVersionId) {
         if (agentVersionId == null || agentVersionId.isBlank()) {
             return Map.of();
@@ -403,16 +403,16 @@ public class TurnRunner {
         try {
             AgentSpec.ToolSet tools = snapshots.get(agentVersionId).spec().tools();
             if (tools == null || tools.mcp() == null || tools.mcp().isEmpty()) {
-                return Map.of("mcpGrants", List.of());
+                return Map.of("mcp", List.of());
             }
-            List<Map<String, Object>> grants = new ArrayList<>();
+            List<Map<String, Object>> bindings = new ArrayList<>();
             for (AgentSpec.ToolSet.McpBinding b : tools.mcp()) {
                 Map<String, Object> g = new LinkedHashMap<>();
                 g.put("serverId", b.serverId());
                 g.put("allowlist", b.allowlist() == null ? List.of() : b.allowlist());
-                grants.add(g);
+                bindings.add(g);
             }
-            return Map.of("mcpGrants", grants);
+            return Map.of("mcp", bindings);
         } catch (RuntimeException e) {
             log.warn("load agentToolConfig failed version={}: {}", agentVersionId, e.toString());
             return Map.of();

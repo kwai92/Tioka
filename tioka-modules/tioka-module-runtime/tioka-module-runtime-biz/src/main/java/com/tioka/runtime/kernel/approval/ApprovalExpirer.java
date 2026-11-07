@@ -3,7 +3,7 @@ package com.tioka.runtime.kernel.approval;
 import com.tioka.framework.security.PrincipalHolder;
 import com.tioka.framework.security.SystemPrincipals;
 import com.tioka.runtime.kernel.infrastructure.ApprovalRepository;
-import com.tioka.runtime.kernel.infrastructure.persistence.RuntimeApprovalDO;
+import com.tioka.runtime.infrastructure.persistence.RuntimeApprovalDO;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;

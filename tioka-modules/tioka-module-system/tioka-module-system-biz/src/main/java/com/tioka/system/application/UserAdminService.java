@@ -48,7 +48,7 @@ public class UserAdminService {
 
     /** HCI-03：用户列表搜索。 */
     public Page<UserView> list(String q, int page, int size) {
-        requireTenantAdmin();
+        requireSystemAdmin();
         int p = Math.max(page, 1);
         int s = Math.min(Math.max(size, 1), 100);
         int offset = (p - 1) * s;
@@ -62,7 +62,7 @@ public class UserAdminService {
 
     @Transactional
     public CreatedUser create(String username, String displayName, String password) {
-        requireTenantAdmin();
+        requireSystemAdmin();
         if (username == null || username.isBlank()) {
             throw new BizException(ErrorCode.BAD_REQUEST, "username 必填");
         }
@@ -90,7 +90,7 @@ public class UserAdminService {
     /** FND-04e：禁用用户 → afterCommit 发 {@link UserDisabledEvent}。 */
     @Transactional
     public void disable(String userId) {
-        requireTenantAdmin();
+        requireSystemAdmin();
         AuthUserDO row = requireUser(userId);
         if (!Boolean.TRUE.equals(row.getEnabled())) {
             return;
@@ -99,7 +99,7 @@ public class UserAdminService {
         users.update(row);
         String operatorId = principals.current().userId();
         Instant at = Instant.now();
-        audit.record(new AuditEvent(null, at, null, principals.current().workspaceId(),
+        audit.record(new AuditEvent(null, at, principals.current().workspaceId(),
                 "user", operatorId, "user.disable", "user", userId,
                 AuditOutcome.SUCCESS, null, null, null, null, Map.of()));
         AfterCommitEvents.publish(events, new UserDisabledEvent(userId, operatorId, at));
@@ -108,7 +108,7 @@ public class UserAdminService {
     /** FND-04e：启用用户 → afterCommit 发 {@link UserEnabledEvent}。 */
     @Transactional
     public void enable(String userId) {
-        requireTenantAdmin();
+        requireSystemAdmin();
         AuthUserDO row = requireUser(userId);
         if (Boolean.TRUE.equals(row.getEnabled())) {
             return;
@@ -117,7 +117,7 @@ public class UserAdminService {
         users.update(row);
         String operatorId = principals.current().userId();
         Instant at = Instant.now();
-        audit.record(new AuditEvent(null, at, null, principals.current().workspaceId(),
+        audit.record(new AuditEvent(null, at, principals.current().workspaceId(),
                 "user", operatorId, "user.enable", "user", userId,
                 AuditOutcome.SUCCESS, null, null, null, null, Map.of()));
         AfterCommitEvents.publish(events, new UserEnabledEvent(userId, operatorId, at));
@@ -126,7 +126,7 @@ public class UserAdminService {
     /** HCI-03：重置密码，明文仅返回一次。 */
     @Transactional
     public ResetPasswordResult resetPassword(String userId) {
-        requireTenantAdmin();
+        requireSystemAdmin();
         AuthUserDO row = requireUser(userId);
         String raw = randomPassword(16);
         row.setPasswordHash(passwords.hash(raw));
@@ -134,7 +134,7 @@ public class UserAdminService {
         users.update(row);
         String operatorId = principals.current().userId();
         Instant at = Instant.now();
-        audit.record(new AuditEvent(null, at, null, principals.current().workspaceId(),
+        audit.record(new AuditEvent(null, at, principals.current().workspaceId(),
                 "user", operatorId, "user.reset_password", "user", userId,
                 AuditOutcome.SUCCESS, null, null, null, null, Map.of()));
         return new ResetPasswordResult(raw);
@@ -164,7 +164,7 @@ public class UserAdminService {
         return row;
     }
 
-    private void requireTenantAdmin() {
+    private void requireSystemAdmin() {
         if (!principals.current().hasPermission(com.tioka.framework.security.Permissions.TENANT_ADMIN)
                 && !principals.current().hasPermission("*")) {
             throw new BizException(ErrorCode.FORBIDDEN);

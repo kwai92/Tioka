@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tioka.system.infrastructure.mapper.AuditEventMapper">
+
+    <insert id="insert">
+        <![CDATA[
+            INSERT INTO audit_event
+              (id, ts, workspace_id, actor_type, actor_id, action,
+               resource_type, resource_id, outcome, reason, trace_id, request_id, client_ip, details_json, forwarded)
+            VALUES
+              (#{id}, #{ts}, #{workspaceId}, #{actorType}, #{actorId}, #{action},
+               #{resourceType}, #{resourceId}, #{outcome}, #{reason}, #{traceId}, #{requestId}, #{clientIp}, #{detailsJson}, FALSE)
+            
+]]>
+    </insert>
+
+    <select id="query" resultType="java.util.HashMap">
+        <![CDATA[
+            SELECT id, ts, workspace_id AS workspaceId, actor_type AS actorType, actor_id AS actorId,
+                   action, resource_type AS resourceType, resource_id AS resourceId,
+                   outcome, reason, trace_id AS traceId, request_id AS requestId, client_ip AS clientIp,
+                   details_json AS detailsJson, forwarded
+            FROM audit_event
+            WHERE (#{workspaceId}::varchar IS NULL OR workspace_id = #{workspaceId})
+              AND (#{actorId}::varchar IS NULL OR actor_id = #{actorId})
+              AND (#{action}::varchar IS NULL OR action = #{action})
+              AND (#{resourceType}::varchar IS NULL OR resource_type = #{resourceType})
+              AND (#{resourceId}::varchar IS NULL OR resource_id = #{resourceId})
+              AND (#{outcome}::varchar IS NULL OR outcome = #{outcome})
+              AND (#{from}::timestamptz IS NULL OR ts >= #{from})
+              AND (#{to}::timestamptz IS NULL OR ts <= #{to})
+            ORDER BY ts DESC
+            LIMIT #{limit} OFFSET #{offset}
+            
+]]>
+    </select>
+
+    <select id="listUnforwarded" resultType="java.util.HashMap">
+        <![CDATA[
+            SELECT id, ts, workspace_id AS workspaceId, actor_type AS actorType, actor_id AS actorId,
+                   action, resource_type AS resourceType, resource_id AS resourceId,
+                   outcome, reason, trace_id AS traceId, request_id AS requestId, client_ip AS clientIp,
+                   details_json AS detailsJson, forwarded
+            FROM audit_event
+            WHERE forwarded = FALSE
+            ORDER BY ts ASC
+            LIMIT #{limit}
+            
+]]>
+    </select>
+
+    <update id="markForwardedOne">
+        <![CDATA[
+UPDATE audit_event SET forwarded = TRUE WHERE id = #{id}
+]]>
+    </update>
+
+    <delete id="deleteExpiredForwarded">
+        <![CDATA[
+            DELETE FROM audit_event
+            WHERE forwarded = TRUE AND ts < #{before}
+            
+]]>
+    </delete>
+
+</mapper>

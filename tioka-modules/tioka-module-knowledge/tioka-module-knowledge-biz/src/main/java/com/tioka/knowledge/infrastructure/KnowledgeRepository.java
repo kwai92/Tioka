@@ -16,12 +16,12 @@ public class KnowledgeRepository {
     private final KbDocumentMapper documents;
     private final KbChunkMapper chunks;
     private final KbCitationMapper citations;
-    private final KbWikiMapper wikis;
+    private final WikiPageMapper wikis;
     private final KbDatasourceMapper datasources;
 
     public KnowledgeRepository(KbBaseMapper bases, KbBaseLockMapper baseLocks,
                                KbDocumentMapper documents, KbChunkMapper chunks,
-                               KbCitationMapper citations, KbWikiMapper wikis, KbDatasourceMapper datasources) {
+                               KbCitationMapper citations, WikiPageMapper wikis, KbDatasourceMapper datasources) {
         this.bases = bases;
         this.baseLocks = baseLocks;
         this.documents = documents;
@@ -61,9 +61,9 @@ public class KnowledgeRepository {
         return out;
     }
 
-    public void insertChunkWithVector(String id, String docId, String kbId, String workspaceId,
-                                      String text, int ordinal, String vectorLiteral) {
-        chunks.insertWithVector(id, docId, kbId, workspaceId, text, ordinal, vectorLiteral);
+    public void insertChunkWithVector(ChunkInsertCommand cmd) {
+        chunks.insertWithVector(cmd.id(), cmd.docId(), cmd.kbId(), cmd.workspaceId(),
+                cmd.text(), cmd.ordinal(), cmd.vectorLiteral());
     }
 
     public void updateChunkVector(String id, String vectorLiteral) {
@@ -87,7 +87,7 @@ public class KnowledgeRepository {
         return chunks.searchVisible(params);
     }
 
-    public void insertWiki(KbWikiDO row) { wikis.insert(row); }
+    public void insertWiki(WikiPageDO row) { wikis.insert(row); }
     public void insertDatasource(KbDatasourceDO row) { datasources.insert(row); }
     public List<KbDatasourceDO> listDatasources(String kbId) {
         return datasources.selectList(Wrappers.<KbDatasourceDO>lambdaQuery().eq(KbDatasourceDO::getKbId, kbId));

@@ -4,13 +4,13 @@ import com.tioka.framework.error.BizException;
 import com.tioka.framework.error.ErrorCode;
 import com.tioka.framework.security.Principal;
 import com.tioka.framework.security.PrincipalType;
-import com.tioka.model.api.dto.ProviderDtos.CreateBindingRequest;
+import com.tioka.model.api.dto.ProviderDtos.CreateModelBindingRequest;
 import com.tioka.model.api.dto.ProviderDtos.CreateLogicalModelRequest;
 import com.tioka.model.api.dto.ProviderDtos.CreateProviderRequest;
 import com.tioka.model.api.dto.ProviderDtos.CreateRoutingPlanRequest;
 import com.tioka.model.api.gateway.ModelCallContext;
 import com.tioka.model.api.gateway.ModelPurpose;
-import com.tioka.model.application.gateway.BindingResolver;
+import com.tioka.model.application.gateway.ModelBindingResolver;
 import com.tioka.model.domain.ModelEntities;
 import com.tioka.model.infrastructure.ModelDefaultPlanRepository;
 import com.tioka.model.infrastructure.ModelEntitiesRepository;
@@ -41,17 +41,17 @@ class ModelRouterFreezeTest {
         ModelAdminService admin = newAdmin(store, entities);
         var provider = admin.createProvider(new CreateProviderRequest("p", "mock://openai", "k"));
         String lm = admin.createLogicalModel(new CreateLogicalModelRequest("m", "tool"));
-        String b1 = admin.createBinding(new CreateBindingRequest(lm, provider.id(), "m1"));
+        String b1 = admin.createModelBinding(new CreateModelBindingRequest(lm, provider.id(), "m1"));
         String plan = admin.createPlan(new CreateRoutingPlanRequest("r", "FIXED", b1)).id();
         admin.publish(plan);
 
-        BindingResolver resolver = new BindingResolver(entities, mock(ModelDefaultPlanRepository.class), List.of());
+        ModelBindingResolver resolver = new ModelBindingResolver(entities, mock(ModelDefaultPlanRepository.class), List.of());
         Principal principal = new Principal("u1", "ws1", PrincipalType.USER,
                 Set.of("builder"), Set.of("*"), "password");
         ModelCallContext ctx = new ModelCallContext(principal, "sess1", "turn1", null, plan, ModelPurpose.CHAT);
 
-        BindingResolver.Resolution s1 = resolver.resolve(ctx);
-        BindingResolver.Resolution s2 = resolver.resolve(ctx);
+        ModelBindingResolver.Resolution s1 = resolver.resolve(ctx);
+        ModelBindingResolver.Resolution s2 = resolver.resolve(ctx);
         assertEquals(s1.bindingId(), s2.bindingId());
         assertEquals("frozen", s2.reason());
     }
@@ -63,8 +63,8 @@ class ModelRouterFreezeTest {
         ModelAdminService admin = newAdmin(store, entities);
         var provider = admin.createProvider(new CreateProviderRequest("p", "mock://openai", "k"));
         String lm = admin.createLogicalModel(new CreateLogicalModelRequest("m", "tool"));
-        String soft = admin.createBinding(new CreateBindingRequest(lm, provider.id(), "soft"));
-        String hard = admin.createBinding(new CreateBindingRequest(lm, provider.id(), "hard"));
+        String soft = admin.createModelBinding(new CreateModelBindingRequest(lm, provider.id(), "soft"));
+        String hard = admin.createModelBinding(new CreateModelBindingRequest(lm, provider.id(), "hard"));
         BizException ex = assertThrows(BizException.class,
                 () -> admin.createPlan(new CreateRoutingPlanRequest("r", "DIFFICULTY", soft, null, hard)));
         assertEquals(ErrorCode.NOT_IMPLEMENTED, ex.getErrorCode());
@@ -102,7 +102,7 @@ class ModelRouterFreezeTest {
         public void putBinding(ModelBindingDO row) { bindings.put(row.getId(), row); }
 
         @Override
-        public Optional<ModelBindingDO> getBinding(String id) { return Optional.ofNullable(bindings.get(id)); }
+        public Optional<ModelBindingDO> getModelBinding(String id) { return Optional.ofNullable(bindings.get(id)); }
 
         @Override
         public boolean hasBinding(String id) { return bindings.containsKey(id); }
@@ -123,40 +123,40 @@ class ModelRouterFreezeTest {
         public List<ModelRoutingPlanDO> plans() { return new ArrayList<>(plans.values()); }
 
         @Override
-        public Optional<String> getFreeze(String sessionId, String turnId) {
-            return Optional.ofNullable(freezes.get(sessionId + "|" + turnId));
+        public Optional<String> getFreeze(String threadId, String turnId) {
+            return Optional.ofNullable(freezes.get(threadId + "|" + turnId));
         }
 
         @Override
-        public String insertFreezeIfAbsent(String sessionId, String turnId, String bindingId, String reason) {
-            String key = sessionId + "|" + turnId;
+        public String insertFreezeIfAbsent(String threadId, String turnId, String bindingId, String reason) {
+            String key = threadId + "|" + turnId;
             freezes.putIfAbsent(key, bindingId);
             freezeReasons.putIfAbsent(key, reason);
             return freezes.get(key);
         }
 
         @Override
-        public void putFreeze(String sessionId, String turnId, String bindingId) {
-            freezes.put(sessionId + "|" + turnId, bindingId);
+        public void putFreeze(String threadId, String turnId, String bindingId) {
+            freezes.put(threadId + "|" + turnId, bindingId);
         }
 
         @Override
-        public void recordFailover(String sessionId, String turnId, String bindingId, String reason) {
-            String key = sessionId + "|" + turnId;
+        public void recordFailover(String threadId, String turnId, String bindingId, String reason) {
+            String key = threadId + "|" + turnId;
             freezes.put(key, bindingId);
             freezeReasons.put(key, reason);
         }
 
         @Override
-        public List<ModelTurnFreezeDO> listFreezes(String sessionId) {
+        public List<ModelTurnFreezeDO> listFreezes(String threadId) {
             List<ModelTurnFreezeDO> out = new ArrayList<>();
             for (Map.Entry<String, String> e : freezes.entrySet()) {
-                if (!e.getKey().startsWith(sessionId + "|")) {
+                if (!e.getKey().startsWith(threadId + "|")) {
                     continue;
                 }
-                String turnId = e.getKey().substring(sessionId.length() + 1);
+                String turnId = e.getKey().substring(threadId.length() + 1);
                 ModelTurnFreezeDO row = new ModelTurnFreezeDO();
-                row.setSessionId(sessionId);
+                row.setThreadId(threadId);
                 row.setTurnId(turnId);
                 row.setBindingId(e.getValue());
                 row.setReason(freezeReasons.get(e.getKey()));

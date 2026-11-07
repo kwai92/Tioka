@@ -26,12 +26,12 @@ import com.tioka.runtime.api.spi.ToolProvider;
 import com.tioka.runtime.application.ToolRegistry;
 import com.tioka.runtime.kernel.events.EventStream;
 import com.tioka.runtime.kernel.events.RuntimeEventFactory;
-import com.tioka.runtime.infrastructure.RuntimeSessionRepository;
-import com.tioka.runtime.infrastructure.persistence.RuntimeSessionDO;
+import com.tioka.runtime.infrastructure.RuntimeThreadRepository;
+import com.tioka.runtime.infrastructure.persistence.RuntimeThreadDO;
 import com.tioka.runtime.kernel.infrastructure.ApprovalRepository;
 import com.tioka.runtime.kernel.infrastructure.TurnRepository;
-import com.tioka.runtime.kernel.infrastructure.persistence.RuntimeApprovalDO;
-import com.tioka.runtime.kernel.infrastructure.persistence.RuntimeTurnDO;
+import com.tioka.runtime.infrastructure.persistence.RuntimeApprovalDO;
+import com.tioka.runtime.infrastructure.persistence.RuntimeTurnDO;
 import com.tioka.system.api.audit.AuditApi;
 import com.tioka.system.api.audit.AuditEvent;
 import com.tioka.system.api.audit.AuditOutcome;
@@ -63,7 +63,7 @@ public class ApprovalDecideService {
 
     private final ApprovalRepository approvals;
     private final TurnRepository turns;
-    private final RuntimeSessionRepository sessions;
+    private final RuntimeThreadRepository threads;
     private final PrincipalHolder principals;
     private final ToolRegistry tools;
     private final Map<String, ApprovalSubjectHandler> handlers;
@@ -75,7 +75,7 @@ public class ApprovalDecideService {
 
     public ApprovalDecideService(ApprovalRepository approvals,
                                  TurnRepository turns,
-                                 RuntimeSessionRepository sessions,
+                                 RuntimeThreadRepository threads,
                                  PrincipalHolder principals,
                                  ToolRegistry tools,
                                  List<ApprovalSubjectHandler> handlerList,
@@ -86,7 +86,7 @@ public class ApprovalDecideService {
                                  ObjectProvider<AgentSnapshotApi> agentSnapshots) {
         this.approvals = approvals;
         this.turns = turns;
-        this.sessions = sessions;
+        this.threads = threads;
         this.principals = principals;
         this.tools = tools;
         this.handlers = handlerList.stream()
@@ -190,13 +190,13 @@ public class ApprovalDecideService {
         @SuppressWarnings("unchecked")
         Map<String, Object> args = (Map<String, Object>) argsObj;
         String agentVersionId = turns.findById(a.getSubjectId())
-                .map(RuntimeTurnDO::getSessionId)
+                .map(RuntimeTurnDO::getThreadId)
                 .map(sid -> {
-                    RuntimeSessionDO s = sessions.find(sid);
+                    RuntimeThreadDO s = threads.find(sid);
                     return s == null ? null : s.getAgentVersionId();
                 })
                 .orElse("");
-        // ENG-06：必须带 agentToolConfig（mcpGrants），否则 MCP 工具查不到描述会误放行
+        // ENG-06：必须带 agentToolConfig.mcp（McpBinding），否则 MCP 工具查不到描述会误放行
         Map<String, Object> agentToolConfig = agentToolConfigOf(agentVersionId);
         ToolProvider.ToolDescriptor desc = tools.listAll(agentVersionId, agentToolConfig).stream()
                 .filter(d -> d.name().equals(a.getToolName()))
@@ -224,7 +224,7 @@ public class ApprovalDecideService {
         }
     }
 
-    /** 与 TurnRunner 一致：从 Agent 快照抽出 mcpGrants。 */
+    /** 与 TurnRunner 一致：从 Agent 快照抽出 McpBinding → agentToolConfig.mcp。 */
     private Map<String, Object> agentToolConfigOf(String agentVersionId) {
         if (agentVersionId == null || agentVersionId.isBlank()) {
             return Map.of();
@@ -236,16 +236,16 @@ public class ApprovalDecideService {
         try {
             AgentSpec.ToolSet toolSet = snapshots.get(agentVersionId).spec().tools();
             if (toolSet == null || toolSet.mcp() == null || toolSet.mcp().isEmpty()) {
-                return Map.of("mcpGrants", List.of());
+                return Map.of("mcp", List.of());
             }
-            List<Map<String, Object>> grants = new ArrayList<>();
+            List<Map<String, Object>> bindings = new ArrayList<>();
             for (AgentSpec.ToolSet.McpBinding b : toolSet.mcp()) {
                 Map<String, Object> g = new LinkedHashMap<>();
                 g.put("serverId", b.serverId());
                 g.put("allowlist", b.allowlist() == null ? List.of() : b.allowlist());
-                grants.add(g);
+                bindings.add(g);
             }
-            return Map.of("mcpGrants", grants);
+            return Map.of("mcp", bindings);
         } catch (RuntimeException e) {
             log.warn("load agentToolConfig for approval failed version={}: {}",
                     agentVersionId, e.toString());
@@ -274,7 +274,7 @@ public class ApprovalDecideService {
             if (requester != null && requester.equals(p.userId())) {
                 return;
             }
-            // tenant_admin / 有审批权限且是发起人空间成员也放行：若无法解析发起人则仅本人
+            // system_admin / 有审批权限且是发起人空间成员也放行：若无法解析发起人则仅本人
             if (requester == null) {
                 return;
             }
@@ -304,7 +304,7 @@ public class ApprovalDecideService {
         if (!ApprovalSubjectType.TURN.wire().equals(a.getSubjectType())) {
             return a.getSubjectId();
         }
-        return turns.findById(a.getSubjectId()).map(RuntimeTurnDO::getSessionId).orElse(a.getSubjectId());
+        return turns.findById(a.getSubjectId()).map(RuntimeTurnDO::getThreadId).orElse(a.getSubjectId());
     }
 
     private void auditDecide(Principal p, RuntimeApprovalDO a, ApprovalStatus status) {
@@ -312,7 +312,7 @@ public class ApprovalDecideService {
         if (api == null) {
             return;
         }
-        api.record(new AuditEvent(null, Instant.now(), null, a.getWorkspaceId(),
+        api.record(new AuditEvent(null, Instant.now(), a.getWorkspaceId(),
                 p.type().name().toLowerCase(Locale.ROOT), p.userId(), "approval.decide",
                 "runtime_approval", a.getId(), AuditOutcome.SUCCESS, status.name(), null, null, null,
                 Map.of("approved", status == ApprovalStatus.APPROVED)));

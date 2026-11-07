@@ -40,10 +40,10 @@
 
 ## 3–14. 结构摘要
 
-领域：Conversation、Message、Part、Card、Attachment、Preset、AgentBinding、MemoryItem、ShareLink、Artifact。  
-组件：conversation/message/card/agentbind/memory/share/artifact/bridge。  
-API：Conversation/Message/Card/Preset/Agent/Memory/Share/Artifact/Stream。  
-MQ：`tioka-chat` 覆盖会话消息卡片产物记忆。  
+领域权威：[47-GL § Chat](../enterprise/47-GL-统一名词释义.md) — Conversation、Message（产品→Item 投影）、Part、CardMessage、Memory stub / MemoryItem（ADR-050）。  
+组件：conversation/card/agentbind/memory/share/artifact/bridge。  
+API：Conversation / messages（Item 投影）/ Card / Cost。  
+MQ：`tioka-chat` 的 `conversation.*` / `message.*` 为**产品事件**（≠ Runtime `item.*`）。  
 
 | 波次 | 内容 |
 | --- | --- |

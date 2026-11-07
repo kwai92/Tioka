@@ -7,28 +7,28 @@ public final class ProviderDtos {
     public record CreateLogicalModelRequest(String name, String capabilityTags) {}
 
     /** FE-03 / V117：创建 binding；短构造兼容旧调用方。 */
-    public record CreateBindingRequest(
+    public record CreateModelBindingRequest(
             String logicalModelId, String providerId, String modelName,
             String kind, Integer embeddingDim,
             Integer contextWindow,
             Long inputPriceMicros, Long outputPriceMicros,
             Integer rpmLimit, Integer tpmLimit,
             Boolean enabled) {
-        public CreateBindingRequest(String logicalModelId, String providerId, String modelName) {
+        public CreateModelBindingRequest(String logicalModelId, String providerId, String modelName) {
             this(logicalModelId, providerId, modelName, null, null, null, null, null, null, null, null);
         }
-        public CreateBindingRequest(String logicalModelId, String providerId, String modelName,
+        public CreateModelBindingRequest(String logicalModelId, String providerId, String modelName,
                                     String kind, Integer embeddingDim) {
             this(logicalModelId, providerId, modelName, kind, embeddingDim, null, null, null, null, null, null);
         }
     }
 
-    public record UpdateBindingRequest(
+    public record UpdateModelBindingRequest(
             String kind, Integer embeddingDim, Integer contextWindow,
             Long inputPriceMicros, Long outputPriceMicros,
             Integer rpmLimit, Integer tpmLimit, Boolean enabled) {}
 
-    public record BindingView(
+    public record ModelBindingView(
             String id, String logicalModelId, String providerId, String modelName,
             String kind, Integer contextWindow, Integer embeddingDim,
             long inputPriceMicros, long outputPriceMicros,

@@ -3,7 +3,7 @@ package com.tioka.model.infrastructure.provider;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.tioka.system.api.spi.EgressGuard;
+import com.tioka.system.api.spi.EgressClient;
 import com.tioka.system.api.spi.SecretStore;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -12,7 +12,6 @@ import java.io.BufferedReader;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.URI;
-import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
@@ -29,20 +28,19 @@ import java.util.function.Consumer;
 @Component
 public class ProviderClient {
     private final SecretStore secretStore;
-    private final EgressGuard egressGuard;
+    private final EgressClient egress;
     private final ObjectMapper mapper;
-    private final HttpClient http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build();
     private final boolean mock;
     private final int mockEmbeddingDim;
 
     public ProviderClient(SecretStore secretStore,
-                          EgressGuard egressGuard,
+                          EgressClient egress,
                           @Value("${tioka.model.mock:true}") boolean mock,
                           @Value("${tioka.knowledge.embedding-dim:1024}") int mockEmbeddingDim,
                           ObjectMapper mapper) {
         this.mapper = mapper;
         this.secretStore = secretStore;
-        this.egressGuard = egressGuard;
+        this.egress = egress;
         this.mock = mock;
         this.mockEmbeddingDim = Math.max(1, mockEmbeddingDim);
     }
@@ -77,7 +75,6 @@ public class ProviderClient {
             }
             return out;
         }
-        egressGuard.assertAllowed(baseUrl);
         String apiKey = resolveApiKey(apiKeyRef);
         ObjectNode body = mapper.createObjectNode();
         body.put("model", model);
@@ -90,7 +87,7 @@ public class ProviderClient {
                 .header("Content-Type", "application/json")
                 .POST(HttpRequest.BodyPublishers.ofString(mapper.writeValueAsString(body)))
                 .build();
-        HttpResponse<String> resp = http.send(req, HttpResponse.BodyHandlers.ofString());
+        HttpResponse<String> resp = egress.send(req);
         if (resp.statusCode() >= 300) {
             throw toHttpException(resp.statusCode(), resp.body(), retryAfterHeader(resp));
         }
@@ -151,7 +148,6 @@ public class ProviderClient {
                                           List<Map<String, Object>> tools,
                                           boolean stream,
                                           Consumer<StreamDelta> onDelta) throws Exception {
-        egressGuard.assertAllowed(baseUrl);
         String apiKey = resolveApiKey(apiKeyRef);
 
         ObjectNode body = mapper.createObjectNode();
@@ -176,14 +172,14 @@ public class ProviderClient {
 
         try {
             if (!stream) {
-                HttpResponse<String> resp = http.send(req, HttpResponse.BodyHandlers.ofString());
+                HttpResponse<String> resp = egress.send(req);
                 if (resp.statusCode() >= 300) {
                     throw toHttpException(resp.statusCode(), resp.body(), retryAfterHeader(resp));
                 }
                 return parse(resp.body());
             }
 
-            HttpResponse<InputStream> resp = http.send(req, HttpResponse.BodyHandlers.ofInputStream());
+            HttpResponse<InputStream> resp = egress.sendStreaming(req);
             if (resp.statusCode() >= 300) {
                 byte[] raw = resp.body().readAllBytes();
                 String err = new String(raw, StandardCharsets.UTF_8);

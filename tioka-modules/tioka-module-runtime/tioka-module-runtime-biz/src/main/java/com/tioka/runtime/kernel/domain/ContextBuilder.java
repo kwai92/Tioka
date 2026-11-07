@@ -3,7 +3,7 @@ package com.tioka.runtime.kernel.domain;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tioka.runtime.api.kernel.ItemType;
-import com.tioka.runtime.kernel.infrastructure.persistence.RuntimeItemDO;
+import com.tioka.runtime.infrastructure.persistence.RuntimeItemDO;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;

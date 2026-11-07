@@ -4,7 +4,7 @@ import com.tioka.runtime.api.kernel.RuntimeApi;
 import com.tioka.runtime.api.kernel.TurnStatus;
 import com.tioka.runtime.kernel.application.TurnDispatcher;
 import com.tioka.runtime.kernel.infrastructure.TurnRepository;
-import com.tioka.runtime.kernel.infrastructure.persistence.RuntimeTurnDO;
+import com.tioka.runtime.infrastructure.persistence.RuntimeTurnDO;
 import com.tioka.server.gate.support.DualInstance;
 import com.tioka.server.gate.support.GateSeed;
 import org.junit.jupiter.api.Tag;
@@ -67,7 +67,7 @@ class DispatchIT {
             long deadline = System.currentTimeMillis() + 90_000;
             while (System.currentTimeMillis() < deadline) {
                 Integer running = jdbc.queryForObject(
-                        "SELECT COUNT(*) FROM runtime_turn WHERE session_id = ? AND status = 'RUNNING'",
+                        "SELECT COUNT(*) FROM runtime_turn WHERE thread_id = ? AND status = 'RUNNING'",
                         Integer.class, thr.threadId());
                 if (running != null) {
                     maxRunning.accumulateAndGet(running, Math::max);

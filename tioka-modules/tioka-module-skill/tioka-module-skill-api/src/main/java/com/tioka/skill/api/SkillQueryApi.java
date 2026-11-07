@@ -7,7 +7,7 @@ public interface SkillQueryApi {
 
     /**
      * AST-02：按 skillVersionId 加 {@code FOR SHARE}。
-     * M1 尚无独立 skill_version 表，{@code skillVersionId} 即 {@code skill_package.id}。
+     * M1 尚无独立 SkillVersion 表（47-GL）：{@code skillVersionId} ≡ {@code skill_package.id}；AST-05 再建表。
      */
     Optional<SkillVersionRef> lockVersion(String skillVersionId);
 

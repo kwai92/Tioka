@@ -8,7 +8,7 @@ import com.tioka.knowledge.infrastructure.KnowledgeRepository;
 import com.tioka.knowledge.infrastructure.persistence.KbBaseDO;
 import com.tioka.runtime.api.spi.ToolProvider;
 import com.tioka.runtime.kernel.application.TurnRunner;
-import com.tioka.runtime.kernel.infrastructure.persistence.RuntimeTurnDO;
+import com.tioka.runtime.infrastructure.persistence.RuntimeTurnDO;
 import com.tioka.server.support.IntegrationTestSupport;
 import com.tioka.server.support.TestFixtures;
 import com.tioka.system.application.auth.PrincipalLoader;

@@ -1,0 +1,310 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tioka.runtime.infrastructure.mapper.RuntimeTurnMapper">
+
+    <select id="findById" resultType="RuntimeTurnDO">
+        <![CDATA[
+            SELECT id, thread_id AS threadId, seq, status, origin, origin_ref AS originRef,
+                   client_msg_id AS clientMsgId, run_as_json AS runAsJson, options_json AS optionsJson,
+                   step_count AS stepCount, recover_count AS recoverCount,
+                   worker_id AS workerId, lease_version AS leaseVersion,
+                   lease_until AS leaseUntil, error_code AS errorCode, error_message AS errorMessage,
+                   prompt_tokens AS promptTokens, completion_tokens AS completionTokens,
+                   started_at AS startedAt, ended_at AS endedAt, create_at AS createAt, update_at AS updateAt
+            FROM runtime_turn WHERE id = #{id}
+            
+]]>
+    </select>
+
+    <select id="findByThreadAndClientMsgId" resultType="RuntimeTurnDO">
+        <![CDATA[
+            SELECT id, thread_id AS threadId, seq, status, origin, origin_ref AS originRef,
+                   client_msg_id AS clientMsgId, run_as_json AS runAsJson, options_json AS optionsJson,
+                   step_count AS stepCount, recover_count AS recoverCount,
+                   worker_id AS workerId, lease_version AS leaseVersion,
+                   lease_until AS leaseUntil, error_code AS errorCode, error_message AS errorMessage,
+                   prompt_tokens AS promptTokens, completion_tokens AS completionTokens,
+                   started_at AS startedAt, ended_at AS endedAt, create_at AS createAt, update_at AS updateAt
+            FROM runtime_turn
+            WHERE thread_id = #{threadId} AND client_msg_id = #{clientMsgId}
+            
+]]>
+    </select>
+
+    <select id="countActive">
+        <![CDATA[
+            SELECT COUNT(*) FROM runtime_turn
+            WHERE thread_id = #{threadId} AND status IN ('QUEUED', 'RUNNING')
+            
+]]>
+    </select>
+
+    <select id="nextSeq">
+        <![CDATA[
+            SELECT COALESCE(MAX(seq), 0) + 1 FROM runtime_turn WHERE thread_id = #{threadId}
+            
+]]>
+    </select>
+
+    <select id="lockThread">
+        <![CDATA[
+SELECT 1 FROM runtime_thread WHERE id = #{threadId} FOR UPDATE
+]]>
+    </select>
+
+    <insert id="insert">
+        <![CDATA[
+            INSERT INTO runtime_turn (
+              id, thread_id, seq, status, origin, origin_ref, client_msg_id, run_as_json, options_json,
+              step_count, lease_version, create_at, update_at, create_by, update_by
+            ) VALUES (
+              #{id}, #{threadId}, #{seq}, #{status}, #{origin}, #{originRef}, #{clientMsgId},
+              #{runAsJson}, #{optionsJson}, COALESCE(#{stepCount}, 0), COALESCE(#{leaseVersion}, 0),
+              now(), now(), 'system', 'system'
+            )
+            
+]]>
+    </insert>
+
+    <select id="acquire">
+        <![CDATA[
+            UPDATE runtime_turn
+               SET status = 'RUNNING',
+                   worker_id = #{workerId},
+                   lease_version = lease_version + 1,
+                   lease_until = #{leaseUntil},
+                   started_at = COALESCE(started_at, now()),
+                   update_at = now()
+             WHERE id = #{turnId} AND status = 'QUEUED'
+         RETURNING lease_version
+            
+]]>
+    </select>
+
+    <update id="renew">
+        <![CDATA[
+            UPDATE runtime_turn
+               SET lease_until = #{leaseUntil}, update_at = now()
+             WHERE id = #{turnId} AND lease_version = #{leaseVersion} AND status = 'RUNNING'
+            
+]]>
+    </update>
+
+    <update id="finish">
+        <![CDATA[
+            UPDATE runtime_turn
+               SET status = #{status},
+                   error_code = #{errorCode},
+                   error_message = #{errorMessage},
+                   prompt_tokens = COALESCE(#{promptTokens}, prompt_tokens),
+                   completion_tokens = COALESCE(#{completionTokens}, completion_tokens),
+                   ended_at = now(),
+                   lease_until = NULL,
+                   update_at = now()
+             WHERE id = #{turnId}
+               AND lease_version = #{leaseVersion}
+               AND status = 'RUNNING'
+            
+]]>
+    </update>
+
+    <update id="incrementStep">
+        <![CDATA[
+            UPDATE runtime_turn
+               SET step_count = step_count + 1, update_at = now()
+             WHERE id = #{turnId} AND lease_version = #{leaseVersion} AND status = 'RUNNING'
+            
+]]>
+    </update>
+
+    <update id="markWaitingApproval">
+        <![CDATA[
+            UPDATE runtime_turn
+               SET status = 'WAITING_APPROVAL',
+                   lease_until = NULL,
+                   worker_id = NULL,
+                   update_at = now()
+             WHERE id = #{turnId}
+               AND lease_version = #{leaseVersion}
+               AND status = 'RUNNING'
+            
+]]>
+    </update>
+
+    <update id="requeueFromWaitingApproval">
+        <![CDATA[
+            UPDATE runtime_turn
+               SET status = 'QUEUED',
+                   worker_id = NULL,
+                   lease_until = NULL,
+                   update_at = now()
+             WHERE id = #{turnId} AND status = 'WAITING_APPROVAL'
+            
+]]>
+    </update>
+
+    <update id="cancelWaitingApproval">
+        <![CDATA[
+            UPDATE runtime_turn
+               SET status = 'CANCELLED',
+                   error_code = #{errorCode},
+                   error_message = #{errorMessage},
+                   ended_at = now(),
+                   lease_until = NULL,
+                   update_at = now()
+             WHERE id = #{turnId} AND status = 'WAITING_APPROVAL'
+            
+]]>
+    </update>
+
+    <update id="cancelQueued">
+        <![CDATA[
+            UPDATE runtime_turn
+               SET status = 'CANCELLED',
+                   error_code = #{errorCode},
+                   error_message = #{errorMessage},
+                   ended_at = now(),
+                   update_at = now()
+             WHERE id = #{turnId} AND status = 'QUEUED'
+            
+]]>
+    </update>
+
+    <select id="findActiveByPrincipal" resultType="RuntimeTurnDO">
+        <![CDATA[
+            SELECT t.id, t.thread_id AS threadId, t.seq, t.status, t.origin,
+                   t.origin_ref AS originRef, t.client_msg_id AS clientMsgId,
+                   t.run_as_json AS runAsJson, t.options_json AS optionsJson,
+                   t.step_count AS stepCount, t.recover_count AS recoverCount,
+                   t.worker_id AS workerId, t.lease_version AS leaseVersion,
+                   t.lease_until AS leaseUntil, t.error_code AS errorCode,
+                   t.error_message AS errorMessage,
+                   t.prompt_tokens AS promptTokens, t.completion_tokens AS completionTokens,
+                   t.started_at AS startedAt, t.ended_at AS endedAt,
+                   t.create_at AS createAt, t.update_at AS updateAt
+              FROM runtime_turn t
+              JOIN runtime_thread s ON s.id = t.thread_id
+             WHERE t.status IN ('QUEUED', 'RUNNING', 'WAITING_APPROVAL', 'WAITING_CHILD', 'INTERRUPTED')
+               AND t.run_as_json::jsonb ->> 'userId' = #{userId}
+               AND (CAST(#{workspaceId} AS VARCHAR) IS NULL OR s.workspace_id = CAST(#{workspaceId} AS VARCHAR))
+             LIMIT 500
+            
+]]>
+    </select>
+
+    <select id="findExpired" resultType="String">
+        <![CDATA[
+            SELECT id FROM runtime_turn
+             WHERE status = 'RUNNING' AND lease_until < #{now}
+             ORDER BY lease_until
+             LIMIT #{limit}
+            
+]]>
+    </select>
+
+    <update id="markInterrupted">
+        <![CDATA[
+            UPDATE runtime_turn
+               SET status = 'INTERRUPTED', update_at = now()
+             WHERE id = #{turnId} AND status = 'RUNNING' AND lease_until < now()
+            
+]]>
+    </update>
+
+    <update id="failInterrupted">
+        <![CDATA[
+            UPDATE runtime_turn
+               SET status = 'FAILED', error_code = #{errorCode}, error_message = #{errorMessage},
+                   ended_at = now(), lease_until = NULL, update_at = now()
+             WHERE id = #{turnId} AND status = 'INTERRUPTED'
+            
+]]>
+    </update>
+
+    <update id="requeueInterrupted">
+        <![CDATA[
+            UPDATE runtime_turn
+               SET status = 'QUEUED',
+                   recover_count = recover_count + 1,
+                   lease_version = lease_version + 1,
+                   worker_id = NULL,
+                   lease_until = NULL,
+                   update_at = now()
+             WHERE id = #{turnId} AND status = 'INTERRUPTED'
+            
+]]>
+    </update>
+
+    <select id="nextQueued" resultType="RuntimeTurnDO">
+        <![CDATA[
+            SELECT id, thread_id AS threadId, seq, status, origin, origin_ref AS originRef,
+                   client_msg_id AS clientMsgId, run_as_json AS runAsJson, options_json AS optionsJson,
+                   step_count AS stepCount, recover_count AS recoverCount,
+                   worker_id AS workerId, lease_version AS leaseVersion,
+                   lease_until AS leaseUntil, error_code AS errorCode, error_message AS errorMessage,
+                   prompt_tokens AS promptTokens, completion_tokens AS completionTokens,
+                   started_at AS startedAt, ended_at AS endedAt, create_at AS createAt, update_at AS updateAt
+            FROM runtime_turn
+            WHERE thread_id = #{threadId} AND status = 'QUEUED'
+            ORDER BY seq
+            LIMIT 1
+            
+]]>
+    </select>
+
+    <select id="findActive" resultType="RuntimeTurnDO">
+        <![CDATA[
+            SELECT id, thread_id AS threadId, seq, status, origin, origin_ref AS originRef,
+                   client_msg_id AS clientMsgId, run_as_json AS runAsJson, options_json AS optionsJson,
+                   step_count AS stepCount, recover_count AS recoverCount,
+                   worker_id AS workerId, lease_version AS leaseVersion,
+                   lease_until AS leaseUntil, error_code AS errorCode, error_message AS errorMessage,
+                   prompt_tokens AS promptTokens, completion_tokens AS completionTokens,
+                   started_at AS startedAt, ended_at AS endedAt, create_at AS createAt, update_at AS updateAt
+            FROM runtime_turn
+            WHERE thread_id = #{threadId}
+              AND status IN ('RUNNING', 'WAITING_APPROVAL', 'WAITING_CHILD', 'QUEUED')
+            ORDER BY CASE status
+                       WHEN 'RUNNING' THEN 0
+                       WHEN 'WAITING_APPROVAL' THEN 1
+                       WHEN 'WAITING_CHILD' THEN 2
+                       WHEN 'QUEUED' THEN 3
+                       ELSE 4
+                     END,
+                     seq DESC
+            LIMIT 1
+            
+]]>
+    </select>
+
+    <select id="findStaleQueuedForDispatch" resultType="RuntimeTurnDO">
+        <![CDATA[
+            SELECT t.id, t.thread_id AS threadId
+              FROM runtime_turn t
+             WHERE t.status = 'QUEUED'
+               AND t.update_at < now() - interval '15 seconds'
+               AND NOT EXISTS (
+                     SELECT 1 FROM runtime_turn r
+                      WHERE r.thread_id = t.thread_id AND r.status = 'RUNNING')
+               AND t.seq = (
+                     SELECT MIN(q.seq) FROM runtime_turn q
+                      WHERE q.thread_id = t.thread_id AND q.status = 'QUEUED')
+             LIMIT 100
+            
+]]>
+    </select>
+
+    <select id="tryAdvisoryLockQueuedSweeper">
+        <![CDATA[
+SELECT pg_try_advisory_lock(hashtext('tioka.runtime.queued-sweeper'))
+]]>
+    </select>
+
+    <select id="unlockAdvisoryLockQueuedSweeper">
+        <![CDATA[
+SELECT pg_advisory_unlock(hashtext('tioka.runtime.queued-sweeper'))
+]]>
+    </select>
+
+</mapper>

@@ -16,8 +16,8 @@ import com.tioka.runtime.kernel.domain.LoopContext;
 import com.tioka.runtime.kernel.domain.LoopPorts;
 import com.tioka.runtime.kernel.infrastructure.ApprovalRepository;
 import com.tioka.runtime.kernel.infrastructure.ItemRepository;
-import com.tioka.runtime.kernel.infrastructure.persistence.RuntimeApprovalDO;
-import com.tioka.runtime.kernel.infrastructure.persistence.RuntimeItemDO;
+import com.tioka.runtime.infrastructure.persistence.RuntimeApprovalDO;
+import com.tioka.runtime.infrastructure.persistence.RuntimeItemDO;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -60,7 +60,7 @@ public class ToolApprovalCoordinator {
      * 续跑：对无 tool_result 的 tool_call，按审批状态写结果并（批准时）真正调工具。
      */
     public void resumeOrphans(LoopContext ctx, LoopPorts.ToolPort toolPort, LoopPorts.ItemSink sink) {
-        List<RuntimeItemDO> turnItems = items.listBySession(ctx.threadId()).stream()
+        List<RuntimeItemDO> turnItems = items.listByThread(ctx.threadId()).stream()
                 .filter(i -> ctx.turnId().equals(i.getTurnId()))
                 .filter(i -> i.getDiscarded() == null || !i.getDiscarded())
                 .toList();

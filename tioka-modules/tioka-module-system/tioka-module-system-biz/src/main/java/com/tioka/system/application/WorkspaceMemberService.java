@@ -1,5 +1,7 @@
 package com.tioka.system.application;
 
+import com.tioka.system.api.authz.SystemRoles;
+
 import com.tioka.framework.error.BizException;
 import com.tioka.framework.error.ErrorCode;
 import com.tioka.framework.security.Permissions;
@@ -13,7 +15,7 @@ import com.tioka.system.application.lifecycle.AfterCommitEvents;
 import com.tioka.system.infrastructure.AuthUserRepository;
 import com.tioka.system.infrastructure.SysMemberRepository;
 import com.tioka.system.infrastructure.SysRoleRepository;
-import com.tioka.system.infrastructure.dataobject.SysMemberDO;
+import com.tioka.system.infrastructure.persistence.SysMemberDO;
 import com.tioka.system.infrastructure.persistence.AuthUserDO;
 import com.tioka.system.infrastructure.persistence.SysRoleDO;
 import org.springframework.context.ApplicationEventPublisher;
@@ -27,6 +29,10 @@ import java.util.Map;
 
 @Service
 public class WorkspaceMemberService {
+    /** 扫描成员时上限（判末位管理员等）。 */
+    private static final int MEMBER_SCAN_LIMIT = 5000;
+    private static final int MAX_PAGE_SIZE = 100;
+
     private final WorkspaceService workspaces;
     private final SysMemberRepository members;
     private final SysRoleRepository roles;
@@ -58,7 +64,7 @@ public class WorkspaceMemberService {
         requireManageWorkspace(workspaceId);
         workspaces.require(workspaceId);
         int p = Math.max(page, 1);
-        int s = Math.min(Math.max(size, 1), 100);
+        int s = Math.min(Math.max(size, 1), MAX_PAGE_SIZE);
         int offset = (p - 1) * s;
         List<SysMemberDO> rows = members.listByWorkspace(workspaceId, offset, s);
         List<MemberView> items = new ArrayList<>();
@@ -84,9 +90,9 @@ public class WorkspaceMemberService {
         if (users.findById(Long.parseLong(userId)) == null) {
             throw new BizException(ErrorCode.NOT_FOUND, "用户不存在");
         }
-        boolean demotingAdmin = !"workspace_admin".equals(role)
-                && members.listByWorkspace(workspaceId, 0, 5000).stream()
-                .anyMatch(m -> userId.equals(m.getUserId()) && "workspace_admin".equals(m.getRoleCode()));
+        boolean demotingAdmin = !SystemRoles.WORKSPACE_ADMIN.equals(role)
+                && members.listByWorkspace(workspaceId, 0, MEMBER_SCAN_LIMIT).stream()
+                .anyMatch(m -> userId.equals(m.getUserId()) && SystemRoles.WORKSPACE_ADMIN.equals(m.getRoleCode()));
         members.replaceWorkspaceRole(workspaceId, userId, role);
         if (demotingAdmin && members.countWorkspaceAdmins(workspaceId) == 0) {
             throw new BizException(ErrorCode.LAST_ADMIN);
@@ -98,8 +104,8 @@ public class WorkspaceMemberService {
     public void remove(String workspaceId, String userId) {
         requireManageWorkspace(workspaceId);
         workspaces.require(workspaceId);
-        boolean isAdmin = members.listByWorkspace(workspaceId, 0, 5000).stream()
-                .anyMatch(m -> userId.equals(m.getUserId()) && "workspace_admin".equals(m.getRoleCode()));
+        boolean isAdmin = members.listByWorkspace(workspaceId, 0, MEMBER_SCAN_LIMIT).stream()
+                .anyMatch(m -> userId.equals(m.getUserId()) && SystemRoles.WORKSPACE_ADMIN.equals(m.getRoleCode()));
         if (isAdmin && members.countWorkspaceAdmins(workspaceId) <= 1) {
             throw new BizException(ErrorCode.LAST_ADMIN);
         }
@@ -108,7 +114,7 @@ public class WorkspaceMemberService {
         principalCache.evictUser(Long.parseLong(userId));
         String operatorId = principals.current().userId();
         Instant at = Instant.now();
-        audit.record(new AuditEvent(null, at, null, workspaceId,
+        audit.record(new AuditEvent(null, at, workspaceId,
                 "user", operatorId, "member.remove", "workspace_member",
                 workspaceId + ":" + userId,
                 AuditOutcome.SUCCESS, null, null, null, null,
@@ -118,14 +124,14 @@ public class WorkspaceMemberService {
     }
 
     /**
-     * 路径中的 workspaceId 必须是当前 Principal 所在空间，或调用方为 tenant_admin。
+     * 路径中的 workspaceId 必须是当前 Principal 所在空间，或调用方为 system_admin。
      */
     private void requireManageWorkspace(String workspaceId) {
         var p = principals.current();
         if (!p.hasPermission(Permissions.WORKSPACE_MANAGE)) {
             throw new BizException(ErrorCode.FORBIDDEN);
         }
-        if (p.hasPermission("*") || p.roles().contains("tenant_admin")) {
+        if (p.hasPermission("*") || p.roles().contains(SystemRoles.SYSTEM_ADMIN)) {
             return;
         }
         if (workspaceId == null || !workspaceId.equals(p.workspaceId())) {

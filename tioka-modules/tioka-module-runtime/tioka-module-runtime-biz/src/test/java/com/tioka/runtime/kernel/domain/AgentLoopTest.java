@@ -4,7 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tioka.runtime.api.kernel.ItemType;
 import com.tioka.runtime.api.kernel.TurnStatus;
 import com.tioka.runtime.kernel.infrastructure.TurnRepository;
-import com.tioka.runtime.kernel.infrastructure.persistence.RuntimeItemDO;
+import com.tioka.runtime.infrastructure.persistence.RuntimeItemDO;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -277,7 +277,7 @@ class AgentLoopTest {
         private RuntimeItemDO appendItem(LoopContext ctx, int step, String type, String role, Object content) {
             RuntimeItemDO item = new RuntimeItemDO();
             item.setId("itm_" + (items.size() + 1));
-            item.setSessionId(ctx.threadId());
+            item.setThreadId(ctx.threadId());
             item.setTurnId(ctx.turnId());
             item.setStep(step);
             item.setType(type);

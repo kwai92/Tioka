@@ -4,7 +4,8 @@ import com.tioka.agent.api.AgentSnapshotApi;
 import com.tioka.agent.api.spec.AgentSpec;
 import com.tioka.framework.error.BizException;
 import com.tioka.framework.error.ErrorCode;
-import com.tioka.orchestration.api.OrchApi;
+import com.tioka.orchestration.api.OrchAttentionApi;
+import com.tioka.orchestration.api.engine.OrchApi;
 import org.springframework.stereotype.Service;
 
 import java.util.Map;
@@ -16,12 +17,17 @@ import java.util.Map;
 public class SandboxPolicyService {
     private final AgentSnapshotApi snapshots;
     private final AgentService agents;
-    private final OrchApi orchApi;
+    private final OrchApi orchEngine;
+    private final OrchAttentionApi orchAttention;
 
-    public SandboxPolicyService(AgentSnapshotApi snapshots, AgentService agents, OrchApi orchApi) {
+    public SandboxPolicyService(AgentSnapshotApi snapshots,
+                                AgentService agents,
+                                OrchApi orchEngine,
+                                OrchAttentionApi orchAttention) {
         this.snapshots = snapshots;
         this.agents = agents;
-        this.orchApi = orchApi;
+        this.orchEngine = orchEngine;
+        this.orchAttention = orchAttention;
     }
 
     public void setLevel(String agentId, String level) {
@@ -57,8 +63,16 @@ public class SandboxPolicyService {
             }
         }
         if ("READ".equals(level) && action.startsWith("net:")) {
-            String runId = orchApi.ingestEvent("sandbox.escalate", null, Map.of("agentId", agentId, "action", action));
-            orchApi.openAttention(runId, "沙箱越权审批", Map.of("action", action));
+            // 过渡桥：EventAck.eventId 对 STORED 即为 legacy runId（见 OrchEngineService）
+            OrchApi.EventAck ack = orchEngine.ingest(new OrchApi.EventEnvelope(
+                    "sandbox",
+                    "sandbox.escalate",
+                    "sandbox-" + agentId + "-" + System.currentTimeMillis(),
+                    agentId,
+                    Map.of(),
+                    Map.of("agentId", agentId, "action", action),
+                    0));
+            orchAttention.openAttention(ack.eventId(), "沙箱越权审批", Map.of("action", action));
             throw new BizException(ErrorCode.FORBIDDEN, "READ 策略拒绝，已升级审批");
         }
     }

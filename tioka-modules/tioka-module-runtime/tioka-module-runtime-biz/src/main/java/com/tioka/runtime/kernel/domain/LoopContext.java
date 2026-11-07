@@ -97,7 +97,7 @@ public final class LoopContext {
 
     public List<String> toolAllowList() { return toolAllowList; }
 
-    /** CON-01：含 mcpGrants，供 ToolGateway 授权。 */
+    /** CON-01：含 {@code mcp}（McpBinding），供 ToolGateway 授权。 */
     public Map<String, Object> agentToolConfig() { return agentToolConfig; }
 
     public void checkpoint() {

@@ -4,7 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tioka.flow.api.FlowInvokeApi;
 import com.tioka.flow.infrastructure.FlowRepository;
 import com.tioka.flow.infrastructure.FlowSecretBridge;
-import com.tioka.flow.infrastructure.persistence.FlowToolPubDO;
+import com.tioka.flow.infrastructure.persistence.FlowPublicationDO;
 import com.tioka.framework.error.BizException;
 import com.tioka.framework.error.ErrorCode;
 import com.tioka.runtime.api.spi.ToolProvider;
@@ -139,7 +139,7 @@ public class FlowPublicationService implements ToolProvider, FlowInvokeApi {
 
     @Override
     public ToolResult invoke(String toolName, Map<String, Object> arguments) {
-        FlowToolPubDO pub = repo.findToolPub(toolName);
+        FlowPublicationDO pub = repo.findToolPub(toolName);
         if (pub == null && toolName != null && toolName.startsWith("flow.run:")) {
             // 允许直接按规范名查找
             pub = repo.findToolPub(toolName);

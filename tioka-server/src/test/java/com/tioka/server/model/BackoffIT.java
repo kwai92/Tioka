@@ -3,7 +3,7 @@ package com.tioka.server.model;
 import com.tioka.framework.id.Ids;
 import com.tioka.framework.security.Principal;
 import com.tioka.framework.security.PrincipalHolder;
-import com.tioka.model.api.dto.ProviderDtos.CreateBindingRequest;
+import com.tioka.model.api.dto.ProviderDtos.CreateModelBindingRequest;
 import com.tioka.model.api.dto.ProviderDtos.CreateLogicalModelRequest;
 import com.tioka.model.api.dto.ProviderDtos.CreateProviderRequest;
 import com.tioka.model.api.dto.ProviderDtos.CreateRoutingPlanRequest;
@@ -41,8 +41,8 @@ class BackoffIT {
                 var provider = models.createProvider(
                         new CreateProviderRequest(Ids.newId("p"), di.llm().baseUrl(), "k"));
                 String lm = models.createLogicalModel(new CreateLogicalModelRequest(Ids.newId("m"), "tool"));
-                String primary = models.createBinding(new CreateBindingRequest(lm, provider.id(), "gpt-p"));
-                String fallback = models.createBinding(new CreateBindingRequest(lm, provider.id(), "gpt-f"));
+                String primary = models.createModelBinding(new CreateModelBindingRequest(lm, provider.id(), "gpt-p"));
+                String fallback = models.createModelBinding(new CreateModelBindingRequest(lm, provider.id(), "gpt-f"));
                 String planId = models.createPlan(
                         new CreateRoutingPlanRequest(Ids.newId("rp"), "PRIMARY_FALLBACK",
                                 primary, fallback, null)).id();

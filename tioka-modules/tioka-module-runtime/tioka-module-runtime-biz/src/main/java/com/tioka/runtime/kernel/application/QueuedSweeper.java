@@ -1,7 +1,7 @@
 package com.tioka.runtime.kernel.application;
 
 import com.tioka.runtime.kernel.infrastructure.TurnRepository;
-import com.tioka.runtime.kernel.infrastructure.persistence.RuntimeTurnDO;
+import com.tioka.runtime.infrastructure.persistence.RuntimeTurnDO;
 import com.tioka.runtime.kernel.infrastructure.redis.TurnDispatchQueue;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -37,14 +37,14 @@ public class QueuedSweeper {
         try {
             List<RuntimeTurnDO> stale = turns.findStaleQueuedForDispatch();
             for (RuntimeTurnDO t : stale) {
-                if (t.getId() == null || t.getSessionId() == null) {
+                if (t.getId() == null || t.getThreadId() == null) {
                     continue;
                 }
                 if (!queue.tryMarkDispatched(t.getId())) {
                     continue;
                 }
-                queue.offer(t.getId(), t.getSessionId());
-                log.debug("QueuedSweeper re-dispatched turn {} thread {}", t.getId(), t.getSessionId());
+                queue.offer(t.getId(), t.getThreadId());
+                log.debug("QueuedSweeper re-dispatched turn {} thread {}", t.getId(), t.getThreadId());
             }
         } finally {
             turns.unlockAdvisoryLockQueuedSweeper();

@@ -62,6 +62,6 @@ public class KernelLoopConfiguration {
                         ObjectMapper mapper,
                         ToolApprovalCoordinator approvals) {
         return new AgentLoop(modelPort, toolPort, sink, contextBuilder, turns,
-                items::listBySession, mapper, approvals);
+                items::listByThread, mapper, approvals);
     }
 }

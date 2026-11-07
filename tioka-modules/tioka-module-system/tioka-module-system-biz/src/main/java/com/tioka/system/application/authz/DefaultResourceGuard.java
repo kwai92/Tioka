@@ -59,7 +59,7 @@ public class DefaultResourceGuard implements ResourceGuard {
             Principal p = principals.current();
             try {
                 audit.recordIndependent(new AuditEvent(
-                        null, Instant.now(), null, p.workspaceId(),
+                        null, Instant.now(), p.workspaceId(),
                         p.type().name().toLowerCase(), p.userId(),
                         resourceType + "." + level.name().toLowerCase(),
                         resourceType, resourceId, AuditOutcome.DENIED,

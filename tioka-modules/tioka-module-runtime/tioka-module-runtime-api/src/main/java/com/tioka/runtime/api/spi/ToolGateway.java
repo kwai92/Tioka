@@ -20,7 +20,7 @@ public interface ToolGateway {
     /**
      * 工具调用上下文（取代 SessionToolContext）。
      *
-     * @param agentToolConfig 含 {@code mcpGrants}（{@code [{serverId, allowlist[]}]}），由 Runtime 从 Agent 快照注入
+     * @param agentToolConfig 含 {@code mcp}（{@code [{serverId, allowlist[]}]} = McpBinding），由 Runtime 从 Agent 快照注入
      */
     record ToolCallContext(Principal principal, String threadId, String turnId, String agentVersionId,
                            String origin, List<String> toolAllowList, Map<String, Object> agentToolConfig) {}

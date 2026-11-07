@@ -3,7 +3,7 @@ package com.tioka.runtime.kernel.events;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.tioka.runtime.api.kernel.RuntimeEventType;
-import com.tioka.runtime.kernel.infrastructure.persistence.RuntimeItemDO;
+import com.tioka.runtime.infrastructure.persistence.RuntimeItemDO;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;

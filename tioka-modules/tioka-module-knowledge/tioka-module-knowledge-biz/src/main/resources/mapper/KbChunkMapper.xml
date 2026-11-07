@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tioka.knowledge.infrastructure.mapper.KbChunkMapper">
+
+    <insert id="insertWithVector">
+        <![CDATA[
+INSERT INTO kb_chunk(id, doc_id, kb_id, workspace_id, text, ordinal, embedding_vec, create_at, update_at, create_by, update_by, deleted)
+VALUES (#{id}, #{docId}, #{kbId}, #{workspaceId}, #{text}, #{ordinal}, CAST(#{vectorLiteral} AS vector),
+        CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'system', 'system', FALSE)
+]]>
+    </insert>
+
+    <update id="updateVector">
+        <![CDATA[
+UPDATE kb_chunk SET embedding_vec = CAST(#{vectorLiteral} AS vector), update_at = CURRENT_TIMESTAMP
+WHERE id = #{id} AND deleted = FALSE
+]]>
+    </update>
+
+    <select id="searchNearest" resultType="java.util.HashMap">
+        <![CDATA[
+SELECT c.id AS chunk_id, c.doc_id AS doc_id, c.kb_id AS kb_id, c.text AS text, c.ordinal AS ordinal,
+       COALESCE(d.title, '') AS title,
+       (c.embedding_vec <=> CAST(#{vectorLiteral} AS vector)) AS distance
+FROM kb_chunk c
+LEFT JOIN kb_document d ON d.id = c.doc_id AND d.deleted = FALSE
+WHERE c.kb_id = #{kbId} AND c.deleted = FALSE
+  AND c.embedding_vec IS NOT NULL
+ORDER BY c.embedding_vec <=> CAST(#{vectorLiteral} AS vector)
+LIMIT #{k}
+]]>
+    </select>
+
+    <!-- vfSql 由 VisibilityFilter 产出，仅含已限定别名的列条件；勿传入未信任输入 -->
+    <select id="searchVisible" resultType="java.util.HashMap">
+        SELECT c.id AS chunk_id, c.doc_id AS doc_id, c.kb_id AS kb_id, c.text AS text,
+               c.ordinal AS ordinal, COALESCE(d.title, '') AS title,
+               (c.embedding_vec <![CDATA[<=>]]> CAST(#{vectorLiteral} AS vector)) AS distance
+        FROM kb_chunk c
+        JOIN kb_base b ON b.id = c.kb_id AND b.deleted = FALSE
+        LEFT JOIN kb_document d ON d.id = c.doc_id AND d.deleted = FALSE
+        WHERE c.deleted = FALSE
+          AND c.embedding_vec IS NOT NULL
+          AND c.workspace_id = #{workspaceId}
+        <if test="kbIds != null and kbIds.size() &gt; 0">
+            AND c.kb_id IN
+            <foreach collection="kbIds" item="kid" open="(" separator="," close=")">
+                #{kid}
+            </foreach>
+        </if>
+        <if test="vfAll == null or vfAll == false">
+            AND (
+            <choose>
+                <when test="vfSql != null and vfSql != ''">${vfSql}</when>
+                <otherwise>TRUE</otherwise>
+            </choose>
+            )
+        </if>
+        ORDER BY c.embedding_vec <![CDATA[<=>]]> CAST(#{vectorLiteral} AS vector)
+        LIMIT #{k}
+    </select>
+
+</mapper>

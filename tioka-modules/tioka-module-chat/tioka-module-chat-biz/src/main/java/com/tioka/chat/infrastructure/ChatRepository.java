@@ -51,6 +51,7 @@ public class ChatRepository {
         if (findConversation(id) == null) {
             return;
         }
+        // @TableLogic：逻辑删（禁止物理 DELETE）
         conversations.deleteById(id);
     }
 
@@ -76,13 +77,13 @@ public class ChatRepository {
         conversations.updateById(row);
     }
 
-    /** 按 thread（runtime_session_id）反查会话 ID；派发线程无 originRef 时兜底。 */
+    /** 按 thread（runtime_thread_id）反查会话 ID；派发线程无 originRef 时兜底。 */
     public String findConversationIdByThreadId(String threadId) {
         if (threadId == null || threadId.isBlank()) {
             return null;
         }
         ChatConversationDO row = conversations.selectOne(Wrappers.<ChatConversationDO>lambdaQuery()
-                .eq(ChatConversationDO::getRuntimeSessionId, threadId)
+                .eq(ChatConversationDO::getRuntimeThreadId, threadId)
                 .last("LIMIT 1"));
         return row == null ? null : row.getId();
     }

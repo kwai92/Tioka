@@ -5,7 +5,7 @@ import com.tioka.framework.error.ErrorCode;
 import com.tioka.model.api.FailoverEvent;
 import com.tioka.model.api.ModelRouterApi;
 import com.tioka.model.domain.ModelEntities;
-import com.tioka.model.domain.ModelEntities.Binding;
+import com.tioka.model.domain.ModelEntities.ModelBinding;
 import com.tioka.model.domain.ModelEntities.Provider;
 import com.tioka.model.domain.ModelEntities.RoutingPlan;
 import org.springframework.context.ApplicationEventPublisher;
@@ -28,8 +28,8 @@ public class ModelRouterService implements ModelRouterApi {
     }
 
     @Override
-    public ModelSelection failover(String sessionId, String turnId, String routingPlanId, String reason) {
-        String tid = turnId == null || turnId.isBlank() ? sessionId : turnId;
+    public ModelSelection failover(String threadId, String turnId, String routingPlanId, String reason) {
+        String tid = turnId == null || turnId.isBlank() ? threadId : turnId;
         RoutingPlan plan = entities.getPlan(routingPlanId)
                 .orElseThrow(() -> new BizException(ErrorCode.BAD_REQUEST, "路由计划未发布或不存在"));
         if (!plan.published()) {
@@ -43,22 +43,22 @@ public class ModelRouterService implements ModelRouterApi {
             throw new BizException(ErrorCode.BAD_REQUEST, "未配置 fallbackBinding");
         }
         String routeReason = "failover:" + (reason == null ? "unspecified" : reason);
-        entities.recordFailover(sessionId, tid, next, routeReason);
+        entities.recordFailover(threadId, tid, next, routeReason);
         ModelSelection sel = resolveBinding(next, routeReason);
-        events.publishEvent(new FailoverEvent(sessionId, sel.modelRef(),
+        events.publishEvent(new FailoverEvent(threadId, sel.modelRef(),
                 reason == null ? "failover" : reason, tid, null));
         return sel;
     }
 
     @Override
-    public List<FreezeView> listFreezes(String sessionId) {
-        return entities.listFreezes(sessionId).stream()
-                .map(f -> new FreezeView(f.sessionId(), f.turnId(), f.bindingId(), f.reason(), f.failoverCount()))
+    public List<FreezeView> listFreezes(String threadId) {
+        return entities.listFreezes(threadId).stream()
+                .map(f -> new FreezeView(f.threadId(), f.turnId(), f.bindingId(), f.reason(), f.failoverCount()))
                 .toList();
     }
 
     private ModelSelection resolveBinding(String bindingId, String reason) {
-        Binding b = entities.getBinding(bindingId)
+        ModelBinding b = entities.getModelBinding(bindingId)
                 .orElseThrow(() -> new BizException(ErrorCode.NOT_FOUND, "binding 丢失"));
         Provider p = entities.getProvider(b.providerId())
                 .orElseThrow(() -> new BizException(ErrorCode.NOT_FOUND, "provider 丢失"));

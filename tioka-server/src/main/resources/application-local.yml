@@ -49,7 +49,7 @@ tioka:
       #     groups-claim: groups
       #     auto-provision: true
       #     group-role-mappings:
-      #       - { group: /tioka/admins, tenant-role: tenant_admin }
+      #       - { group: /tioka/admins, system-role: system_admin }
       #       - { group: /tioka/sales, workspace: ws_sales, role: member }
       # resource-server:
       #   enabled: true
@@ -59,11 +59,4 @@ tioka:
     embedding-dim: ${TIOKA_EMBEDDING_DIM:32}
     reindex-enabled: true
 
-mybatis-plus:
-  global-config:
-    db-config:
-      logic-delete-field: deleted
-      logic-delete-value: true
-      logic-not-delete-value: false
-  configuration:
-    map-underscore-to-camel-case: true
+# mybatis-plus 主配置见 application.yml（含 mapper-locations）

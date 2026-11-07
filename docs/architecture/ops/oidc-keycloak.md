@@ -47,7 +47,7 @@ tioka:
           groups-claim: groups
           auto-provision: true
           group-role-mappings:
-            - { group: /tioka/admins, tenant-role: tenant_admin }
+            - { group: /tioka/admins, system-role: system_admin }
             - { group: /tioka/sales, workspace: ws_sales, role: member }
       resource-server:
         enabled: true

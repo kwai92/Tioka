@@ -44,7 +44,7 @@ Skill = **可安装的能力说明书 + 可选可执行附属物**（脚本、�
 | **SkillPackage** | 逻辑 Skill |
 | **SkillVersion** | 制品：内容哈希、存储位置、manifest |
 | **SkillManifest** | 解析后的 name、description、mode 默认、permissions |
-| **SkillBinding** | agentId + skillVersion/latest + mode 覆盖 |
+| **SkillRef** | Agent Spec 内引用（非独立表）；M1 `skillVersionId` ≡ package.id（[47-GL §1.3](../enterprise/47-GL-统一名词释义.md)） |
 | **SkillSignature** | 签名与证书引用 |
 | **SkillListing** | 市场上架信息 |
 

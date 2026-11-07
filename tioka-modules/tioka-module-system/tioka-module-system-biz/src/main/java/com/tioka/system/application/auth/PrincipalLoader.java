@@ -1,5 +1,7 @@
 package com.tioka.system.application.auth;
 
+import com.tioka.system.api.authz.SystemRoles;
+
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -12,7 +14,7 @@ import com.tioka.system.infrastructure.AuthUserRepository;
 import com.tioka.system.infrastructure.SysGroupRepository;
 import com.tioka.system.infrastructure.SysMemberRepository;
 import com.tioka.system.infrastructure.SysUserRoleRepository;
-import com.tioka.system.infrastructure.dataobject.SysMemberDO;
+import com.tioka.system.infrastructure.persistence.SysMemberDO;
 import com.tioka.system.infrastructure.persistence.AuthUserDO;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
@@ -89,10 +91,10 @@ public class PrincipalLoader implements PrincipalLoaderApi {
         }
         final String resolvedWs = ws;
         boolean member = ms.stream().anyMatch(m -> resolvedWs.equals(m.getWorkspaceId()));
-        // 系统管理员可不在 sys_member，但仍需能进空间做管理；成员校验：空间成员 或 持有 tenant_admin
+        // 系统管理员可不在 sys_member，但仍需能进空间做管理；成员校验：空间成员 或 持有 system_admin
         List<String> systemRoles = userRoles.rolesOfUser(uid);
-        boolean isTenantAdmin = systemRoles.contains("tenant_admin");
-        if (!member && !isTenantAdmin) {
+        boolean isSystemAdmin = systemRoles.contains(SystemRoles.SYSTEM_ADMIN);
+        if (!member && !isSystemAdmin) {
             throw new BizException(ErrorCode.WORKSPACE_FORBIDDEN, "不是该空间成员");
         }
         Set<String> roles = ms.stream()

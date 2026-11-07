@@ -24,6 +24,17 @@ spring:
       host: ${TIOKA_REDIS_HOST:localhost}
       port: ${TIOKA_REDIS_PORT:6379}
 
+mybatis-plus:
+  mapper-locations: classpath*:/mapper/**/*.xml
+  type-aliases-package: com.tioka
+  global-config:
+    db-config:
+      logic-delete-field: deleted
+      logic-delete-value: true
+      logic-not-delete-value: false
+  configuration:
+    map-underscore-to-camel-case: true
+
 management:
   endpoints:
     web:
@@ -41,17 +52,7 @@ tioka:
     name: local
   home: ${TIOKA_HOME:${user.home}/.tioka}
   persistence:
-    workspace-scoped-tables:
-      - agent_agent
-      - kb_base
-      - kb_chunk
-      - flow_draft
-      - mcp_server
-      - skill_package
-      - orch_run
-      - chat_conversation
-      - runtime_session
-      - runtime_approval
+    # workspace-scope-exempt-tables：默认值见 PersistenceProperties（deny-by-default）
   auth:
     local-enabled: true
     access-ttl: 8h

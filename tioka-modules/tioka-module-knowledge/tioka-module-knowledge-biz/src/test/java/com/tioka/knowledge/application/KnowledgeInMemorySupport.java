@@ -6,10 +6,11 @@ import com.tioka.framework.security.PrincipalHolder;
 import com.tioka.framework.security.PrincipalType;
 import com.tioka.framework.security.ResourceGuard;
 import com.tioka.framework.security.VisibilityFilter;
+import com.tioka.knowledge.infrastructure.ChunkInsertCommand;
 import com.tioka.knowledge.infrastructure.KnowledgeRepository;
 import com.tioka.knowledge.infrastructure.embedding.HashEmbeddingClient;
 import com.tioka.knowledge.infrastructure.parse.DocumentParser;
-import com.tioka.model.api.BindingQueryApi;
+import com.tioka.model.api.ModelBindingQueryApi;
 import com.tioka.model.api.gateway.ModelCallContext;
 import com.tioka.model.api.gateway.ModelGateway;
 import com.tioka.knowledge.infrastructure.persistence.KbBaseDO;
@@ -63,16 +64,15 @@ final class KnowledgeInMemorySupport {
                 }
                 return out;
             }
-            @Override public void insertChunkWithVector(String id, String docId, String kbId, String workspaceId,
-                                                        String text, int ordinal, String vectorLiteral) {
+            @Override public void insertChunkWithVector(ChunkInsertCommand cmd) {
                 KbChunkDO row = new KbChunkDO();
-                row.setId(id);
-                row.setDocId(docId);
-                row.setKbId(kbId);
-                row.setWorkspaceId(workspaceId);
-                row.setText(text);
-                row.setOrdinal(ordinal);
-                chunks.put(id, row);
+                row.setId(cmd.id());
+                row.setDocId(cmd.docId());
+                row.setKbId(cmd.kbId());
+                row.setWorkspaceId(cmd.workspaceId());
+                row.setText(cmd.text());
+                row.setOrdinal(cmd.ordinal());
+                chunks.put(cmd.id(), row);
             }
             @Override public void updateChunkVector(String id, String vectorLiteral) { /* no-op in memory */ }
             @Override public KbChunkDO findChunk(String id) { return chunks.get(id); }
@@ -146,7 +146,7 @@ final class KnowledgeInMemorySupport {
                 throw new UnsupportedOperationException();
             }
         };
-        BindingQueryApi bindings = bindingId -> Optional.empty();
+        ModelBindingQueryApi bindings = bindingId -> Optional.empty();
         Principal testUser = new Principal("1", "ws", PrincipalType.USER, Set.of("builder"), Set.of("*"), "test");
         PrincipalHolder holder = new PrincipalHolder() {
             @Override public Principal current() { return testUser; }

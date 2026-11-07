@@ -59,7 +59,7 @@ public class TestFixtures {
 
     /**
      * 以 bootstrap 管理员身份创建独立空间，并在该空间挂上指定角色；
-     * 同时确保管理员持有系统级 {@code tenant_admin}（sys_user_role）。
+     * 同时确保管理员持有系统级 {@code system_admin}（sys_user_role）。
      */
     public Actor newActor(String role) {
         AuthService.LoginResult login = auth.login(
@@ -69,15 +69,15 @@ public class TestFixtures {
         long ownerId = Long.parseLong(login.user().id());
         WorkspaceService.Workspace ws = workspaces.create(name, ownerId);
         members.upsert(ws.id(), login.user().id(), role);
-        if (!"workspace_admin".equals(role) && !"tenant_admin".equals(role)) {
+        if (!"workspace_admin".equals(role) && !"system_admin".equals(role)) {
             members.upsert(ws.id(), login.user().id(), "workspace_admin");
         }
-        userRoles.upsert(login.user().id(), "tenant_admin");
+        userRoles.upsert(login.user().id(), "system_admin");
         return new Actor(login.user().id(), ws.id(), login.accessToken());
     }
 
     /**
-     * 在已有空间中创建仅持指定角色、无 tenant_admin 的普通用户（FND-04 权限/ACL 验收）。
+     * 在已有空间中创建仅持指定角色、无 system_admin 的普通用户（FND-04 权限/ACL 验收）。
      */
     public Actor newLimitedUser(Actor admin, String role) {
         String suffix = UUID.randomUUID().toString().substring(0, 8);
@@ -85,7 +85,7 @@ public class TestFixtures {
         String password = "LimitedPass!23456";
         UserAdminService.CreatedUser created = principals.runAs(
                 new Principal(admin.userId(), admin.workspaceId(), PrincipalType.USER,
-                        Set.of("tenant_admin"), Set.of("*"), "password"),
+                        Set.of("system_admin"), Set.of("*"), "password"),
                 () -> userAdmin.create(username, role + "-user", password));
         members.upsert(admin.workspaceId(), created.id(), role);
         AuthService.LoginResult login = auth.login(username, password, "127.0.0.1");

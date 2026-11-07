@@ -8,12 +8,12 @@ import java.util.Objects;
 /**
  * 审计事件，对应只增不改的 {@code audit_event} 表（ADR-017；F6：builder 构造）。
  *
- * <p>{@code tenantId} 字段仅为历史契约占位，单租户下恒为 null（ADR-029 第 60 条）。
+ * <p>无 {@code tenantId}（ADR-029 第 60 条 2026-11-07 修订；47-GL）。
  *
  * @param actorType user / service / system
  * @param action    小写点分动作，如 {@code agent.publish}、{@code tool.invoke}
  */
-public record AuditEvent(String id, Instant ts, String tenantId, String workspaceId,
+public record AuditEvent(String id, Instant ts, String workspaceId,
                          String actorType, String actorId, String action,
                          String resourceType, String resourceId,
                          AuditOutcome outcome, String reason, String traceId, String requestId,
@@ -29,7 +29,6 @@ public record AuditEvent(String id, Instant ts, String tenantId, String workspac
     public static final class Builder {
         private String id;
         private Instant ts;
-        private String tenantId;
         private String workspaceId;
         private String actorType;
         private String actorId;
@@ -50,11 +49,6 @@ public record AuditEvent(String id, Instant ts, String tenantId, String workspac
 
         public Builder ts(Instant ts) {
             this.ts = ts;
-            return this;
-        }
-
-        public Builder tenantId(String tenantId) {
-            this.tenantId = tenantId;
             return this;
         }
 
@@ -121,7 +115,7 @@ public record AuditEvent(String id, Instant ts, String tenantId, String workspac
         public AuditEvent build() {
             Objects.requireNonNull(action, "action");
             Objects.requireNonNull(outcome, "outcome");
-            return new AuditEvent(id, ts, tenantId, workspaceId, actorType, actorId, action,
+            return new AuditEvent(id, ts, workspaceId, actorType, actorId, action,
                     resourceType, resourceId, outcome, reason, traceId, requestId, clientIp, details);
         }
     }

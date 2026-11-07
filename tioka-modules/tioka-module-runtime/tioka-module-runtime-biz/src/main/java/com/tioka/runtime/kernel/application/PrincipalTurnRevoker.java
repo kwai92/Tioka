@@ -3,7 +3,7 @@ package com.tioka.runtime.kernel.application;
 import com.tioka.framework.security.PrincipalHolder;
 import com.tioka.framework.security.SystemPrincipals;
 import com.tioka.runtime.kernel.infrastructure.TurnRepository;
-import com.tioka.runtime.kernel.infrastructure.persistence.RuntimeTurnDO;
+import com.tioka.runtime.infrastructure.persistence.RuntimeTurnDO;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;

@@ -26,7 +26,7 @@ public class KnowledgeController {
     }
 
     @GetMapping("/embedding-bindings")
-    public ApiResponse<List<KnowledgeService.EmbeddingBindingView>> listEmbeddingBindings() {
+    public ApiResponse<List<KnowledgeService.EmbeddingModelBindingView>> listEmbeddingBindings() {
         return ApiResponse.ok(service.listEmbeddingBindings());
     }
 

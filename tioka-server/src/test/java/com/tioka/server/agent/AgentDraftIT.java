@@ -69,6 +69,6 @@ class AgentDraftIT {
 
     private static Principal user(String uid, String ws) {
         return new Principal(uid, ws, PrincipalType.USER,
-                Set.of("tenant_admin", "builder"), Set.of("*"), "test");
+                Set.of("system_admin", "builder"), Set.of("*"), "test");
     }
 }

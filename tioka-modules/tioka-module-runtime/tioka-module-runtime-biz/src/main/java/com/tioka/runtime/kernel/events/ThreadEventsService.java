@@ -8,12 +8,12 @@ import com.tioka.framework.security.PrincipalType;
 import com.tioka.runtime.api.kernel.RuntimeEventType;
 import com.tioka.runtime.api.kernel.TurnStatus;
 import com.tioka.runtime.config.KernelProperties;
-import com.tioka.runtime.infrastructure.RuntimeSessionRepository;
-import com.tioka.runtime.infrastructure.mapper.RuntimeTurnMapper;
-import com.tioka.runtime.infrastructure.persistence.RuntimeSessionDO;
+import com.tioka.runtime.infrastructure.RuntimeThreadRepository;
+import com.tioka.runtime.infrastructure.persistence.RuntimeItemDO;
+import com.tioka.runtime.infrastructure.persistence.RuntimeThreadDO;
+import com.tioka.runtime.infrastructure.persistence.RuntimeTurnDO;
 import com.tioka.runtime.kernel.infrastructure.ItemRepository;
-import com.tioka.runtime.kernel.infrastructure.persistence.RuntimeItemDO;
-import com.tioka.runtime.kernel.infrastructure.persistence.RuntimeTurnDO;
+import com.tioka.runtime.kernel.infrastructure.TurnRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
@@ -21,24 +21,24 @@ import java.util.List;
 
 @Service
 public class ThreadEventsService {
-    private final RuntimeSessionRepository sessions;
+    private final RuntimeThreadRepository threads;
     private final ItemRepository items;
-    private final RuntimeTurnMapper turns;
+    private final TurnRepository turns;
     private final EventStream streams;
     private final StreamPump pump;
     private final RuntimeEventFactory events;
     private final PrincipalHolder principals;
     private final KernelProperties props;
 
-    public ThreadEventsService(RuntimeSessionRepository sessions,
+    public ThreadEventsService(RuntimeThreadRepository threads,
                                ItemRepository items,
-                               RuntimeTurnMapper turns,
+                               TurnRepository turns,
                                EventStream streams,
                                StreamPump pump,
                                RuntimeEventFactory events,
                                PrincipalHolder principals,
                                KernelProperties props) {
-        this.sessions = sessions;
+        this.threads = threads;
         this.items = items;
         this.turns = turns;
         this.streams = streams;
@@ -59,7 +59,7 @@ public class ThreadEventsService {
         boolean subscribed = false;
         try {
             // 1. 补发活动 Turn 状态
-            RuntimeTurnDO active = turns.findActive(threadId);
+            RuntimeTurnDO active = turns.findActive(threadId).orElse(null);
             if (active != null) {
                 RuntimeEventType type = switch (TurnStatus.valueOf(active.getStatus())) {
                     case RUNNING -> RuntimeEventType.TURN_STARTED;
@@ -130,7 +130,7 @@ public class ThreadEventsService {
     }
 
     private void requireVisible(String threadId) {
-        RuntimeSessionDO row = sessions.find(threadId);
+        RuntimeThreadDO row = threads.find(threadId);
         if (row == null) {
             throw new BizException(ErrorCode.NOT_FOUND, "会话不存在");
         }

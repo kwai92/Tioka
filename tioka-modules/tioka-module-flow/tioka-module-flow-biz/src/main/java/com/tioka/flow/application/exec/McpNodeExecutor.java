@@ -1,18 +1,24 @@
 package com.tioka.flow.application.exec;
 
-import com.tioka.mcp.api.McpToolCallApi;
+import com.tioka.runtime.api.spi.ToolCallContexts;
+import com.tioka.runtime.api.spi.ToolGateway;
+import com.tioka.runtime.api.spi.ToolProvider;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Component;
 
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
+/**
+ * Flow MCP 节点：必须经 {@link ToolGateway}（审批 / 限流 / 审计），禁止直调 McpToolCallApi。
+ */
 @Component
 public class McpNodeExecutor implements NodeExecutor {
-    private final ObjectProvider<McpToolCallApi> mcp;
+    private final ObjectProvider<ToolGateway> toolGateway;
 
-    public McpNodeExecutor(ObjectProvider<McpToolCallApi> mcp) {
-        this.mcp = mcp;
+    public McpNodeExecutor(ObjectProvider<ToolGateway> toolGateway) {
+        this.toolGateway = toolGateway;
     }
 
     @Override
@@ -33,17 +39,35 @@ public class McpNodeExecutor implements NodeExecutor {
             args = Map.of("text", input == null ? "" : String.valueOf(input));
         }
 
-        McpToolCallApi api = mcp.getIfAvailable();
-        if (api == null) {
+        ToolGateway gateway = toolGateway.getIfAvailable();
+        if (gateway == null) {
             Map<String, Object> err = new LinkedHashMap<>();
             err.put("ok", false);
-            err.put("error", "McpToolCallApi unavailable");
+            err.put("error", "ToolGateway unavailable");
             err.put("tool", toolName);
             return err;
         }
-        McpToolCallApi.CallResult result = (serverId != null && !serverId.isBlank())
-                ? api.callTool(serverId, toolName, args)
-                : api.callToolByName(toolName, args);
+        if (serverId == null || serverId.isBlank()) {
+            Map<String, Object> err = new LinkedHashMap<>();
+            err.put("ok", false);
+            err.put("error", "MCP node 必须指定 config.serverId");
+            err.put("tool", toolName);
+            return err;
+        }
+
+        Map<String, Object> agentToolConfig = Map.of(
+                "mcp", List.of(Map.of("serverId", serverId, "allowlist", List.of(toolName))));
+        String runId = ctx.runId() == null ? "flow" : ctx.runId();
+        String nodeRunId = ctx.nodeRunId() == null ? runId : ctx.nodeRunId();
+        ToolGateway.ToolCallContext toolCtx = ToolCallContexts.forTurn(
+                ctx.runAs(),
+                "flow:" + runId,
+                nodeRunId,
+                "flow-mcp",
+                "flow",
+                List.of(toolName),
+                agentToolConfig);
+        ToolProvider.ToolResult result = gateway.call(toolCtx, toolName, args);
         Map<String, Object> out = new LinkedHashMap<>();
         out.put("ok", result.ok());
         out.put("content", result.content());

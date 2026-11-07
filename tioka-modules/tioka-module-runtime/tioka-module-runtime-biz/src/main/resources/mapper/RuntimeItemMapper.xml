@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tioka.runtime.infrastructure.mapper.RuntimeItemMapper">
+
+    <select id="assertLease">
+        <![CDATA[
+            SELECT 1 FROM runtime_turn
+             WHERE id = #{turnId} AND lease_version = #{leaseVersion} AND status = 'RUNNING'
+             FOR SHARE
+            
+]]>
+    </select>
+
+    <select id="nextItemSeq">
+        <![CDATA[
+            UPDATE runtime_thread
+               SET last_item_seq = last_item_seq + 1, update_at = now()
+             WHERE id = #{threadId}
+         RETURNING last_item_seq
+            
+]]>
+    </select>
+
+    <insert id="insert">
+        <![CDATA[
+            INSERT INTO runtime_item (
+              thread_id, seq, id, turn_id, step, type, role, content_json, token_count, discarded, create_at, create_by
+            ) VALUES (
+              #{threadId}, #{seq}, #{id}, #{turnId}, #{step}, #{type}, #{role}, #{contentJson},
+              #{tokenCount}, COALESCE(#{discarded}, FALSE), now(), 'system'
+            )
+            
+]]>
+    </insert>
+
+    <select id="listByThread" resultType="RuntimeItemDO">
+        <![CDATA[
+            SELECT thread_id AS threadId, seq, id, turn_id AS turnId, step, type, role,
+                   content_json AS contentJson, token_count AS tokenCount, discarded
+            FROM runtime_item
+            WHERE thread_id = #{threadId}
+            ORDER BY seq
+            
+]]>
+    </select>
+
+    <select id="listAfterSeq" resultType="RuntimeItemDO">
+        <![CDATA[
+            SELECT thread_id AS threadId, seq, id, turn_id AS turnId, step, type, role,
+                   content_json AS contentJson, token_count AS tokenCount, discarded
+            FROM runtime_item
+            WHERE thread_id = #{threadId} AND seq > #{afterSeq}
+            ORDER BY seq
+            LIMIT #{limit}
+            
+]]>
+    </select>
+
+    <select id="listByTurn" resultType="RuntimeItemDO">
+        <![CDATA[
+            SELECT thread_id AS threadId, seq, id, turn_id AS turnId, step, type, role,
+                   content_json AS contentJson, token_count AS tokenCount, discarded
+            FROM runtime_item
+            WHERE turn_id = #{turnId}
+            ORDER BY seq
+            
+]]>
+    </select>
+
+</mapper>
