@@ -15,6 +15,7 @@ import com.tioka.runtime.infrastructure.RuntimeThreadRepository;
 import com.tioka.runtime.infrastructure.persistence.RuntimeItemDO;
 import com.tioka.runtime.infrastructure.persistence.RuntimeThreadDO;
 import com.tioka.runtime.infrastructure.persistence.RuntimeTurnDO;
+import com.tioka.runtime.config.ObservabilityProperties;
 import com.tioka.runtime.kernel.infrastructure.ItemRepository;
 import com.tioka.runtime.kernel.infrastructure.TurnRepository;
 import org.springframework.stereotype.Service;
@@ -40,19 +41,22 @@ public class TrajectoryQueryService implements TrajectoryApi {
     private final CostQueryApi costs;
     private final PrincipalHolder principals;
     private final ObjectMapper mapper;
+    private final ObservabilityProperties observability;
 
     public TrajectoryQueryService(TurnRepository turns,
                                   ItemRepository items,
                                   RuntimeThreadRepository threads,
                                   CostQueryApi costs,
                                   PrincipalHolder principals,
-                                  ObjectMapper mapper) {
+                                  ObjectMapper mapper,
+                                  ObservabilityProperties observability) {
         this.turns = turns;
         this.items = items;
         this.threads = threads;
         this.costs = costs;
         this.principals = principals;
         this.mapper = mapper;
+        this.observability = observability;
     }
 
     @Override
@@ -91,7 +95,7 @@ public class TrajectoryQueryService implements TrajectoryApi {
                     u == null ? null : u.costMicros(),
                     failover));
         }
-        return new Trajectory(toTurnView(t), steps, null);
+        return new Trajectory(toTurnView(t), steps, observability.buildTraceUrl(t.getTraceparent()));
     }
 
     @Override

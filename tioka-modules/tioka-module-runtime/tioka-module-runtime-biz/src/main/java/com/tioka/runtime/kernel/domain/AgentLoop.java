@@ -8,6 +8,9 @@ import com.tioka.runtime.kernel.approval.ToolApprovalCoordinator;
 import com.tioka.runtime.kernel.infrastructure.TurnRepository;
 import com.tioka.runtime.infrastructure.persistence.RuntimeItemDO;
 import com.tioka.runtime.kernel.model.TurnCallScope;
+import io.opentelemetry.api.GlobalOpenTelemetry;
+import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.context.Scope;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -67,86 +70,94 @@ public final class AgentLoop {
                 approvals.resumeOrphans(ctx, toolPort, sink);
             }
             for (int step = ctx.startStep(); ; step++) {
-                ctx.checkpoint();
-                applySteers(ctx, step);
-                boolean last = step >= ctx.maxSteps() || ctx.isForceFinalAnswer();
-                List<Map<String, Object>> messages = contextBuilder.build(itemLoader.apply(ctx.threadId()));
-                TurnCallScope.open(ctx, sink, step);
-                LoopPorts.ModelPort.Result r;
-                try {
-                    r = modelPort.chat(ctx, messages, last ? List.of() : tools,
-                            delta -> {
-                                ctx.checkpoint();
-                                if (delta != null && delta.discarded()) {
-                                    sink.discardInFlight(ctx);
-                                    return;
-                                }
-                                sink.delta(ctx, delta);
-                            });
+                Span stepSpan = GlobalOpenTelemetry.getTracer("tioka")
+                        .spanBuilder("turn.step")
+                        .setAttribute("tioka.step", step)
+                        .startSpan();
+                try (Scope ignored = stepSpan.makeCurrent()) {
+                    ctx.checkpoint();
+                    applySteers(ctx, step);
+                    boolean last = step >= ctx.maxSteps() || ctx.isForceFinalAnswer();
+                    List<Map<String, Object>> messages = contextBuilder.build(itemLoader.apply(ctx.threadId()));
+                    TurnCallScope.open(ctx, sink, step);
+                    LoopPorts.ModelPort.Result r;
+                    try {
+                        r = modelPort.chat(ctx, messages, last ? List.of() : tools,
+                                delta -> {
+                                    ctx.checkpoint();
+                                    if (delta != null && delta.discarded()) {
+                                        sink.discardInFlight(ctx);
+                                        return;
+                                    }
+                                    sink.delta(ctx, delta);
+                                });
+                    } finally {
+                        TurnCallScope.close();
+                    }
+                    promptTokens += r.promptTokens();
+                    completionTokens += r.completionTokens();
+                    if (r.reasoning() != null && !r.reasoning().isBlank()) {
+                        sink.complete(ctx, step, ItemType.REASONING.wire(), "assistant",
+                                json(Map.of("text", r.reasoning())));
+                    }
+                    if (r.text() != null && !r.text().isBlank()) {
+                        sink.completeMessage(ctx, step, r.text());
+                    }
+                    turns.incrementStep(ctx.turnId(), ctx.leaseVersion());
+                    if (r.toolCalls().isEmpty()) {
+                        return LoopResult.completed(promptTokens, completionTokens);
+                    }
+                    if (last) {
+                        sink.status(ctx, step, "max_steps_reached");
+                        return LoopResult.completed(promptTokens, completionTokens);
+                    }
+                    if (wouldRepeat(recentCalls, r.toolCalls(), ctx.repeatLimit())) {
+                        sink.status(ctx, step, "repeat_call_stopped");
+                        ctx.forceFinalAnswer();
+                        continue;
+                    }
+                    List<ToolApprovalCoordinator.CallBinding> bindings = new ArrayList<>();
+                    for (LoopPorts.ToolCall c : r.toolCalls()) {
+                        String itemId = sink.toolCall(ctx, step, c);
+                        bindings.add(new ToolApprovalCoordinator.CallBinding(itemId, c));
+                        recentCalls.addLast(keyOf(c));
+                        while (recentCalls.size() > 32) {
+                            recentCalls.removeFirst();
+                        }
+                    }
+                    if (approvals == null) {
+                        List<LoopPorts.ToolOutcome> outs = toolPort.invokeAll(ctx, r.toolCalls());
+                        for (LoopPorts.ToolOutcome o : outs) {
+                            sink.toolResult(ctx, step, o);
+                        }
+                        continue;
+                    }
+                    List<PendingToolCall> classified = approvals.classify(ctx, bindings);
+                    List<LoopPorts.ToolCall> allow = new ArrayList<>();
+                    List<PendingToolCall> require = new ArrayList<>();
+                    for (PendingToolCall p : classified) {
+                        if (p.decision() instanceof ApprovalPolicy.Allow) {
+                            allow.add(p.call());
+                        } else if (p.decision() instanceof ApprovalPolicy.Deny d) {
+                            sink.toolResult(ctx, step, new LoopPorts.ToolOutcome(
+                                    p.call().callId(), p.call().name(), false,
+                                    "策略拒绝：" + d.reason(), 0));
+                        } else if (p.decision() instanceof ApprovalPolicy.RequireApproval) {
+                            require.add(p);
+                        }
+                    }
+                    if (!allow.isEmpty()) {
+                        List<LoopPorts.ToolOutcome> outs = toolPort.invokeAll(ctx, allow);
+                        for (LoopPorts.ToolOutcome o : outs) {
+                            sink.toolResult(ctx, step, o);
+                        }
+                    }
+                    if (!require.isEmpty()) {
+                        approvals.suspend(ctx, require);
+                        return LoopResult.waitingApproval(promptTokens, completionTokens);
+                    }
                 } finally {
-                    TurnCallScope.close();
-                }
-                promptTokens += r.promptTokens();
-                completionTokens += r.completionTokens();
-                if (r.reasoning() != null && !r.reasoning().isBlank()) {
-                    sink.complete(ctx, step, ItemType.REASONING.wire(), "assistant",
-                            json(Map.of("text", r.reasoning())));
-                }
-                if (r.text() != null && !r.text().isBlank()) {
-                    sink.completeMessage(ctx, step, r.text());
-                }
-                turns.incrementStep(ctx.turnId(), ctx.leaseVersion());
-                if (r.toolCalls().isEmpty()) {
-                    return LoopResult.completed(promptTokens, completionTokens);
-                }
-                if (last) {
-                    sink.status(ctx, step, "max_steps_reached");
-                    return LoopResult.completed(promptTokens, completionTokens);
-                }
-                if (wouldRepeat(recentCalls, r.toolCalls(), ctx.repeatLimit())) {
-                    sink.status(ctx, step, "repeat_call_stopped");
-                    ctx.forceFinalAnswer();
-                    continue;
-                }
-                List<ToolApprovalCoordinator.CallBinding> bindings = new ArrayList<>();
-                for (LoopPorts.ToolCall c : r.toolCalls()) {
-                    String itemId = sink.toolCall(ctx, step, c);
-                    bindings.add(new ToolApprovalCoordinator.CallBinding(itemId, c));
-                    recentCalls.addLast(keyOf(c));
-                    while (recentCalls.size() > 32) {
-                        recentCalls.removeFirst();
-                    }
-                }
-                if (approvals == null) {
-                    List<LoopPorts.ToolOutcome> outs = toolPort.invokeAll(ctx, r.toolCalls());
-                    for (LoopPorts.ToolOutcome o : outs) {
-                        sink.toolResult(ctx, step, o);
-                    }
-                    continue;
-                }
-                List<PendingToolCall> classified = approvals.classify(ctx, bindings);
-                List<LoopPorts.ToolCall> allow = new ArrayList<>();
-                List<PendingToolCall> require = new ArrayList<>();
-                for (PendingToolCall p : classified) {
-                    if (p.decision() instanceof ApprovalPolicy.Allow) {
-                        allow.add(p.call());
-                    } else if (p.decision() instanceof ApprovalPolicy.Deny d) {
-                        sink.toolResult(ctx, step, new LoopPorts.ToolOutcome(
-                                p.call().callId(), p.call().name(), false,
-                                "策略拒绝：" + d.reason(), 0));
-                    } else if (p.decision() instanceof ApprovalPolicy.RequireApproval) {
-                        require.add(p);
-                    }
-                }
-                if (!allow.isEmpty()) {
-                    List<LoopPorts.ToolOutcome> outs = toolPort.invokeAll(ctx, allow);
-                    for (LoopPorts.ToolOutcome o : outs) {
-                        sink.toolResult(ctx, step, o);
-                    }
-                }
-                if (!require.isEmpty()) {
-                    approvals.suspend(ctx, require);
-                    return LoopResult.waitingApproval(promptTokens, completionTokens);
+                    stepSpan.end();
                 }
             }
         } catch (CancelledSignal e) {

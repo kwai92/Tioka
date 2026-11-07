@@ -37,13 +37,16 @@ public class OpsFacadeController {
     private final List<ImChannelAdapter> imAdapters;
     private final List<BizSystemAdapter> bizAdapters;
     private final String envName;
+    private final String traceUrlTemplate;
 
     public OpsFacadeController(DataSourceApi dataSourceApi, FeishuDocSyncApi feishuDocSyncApi,
                                WikiApi wikiApi, EgressQueryApi egressQueryApi,
                                ScimSyncApi scimSyncApi,
                                AgentShareApi agentShareApi, AuditSink auditSink,
                                List<ImChannelAdapter> imAdapters, List<BizSystemAdapter> bizAdapters,
-                               @Value("${tioka.env.name:${spring.profiles.active:local}}") String envName) {
+                               @Value("${tioka.env.name:${spring.profiles.active:local}}") String envName,
+                               @Value("${tioka.observability.trace-url-template:http://localhost:16686/trace/{traceId}}")
+                               String traceUrlTemplate) {
         this.dataSourceApi = dataSourceApi;
         this.feishuDocSyncApi = feishuDocSyncApi;
         this.wikiApi = wikiApi;
@@ -54,6 +57,7 @@ public class OpsFacadeController {
         this.imAdapters = imAdapters;
         this.bizAdapters = bizAdapters;
         this.envName = envName;
+        this.traceUrlTemplate = traceUrlTemplate;
     }
 
     @PostMapping("/datasources")
@@ -119,7 +123,13 @@ public class OpsFacadeController {
 
     @GetMapping("/env")
     public ApiResponse<?> env() {
-        return ApiResponse.ok(Map.of("name", envName));
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("name", envName);
+        // GOV-08：Observability 页链接 Jaeger
+        out.put("traceUrlTemplate", traceUrlTemplate);
+        out.put("jaegerUi", traceUrlTemplate == null ? null
+                : traceUrlTemplate.replace("/trace/{traceId}", "").replace("{traceId}", ""));
+        return ApiResponse.ok(out);
     }
 
     @GetMapping("/adapters")

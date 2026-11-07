@@ -4,6 +4,9 @@ import com.tioka.framework.error.NotImplemented;
 import com.tioka.orchestration.api.engine.OrchApi;
 import com.tioka.orchestration.infrastructure.OrchRuleRepository;
 import com.tioka.orchestration.infrastructure.persistence.OrchRunDO;
+import io.opentelemetry.api.GlobalOpenTelemetry;
+import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.context.Scope;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
@@ -24,7 +27,18 @@ public class OrchEngineService implements OrchApi {
 
     @Override
     public EventAck ingest(EventEnvelope event) {
-        throw NotImplemented.of("OrchApi.ingest", "ORC-03");
+        Span span = GlobalOpenTelemetry.getTracer("tioka").spanBuilder("orch.ingest").startSpan();
+        try (Scope ignored = span.makeCurrent()) {
+            if (event != null && event.type() != null) {
+                span.setAttribute("tioka.event_type", event.type());
+            }
+            throw NotImplemented.of("OrchApi.ingest", "ORC-03");
+        } catch (RuntimeException e) {
+            span.recordException(e);
+            throw e;
+        } finally {
+            span.end();
+        }
     }
 
     @Override
