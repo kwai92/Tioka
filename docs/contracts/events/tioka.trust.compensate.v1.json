@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tioka.dev/schema/tioka.trust.compensate.v1.json",
+  "title": "tioka.trust.compensate.v1",
+  "description": "TRU-07 补偿指令（每个可逆动作一条，带顺序号）。",
+  "type": "object",
+  "required": [
+    "actionId",
+    "undoScopeId",
+    "seq"
+  ],
+  "properties": {
+    "actionId": {
+      "type": "string"
+    },
+    "undoScopeId": {
+      "type": "string"
+    },
+    "seq": {
+      "type": "integer"
+    },
+    "toolName": {
+      "type": "string"
+    },
+    "workspaceId": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": true
+}

@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tioka.dev/schema/tioka.flow.run_started.v1.json",
+  "title": "tioka.flow.run_started.v1",
+  "description": "FLW-09 Flow Run 启动（与 run_finished 配对）。",
+  "type": "object",
+  "required": [
+    "runId",
+    "flowVersionId",
+    "status"
+  ],
+  "properties": {
+    "runId": {
+      "type": "string"
+    },
+    "flowVersionId": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string"
+    },
+    "origin": {
+      "type": "string"
+    },
+    "originRef": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "workspaceId": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": true
+}

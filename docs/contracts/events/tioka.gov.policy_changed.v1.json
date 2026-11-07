@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tioka.dev/schema/tioka.gov.policy_changed.v1.json",
+  "title": "tioka.gov.policy_changed.v1",
+  "description": "GOV-07 策略增删/模式切换/授权书编译后的跨实例缓存失效。",
+  "type": "object",
+  "required": [
+    "workspaceId",
+    "policyVersion"
+  ],
+  "properties": {
+    "workspaceId": {
+      "type": "string"
+    },
+    "policyVersion": {
+      "type": "integer"
+    },
+    "source": {
+      "type": "string"
+    },
+    "mode": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "additionalProperties": true
+}

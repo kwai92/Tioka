@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tioka.dev/schema/tioka.mas.grant_revoked.v1.json",
+  "title": "tioka.mas.grant_revoked.v1",
+  "description": "MAS-01/03 授予回收或子任务收割。",
+  "type": "object",
+  "required": [
+    "grantId",
+    "reason"
+  ],
+  "properties": {
+    "grantId": {
+      "type": "string"
+    },
+    "reason": {
+      "type": "string"
+    },
+    "parentTurnId": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "childTurnId": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "workspaceId": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": true
+}
