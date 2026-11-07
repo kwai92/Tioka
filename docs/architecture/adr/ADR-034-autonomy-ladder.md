@@ -169,3 +169,10 @@ ID 前缀：`aev` 等级事件、`shd` 影子用例。
 | TRU-10 | 自动降级与通知 | M3 | P1 | 4 | TRU-07、TRU-09 | G3：一次撤销触发降级，负责人收到卡片 |
 | TRU-11 | 影子运行：规则 `shadow`、`origin=shadow` 只预演、结构化与评估器比对、上岗报告 | M4 | P0 | 9（后端 7、前端 2） | ORC-03、EVO-02、TRU-09 | G4：影子 Run 不产生任何 commit；50 个用例后生成上岗报告 |
 | TRU-12 | 指标汇总、Wilson 区间、转正申请 | M4 | P1 | 6（后端 4、前端 2） | EVO-03、TRU-09 | 达标后生成转正申请，批准后等级生效并留审计 |
+
+## 修订：污点与复核提级（2026-11-07）
+
+见 [ADR-063](ADR-063-guardrail-pipeline-input-safety.md)〜[ADR-065](ADR-065-output-safety-guardrail-eval.md) 与 ADR-029 第 72 条：
+
+- `TAINTED` 的 Turn 中，`injectionSensitive` 工具的有效自治等级上限为 L2（[ADR-063](ADR-063-guardrail-pipeline-input-safety.md) 第 3.2 节），不影响其他工具。
+- 文档中检测到指向 AI 的指令文字时，该文档本次处理的复核等级提高一级（ADR-063 第 5.2 节）。

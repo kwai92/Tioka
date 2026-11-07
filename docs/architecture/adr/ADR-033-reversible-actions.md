@@ -205,3 +205,11 @@ ID 前缀：`act` 动作。事件：`tioka.trust.compensate.v1`、`tioka.trust.a
 | TRU-06 | 变更单卡片（飞书审批卡片、审批台、轨迹视图） | M2 | P1 | 8（后端 3、前端 5） | TRU-05、CON-03、HCI-05 | 审批卡片展示变化表与可逆性标签 |
 | TRU-07 | 撤销：补偿消费者、撤销接口与卡片按钮、无法撤销转人工、连带事件 | M3 | P0 | 11 | TRU-05、ORC-02 | G3：撤销一次 5 步写操作，FakeErp 状态与执行前快照完全一致；含不可撤销动作时生成 Attention |
 | TRU-08 | 单 Run 爆炸半径与撤销熔断 | M3 | P1 | 4 | TRU-07、TRU-02 | 1 小时内第 3 次撤销后该 Agent 全部降到 L1 |
+
+## 修订：污点与注入敏感工具（2026-11-07）
+
+见 [ADR-063](ADR-063-guardrail-pipeline-input-safety.md)〜[ADR-065](ADR-065-output-safety-guardrail-eval.md) 与 ADR-029 第 72 条：
+
+- 工具档案增加 `injectionSensitive`。缺省为真的类别：对外发送消息或邮件、分享与授权变更、支付与资金类写操作、删除、在外部系统创建账号或令牌。
+- 工具调用管线的策略步骤读取 Turn 污点（[ADR-063](ADR-063-guardrail-pipeline-input-safety.md) 第 3 节）：`TAINTED` 的 Turn 调用 `injectionSensitive` 工具时缺省 `ESCALATE`，审批卡片显示污点来源；预演变更单标出取自 `EXTERNAL` 原文的参数。
+- 结构化入参只接受 `VALID` / `VALID_WITH_UNKNOWN` 的 `data` item；`unknownPaths` 非空时是否允许提交由工具声明 `acceptsUnknown`，缺省不允许并转审批（[ADR-064](ADR-064-structured-output-reliability.md) 第 8 节）。

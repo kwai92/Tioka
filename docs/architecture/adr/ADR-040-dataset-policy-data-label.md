@@ -124,3 +124,11 @@ ID 前缀：`dset` 数据集。新增错误码：`NO_ELIGIBLE_MODEL`、`DATA_LAB
 ## 修订：文档解析引擎的去向（2026-11-06）
 
 见 [ADR-061](ADR-061-parse-engine-spi-external-ocr.md) 第 5 节与 ADR-029 第 71 条：文档解析引擎实例是一种去向。`PRIVATE` 实例等同私有化模型，`CLOUD` 实例等同云端模型供应商；留存或训练条款未声明的云实例不能处理 `CONFIDENTIAL` 及以上文档，空间管理员填写数据处理协议编号后可放行并记审计；`SECRET` 文档只能用 `PRIVATE` 实例。解析方案中不满足去向的引擎在路由时跳过，整条链不满足时解析失败，不静默降级。
+
+## 修订：可逆假名化（2026-11-07）
+
+见 [ADR-063](ADR-063-guardrail-pipeline-input-safety.md)〜[ADR-065](ADR-065-output-safety-guardrail-eval.md) 与 ADR-029 第 72 条：
+
+- 模型调用去向增加可选处理「可逆假名化」（[ADR-063](ADR-063-guardrail-pipeline-input-safety.md) 第 6.3 节），**缺省关闭**，由空间开启。开启后空间可配置：仅因 PII 被标为 `CONFIDENTIAL` 的内容，假名化后按 `INTERNAL` 判定去向许可；因其他原因达到的标签不受影响。
+- 阿里云 AI 安全护栏等外部检测服务是云端去向，受去向许可约束。
+- 消息类去向的脱敏改由 `SINK` 检查点的 `pii.detect` 执行，规则不变。
