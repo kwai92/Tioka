@@ -100,3 +100,7 @@ tioka:
     reindex-enabled: true
     reindex-interval-ms: 15000
     reindex-batch-size: 5
+  # SCH-01: Schema registry（默认关闭，不改变 M2 行为）
+  ontology:
+    schema:
+      enabled: false
