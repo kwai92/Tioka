@@ -69,6 +69,7 @@ public class OrchRuleController {
 
     @PostMapping("/{id}/versions/{vid}/dry-run")
     @RequirePermission(Permissions.ORCH_WRITE)
+    @Audited(action = "orch.rule.dry_run", resourceType = "orch_rule_version", resourceIdArg = "#vid")
     public ApiResponse<DryRunResult> dryRun(@PathVariable String id,
                                             @PathVariable String vid,
                                             @RequestBody Map<String, Object> body) {
