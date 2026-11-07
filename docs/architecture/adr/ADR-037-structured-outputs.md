@@ -105,3 +105,7 @@ AgentSpec 增加字段 `OutputContract output`（可空，空表示自由文本 
 | SCH-03 | 校验、证据绑定检查、修复循环、`data` item 与事件契约 | M3 | P0 | 4 | RT-08、SCH-01、DOC-03 | 伪造引文在第 3 步被拒并进入修复 |
 | SCH-04 | 前端 `data` 渲染器注册表与通用 JSON 树 | M3 | P1 | 3 | SCH-03 | 未注册 Schema 正常显示，不报错 |
 | SCH-05 | `FieldMatchEvaluator` 字段级评测 | M4 | P1 | 3 | EVO-02、SCH-01 | 合同样本集出四态一致率与分字段报告 |
+
+## 修订：证照抽取复用 Schema 登记表（2026-11-07）
+
+见 [ADR-064](ADR-064-certificate-structured-extraction.md) 与 ADR-029 第 72 条：证照与票据的结构化抽取（`@doc.extract`）复用 Schema 登记表与 `data` item；平台预置营业执照、居民身份证、不动产权证书、授权委托书、增值税发票 5 个 Schema（`owner_pack = platform`）；抽取值的 `Source` 指向解析契约的块与字符区间，证据绑定检查不变。
