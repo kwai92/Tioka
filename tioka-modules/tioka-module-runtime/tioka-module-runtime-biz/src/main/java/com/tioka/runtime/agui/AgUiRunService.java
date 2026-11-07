@@ -55,6 +55,7 @@ public class AgUiRunService {
                           ResourceGuard resourceGuard,
                           PrincipalHolder principals,
                           EventStream streams,
+                          AgUiEventMapper mapper,
                           ObjectMapper objectMapper,
                           KernelProperties props) {
         this.threads = threads;
@@ -63,9 +64,9 @@ public class AgUiRunService {
         this.resourceGuard = resourceGuard;
         this.principals = principals;
         this.streams = streams;
+        this.mapper = mapper;
         this.objectMapper = objectMapper;
         this.props = props;
-        this.mapper = new AgUiEventMapper(objectMapper);
     }
 
     public SseEmitter run(String agentVersionId, AgUiRunAgentInput input) {

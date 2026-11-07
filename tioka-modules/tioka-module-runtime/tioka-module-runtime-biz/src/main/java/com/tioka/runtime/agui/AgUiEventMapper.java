@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.tioka.runtime.api.kernel.ItemType;
 import com.tioka.runtime.api.kernel.RuntimeEventType;
+import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -14,16 +15,14 @@ import java.util.Map;
  * Runtime SSE 事件 → AG-UI 事件（纯函数 + 显式 {@link AgUiMappingState}；M2-04 HCI-06 映射表）。
  *
  * <p>{@code outThreadId}/{@code runId} 为 AG-UI 侧标识（请求体 threadId/runId），不是内部 turnId。
+ * ObjectMapper 由 Spring 注入（ENG-05）。
  */
+@Component
 public final class AgUiEventMapper {
     private final ObjectMapper mapper;
 
     public AgUiEventMapper(ObjectMapper mapper) {
         this.mapper = mapper;
-    }
-
-    public AgUiEventMapper() {
-        this(new ObjectMapper());
     }
 
     /**
