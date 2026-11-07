@@ -12,8 +12,17 @@ import java.util.regex.Pattern;
  * @param subjectKey 顺序与分组键，可空
  * @param payload    事件专属内容，结构见 {@code docs/contracts/events/{event}.json}
  * @param hops       派生深度，可空表示 0
+ * @param requestId  关联请求 ID（ADR-073），可空表示由发布端从上下文补齐
+ * @param subject    业务主体引用，形如 {@code {类型}:{ID}}（ADR-073），可空
  */
-public record DomainEvent(String event, String topic, String subjectKey, Map<String, Object> payload, Integer hops) {
+public record DomainEvent(
+        String event,
+        String topic,
+        String subjectKey,
+        Map<String, Object> payload,
+        Integer hops,
+        String requestId,
+        String subject) {
 
     private static final Pattern NAME = Pattern.compile("^tioka\\.[a-z][a-z0-9_]*\\.[a-z][a-z0-9_.]*\\.v[0-9]+$");
 
@@ -24,5 +33,10 @@ public record DomainEvent(String event, String topic, String subjectKey, Map<Str
             throw new IllegalArgumentException("事件名不符合 tioka.{domain}.{event}.v{n}：" + event);
         }
         payload = payload == null ? Map.of() : Map.copyOf(payload);
+    }
+
+    /** 兼容五参构造：requestId / subject 由发布端补齐。 */
+    public DomainEvent(String event, String topic, String subjectKey, Map<String, Object> payload, Integer hops) {
+        this(event, topic, subjectKey, payload, hops, null, null);
     }
 }
