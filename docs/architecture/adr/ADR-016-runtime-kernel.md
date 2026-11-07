@@ -117,3 +117,11 @@ Chat、Flow、Orchestration、IM 四个入口只使用 `RuntimeApi`，不再各�
 
 - **工具检索（RT-13）**：常用工具集合由「Turn 内不变」改为「thread 内不变」；工具列表按名称排序、定义规范化序列化；不可用工具在调用时拒绝而不从列表删除，授予收窄除外（[ADR-048](ADR-048-context-engineering.md) 第 1.2 节、[ADR-049](ADR-049-prompt-caching.md) 规则 C2、C4）。
 - **Turn 循环**：每次调模型前由组装器按 ADR-048 生成上下文并写上下文清单；本轮尾部在 Turn 开始时生成，本 Turn 内各步复用。新增 Turn 结局 `CONTEXT_OVERFLOW`。
+
+## 修订：安全护栏与结构化输出（2026-11-07）
+
+见 [ADR-065](ADR-065-guardrail-pipeline-input-safety.md)〜[ADR-067](ADR-067-output-safety-guardrail-eval.md) 与 ADR-029 第 73 条：
+
+- **RT-14 作废**，由 [ADR-065](ADR-065-guardrail-pipeline-input-safety.md) 的 GRD-01 取代。护栏挂点由三个改为五个检查点：`IN`、`INGEST`（新增：外部内容进入上下文前）、`TOOL`、`OUT`、`SINK`；结果为 `ALLOW` / `REWRITE` / `FLAG` / `BLOCK` / `ESCALATE`，增加故障模式与时延预算。`IN` 的分类器检查与本 Turn 第一次模型调用并行。
+- `runtime_turn` 增加 `taint`、`taint_sources`（ADR-065 第 3 节）。
+- 声明了输出契约的 Turn 在结束前执行 [ADR-066](ADR-066-structured-output-reliability.md) 的八步输出流水线；修复与降级阶梯可能多次调用模型，均计入本 Turn 预算；`HUMAN_PENDING` 时 Turn 进入 `WAITING`，补录后续跑。输出流水线内的异常不向 Turn 循环传播。

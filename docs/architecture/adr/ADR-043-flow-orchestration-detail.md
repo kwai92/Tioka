@@ -701,3 +701,11 @@ M3 内置四个模板：知识库问答、文档结构化抽取、带人审的�
 
 - **第 1.1 节补充**：单个 Agent 内的多步推进方式由 ADR-046 的执行策略决定（`REACT`、`PLAN_EXECUTE`、`REFLECT`）；入口「交给哪个 Agent」由 ADR-044 的入口路由决定。Flow 中的 Agent 节点按被调用 Agent 自己的执行策略运行。
 - **意图分类节点模板**：节点模板库（第 4.3 节）提供「意图分类」模板：一个 StructuredExtract 节点（输出类别、置信度、理由，Schema 预置）接一个 Switch 节点（按类别分支，低于置信阈值走 default）。这是模板，不是新节点类型，不改引擎。
+
+## 修订：结构化输出的结局端口（2026-11-07）
+
+见 [ADR-065](ADR-065-guardrail-pipeline-input-safety.md)〜[ADR-067](ADR-067-output-safety-guardrail-eval.md) 与 ADR-029 第 73 条：
+
+- 声明了输出契约的结构化抽取节点与 Agent 节点有三个输出端口：`valid`（含 `VALID_WITH_UNKNOWN`）、`pending`（人工补录期间挂起）、`failed`（[ADR-066](ADR-066-structured-output-reliability.md) 第 8 节）。
+- DSL 校验清单增加一条：`failed` 端口必须有连线，或节点配置「失败时终止并通知」，否则发布被拒。
+- Flow 发布为 API 时，响应体固定含 `outcome`；结构化产出失败返回 HTTP 200 与 `outcome=FAILED`，500 只用于平台故障。

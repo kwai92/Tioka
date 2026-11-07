@@ -72,3 +72,6 @@ ADR-015〜040 是 M0〜M4 的权威设计（ADR-032〜035 为可信放权，ADR-
 | [ADR-062](adr/ADR-062-parse-quality-special-elements-security.md) | 解析质量评测、合同特殊元素与解析安全（PRS-07、PRS-08、PRS-11） |
 | [ADR-063](adr/ADR-063-docast-layers-element-processing.md) | 文档结构树 DocAST、图层与元素级专项处理（PRS-13〜16、FE-39） |
 | [ADR-064](adr/ADR-064-certificate-structured-extraction.md) | 证照与票据结构化抽取 `@doc.extract`（PRS-18、FE-40） |
+| [ADR-065](adr/ADR-065-guardrail-pipeline-input-safety.md) | 护栏管线、内容信任分级与输入安全：五检查点、污点、隔离读取、检测、敏感数据与假名化（GRD-00〜04、GRD-06；RT-14 作废） |
+| [ADR-066](adr/ADR-066-structured-output-reliability.md) | 结构化输出可靠性：交付契约、生成方言、严格档、能力记录、八步流水线、降级兜底、Schema 演进（SCH-06〜12） |
+| [ADR-067](adr/ADR-067-output-safety-guardrail-eval.md) | 输出内容安全、生成内容标识与护栏评测（GRD-05、GRD-08、GRD-10） |
