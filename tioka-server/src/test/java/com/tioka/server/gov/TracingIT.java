@@ -44,6 +44,7 @@ import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -106,20 +107,27 @@ class TracingIT {
         }
 
         List<SpanData> spans = exporter.getFinishedSpanItems();
-        SpanData turnRun = requireSpan(spans, "turn.run");
-        assertTrue(spans.stream().anyMatch(s -> "turn.step".equals(s.getName())
-                        && s.getParentSpanId().equals(turnRun.getSpanId())),
-                () -> "turn.step 应以 turn.run 为父: " + names(spans));
-        assertTrue(spans.stream().anyMatch(s -> "model.chat".equals(s.getName())),
-                () -> "应有 model.chat: " + names(spans));
-        assertTrue(spans.stream().anyMatch(s -> "tool.invoke".equals(s.getName())),
-                () -> "应有 tool.invoke: " + names(spans));
-
+        // DualInstance/种子可能产生多条 turn.run；勿取 findFirst，以「有 turn.step 子节点」的那条为准
+        Set<String> turnRunIds = spans.stream()
+                .filter(s -> "turn.run".equals(s.getName()))
+                .map(SpanData::getSpanId)
+                .collect(java.util.stream.Collectors.toSet());
+        assertFalse(turnRunIds.isEmpty(), () -> "应有 turn.run: " + names(spans));
+        SpanData turnStep = spans.stream()
+                .filter(s -> "turn.step".equals(s.getName()) && turnRunIds.contains(s.getParentSpanId()))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("turn.step 应以某条 turn.run 为父: " + names(spans)));
+        SpanData turnRun = spans.stream()
+                .filter(s -> s.getSpanId().equals(turnStep.getParentSpanId()))
+                .findFirst()
+                .orElseThrow();
         String traceId = turnRun.getTraceId();
-        assertTrue(spans.stream()
-                        .filter(s -> List.of("turn.step", "model.chat", "tool.invoke").contains(s.getName()))
-                        .allMatch(s -> traceId.equals(s.getTraceId())),
-                "Turn 内 span 应同属一条 trace");
+        assertTrue(spans.stream().anyMatch(s -> "model.chat".equals(s.getName())
+                        && traceId.equals(s.getTraceId())),
+                () -> "应有同 trace 的 model.chat: " + names(spans));
+        assertTrue(spans.stream().anyMatch(s -> "tool.invoke".equals(s.getName())
+                        && traceId.equals(s.getTraceId())),
+                () -> "应有同 trace 的 tool.invoke: " + names(spans));
     }
 
     @Test
