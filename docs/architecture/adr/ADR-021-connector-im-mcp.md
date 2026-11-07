@@ -80,3 +80,24 @@ CREATE TABLE mcp_server_snapshot (id VARCHAR(32) PRIMARY KEY, server_id VARCHAR(
   tools_json TEXT NOT NULL, server_info_json TEXT, created_at TIMESTAMPTZ NOT NULL);   -- 取代 mcp_tool
 -- mcp_grant 废弃：绑定关系进入 Agent 版本快照（设计 I）
 ```
+
+## 修订：Agent 架构调研落地（2026-11-06）
+
+来由：[调研 01](../research/01-Agent与多Agent架构调研.md)、[调研 02](../research/02-Agent执行策略与执行器插件调研.md)；负责人同意按调研建议设计，见 ADR-029 第 67 条。
+
+**MCP 规范版本（CON-05，M3）**：MCP 已于 2025-12 捐给 Linux Foundation 下的 Agentic AI Foundation，并在 2026-07-28 发布新版规范：去掉 initialize 握手与 `Mcp-Session-Id`，每个请求在 `_meta` 携带协议版本与能力，新增 `server/discover`；订阅改为 `subscriptions/listen`；Tasks 移到扩展；服务端发起的 sampling、elicitation、roots 改为「input_required」多轮请求；废弃 Roots、Sampling、Logging、HTTP+SSE 传输与动态客户端注册。上文「MCP 管理」表按此修订：
+
+| 项 | 修订后定案 |
+| --- | --- |
+| 版本 | 客户端与服务端以 2026-07-28 为主版本，兼容 2025-11-25（按服务端声明的协议版本切换）。不实现已废弃的 HTTP+SSE 传输，取代上文「兼容旧 SSE」 |
+| 工具发现 | 2026-07-28 用 `server/discover` + `tools/list`，2025-11-25 用握手后 `tools/list`；快照规则不变 |
+| 健康 | 取代上文「握手探活」：2026-07-28 Server 每 60 秒调 `server/discover`，2025-11-25 Server 用握手；熔断规则不变 |
+| 补充输入 | Server 返回 input_required（或 2025-11-25 的 elicitation）时：需要用户确认或填写的转为通用审批（kind=card），Turn 进入 `WAITING_APPROVAL`；URL 模式（如 OAuth 授权）转为授权链接卡片 |
+| Sampling | 不实现（新规范已废弃），Server 需要模型时应自行调用 |
+| Tasks 扩展 | Server 支持时，长时工具调用按 RT-09 的异步工具结果机制等待（`WAITING_CHILD`），轮询 `tasks/get` |
+| Tioka 作为 MCP Server | 同时声明两个版本；无状态实现，任何实例都可处理请求；OAuth 校验不变 |
+| 客户端注册 | 采用 Client ID Metadata Documents，不做动态客户端注册 |
+
+CON-05 因此净增后端约 2 人日（ADR-029 第 67 条）。
+
+**A2A**：Agent 之间跨系统互通的映射与安全边界见 [ADR-045](ADR-045-a2a-interop.md)；实现在 M4 之后。外部 Agent 作为执行器见 [ADR-047](ADR-047-external-executor.md)。

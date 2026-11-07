@@ -51,4 +51,13 @@ public interface RuntimeItemMapper {
     java.util.List<RuntimeItemDO> listAfterSeq(@Param("sessionId") String sessionId,
                                                @Param("afterSeq") long afterSeq,
                                                @Param("limit") int limit);
+
+    @Select("""
+            SELECT session_id AS sessionId, seq, id, turn_id AS turnId, step, type, role,
+                   content_json AS contentJson, token_count AS tokenCount, discarded
+            FROM runtime_item
+            WHERE turn_id = #{turnId}
+            ORDER BY seq
+            """)
+    java.util.List<RuntimeItemDO> listByTurn(String turnId);
 }

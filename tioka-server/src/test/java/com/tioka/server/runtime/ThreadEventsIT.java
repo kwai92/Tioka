@@ -93,13 +93,10 @@ class ThreadEventsIT {
         seedSession(threadId, login.user().id());
 
         principals.runAs(user(login.user().id()), () -> {
-            for (long seq = 1; seq <= 3; seq++) {
-                items.insertReserved(seq, threadId, "turn_done", 0,
-                        ItemType.MESSAGE.wire(), "assistant", "{\"text\":\"m" + seq + "\"}", null);
+            for (int i = 1; i <= 3; i++) {
+                items.appendWithoutLease(threadId, "turn_done", 0,
+                        ItemType.MESSAGE.wire(), "assistant", "{\"text\":\"m" + i + "\"}");
             }
-            RuntimeSessionDO s = sessions.find(threadId);
-            s.setLastItemSeq(3L);
-            sessions.upsert(s);
         });
 
         List<String> ids = collectEventIds(login.accessToken(), threadId, "0", 1200);

@@ -76,3 +76,19 @@ CREATE TABLE chat_folder (id VARCHAR(32) PRIMARY KEY, owner_id VARCHAR(32) NOT N
 ALTER TABLE runtime_session ADD COLUMN parent_thread_id VARCHAR(64);   -- 配合 fork（RT 侧）
 ALTER TABLE runtime_session ADD COLUMN fork_seq BIGINT;
 ```
+
+## 修订：Agent 架构调研落地（2026-11-06）
+
+来由：[调研 01](../research/01-Agent与多Agent架构调研.md)、[调研 02](../research/02-Agent执行策略与执行器插件调研.md)；负责人同意按调研建议设计，见 ADR-029 第 67 条。
+
+- **入口路由**：会话可选择 ROUTER 型 Agent（[ADR-044](ADR-044-entry-intent-routing.md)）。会话表增加「当前目标」与「粘滞到期时间」；交接只在 Turn 边界发生，每个 Turn 记录实际执行的 Agent 版本（与上文「Agent 版本」规则一致）。用户在会话头部手动改选目标时记为路由负反馈。
+
+## 修订：记忆与上下文工程调研落地（2026-11-06）
+
+来由：[调研 03](../research/03-Agent记忆与上下文工程调研.md)；按负责人「有选项时按推荐方案直接写设计」的要求落地，见 ADR-029 第 68 条。
+
+- **长期记忆（CHT-05）由 [ADR-050](ADR-050-memory-system.md) 取代**，工作项改为 MEM-01（M4）。上文「长期记忆」一节的抽取、注入、控制规则以 ADR-050 为准：注入拆为会话快照与本轮检索两部分，合计仍不超过 1000 token；抽取只取用户本人消息与最终回答；更新为失效而不删除。
+- **`chat_memory_item` 不再实现**，改为 ADR-050 的 `mem_item` 与 `mem_event`（不带 `tenant_id`，符合第 60 条）。
+- **分叉与压缩**：子 thread 只采用位置在 `fork_seq` 之前的最后一个 compaction item，会话快照重新生成（[ADR-048](ADR-048-context-engineering.md) 第 2.4 节）。记忆抽取只对 Turn 完成时所在的分支执行一次。
+- **删除会话**时询问是否同时删除来自该会话的记忆，默认是（ADR-050 第 6.2 节）。
+- 会话内，后台抽取写入或更新记忆时在回答下方提示「已更新记忆」，可撤销（FE-30）。

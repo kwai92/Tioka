@@ -111,3 +111,24 @@ ID 前缀：`dset` 数据集。新增错误码：`NO_ELIGIBLE_MODEL`、`DATA_LAB
 | DAT-01 | 数据集登记、DatasetPolicy、连接器 SDK 行列执行（JDBC 与通用 REST；业务插件随 CON-07） | M3 | P1 | 6 | 通用连接器 SDK | G3：两位不同区域用户问同一问题，得到不同的行与掩码 |
 | DAT-02 | 数据标签传播、黑板与对外去向许可 | M3 | P1 | 5 | GOV-10、MAS-01 | G3：CONFIDENTIAL 结果不能原文发到外部群 |
 | DAT-03 | 标签 → 可用路由计划 | M3 | P1 | 2 | MH-06 | G3：读到 SECRET 后不再调用未获许可的模型 |
+
+## 修订：记忆与上下文工程调研落地（2026-11-06）
+
+来由：[调研 03](../research/03-Agent记忆与上下文工程调研.md)；按负责人「有选项时按推荐方案直接写设计」的要求落地，见 ADR-029 第 68 条。
+
+- **记忆的可移植与注入**（[ADR-050](ADR-050-memory-system.md) 第 2.3 节）：USER 记忆中只有标签 ≤ `INTERNAL` 的偏好与指令类可跨空间生效，事实类与 `CONFIDENTIAL` 及以上只在来源空间生效；标签高于当前 Turn 可用路由计划许可密级的记忆不注入，避免因记忆导致 `NO_ELIGIBLE_MODEL`。
+- 空间记忆与经验库同样只接受空间配置上限（默认 `INTERNAL`）以内的条目，并必须人审。
+- 来源 Turn 标签为 `SECRET` 时不抽取记忆。
+- 子 Agent `WITH_SUMMARY` 传入模式下，父会话摘要标签超过子授予 `maxDataLabel` 时降为 `ISOLATED`（[ADR-048](ADR-048-context-engineering.md) 第 3.1 节）。
+
+## 修订：文档解析引擎的去向（2026-11-06）
+
+见 [ADR-061](ADR-061-parse-engine-spi-external-ocr.md) 第 5 节与 ADR-029 第 71 条：文档解析引擎实例是一种去向。`PRIVATE` 实例等同私有化模型，`CLOUD` 实例等同云端模型供应商；留存或训练条款未声明的云实例不能处理 `CONFIDENTIAL` 及以上文档，空间管理员填写数据处理协议编号后可放行并记审计；`SECRET` 文档只能用 `PRIVATE` 实例。解析方案中不满足去向的引擎在路由时跳过，整条链不满足时解析失败，不静默降级。
+
+## 修订：可逆假名化（2026-11-07）
+
+见 [ADR-065](ADR-065-guardrail-pipeline-input-safety.md)〜[ADR-067](ADR-067-output-safety-guardrail-eval.md) 与 ADR-029 第 73 条：
+
+- 模型调用去向增加可选处理「可逆假名化」（[ADR-065](ADR-065-guardrail-pipeline-input-safety.md) 第 6.3 节），**缺省关闭**，由空间开启。开启后空间可配置：仅因 PII 被标为 `CONFIDENTIAL` 的内容，假名化后按 `INTERNAL` 判定去向许可；因其他原因达到的标签不受影响。
+- 阿里云 AI 安全护栏等外部检测服务是云端去向，受去向许可约束。
+- 消息类去向的脱敏改由 `SINK` 检查点的 `pii.detect` 执行，规则不变。

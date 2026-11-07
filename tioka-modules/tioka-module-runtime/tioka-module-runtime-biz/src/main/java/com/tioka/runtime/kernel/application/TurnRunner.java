@@ -164,9 +164,18 @@ public class TurnRunner {
             }, props.getLeaseRenewInterval().toMillis(), props.getLeaseRenewInterval().toMillis(), TimeUnit.MILLISECONDS);
 
             signalBus.register(turnId);
-            // 派发线程无请求 SecurityContext：必须先按 run_as 恢复 Principal，再读 workspace 作用域表
-            Principal runAs = resolveRunAs(turn);
             try {
+                // 必须先 resolveRunAs：sessions.find 走行级过滤，无 Principal 会炸
+                // R-1：runAs 无效时立刻 FAILED(RUN_AS_INVALID)，释放配额，不续跑
+                Principal runAs;
+                try {
+                    runAs = resolveRunAs(turn);
+                } catch (RuntimeException e) {
+                    log.warn("turn {} runAs invalid: {}", turnId, e.toString());
+                    failTurn(turnId, lv, threadId, "RUN_AS_INVALID", e.getMessage());
+                    finished = true;
+                    return;
+                }
                 long finalLv = lv;
                 LoopResult result = principals.runAs(runAs, () -> {
                     RuntimeSessionDO session = sessions.find(threadId);
@@ -257,6 +266,17 @@ public class TurnRunner {
     /** LeaseReaper / 外部在终态后触发同 thread 下一条。 */
     public void enqueueNext(String threadId) {
         turns.nextQueued(threadId).ifPresent(t -> dispatchQueue.offer(t.getId(), threadId));
+    }
+
+    private void failTurn(String turnId, long leaseVersion, String threadId,
+                          String errorCode, String errorMessage) {
+        try {
+            turns.finish(turnId, leaseVersion, TurnStatus.FAILED, errorCode,
+                    truncate(errorMessage), null, null);
+            publishTerminal(threadId, turnId, TurnStatus.FAILED);
+        } catch (RuntimeException ignored) {
+            // ignore
+        }
     }
 
     private void publishTerminal(String threadId, String turnId, TurnStatus status) {

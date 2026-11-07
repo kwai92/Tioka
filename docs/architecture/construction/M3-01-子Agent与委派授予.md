@@ -6,6 +6,7 @@
 - 前置：RT-08（M1-02）、CON-01（M1-04）、TRU-05（M2-05 `prepare` / `commit`）、GOV-07 与 TRU-02（M3，Cedar 求值器与授权书编译）
 - 迁移：V160〜V162（M3 多智能体与运行时权限号段 V160〜V169）
 - 估算：RT-12 6 人天（BE-B），MAS-01 5、MAS-02 2（BE-A），MAS-03 3（BE-B），合计 16 人天
+- 排期：周次、人天与负责人以 [M3-00](M3-00-M3实施计划.md) 为准（2026-11-06，ADR-029 第 66 条）。负责人不变
 
 本阶段交付「能委派，且委派后权限只会收窄」。团队（任务图、黑板、仲裁，MAS-04〜07）在 M4，届时直接复用本节的 `GrantService` 与子 Turn 机制。**RT-12 与 MAS-01 必须同一个发布版本上线**（ADR-029 第 43 条）：MAS-01 合并前，`agent.delegate` 的工具注册用特性开关 `tioka.runtime.delegate.enabled=false` 关闭。
 

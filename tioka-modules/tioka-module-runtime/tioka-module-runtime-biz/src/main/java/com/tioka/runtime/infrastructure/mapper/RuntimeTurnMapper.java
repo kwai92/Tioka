@@ -256,7 +256,14 @@ public interface RuntimeTurnMapper {
             FROM runtime_turn
             WHERE session_id = #{sessionId}
               AND status IN ('RUNNING', 'WAITING_APPROVAL', 'WAITING_CHILD', 'QUEUED')
-            ORDER BY seq DESC
+            ORDER BY CASE status
+                       WHEN 'RUNNING' THEN 0
+                       WHEN 'WAITING_APPROVAL' THEN 1
+                       WHEN 'WAITING_CHILD' THEN 2
+                       WHEN 'QUEUED' THEN 3
+                       ELSE 4
+                     END,
+                     seq DESC
             LIMIT 1
             """)
     RuntimeTurnDO findActive(String sessionId);

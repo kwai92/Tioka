@@ -78,3 +78,15 @@ CREATE TABLE sys_adapter_registration (id VARCHAR(32) PRIMARY KEY, tenant_id VAR
   impl VARCHAR(255) NOT NULL, plugin_sha256 VARCHAR(64), config_json TEXT, status VARCHAR(16) NOT NULL);
 -- scim_user 废弃，改为写 auth_user + sys_external_identity
 ```
+
+## 修订：供应商凭证（2026-11-06）
+
+见 [ADR-042](ADR-042-provider-credentials-model-params.md) 与 ADR-029 第 63 条：供应商 API Key、MCP 令牌、数据源凭证统一使用 FND-08 的 `CredentialCipher`（AES-256-GCM，带 AAD 与密钥版本），替换现有 `LocalSecretStore` 的 ECB 加密，旧密文由迁移任务重新加密。
+
+## 修订：Foundation 基础平台（2026-11-06）
+
+见 [ADR-051](ADR-051-foundation-platform.md)〜[ADR-054](ADR-054-engineering-base-subsystem-microfrontend.md) 与 ADR-029 第 69 条：FND-09、FND-10 在 M4 照做（按 S15 第 19.2 节约定）；M4 之后的 F 阶段，外部身份映射、组织同步与登录方式配置移到独立的 Foundation 平台，由 BAS 工作项接管；组 → 空间角色规则改为引用 Foundation 组织单元、岗位与应用角色；离职处理改由 `fdn.person.disabled` 触发。代用户令牌、凭证加密、插件宿主仍在 Tioka。
+
+## 修订：文档解析引擎 SPI（2026-11-06）
+
+见 [ADR-061](ADR-061-parse-engine-spi-external-ocr.md) 与 ADR-029 第 71 条：插件宿主加载的 SPI 增加第十类「文档解析引擎」。适配器清单除通用的签名、SPI 版本、权限声明外，还声明能力、调用模式、坐标形式、计费单位与去向属性；去向属性由引擎实例填写、空间管理员确认，不由插件作者决定。

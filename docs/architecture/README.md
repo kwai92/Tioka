@@ -15,6 +15,8 @@
 
 2026-11-05 的差距分析、预期目标、推进规划、差异化方向、合同场景与多智能体设计原文归档在 [design-notes/](design-notes/README.md)，仅作背景，执行以 ADR、34 号计划和施工设计为准。
 
+联网调研报告（如 Agent、多 Agent、意图路由、SuperAgent、A2A 调研）放在 [research/](research/README.md)，同样仅作背景。
+
 ### 近期 ADR
 
 ADR-015〜040 是 M0〜M4 的权威设计（ADR-032〜035 为可信放权，ADR-038〜040 为多智能体与运行时权限，见下表；ADR-036、ADR-037 为业务本体与结构化输出，来自商业租赁合同场景），推进计划见 [34-M0至M4推进规划与工作项](implementation/34-M0至M4推进规划与工作项.md)，契约见 [docs/contracts](../contracts/README.md)。M0〜M2 的施工设计（逐工作项的改动清单、关键代码、迁移、接口、测试与完成标准）见 [construction/00-施工总纲](construction/00-施工总纲.md)。
@@ -48,3 +50,28 @@ ADR-015〜040 是 M0〜M4 的权威设计（ADR-032〜035 为可信放权，ADR-
 | [ADR-038](adr/ADR-038-multi-agent-team.md) | 多智能体团队：规划、分派、协商、汇总，子 Agent 生命周期（MAS-03〜07） |
 | [ADR-039](adr/ADR-039-delegation-grant.md) | 委派授予与权限收窄，Skills / MCP / Workflow 的三道门（MAS-01、MAS-02、DAT-04〜06） |
 | [ADR-040](adr/ADR-040-dataset-policy-data-label.md) | 数据集行列策略与数据标签（DAT-01〜03） |
+| [ADR-041](adr/ADR-041-config-versioning-observability.md) | 配置版本化、运行状态、告警与统计 |
+| [ADR-042](adr/ADR-042-provider-credentials-model-params.md) | 供应商凭证与模型参数 |
+| [ADR-043](adr/ADR-043-flow-orchestration-detail.md) | Flow 工作流编排详细设计（FLW-09〜19） |
+| [ADR-044](adr/ADR-044-entry-intent-routing.md) | 入口意图路由与受控交接（RTE-01〜03） |
+| [ADR-045](adr/ADR-045-a2a-interop.md) | A2A 互通：概念映射与安全边界（实现在 M4 之后） |
+| [ADR-046](adr/ADR-046-execution-strategy.md) | Agent 执行策略：REACT、PLAN_EXECUTE、REFLECT 等（EXE-01〜04） |
+| [ADR-047](adr/ADR-047-external-executor.md) | 外部执行器，DSH 式插件执行（实现在 M4 之后） |
+| [ADR-048](adr/ADR-048-context-engineering.md) | 上下文工程：四区组装、有效预算与分级削减、子 Agent 隔离、上下文清单（CTX-01〜03） |
+| [ADR-049](adr/ADR-049-prompt-caching.md) | 提示缓存：缓存友好规则、供应商适配与命中率监控（CCH-01、CCH-02） |
+| [ADR-050](adr/ADR-050-memory-system.md) | 记忆体系：分层、作用域、读写路径、权限与治理（MEM-01〜05，取代 CHT-05） |
+| [ADR-051](adr/ADR-051-foundation-platform.md) | Foundation 基础平台：定位、架构与应用接入（BAS，详设见 [S15](systems/S15-Foundation基础平台系统.md)） |
+| [ADR-052](adr/ADR-052-org-account-authz-center.md) | 组织、账号与权限中心 |
+| [ADR-053](adr/ADR-053-foundation-common-services.md) | Foundation 公共服务、安全合规与部署 |
+| [ADR-054](adr/ADR-054-engineering-base-subsystem-microfrontend.md) | Java 工程化底座、子系统授权模式与微前端 |
+| [ADR-055](adr/ADR-055-knowledge-ingest-chunking.md) | 知识入库：解析输入契约、结构化切块与上下文增强（KNW-11、KNW-20） |
+| [ADR-056](adr/ADR-056-retrieval-qa-evaluation.md) | 知识检索、问答模式与评测：模型与维度、九步检索、AUTO/TOOL/BOTH、检索轨迹、生成侧评测（KNW-12〜15） |
+| [ADR-057](adr/ADR-057-external-knowledge-providers.md) | 外部知识库产品的适配与对接：KnowledgeProvider SPI、检索联邦、内置适配器、反向暴露（KNW-16〜18） |
+| [ADR-060](adr/ADR-060-document-parsing-service.md) | 文档解析服务与解析输出契约 `tioka.parse/v1`（PRS-00〜02；KNW-09 作废） |
+| [ADR-061](adr/ADR-061-parse-engine-spi-external-ocr.md) | 解析引擎 SPI 与外购 OCR 产品的适配与对接（PRS-03〜05、PRS-10、PRS-12） |
+| [ADR-062](adr/ADR-062-parse-quality-special-elements-security.md) | 解析质量评测、合同特殊元素与解析安全（PRS-07、PRS-08、PRS-11） |
+| [ADR-063](adr/ADR-063-docast-layers-element-processing.md) | 文档结构树 DocAST、图层与元素级专项处理（PRS-13〜16、FE-39） |
+| [ADR-064](adr/ADR-064-certificate-structured-extraction.md) | 证照与票据结构化抽取 `@doc.extract`（PRS-18、FE-40） |
+| [ADR-065](adr/ADR-065-guardrail-pipeline-input-safety.md) | 护栏管线、内容信任分级与输入安全：五检查点、污点、隔离读取、检测、敏感数据与假名化（GRD-00〜04、GRD-06；RT-14 作废） |
+| [ADR-066](adr/ADR-066-structured-output-reliability.md) | 结构化输出可靠性：交付契约、生成方言、严格档、能力记录、八步流水线、降级兜底、Schema 演进（SCH-06〜12） |
+| [ADR-067](adr/ADR-067-output-safety-guardrail-eval.md) | 输出内容安全、生成内容标识与护栏评测（GRD-05、GRD-08、GRD-10） |

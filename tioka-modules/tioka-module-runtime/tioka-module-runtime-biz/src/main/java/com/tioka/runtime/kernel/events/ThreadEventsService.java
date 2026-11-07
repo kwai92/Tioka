@@ -72,17 +72,26 @@ public class ThreadEventsService {
                         events.turnStatus(type, threadId, active.getId(), active.getStatus()));
             }
 
-            // 2. DB 补齐 item.completed
+            // 2. DB 补齐 item.completed（分页直到追上）
             long afterSeq = sent.hasDelta() ? Math.max(0, sent.seq() - 1) : sent.seq();
-            List<RuntimeItemDO> backlog = items.listAfterSeq(threadId, afterSeq, 500);
-            for (RuntimeItemDO item : backlog) {
-                EventId eid = EventId.of(item.getSeq());
-                if (eid.compareTo(sent) <= 0) {
-                    continue;
+            for (;;) {
+                List<RuntimeItemDO> backlog = items.listAfterSeq(threadId, afterSeq, 500);
+                if (backlog.isEmpty()) {
+                    break;
                 }
-                pump.send(emitter, eid.toString(), RuntimeEventType.ITEM_COMPLETED.wire(),
-                        events.itemCompleted(threadId, item));
-                sent = eid;
+                for (RuntimeItemDO item : backlog) {
+                    EventId eid = EventId.of(item.getSeq());
+                    if (eid.compareTo(sent) <= 0) {
+                        continue;
+                    }
+                    pump.send(emitter, eid.toString(), RuntimeEventType.ITEM_COMPLETED.wire(),
+                            events.itemCompleted(threadId, item));
+                    sent = eid;
+                }
+                afterSeq = backlog.get(backlog.size() - 1).getSeq();
+                if (backlog.size() < 500) {
+                    break;
+                }
             }
 
             // 3. 当前流式中的 delta（rt:cur → L）

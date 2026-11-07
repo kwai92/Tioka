@@ -150,6 +150,7 @@ public final class AgentLoop {
                 }
             }
         } catch (CancelledSignal e) {
+            sink.flushInterrupted(ctx, 0);
             sink.status(ctx, 0, "cancelled");
             return LoopResult.cancelled(e.reason(), promptTokens, completionTokens);
         }

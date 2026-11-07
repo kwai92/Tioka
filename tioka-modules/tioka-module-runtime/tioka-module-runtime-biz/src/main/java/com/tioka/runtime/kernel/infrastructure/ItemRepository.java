@@ -53,8 +53,12 @@ public class ItemRepository {
         return mapper.nextItemSeq(sessionId);
     }
 
-    public void insertReserved(long seq, String sessionId, String turnId, int step,
+    @Transactional
+    public void insertReserved(long seq, String sessionId, String turnId, long leaseVersion, int step,
                                String type, String role, String contentJson, Integer tokenCount) {
+        if (mapper.assertLease(turnId, leaseVersion) == null) {
+            throw new BizException(ErrorCode.LEASE_LOST);
+        }
         RuntimeItemDO item = newItem(sessionId, turnId, seq, step, type, role, contentJson, tokenCount);
         mapper.insert(item);
     }
@@ -66,6 +70,10 @@ public class ItemRepository {
     public List<RuntimeItemDO> listAfterSeq(String sessionId, long afterSeq, int limit) {
         int lim = Math.min(Math.max(limit, 1), 500);
         return mapper.listAfterSeq(sessionId, afterSeq, lim);
+    }
+
+    public List<RuntimeItemDO> listByTurn(String turnId) {
+        return mapper.listByTurn(turnId);
     }
 
     private static RuntimeItemDO newItem(String sessionId, String turnId, long seq, int step,

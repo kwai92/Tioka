@@ -102,3 +102,26 @@ record TurnHandle(String turnId, String status, String eventsUrl) {}
 流式接口 `GET /api/runtime/threads/{id}/events`（SSE），事件类型：`turn.started`、`item.created`、`item.delta`、`item.completed`、`approval.requested`、`turn.completed`、`turn.failed`。事件 ID 为 `{itemSeq}` 或 `{itemSeq}.{deltaIndex}`，客户端断线后带 `Last-Event-ID` 重连。M2 的 HCI-06 再把这套事件映射到 AG-UI。
 
 Chat、Flow、Orchestration、IM 四个入口只使用 `RuntimeApi`，不再各自调模型。Orchestration 的人审（Attention）与 Runtime 的工具审批共用 `runtime_approval`，卡片提交最终都调用 `decideApproval`。
+
+## 修订：Agent 架构调研落地（2026-11-06）
+
+来由：[调研 01](../research/01-Agent与多Agent架构调研.md)、[调研 02](../research/02-Agent执行策略与执行器插件调研.md)；负责人同意按调研建议设计，见 ADR-029 第 67 条。
+
+- **执行策略**：执行循环中「组装本步提示 → 调模型 → 解释结果」一段改为可插拔的执行策略，默认 `REACT` 即本 ADR 的循环，行为不变；其他策略见 [ADR-046](ADR-046-execution-strategy.md)。所有策略共用本 ADR 的状态机、租约、审批挂起、取消与插话、item 落库与推送。`runtime_item.type` 增加 `plan`、`reflection`。
+- **工具检索（RT-13，M4 P2）**：本 Turn 授予内的工具超过 15 个或工具定义合计超过 10K token 时，`listTools` 只给模型「常用工具」（Agent 配置的固定集合，缺省为最近 30 天调用最多的 8 个）与内置工具 `tool.search`；其余工具标记为延迟加载，模型经 `tool.search`（按名称、描述做关键词与向量检索，范围限于授予内）取得定义后才可调用。检索结果作为普通工具结果入库。延迟加载不影响提示缓存：常用工具集合在一个 Turn 内不变。
+- **护栏挂点（RT-14，M4 P2）**：Turn 管线固定三个挂点，均为 SPI，可由平台或领域包注册检查器：① **输入**（本轮用户输入进入上下文前：相关性、越狱、PII）；② **工具前**（即 ADR-033 管线，不变）；③ **最终输出**（交付前：输出契约 Schema、PII、敏感词、引用存在性）。检查结果为放行、改写（如掩码）、拒绝、转人审四种；拒绝与转人审写 `status` item 并审计。模型型检查经 ModelGateway（purpose=guardrail），计入本 Turn 预算。挂点顺序与上下文组装顺序一样由平台固定，模块不得自行插入。
+
+## 修订：记忆与上下文工程调研落地（2026-11-06）
+
+来由：[调研 03](../research/03-Agent记忆与上下文工程调研.md)；按负责人「有选项时按推荐方案直接写设计」的要求落地，见 ADR-029 第 68 条。
+
+- **工具检索（RT-13）**：常用工具集合由「Turn 内不变」改为「thread 内不变」；工具列表按名称排序、定义规范化序列化；不可用工具在调用时拒绝而不从列表删除，授予收窄除外（[ADR-048](ADR-048-context-engineering.md) 第 1.2 节、[ADR-049](ADR-049-prompt-caching.md) 规则 C2、C4）。
+- **Turn 循环**：每次调模型前由组装器按 ADR-048 生成上下文并写上下文清单；本轮尾部在 Turn 开始时生成，本 Turn 内各步复用。新增 Turn 结局 `CONTEXT_OVERFLOW`。
+
+## 修订：安全护栏与结构化输出（2026-11-07）
+
+见 [ADR-065](ADR-065-guardrail-pipeline-input-safety.md)〜[ADR-067](ADR-067-output-safety-guardrail-eval.md) 与 ADR-029 第 73 条：
+
+- **RT-14 作废**，由 [ADR-065](ADR-065-guardrail-pipeline-input-safety.md) 的 GRD-01 取代。护栏挂点由三个改为五个检查点：`IN`、`INGEST`（新增：外部内容进入上下文前）、`TOOL`、`OUT`、`SINK`；结果为 `ALLOW` / `REWRITE` / `FLAG` / `BLOCK` / `ESCALATE`，增加故障模式与时延预算。`IN` 的分类器检查与本 Turn 第一次模型调用并行。
+- `runtime_turn` 增加 `taint`、`taint_sources`（ADR-065 第 3 节）。
+- 声明了输出契约的 Turn 在结束前执行 [ADR-066](ADR-066-structured-output-reliability.md) 的八步输出流水线；修复与降级阶梯可能多次调用模型，均计入本 Turn 预算；`HUMAN_PENDING` 时 Turn 进入 `WAITING`，补录后续跑。输出流水线内的异常不向 Turn 循环传播。

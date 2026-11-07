@@ -147,3 +147,11 @@ ALTER TABLE orch_rule_version ADD COLUMN emits_json TEXT;
 - 规则增加 `shadow` 与 `actual_mapping_json`：`accept_mode = observe` 下的推断事件除记 `WOULD_ACCEPT` 外，可创建影子 Run（`origin = shadow`），结案后用 `actual_mapping` 取人工实际处理结果做比对（[ADR-034](ADR-034-autonomy-ladder.md)）。
 - Run 进入终态时发 `tioka.orch.run_finished.v1`（与 `orch_fact` 同事务写 outbox），供价值账本记账（[ADR-035](ADR-035-value-ledger.md)）。
 - 一个 Run 内的写操作组成一个撤销组，撤销产生的「无法撤销」清单与补偿失败以 Attention 交给 Agent 负责人（[ADR-033](ADR-033-reversible-actions.md)）。
+
+## 修订：Agent 架构调研落地（2026-11-06）
+
+来由：[调研 01](../research/01-Agent与多Agent架构调研.md)、[调研 02](../research/02-Agent执行策略与执行器插件调研.md)；负责人同意按调研建议设计，见 ADR-029 第 67 条。
+
+- **与 SuperAgent 的关系**：dsh-superagent（主动接活）与 DeerFlow 2.0（通用执行底座）两种「SuperAgent」，在 Tioka 中分别由本 ADR（接单、研判、Mandate、回执、跟进）和 Runtime / 子 Agent / 沙箱 / Skill（ADR-023、ADR-027、ADR-038）承担，不另设 SuperAgent 模块。开箱即用的「通用助手」模板（AST-10）在 M4 之后提供。
+- **长时目标**：跨天推进同一目标用 ADR-046 的 `GOAL_LOOP`（M4 之后），它复用本 ADR 的 `later` 与工单，不新增调度器。
+- **外部执行器**：规则派工的目标 Agent 可以使用外部执行器（[ADR-047](ADR-047-external-executor.md)，M4 之后），编排侧无差别。
