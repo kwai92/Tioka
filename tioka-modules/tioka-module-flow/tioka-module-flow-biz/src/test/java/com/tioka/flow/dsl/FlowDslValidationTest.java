@@ -264,6 +264,16 @@ class FlowDslValidationTest {
     }
 
     @Test
+    void quality_fixedOutputIsWarning() {
+        FlowDslDocument doc = baseFlow();
+        doc.nodes().add(node("fx", "transform", Map.of("expr", "1", "fixedOutput", true)));
+        wireThrough(doc, "fx");
+        ValidationResult r = validator.validate(doc, FlowPublishContext.permissive());
+        assertTrue(r.hasCode("QUALITY_FIXED_OUTPUT"), () -> r.issues().toString());
+        assertFalse(r.hasErrors());
+    }
+
+    @Test
     void validMinimalFlowPasses() {
         ValidationResult r = validator.validate(baseFlow(), FlowPublishContext.permissive());
         assertFalse(r.hasErrors(), () -> r.issues().toString());
