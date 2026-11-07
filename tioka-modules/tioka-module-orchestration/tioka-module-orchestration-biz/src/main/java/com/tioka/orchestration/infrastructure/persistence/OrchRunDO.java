@@ -3,25 +3,69 @@ package com.tioka.orchestration.infrastructure.persistence;
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
-import com.tioka.framework.persistence.WorkspaceAwareDO;
+import com.tioka.framework.persistence.TechnicalRecordDO;
 
+import java.time.Instant;
+
+/**
+ * V132 {@code orch_run}：无逻辑删 / create_by；TIMESTAMPTZ 用 Instant。
+ */
 @TableName("orch_run")
-public class OrchRunDO extends WorkspaceAwareDO {
+public class OrchRunDO extends TechnicalRecordDO {
     @TableId(type = IdType.INPUT)
     private String id;
-    private String status;
+    private String workspaceId;
+    private String workItemId;
     private String eventId;
-    private String workerId;
-    private Long leaseUntil;
+    private String ruleVersionId;
+    private String status;
+    private Integer attempt;
+    private Integer rewriteCount;
+    private String inputJson;
+    private String threadId;
+    private String currentTurnId;
+    private String receiptJson;
+    private String runAsJson;
+    private String errorCode;
+    private String errorMessage;
+    private Instant createAt;
+    private Instant updateAt;
+    private Instant endedAt;
 
     public String getId() { return id; }
     public void setId(String id) { this.id = id; }
-    public String getStatus() { return status; }
-    public void setStatus(String status) { this.status = status; }
+    public String getWorkspaceId() { return workspaceId; }
+    public void setWorkspaceId(String workspaceId) { this.workspaceId = workspaceId; }
+    public String getWorkItemId() { return workItemId; }
+    public void setWorkItemId(String workItemId) { this.workItemId = workItemId; }
     public String getEventId() { return eventId; }
     public void setEventId(String eventId) { this.eventId = eventId; }
-    public String getWorkerId() { return workerId; }
-    public void setWorkerId(String workerId) { this.workerId = workerId; }
-    public Long getLeaseUntil() { return leaseUntil; }
-    public void setLeaseUntil(Long leaseUntil) { this.leaseUntil = leaseUntil; }
+    public String getRuleVersionId() { return ruleVersionId; }
+    public void setRuleVersionId(String ruleVersionId) { this.ruleVersionId = ruleVersionId; }
+    public String getStatus() { return status; }
+    public void setStatus(String status) { this.status = status; }
+    public Integer getAttempt() { return attempt; }
+    public void setAttempt(Integer attempt) { this.attempt = attempt; }
+    public Integer getRewriteCount() { return rewriteCount; }
+    public void setRewriteCount(Integer rewriteCount) { this.rewriteCount = rewriteCount; }
+    public String getInputJson() { return inputJson; }
+    public void setInputJson(String inputJson) { this.inputJson = inputJson; }
+    public String getThreadId() { return threadId; }
+    public void setThreadId(String threadId) { this.threadId = threadId; }
+    public String getCurrentTurnId() { return currentTurnId; }
+    public void setCurrentTurnId(String currentTurnId) { this.currentTurnId = currentTurnId; }
+    public String getReceiptJson() { return receiptJson; }
+    public void setReceiptJson(String receiptJson) { this.receiptJson = receiptJson; }
+    public String getRunAsJson() { return runAsJson; }
+    public void setRunAsJson(String runAsJson) { this.runAsJson = runAsJson; }
+    public String getErrorCode() { return errorCode; }
+    public void setErrorCode(String errorCode) { this.errorCode = errorCode; }
+    public String getErrorMessage() { return errorMessage; }
+    public void setErrorMessage(String errorMessage) { this.errorMessage = errorMessage; }
+    public Instant getCreateAt() { return createAt; }
+    public void setCreateAt(Instant createAt) { this.createAt = createAt; }
+    public Instant getUpdateAt() { return updateAt; }
+    public void setUpdateAt(Instant updateAt) { this.updateAt = updateAt; }
+    public Instant getEndedAt() { return endedAt; }
+    public void setEndedAt(Instant endedAt) { this.endedAt = endedAt; }
 }

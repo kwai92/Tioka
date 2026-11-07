@@ -1,11 +1,15 @@
 package com.tioka.orchestration.application;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tioka.framework.error.BizException;
 import com.tioka.framework.error.ErrorCode;
 import com.tioka.framework.id.Ids;
+import com.tioka.framework.security.PrincipalHolder;
 import com.tioka.orchestration.api.engine.OrchApi;
 import com.tioka.orchestration.infrastructure.OrchRepository;
+import com.tioka.orchestration.infrastructure.persistence.OrchEventDO;
 import com.tioka.orchestration.infrastructure.persistence.OrchRunDO;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
@@ -13,30 +17,52 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * engine.OrchApi 过渡实现：ingest/facts/getRun 桥接现有 OrchService / 表结构。
- * ORC-03 + V132 落地后替换为本域完整引擎。
+ * V132 薄 stub：ingest 只落 {@code orch_event}（FILTERED，不建 Run）；
+ * getRun/facts/cancel 读新表。完整决定/派工见 ORC-05/03。
  */
 @Service
 public class OrchEngineService implements OrchApi {
-    private final OrchService legacy;
     private final OrchRepository repo;
+    private final ObjectMapper mapper;
+    private final PrincipalHolder principals;
 
-    public OrchEngineService(OrchService legacy, OrchRepository repo) {
-        this.legacy = legacy;
+    public OrchEngineService(OrchRepository repo, ObjectMapper mapper, PrincipalHolder principals) {
         this.repo = repo;
+        this.mapper = mapper;
+        this.principals = principals;
     }
 
     @Override
     public EventAck ingest(EventEnvelope event) {
-        String runId = legacy.ingestEvent(
-                event.type(),
-                event.idempotencyKey(),
-                event.body() == null ? Map.of() : event.body());
-        if (runId == null || runId.isBlank()) {
-            return new EventAck(Ids.newId("evt"), Disposition.FILTERED);
+        String idem = event.idempotencyKey();
+        if (idem != null && !idem.isBlank()) {
+            OrchEventDO existing = repo.findEventByIdem(idem);
+            if (existing != null) {
+                return new EventAck(existing.getId(), Disposition.DUPLICATE);
+            }
         }
-        // 过渡：eventId 回传 legacy runId，便于人审面 openAttention 挂载
-        return new EventAck(runId, Disposition.STORED);
+        String eventId = Ids.newId("evt");
+        OrchEventDO row = new OrchEventDO();
+        row.setId(eventId);
+        row.setWorkspaceId(principals.find().map(p -> p.workspaceId()).orElse(null));
+        row.setSource(event.source() == null ? "unknown" : event.source());
+        row.setType(event.type());
+        row.setIdempotencyKey(idem == null || idem.isBlank() ? eventId : idem);
+        row.setSubjectKey(event.subjectKey());
+        row.setAttrsJson(writeJson(event.attrs()));
+        row.setBodyJson(writeJson(event.body()));
+        row.setHops(event.hops());
+        // 本波无规则引擎：一律 FILTERED，不建 work_item/run
+        row.setDisposition(Disposition.FILTERED.name());
+        row.setStrength(Strength.EXPLICIT.name());
+        row.setReceivedAt(Instant.now());
+        try {
+            repo.insertEvent(row);
+        } catch (DuplicateKeyException e) {
+            OrchEventDO again = repo.findEventByIdem(row.getIdempotencyKey());
+            return new EventAck(again == null ? eventId : again.getId(), Disposition.DUPLICATE);
+        }
+        return new EventAck(eventId, Disposition.FILTERED);
     }
 
     @Override
@@ -54,64 +80,50 @@ public class OrchEngineService implements OrchApi {
         if (r == null) {
             throw new BizException(ErrorCode.NOT_FOUND, "run 不存在");
         }
-        r.setStatus("CANCELLED");
+        r.setStatus(RunStatus.CANCELLED.name());
+        r.setErrorMessage(reason);
+        r.setEndedAt(Instant.now());
+        r.setUpdateAt(Instant.now());
         repo.updateRun(r);
     }
 
     @Override
     public List<FactView> facts(String runId, long afterSeq) {
-        return legacy.why(runId).stream()
-                .skip(Math.max(0, afterSeq))
-                .map(w -> new FactView(
-                        0L,
-                        w.kind(),
-                        Map.of("detail", w.detail() == null ? "" : w.detail()),
-                        parseInstant(w.at())))
-                .toList();
+        // orch_fact 表已建；本波不读写，返回空（ORC-03 补）
+        if (repo.findRun(runId) == null) {
+            throw new BizException(ErrorCode.NOT_FOUND, "run 不存在");
+        }
+        return List.of();
     }
 
     private static RunView toView(OrchRunDO r) {
-        RunStatus status = mapStatus(r.getStatus());
+        RunStatus status;
+        try {
+            status = RunStatus.valueOf(r.getStatus());
+        } catch (Exception e) {
+            status = RunStatus.PENDING;
+        }
         return new RunView(
                 r.getId(),
+                r.getWorkItemId(),
                 null,
-                null,
-                null,
+                r.getRuleVersionId(),
                 status,
-                0,
-                null,
-                null,
+                r.getAttempt() == null ? 0 : r.getAttempt(),
+                r.getThreadId(),
+                r.getCurrentTurnId(),
                 Map.of(),
-                null,
-                null,
-                Instant.now(),
-                status == RunStatus.SUCCEEDED || status == RunStatus.FAILED || status == RunStatus.CANCELLED
-                        ? Instant.now() : null);
+                r.getErrorCode(),
+                r.getErrorMessage(),
+                r.getCreateAt() == null ? Instant.EPOCH : r.getCreateAt(),
+                r.getEndedAt());
     }
 
-    private static RunStatus mapStatus(String raw) {
-        if (raw == null) {
-            return RunStatus.PENDING;
-        }
-        return switch (raw.toUpperCase()) {
-            case "READY", "LEASED" -> RunStatus.PENDING;
-            case "RUNNING" -> RunStatus.RUNNING;
-            case "SUSPENDED" -> RunStatus.WAITING_ATTENTION;
-            case "SUCCEEDED", "COMPLETED" -> RunStatus.SUCCEEDED;
-            case "FAILED" -> RunStatus.FAILED;
-            case "CANCELLED" -> RunStatus.CANCELLED;
-            default -> RunStatus.PENDING;
-        };
-    }
-
-    private static Instant parseInstant(String raw) {
-        if (raw == null || raw.isBlank()) {
-            return Instant.EPOCH;
-        }
+    private String writeJson(Object o) {
         try {
-            return Instant.parse(raw);
+            return mapper.writeValueAsString(o == null ? Map.of() : o);
         } catch (Exception e) {
-            return Instant.EPOCH;
+            throw new IllegalStateException(e);
         }
     }
 }
