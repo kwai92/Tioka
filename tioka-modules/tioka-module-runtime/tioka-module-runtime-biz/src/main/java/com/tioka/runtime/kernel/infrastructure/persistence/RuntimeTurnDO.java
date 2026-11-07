@@ -16,6 +16,8 @@ public class RuntimeTurnDO {
     private String runAsJson;
     private String optionsJson;
     private Integer stepCount;
+    /** 崩溃续跑次数（V114 / RT-06）。 */
+    private Integer recoverCount;
     private String workerId;
     private Long leaseVersion;
     private OffsetDateTime leaseUntil;
@@ -48,6 +50,8 @@ public class RuntimeTurnDO {
     public void setOptionsJson(String optionsJson) { this.optionsJson = optionsJson; }
     public Integer getStepCount() { return stepCount; }
     public void setStepCount(Integer stepCount) { this.stepCount = stepCount; }
+    public Integer getRecoverCount() { return recoverCount; }
+    public void setRecoverCount(Integer recoverCount) { this.recoverCount = recoverCount; }
     public String getWorkerId() { return workerId; }
     public void setWorkerId(String workerId) { this.workerId = workerId; }
     public Long getLeaseVersion() { return leaseVersion; }

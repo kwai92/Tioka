@@ -36,11 +36,10 @@ public class CardPartService {
         payload.put("visual", "inline-continue");
         payload.put("copy", COPY_CONTINUE);
         payload.put("cta", CTA_CONTINUE);
-        Message m = new Message(newMsgId(), conversationId, "assistant",
+        // CHT-03：卡片内容不再写入 chat_message；响应 DTO 仅供调用方展示。
+        return new Message(newMsgId(), conversationId, "assistant",
                 "[interactive_card/continue] " + prompt,
                 List.of(part("interactive_card", prompt, payload)));
-        store.addMessage(m);
-        return m;
     }
 
     public Message emitApprovalCard(String conversationId, String runId, String title) {
@@ -52,11 +51,9 @@ public class CardPartService {
         payload.put("visual", "approval-suspend");
         payload.put("copy", COPY_APPROVAL);
         payload.put("cta", CTA_APPROVAL);
-        Message m = new Message(newMsgId(), conversationId, "assistant",
+        return new Message(newMsgId(), conversationId, "assistant",
                 "[approval_card/suspend] " + title,
                 List.of(part("approval_card", title, payload)));
-        store.addMessage(m);
-        return m;
     }
 
     /**
@@ -73,10 +70,8 @@ public class CardPartService {
         if (messageIdOrPartHint != null && !messageIdOrPartHint.isBlank()) {
             payload.put("ref", messageIdOrPartHint);
         }
-        Message m = new Message(newMsgId(), conversationId, "user", answerText,
+        return new Message(newMsgId(), conversationId, "user", answerText,
                 List.of(part("text", answerText, payload)));
-        store.addMessage(m);
-        return m;
     }
 
     /**
@@ -103,10 +98,8 @@ public class CardPartService {
         payload.put("attentionId", attentionId);
         payload.put("approved", approved);
         payload.put("copy", text);
-        Message m = new Message(newMsgId(), conversationId, "assistant", text,
+        return new Message(newMsgId(), conversationId, "assistant", text,
                 List.of(part("text", text, payload)));
-        store.addMessage(m);
-        return m;
     }
 
     private static Map<String, Object> part(String type, String text, Map<String, Object> payload) {

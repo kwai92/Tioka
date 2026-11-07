@@ -1,0 +1,45 @@
+name: nightly-real-model
+
+# ENG-04b：每天 02:00（UTC+8 = 18:00 UTC）跑真实模型端到端；非必需检查。
+on:
+  schedule:
+    - cron: '0 18 * * *'
+  workflow_dispatch:
+
+jobs:
+  real-model-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+      - name: Skip when secrets missing
+        id: secrets
+        env:
+          BASE: ${{ secrets.TIOKA_REAL_MODEL_BASE_URL }}
+          KEY: ${{ secrets.TIOKA_REAL_MODEL_API_KEY }}
+          MODEL: ${{ secrets.TIOKA_REAL_MODEL_MODEL }}
+        run: |
+          if [ -z "$BASE" ] || [ -z "$KEY" ] || [ -z "$MODEL" ]; then
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "TIOKA_REAL_MODEL_* 未配置，跳过夜间真实模型任务"
+          else
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Pre-pull Keycloak image
+        if: steps.secrets.outputs.configured == 'true'
+        run: docker pull quay.io/keycloak/keycloak:24.0
+      - name: Run G1EndToEndGateIT with real model
+        if: steps.secrets.outputs.configured == 'true'
+        env:
+          TIOKA_REAL_MODEL_BASE_URL: ${{ secrets.TIOKA_REAL_MODEL_BASE_URL }}
+          TIOKA_REAL_MODEL_API_KEY: ${{ secrets.TIOKA_REAL_MODEL_API_KEY }}
+          TIOKA_REAL_MODEL_MODEL: ${{ secrets.TIOKA_REAL_MODEL_MODEL }}
+        run: >
+          mvn -B -pl tioka-server -am verify -Pgate
+          -Dtest=G1EndToEndGateIT
+          -Dit.test=G1EndToEndGateIT
+          -Dtioka.real-model=true

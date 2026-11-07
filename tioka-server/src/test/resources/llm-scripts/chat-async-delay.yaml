@@ -1,0 +1,7 @@
+# CHT-02：模型桩延迟 5s，验证 Chat 发送在模型返回前完成
+loop: true
+calls:
+  - content: "pong-async"
+    delay_ms: 5000
+    stream_chunk_chars: 8
+    chunk_delay_ms: 50

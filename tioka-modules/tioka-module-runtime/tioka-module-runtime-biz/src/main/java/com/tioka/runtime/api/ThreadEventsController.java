@@ -1,5 +1,6 @@
 package com.tioka.runtime.api;
 
+import com.tioka.framework.security.Permissions;
 import com.tioka.framework.security.RequirePermission;
 import com.tioka.runtime.kernel.events.ThreadEventsService;
 import org.springframework.http.MediaType;
@@ -13,7 +14,7 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 @RestController
 @RequestMapping("/api/runtime/threads")
-@RequirePermission("chat:use")
+@RequirePermission(Permissions.CHAT_USE)
 public class ThreadEventsController {
     private final ThreadEventsService events;
 

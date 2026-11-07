@@ -48,5 +48,19 @@ public final class Permissions {
     public static final String WORKSPACE_MANAGE = "workspace:manage";
     public static final String TENANT_ADMIN = "tenant:admin";
 
+    /** 目录中的全部具体权限点（不含 {@link #ALL}）。 */
+    public static final String[] ALL_CONCRETE = {
+            AGENT_READ, AGENT_WRITE, AGENT_PUBLISH, AGENT_SHARE,
+            FLOW_READ, FLOW_WRITE, FLOW_PUBLISH, FLOW_RUN,
+            KB_READ, KB_WRITE, KB_SHARE,
+            SKILL_READ, SKILL_WRITE, SKILL_PUBLISH,
+            MCP_READ, MCP_WRITE, MCP_PUBLISH,
+            CHAT_USE, APPROVAL_DECIDE,
+            ORCH_READ, ORCH_WRITE, ORCH_OPERATE,
+            MODEL_READ, MODEL_ADMIN,
+            QUOTA_READ, QUOTA_ADMIN,
+            AUDIT_READ, WORKSPACE_MANAGE, TENANT_ADMIN
+    };
+
     private Permissions() {}
 }

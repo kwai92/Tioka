@@ -1,0 +1,5 @@
+-- CHT-03：消息去双份。落地为 Java 迁移 V126__DropChatMessage（本文件仅契约说明，不进 server migration）。
+-- 前置：V115（CHT-02）已加 last_active_at / last_preview；历史消息已由 V104 转入 runtime_item。
+-- 步骤：
+-- 1. 校验每个会话 COUNT(runtime_item) ≥ COUNT(chat_message)，否则失败并输出会话 ID
+-- 2. DROP TABLE chat_message;

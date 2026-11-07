@@ -1,6 +1,7 @@
 package com.tioka.runtime.kernel.api;
 
 import com.tioka.framework.error.ApiResponse;
+import com.tioka.framework.security.Permissions;
 import com.tioka.framework.security.RequirePermission;
 import com.tioka.runtime.api.kernel.RuntimeApi;
 import org.springframework.http.HttpStatus;
@@ -11,7 +12,7 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/runtime")
-@RequirePermission("chat:use")
+@RequirePermission(Permissions.CHAT_USE)
 public class ThreadController {
     private final RuntimeApi runtime;
 

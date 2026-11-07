@@ -1,13 +1,19 @@
 package com.tioka.system.api;
 
 import com.tioka.framework.error.ApiResponse;
+import com.tioka.framework.security.Permissions;
+import com.tioka.framework.security.RequirePermission;
 import com.tioka.system.application.QuotaService;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.Map;
 
+/**
+ * GOV-03：{@code /api/system/quotas}（取代旧 {@code /api/system/quota/workspaces/...}）。
+ */
 @RestController
-@RequestMapping("/api/system/quota")
+@RequestMapping("/api/system/quotas")
 public class QuotaController {
     private final QuotaService quotaService;
 
@@ -15,17 +21,26 @@ public class QuotaController {
         this.quotaService = quotaService;
     }
 
-    @PostMapping("/workspaces/{id}/limits")
-    public ApiResponse<QuotaService.Limits> limits(@PathVariable String id, @RequestBody Map<String, Object> body) {
-        int tokenLimit = Integer.parseInt(String.valueOf(body.getOrDefault("tokenLimit", 1_000_000)));
-        int concurrentLimit = Integer.parseInt(String.valueOf(body.getOrDefault("concurrentLimit", 32)));
-        return ApiResponse.ok(quotaService.setLimits(id, tokenLimit, concurrentLimit));
+    @GetMapping
+    @RequirePermission(Permissions.QUOTA_READ)
+    public ApiResponse<List<QuotaService.QuotaView>> list(
+            @RequestParam String scopeType,
+            @RequestParam String scopeId) {
+        return ApiResponse.ok(quotaService.list(scopeType, scopeId));
     }
 
-    @PostMapping("/workspaces/{id}/consume")
-    public ApiResponse<Map<String, Object>> consume(@PathVariable String id, @RequestBody Map<String, Object> body) {
-        int tokens = Integer.parseInt(String.valueOf(body.getOrDefault("tokens", 0)));
-        quotaService.consumeTokens(id, tokens);
+    @PutMapping("/{scopeType}/{scopeId}/{metric}")
+    @RequirePermission(Permissions.QUOTA_ADMIN)
+    public ApiResponse<Map<String, Object>> put(
+            @PathVariable String scopeType,
+            @PathVariable String scopeId,
+            @PathVariable String metric,
+            @RequestBody Map<String, Object> body) {
+        Long limit = null;
+        if (body != null && body.containsKey("limit") && body.get("limit") != null) {
+            limit = Long.parseLong(String.valueOf(body.get("limit")));
+        }
+        quotaService.putLimit(scopeType, scopeId, metric, limit);
         return ApiResponse.ok(Map.of("ok", true));
     }
 }

@@ -5,9 +5,12 @@ import com.tioka.orchestration.application.LaterTriggerService;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
+import com.tioka.framework.security.RequirePermission;
+import com.tioka.framework.security.Permissions;
 
 @RestController
 @RequestMapping("/api/orch/later")
+@RequirePermission(Permissions.ORCH_WRITE)
 public class LaterController {
     private final LaterTriggerService laterTriggerService;
 

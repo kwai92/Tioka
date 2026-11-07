@@ -8,7 +8,7 @@ CREATE TABLE agent_draft (
     schema_version  INT          NOT NULL DEFAULT 1,
     revision        INT          NOT NULL DEFAULT 0,         -- 乐观锁
     base_version_id VARCHAR(64),                             -- 草稿基于哪个已发布版本
-    update_at       TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    update_at       TIMESTAMP    NOT NULL DEFAULT now(),  -- UTC，对齐 BaseDO LocalDateTime
     update_by       VARCHAR(64)  NOT NULL DEFAULT 'system'
 );
 
@@ -18,7 +18,7 @@ ALTER TABLE agent_version ADD COLUMN schema_version INT NOT NULL DEFAULT 1;
 ALTER TABLE agent_version ADD COLUMN status         VARCHAR(16) NOT NULL DEFAULT 'PUBLISHED'
     CHECK (status IN ('PUBLISHED','PENDING_APPROVAL','RETIRED'));
 ALTER TABLE agent_version ADD COLUMN note           VARCHAR(500);
-ALTER TABLE agent_version ADD COLUMN published_at   TIMESTAMPTZ;
+ALTER TABLE agent_version ADD COLUMN published_at   TIMESTAMP;
 ALTER TABLE agent_version ADD COLUMN published_by   VARCHAR(64);
 -- snapshot_hash 沿用，改存 RFC 8785 规范化 JSON 的 SHA-256（十六进制 64 位）
 CREATE UNIQUE INDEX uk_agent_version_no ON agent_version (agent_id, version_no) WHERE version_no IS NOT NULL;

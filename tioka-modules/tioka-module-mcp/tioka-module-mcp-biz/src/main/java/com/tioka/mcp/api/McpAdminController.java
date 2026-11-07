@@ -8,9 +8,12 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Map;
+import com.tioka.framework.security.RequirePermission;
+import com.tioka.framework.security.Permissions;
 
 @RestController
 @RequestMapping("/api/mcp")
+@RequirePermission(Permissions.MCP_WRITE)
 public class McpAdminController {
     private final McpAdminService service;
 
@@ -41,6 +44,15 @@ public class McpAdminController {
     @PostMapping("/servers/{id}/refresh-tools")
     public ApiResponse<List<McpStore.Tool>> refresh(@PathVariable String id) {
         return ApiResponse.ok(service.refreshTools(id));
+    }
+
+    /** FE-01：编辑 mcp_tool.risk（V114 四态）。 */
+    @PatchMapping("/servers/{serverId}/tools/{toolName}")
+    public ApiResponse<McpStore.Tool> updateToolRisk(@PathVariable String serverId,
+                                                     @PathVariable String toolName,
+                                                     @RequestBody Map<String, String> body) {
+        return ApiResponse.ok(service.updateToolRisk(serverId, toolName,
+                body == null ? null : body.get("risk")));
     }
 
     @PostMapping("/grants")

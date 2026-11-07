@@ -58,6 +58,18 @@ public class MemoryItemSink implements LoopPorts.ItemSink {
     }
 
     @Override
+    public void discardInFlight(LoopContext ctx) {
+        StreamState st = streaming.remove(ctx.turnId());
+        streams.clearCurrentEntry(ctx.threadId());
+        if (st == null) {
+            return;
+        }
+        streams.publish(ctx.threadId(), EventId.of(st.seq).toString(),
+                RuntimeEventType.ITEM_DISCARDED.wire(),
+                events.itemDiscarded(ctx.threadId(), ctx.turnId(), st.itemId, st.seq, ItemType.MESSAGE.wire()));
+    }
+
+    @Override
     public void completeMessage(LoopContext ctx, int step, String text) {
         StreamState st = streaming.remove(ctx.turnId());
         RuntimeItemDO item;
@@ -119,7 +131,7 @@ public class MemoryItemSink implements LoopPorts.ItemSink {
     }
 
     @Override
-    public void toolCall(LoopContext ctx, int step, LoopPorts.ToolCall call) {
+    public String toolCall(LoopContext ctx, int step, LoopPorts.ToolCall call) {
         Map<String, Object> content = new LinkedHashMap<>();
         content.put("callId", call.callId());
         content.put("name", call.name());
@@ -129,6 +141,7 @@ public class MemoryItemSink implements LoopPorts.ItemSink {
         streams.publish(ctx.threadId(), EventId.of(item.getSeq()).toString(),
                 RuntimeEventType.ITEM_COMPLETED.wire(),
                 events.itemCompleted(ctx.threadId(), item));
+        return item.getId();
     }
 
     @Override
@@ -139,6 +152,9 @@ public class MemoryItemSink implements LoopPorts.ItemSink {
         content.put("ok", outcome.ok());
         content.put("output", outcome.output());
         content.put("durationMs", outcome.durationMs());
+        if (outcome.approvedBy() != null && !outcome.approvedBy().isBlank()) {
+            content.put("approvedBy", outcome.approvedBy());
+        }
         RuntimeItemDO item = items.append(ctx.threadId(), ctx.turnId(), ctx.leaseVersion(), step,
                 ItemType.TOOL_RESULT.wire(), "tool", json(content), null);
         streams.publish(ctx.threadId(), EventId.of(item.getSeq()).toString(),

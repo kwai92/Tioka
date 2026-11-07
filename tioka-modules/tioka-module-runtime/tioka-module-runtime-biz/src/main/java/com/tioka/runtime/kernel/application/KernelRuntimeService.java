@@ -1,7 +1,7 @@
 package com.tioka.runtime.kernel.application;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.tioka.agent.api.AgentQueryApi;
+import com.tioka.agent.api.AgentSnapshotApi;
 import com.tioka.framework.error.BizException;
 import com.tioka.framework.error.ErrorCode;
 import com.tioka.framework.error.NotImplemented;
@@ -15,12 +15,14 @@ import com.tioka.runtime.api.kernel.TurnStatus;
 import com.tioka.runtime.config.KernelProperties;
 import com.tioka.runtime.infrastructure.RuntimeSessionRepository;
 import com.tioka.runtime.infrastructure.persistence.RuntimeSessionDO;
+import com.tioka.runtime.kernel.approval.ApprovalDecideService;
 import com.tioka.runtime.kernel.events.EventStream;
 import com.tioka.runtime.kernel.events.RuntimeEventFactory;
 import com.tioka.runtime.kernel.infrastructure.ItemRepository;
 import com.tioka.runtime.kernel.infrastructure.TurnRepository;
 import com.tioka.runtime.kernel.infrastructure.persistence.RuntimeItemDO;
 import com.tioka.runtime.kernel.infrastructure.persistence.RuntimeTurnDO;
+import com.tioka.runtime.kernel.infrastructure.redis.TurnDispatchQueue;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -33,36 +35,39 @@ import java.time.ZoneOffset;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 @Service
 public class KernelRuntimeService implements RuntimeApi {
     private final RuntimeSessionRepository sessions;
     private final TurnRepository turns;
     private final ItemRepository items;
-    private final TurnScheduler scheduler;
+    private final TurnDispatchQueue dispatchQueue;
     private final TurnSignalService signals;
     private final PrincipalHolder principals;
     private final KernelProperties props;
     private final EventStream streams;
     private final RuntimeEventFactory events;
     private final ObjectMapper mapper;
-    private final AgentQueryApi agents;
+    private final AgentSnapshotApi agents;
+    private final ApprovalDecideService approvalDecide;
 
     public KernelRuntimeService(RuntimeSessionRepository sessions,
                                 TurnRepository turns,
                                 ItemRepository items,
-                                TurnScheduler scheduler,
+                                TurnDispatchQueue dispatchQueue,
                                 TurnSignalService signals,
                                 PrincipalHolder principals,
                                 KernelProperties props,
                                 EventStream streams,
                                 RuntimeEventFactory events,
                                 ObjectMapper mapper,
-                                AgentQueryApi agents) {
+                                AgentSnapshotApi agents,
+                                ApprovalDecideService approvalDecide) {
         this.sessions = sessions;
         this.turns = turns;
         this.items = items;
-        this.scheduler = scheduler;
+        this.dispatchQueue = dispatchQueue;
         this.signals = signals;
         this.principals = principals;
         this.props = props;
@@ -70,23 +75,28 @@ public class KernelRuntimeService implements RuntimeApi {
         this.events = events;
         this.mapper = mapper;
         this.agents = agents;
+        this.approvalDecide = approvalDecide;
     }
 
     @Override
     @Transactional
     public ThreadView createThread(CreateThreadCmd cmd) {
+        if (cmd == null) {
+            throw new BizException(ErrorCode.BAD_REQUEST, "CreateThreadCmd 必填");
+        }
+        requireText(cmd.agentVersionId(), "agentVersionId");
         Principal p = principals.current();
-        AgentQueryApi.AgentVersionView ver = agents.requirePublished(cmd.agentVersionId());
+        AgentSnapshotApi.AgentSnapshot ver = agents.get(cmd.agentVersionId());
         String id = Ids.newId("thr");
         RuntimeSessionDO row = new RuntimeSessionDO();
         row.setId(id);
         row.setStatus("OPEN");
-        row.setAgentVersionId(ver.id());
-        row.setRoutingPlanId(ver.routingPlanId());
+        row.setAgentVersionId(ver.versionId());
+        row.setRoutingPlanId(ver.spec().model().routingPlanId());
         row.setWorkspaceId(p.workspaceId());
         row.setOwnerId(p.userId());
         row.setLastItemSeq(0L);
-        row.setOrigin(cmd.origin() == null ? "chat" : cmd.origin());
+        row.setOrigin(blankToNull(cmd.origin()) == null ? "chat" : cmd.origin());
         row.setOriginRef(cmd.originRef());
         row.setDepth(0);
         if (cmd.metadata() != null && !cmd.metadata().isEmpty()) {
@@ -103,16 +113,16 @@ public class KernelRuntimeService implements RuntimeApi {
     @Override
     @Transactional
     public TurnHandle startTurn(String threadId, StartTurnCmd cmd) {
-        requireThread(threadId);
-        if (cmd.clientMsgId() != null) {
-            var existing = turns.findBySessionAndClientMsgId(threadId, cmd.clientMsgId());
-            if (existing.isPresent()) {
-                RuntimeTurnDO t = existing.get();
-                return new TurnHandle(t.getId(), TurnStatus.valueOf(t.getStatus()), eventsUrl(threadId));
-            }
+        requireText(threadId, "threadId");
+        if (cmd == null) {
+            throw new BizException(ErrorCode.BAD_REQUEST, "StartTurnCmd 必填");
         }
-        if (!scheduler.canAccept()) {
-            throw new BizException(ErrorCode.DEPENDENCY, "本实例执行队列已满");
+        requireText(cmd.clientMsgId(), "clientMsgId");
+        requireThread(threadId);
+        var existing = turns.findBySessionAndClientMsgId(threadId, cmd.clientMsgId());
+        if (existing.isPresent()) {
+            RuntimeTurnDO t = existing.get();
+            return new TurnHandle(t.getId(), TurnStatus.valueOf(t.getStatus()), eventsUrl(threadId));
         }
         int active = turns.countActive(threadId);
         if (active >= props.getMaxQueuedPerThread()) {
@@ -124,7 +134,7 @@ public class KernelRuntimeService implements RuntimeApi {
         t.setSessionId(threadId);
         t.setSeq(turns.nextSeq(threadId));
         t.setStatus(TurnStatus.QUEUED.name());
-        t.setOrigin(cmd.origin() == null ? "chat" : cmd.origin());
+        t.setOrigin(blankToNull(cmd.origin()) == null ? "chat" : cmd.origin());
         t.setOriginRef(cmd.originRef());
         t.setClientMsgId(cmd.clientMsgId());
         t.setRunAsJson(runAsJson());
@@ -149,27 +159,27 @@ public class KernelRuntimeService implements RuntimeApi {
         }
         streams.publish(threadId, null, RuntimeEventType.TURN_STARTED.wire(),
                 events.turnStatus(RuntimeEventType.TURN_STARTED, threadId, turnId, TurnStatus.QUEUED.name()));
-        // 必须在事务提交后再调度，否则 worker 可能读不到刚 insert 的 Turn（永久 QUEUED）
-        submitAfterCommit(turnId);
+        // 必须在事务提交后再 XADD，否则 worker 可能读不到刚 insert 的 Turn（永久 QUEUED）
+        offerAfterCommit(turnId, threadId);
         return new TurnHandle(turnId, TurnStatus.QUEUED, eventsUrl(threadId));
     }
 
-    private void submitAfterCommit(String turnId) {
+    private void offerAfterCommit(String turnId, String threadId) {
         if (TransactionSynchronizationManager.isSynchronizationActive()) {
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
                 @Override
                 public void afterCommit() {
-                    // 池满时保持 QUEUED，由 QueuedTurnRescanner 补调度；勿抛 503（响应已 202）
-                    scheduler.trySubmit(turnId);
+                    dispatchQueue.offer(turnId, threadId);
                 }
             });
         } else {
-            scheduler.trySubmit(turnId);
+            dispatchQueue.offer(turnId, threadId);
         }
     }
 
     @Override
     public void interrupt(String turnId) {
+        requireText(turnId, "turnId");
         RuntimeTurnDO t = turns.findById(turnId)
                 .orElseThrow(() -> new BizException(ErrorCode.NOT_FOUND, "turn 不存在"));
         requireThread(t.getSessionId());
@@ -178,6 +188,7 @@ public class KernelRuntimeService implements RuntimeApi {
 
     @Override
     public void steer(String turnId, String text) {
+        requireText(turnId, "turnId");
         RuntimeTurnDO t = turns.findById(turnId)
                 .orElseThrow(() -> new BizException(ErrorCode.NOT_FOUND, "turn 不存在"));
         requireThread(t.getSessionId());
@@ -186,11 +197,16 @@ public class KernelRuntimeService implements RuntimeApi {
 
     @Override
     public void decideApproval(String approvalId, ApprovalDecision decision) {
-        throw NotImplemented.of("runtime-approval", "RT-07");
+        requireText(approvalId, "approvalId");
+        if (decision == null) {
+            throw new BizException(ErrorCode.BAD_REQUEST, "ApprovalDecision 必填");
+        }
+        approvalDecide.decide(approvalId, decision);
     }
 
     @Override
     public TurnView getTurn(String turnId) {
+        requireText(turnId, "turnId");
         RuntimeTurnDO t = turns.findById(turnId)
                 .orElseThrow(() -> new BizException(ErrorCode.NOT_FOUND, "turn 不存在"));
         requireThread(t.getSessionId());
@@ -198,15 +214,31 @@ public class KernelRuntimeService implements RuntimeApi {
     }
 
     @Override
-    public List<ItemView> listItems(String threadId, long afterSeq, int limit) {
+    public Optional<TurnView> findActiveTurn(String threadId) {
+        requireText(threadId, "threadId");
         requireThread(threadId);
-        return items.listAfterSeq(threadId, afterSeq, limit).stream()
+        return turns.findActive(threadId).map(this::toTurnView);
+    }
+
+    @Override
+    public List<ItemView> listItems(String threadId, long afterSeq, int limit) {
+        requireText(threadId, "threadId");
+        if (afterSeq < 0) {
+            throw new BizException(ErrorCode.BAD_REQUEST, "afterSeq 不能为负");
+        }
+        requireThread(threadId);
+        int capped = Math.min(Math.max(limit, 1), 500);
+        return items.listAfterSeq(threadId, afterSeq, capped).stream()
                 .map(this::toItemView)
                 .toList();
     }
 
     @Override
     public ThreadView fork(String threadId, long atSeq) {
+        requireText(threadId, "threadId");
+        if (atSeq < 0) {
+            throw new BizException(ErrorCode.BAD_REQUEST, "atSeq 不能为负");
+        }
         throw NotImplemented.of("runtime-fork", "M3");
     }
 
@@ -296,5 +328,15 @@ public class KernelRuntimeService implements RuntimeApi {
         } catch (Exception e) {
             throw new BizException(ErrorCode.INTERNAL, "JSON 序列化失败");
         }
+    }
+
+    private static void requireText(String value, String name) {
+        if (value == null || value.isBlank()) {
+            throw new BizException(ErrorCode.BAD_REQUEST, name + " 必填");
+        }
+    }
+
+    private static String blankToNull(String value) {
+        return value == null || value.isBlank() ? null : value;
     }
 }

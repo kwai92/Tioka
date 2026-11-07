@@ -1,0 +1,4 @@
+# CHT-03：助手回复用于回写 last_preview
+calls:
+  - content: "preview-hello-from-assistant"
+    usage: { prompt: 4, completion: 8 }

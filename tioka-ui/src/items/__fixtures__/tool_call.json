@@ -1,0 +1,46 @@
+[
+  {
+    "name": "basic",
+    "item": {
+      "itemId": "fix_tool_call_basic",
+      "seq": 1,
+      "itemType": "tool_call",
+      "role": "assistant",
+      "content": {
+        "callId": "c1",
+        "name": "echo",
+        "arguments": {
+          "text": "hi"
+        }
+      }
+    },
+    "pair": {
+      "itemId": "fx_tool_result_pair",
+      "seq": 2,
+      "itemType": "tool_result",
+      "role": "tool",
+      "content": {
+        "callId": "c1",
+        "name": "echo",
+        "ok": true,
+        "output": "hi"
+      }
+    }
+  },
+  {
+    "name": "pending",
+    "item": {
+      "itemId": "fix_tool_call_pending",
+      "seq": 1,
+      "itemType": "tool_call",
+      "role": "assistant",
+      "content": {
+        "callId": "c2",
+        "name": "kb.search",
+        "arguments": {
+          "q": "x"
+        }
+      }
+    }
+  }
+]

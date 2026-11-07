@@ -1,19 +1,21 @@
-/** Chat CH-01：可单测的发送/取消守卫（不含网络）。 */
+/** Chat UX 守卫与展示辅助（HCI-02 / CH-01）。 */
 
 export type SendGateInput = {
   text: string
   activeId: string
-  cancelled: boolean
+  /** 正在发送或 Turn 进行中时禁止重复提交 */
+  sending?: boolean
 }
 
 export function gateSend(input: SendGateInput): string | null {
   const text = (input.text || '').trim()
   if (!text) return '消息不能为空'
   if (!input.activeId) return '请先创建或选择会话'
-  if (input.cancelled) return '会话已取消，请新建会话后再发送'
+  if (input.sending) return '请等待当前回复完成后再发送'
   return null
 }
 
+/** @deprecated HCI-02 改由 thread store / turn 终态控制；保留供旧测试兼容。 */
 export function shouldAppendStreamPart(cancelled: boolean): boolean {
   return !cancelled
 }

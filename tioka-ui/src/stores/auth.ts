@@ -20,6 +20,14 @@ type LoginPayload = {
   workspaces?: Workspace[]
 }
 
+type MePayload = {
+  user: AuthUser
+  workspaces: Workspace[]
+  currentWorkspaceId?: string | null
+  permissions: string[]
+  roles: string[]
+}
+
 const WS_KEY = 'tioka_workspace_id'
 
 export const useAuthStore = defineStore('auth', () => {
@@ -27,6 +35,8 @@ export const useAuthStore = defineStore('auth', () => {
   const user = ref<AuthUser | null>(null)
   const workspaces = ref<Workspace[]>([])
   const currentWorkspaceId = ref<string | null>(localStorage.getItem(WS_KEY))
+  const permissions = ref<string[]>([])
+  const roles = ref<string[]>([])
 
   const isLoggedIn = computed(() => !!accessToken.value)
 
@@ -45,6 +55,16 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
+  function applyMe(data: MePayload) {
+    user.value = data.user
+    workspaces.value = data.workspaces ?? []
+    permissions.value = data.permissions ?? []
+    roles.value = data.roles ?? []
+    if (data.currentWorkspaceId && !currentWorkspaceId.value) {
+      setWorkspace(data.currentWorkspaceId)
+    }
+  }
+
   function setWorkspace(id: string) {
     currentWorkspaceId.value = id
     localStorage.setItem(WS_KEY, id)
@@ -54,7 +74,31 @@ export const useAuthStore = defineStore('auth', () => {
     accessToken.value = null
     user.value = null
     workspaces.value = []
+    permissions.value = []
+    roles.value = []
     // 保留 currentWorkspaceId 便于下次登录回同空间；仅清内存令牌
+  }
+
+  async function loadMe(): Promise<boolean> {
+    if (!accessToken.value) {
+      permissions.value = []
+      roles.value = []
+      return false
+    }
+    try {
+      const res = await fetch('/api/system/auth/me', {
+        headers: { Authorization: `Bearer ${accessToken.value}` },
+        credentials: 'include'
+      })
+      const body = await res.json()
+      if (body.code !== 0 || !body.data) {
+        return false
+      }
+      applyMe(body.data)
+      return true
+    } catch {
+      return false
+    }
   }
 
   async function refreshSession(): Promise<boolean> {
@@ -69,6 +113,7 @@ export const useAuthStore = defineStore('auth', () => {
         return false
       }
       applyLogin(body.data)
+      await loadMe()
       return true
     } catch {
       clear()
@@ -88,6 +133,7 @@ export const useAuthStore = defineStore('auth', () => {
       throw new Error(body.message || '登录失败')
     }
     applyLogin(body.data)
+    await loadMe()
     return body.data
   }
 
@@ -112,10 +158,14 @@ export const useAuthStore = defineStore('auth', () => {
     user,
     workspaces,
     currentWorkspaceId,
+    permissions,
+    roles,
     isLoggedIn,
     applyLogin,
+    applyMe,
     setWorkspace,
     clear,
+    loadMe,
     refreshSession,
     login,
     logout

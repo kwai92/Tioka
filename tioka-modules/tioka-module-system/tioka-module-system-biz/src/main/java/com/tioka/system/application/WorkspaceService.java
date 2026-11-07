@@ -89,6 +89,16 @@ public class WorkspaceService {
         }
     }
 
+    /** HCI-03：租户管理员列出全部空间。 */
+    public List<Workspace> listAll() {
+        requireTenantAdmin();
+        List<Workspace> out = new ArrayList<>();
+        for (SysWorkspaceDO row : workspaces.listAll()) {
+            out.add(new Workspace(row.getId(), row.getName(), row.getOwnerUserId()));
+        }
+        return out;
+    }
+
     public List<MineWorkspace> mine() {
         String userId = principals.current().userId();
         List<SysMemberDO> ms = members.findByUserId(userId);

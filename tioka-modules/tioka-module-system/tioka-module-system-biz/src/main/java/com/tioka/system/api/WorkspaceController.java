@@ -1,6 +1,7 @@
 package com.tioka.system.api;
 
 import com.tioka.framework.error.ApiResponse;
+import com.tioka.framework.security.Permissions;
 import com.tioka.framework.security.RequirePermission;
 import com.tioka.system.application.WorkspaceMemberService;
 import com.tioka.system.application.WorkspaceService;
@@ -20,25 +21,32 @@ public class WorkspaceController {
         this.memberService = memberService;
     }
 
-    @RequirePermission("auth:me")
+    @RequirePermission({})
     @GetMapping("/mine")
     public ApiResponse<List<WorkspaceService.MineWorkspace>> mine() {
         return ApiResponse.ok(workspaceService.mine());
     }
 
-    @RequirePermission("tenant_admin")
+    /** HCI-03：租户级空间列表。 */
+    @RequirePermission(Permissions.TENANT_ADMIN)
+    @GetMapping
+    public ApiResponse<List<WorkspaceService.Workspace>> list() {
+        return ApiResponse.ok(workspaceService.listAll());
+    }
+
+    @RequirePermission(Permissions.TENANT_ADMIN)
     @PostMapping
     public ApiResponse<WorkspaceService.Workspace> create(@RequestBody Map<String, String> body) {
         return ApiResponse.ok(workspaceService.create(body.get("name")));
     }
 
-    @RequirePermission("auth:me")
+    @RequirePermission({})
     @GetMapping("/{id}")
     public ApiResponse<WorkspaceService.Workspace> get(@PathVariable String id) {
         return ApiResponse.ok(workspaceService.requireAccessible(id));
     }
 
-    @RequirePermission("workspace:manage")
+    @RequirePermission(Permissions.WORKSPACE_MANAGE)
     @GetMapping("/{id}/members")
     public ApiResponse<WorkspaceMemberService.Page<WorkspaceMemberService.MemberView>> members(
             @PathVariable String id,
@@ -47,7 +55,7 @@ public class WorkspaceController {
         return ApiResponse.ok(memberService.list(id, page, size));
     }
 
-    @RequirePermission("workspace:manage")
+    @RequirePermission(Permissions.WORKSPACE_MANAGE)
     @PutMapping("/{id}/members/{userId}")
     public ApiResponse<Void> putMember(@PathVariable String id,
                                        @PathVariable String userId,
@@ -56,7 +64,7 @@ public class WorkspaceController {
         return ApiResponse.ok(null);
     }
 
-    @RequirePermission("workspace:manage")
+    @RequirePermission(Permissions.WORKSPACE_MANAGE)
     @DeleteMapping("/{id}/members/{userId}")
     public ApiResponse<Void> deleteMember(@PathVariable String id, @PathVariable String userId) {
         memberService.remove(id, userId);

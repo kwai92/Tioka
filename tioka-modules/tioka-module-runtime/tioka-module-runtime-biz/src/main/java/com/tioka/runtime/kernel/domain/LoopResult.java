@@ -14,6 +14,15 @@ public record LoopResult(TurnStatus status, int promptTokens, int completionToke
     }
 
     public static LoopResult cancelled(int promptTokens, int completionTokens) {
-        return new LoopResult(TurnStatus.CANCELLED, promptTokens, completionTokens, null, null);
+        return cancelled(null, promptTokens, completionTokens);
+    }
+
+    public static LoopResult cancelled(String reason, int promptTokens, int completionTokens) {
+        return new LoopResult(TurnStatus.CANCELLED, promptTokens, completionTokens, reason, null);
+    }
+
+    /** RT-07：已挂起等待审批；TurnRunner 不得写终态。 */
+    public static LoopResult waitingApproval(int promptTokens, int completionTokens) {
+        return new LoopResult(TurnStatus.WAITING_APPROVAL, promptTokens, completionTokens, null, null);
     }
 }

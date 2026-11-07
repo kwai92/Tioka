@@ -71,16 +71,32 @@ public class TurnRepository {
         return mapper.incrementStep(turnId, leaseVersion);
     }
 
+    public int markWaitingApproval(String turnId, long leaseVersion) {
+        return mapper.markWaitingApproval(turnId, leaseVersion);
+    }
+
+    public int requeueFromWaitingApproval(String turnId) {
+        return mapper.requeueFromWaitingApproval(turnId);
+    }
+
+    public int cancelWaitingApproval(String turnId, String errorCode, String errorMessage) {
+        return mapper.cancelWaitingApproval(turnId, errorCode, errorMessage);
+    }
+
     public int cancelQueued(String turnId) {
-        return mapper.cancelQueued(turnId);
+        return cancelQueued(turnId, null, null);
+    }
+
+    public int cancelQueued(String turnId, String errorCode, String errorMessage) {
+        return mapper.cancelQueued(turnId, errorCode, errorMessage);
+    }
+
+    public List<RuntimeTurnDO> findActiveByPrincipal(String userId, String workspaceId) {
+        return mapper.findActiveByPrincipal(userId, workspaceId);
     }
 
     public List<String> findExpired(Instant now, int limit) {
         return mapper.findExpired(OffsetDateTime.ofInstant(now, ZoneOffset.UTC), limit);
-    }
-
-    public List<String> findOrphanQueuedHeads(int limit) {
-        return mapper.findOrphanQueuedHeads(limit);
     }
 
     public int markInterrupted(String turnId) {
@@ -91,12 +107,28 @@ public class TurnRepository {
         return mapper.failInterrupted(turnId, errorCode, errorMessage);
     }
 
+    public int requeueInterrupted(String turnId) {
+        return mapper.requeueInterrupted(turnId);
+    }
+
     public Optional<RuntimeTurnDO> nextQueued(String sessionId) {
         return Optional.ofNullable(mapper.nextQueued(sessionId));
     }
 
     public Optional<RuntimeTurnDO> findActive(String sessionId) {
         return Optional.ofNullable(mapper.findActive(sessionId));
+    }
+
+    public List<RuntimeTurnDO> findStaleQueuedForDispatch() {
+        return mapper.findStaleQueuedForDispatch();
+    }
+
+    public boolean tryAdvisoryLockQueuedSweeper() {
+        return mapper.tryAdvisoryLockQueuedSweeper();
+    }
+
+    public void unlockAdvisoryLockQueuedSweeper() {
+        mapper.unlockAdvisoryLockQueuedSweeper();
     }
 
     public void requireLeaseWrite(int affected) {

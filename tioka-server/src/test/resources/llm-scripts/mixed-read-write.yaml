@@ -1,0 +1,8 @@
+# RT-07：一步中 READ + WRITE
+calls:
+  - tool_calls:
+      - { name: erp.query, arguments: { q: "read" } }
+      - { name: erp.update, arguments: { q: "write" } }
+    usage: { prompt: 10, completion: 6 }
+  - content: "mixed done"
+    usage: { prompt: 12, completion: 10 }

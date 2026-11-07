@@ -1,8 +1,10 @@
 package com.tioka.server.catalog;
 
-import com.tioka.agent.application.AgentService;
+import com.tioka.agent.api.AgentCatalogApi;
 import com.tioka.framework.error.ApiResponse;
-import com.tioka.mcp.application.McpAdminService;
+import com.tioka.framework.security.Permissions;
+import com.tioka.framework.security.RequirePermission;
+import com.tioka.mcp.api.McpServerQueryApi;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.ArrayList;
@@ -11,22 +13,25 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/catalog")
+@RequirePermission(Permissions.AGENT_READ)
 public class AssetCatalogController {
-    private final AgentService agentService;
-    private final McpAdminService mcpAdminService;
+    private final AgentCatalogApi agentCatalogApi;
+    private final McpServerQueryApi mcpServerQueryApi;
 
-    public AssetCatalogController(AgentService agentService, McpAdminService mcpAdminService) {
-        this.agentService = agentService;
-        this.mcpAdminService = mcpAdminService;
+    public AssetCatalogController(AgentCatalogApi agentCatalogApi, McpServerQueryApi mcpServerQueryApi) {
+        this.agentCatalogApi = agentCatalogApi;
+        this.mcpServerQueryApi = mcpServerQueryApi;
     }
 
     @GetMapping
     public ApiResponse<List<Map<String, String>>> search(@RequestParam(required = false) String q) {
         String query = q == null ? "" : q.toLowerCase();
         List<Map<String, String>> out = new ArrayList<>();
-        agentService.list().stream().filter(a -> a.name().toLowerCase().contains(query))
+        agentCatalogApi.listSummaries().stream()
+                .filter(a -> a.name() != null && a.name().toLowerCase().contains(query))
                 .forEach(a -> out.add(Map.of("type", "agent", "id", a.id(), "name", a.name())));
-        mcpAdminService.listServers().stream().filter(s -> s.name().toLowerCase().contains(query))
+        mcpServerQueryApi.listSummaries().stream()
+                .filter(s -> s.name() != null && s.name().toLowerCase().contains(query))
                 .forEach(s -> out.add(Map.of("type", "mcp", "id", s.id(), "name", s.name())));
         return ApiResponse.ok(out);
     }

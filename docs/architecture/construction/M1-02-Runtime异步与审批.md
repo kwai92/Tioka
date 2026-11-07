@@ -1,10 +1,10 @@
 # M1-02 — Runtime 异步派发、审批与对外协议
 
-- 负责人：BE-B（RT-06〜08）、BE-C（CHT-02、CHT-03）、FE（HCI-02、HCI-04、审批卡片）
-- 工作项：RT-06、RT-07、RT-08、CHT-02、CHT-03、HCI-02、HCI-04
+- 负责人：BE-B（RT-06〜08）、BE-C（CHT-02、CHT-03）、FE（HCI-02、HCI-04、FE-01、审批卡片）
+- 工作项：RT-06、RT-07、RT-08、CHT-02、CHT-03、HCI-02、HCI-04、FE-01
 - 约束：ADR-016、ADR-022、ADR-028、ADR-029 第 1〜7、16、30 条
 - 前置：[M0-03](M0-03-Runtime内核.md)；FND-04（审批权限）
-- 迁移：V114、V115（V116 预留未用）
+- 迁移：V114、V115（索引列，CHT-02）、V126（DROP `chat_message`，CHT-03；V116 预留未用）
 - 排期与人天：以 [M1-00 实施计划](M1-00-M1实施计划.md) 为准；CHT-02、CHT-03 由 BE-C 负责
 
 ---
@@ -245,11 +245,12 @@ public interface TurnAwaiter {
 
 ## CHT-03 消息去双份（P1，2 人天）
 
-- V115：`chat_conversation` 加 `last_active_at TIMESTAMPTZ`、`last_preview VARCHAR(200)`；回填后 `DROP TABLE chat_message`（历史已在 V104 转入 `runtime_item`，迁移前校验每个会话的 item 数 ≥ 原消息数，不满足则迁移失败并输出会话 ID）。
+- V115（CHT-02 已合入）：`chat_conversation` 加 `last_active_at TIMESTAMPTZ`、`last_preview VARCHAR(200)` 并回填索引。
+- V126（本项）：迁移前校验每个会话的 `runtime_item` 数 ≥ 原 `chat_message` 数，不满足则失败并输出会话 ID；通过后 `DROP TABLE chat_message`（历史已在 V104 转入 `runtime_item`）。勿改已合并的 V115。
 - `last_preview` 由 `TurnRunner` 在 Turn 完成时通过 `ConversationIndexListener`（监听 Spring 事件 `TurnCompletedEvent`，origin=chat 时）更新。
 - `ChatStore` 中消息相关方法删除。
 
-测试：`ChatIndexIT#previewUpdatedAfterTurn`；`V115MigrationIT`。
+测试：`ChatIndexIT#previewUpdatedAfterTurn`；`V115MigrationIT`（覆盖 V126 校验与 DROP）。
 
 ---
 
@@ -278,9 +279,72 @@ M0 已有 `streamThread` 与 thread store，M1 补齐：
 - 快照：`src/items/__fixtures__/{type}.json` 每种类型至少 2 个样例（含边界：超长文本、截断的工具结果、未知类型），`ItemRenderer.spec.ts` 对每个样例 `toMatchSnapshot()`。
 - 契约同步：fixtures 由脚本 `scripts/gen-item-fixtures.mjs` 从 `runtime-event-v1.json` 的 examples 生成并校验，契约改了而 fixtures 没更新时 CI 失败。
 
+---
+
+## FE-01 MCP 工具风险等级编辑（P1，前后端合计 1 人天）
+
+挂靠本文件理由：M1-00 设计列已指向 02；RT-07 已规定 `mcp_tool.risk`（V114 四态）与管理员可在 MCP 页修改。M1-04 只涉及 `ToolDescriptor` 字段演进，不承载本项 UI/写接口。现状：列与读路径已有，**无写接口、刷新会冲掉已配置 risk、MCP 页无编辑列**。
+
+### 目标
+
+管理员在 MCP 页编辑 `mcp_tool.risk`，取值对齐 V114 / `ToolRisk`：`READ` | `WRITE` | `DESTRUCTIVE` | `EXTERNAL_SEND`。供 RT-07 默认审批策略消费。
+
+### API
+
+| 方法与路径 | 权限 | 请求 | 响应 |
+| --- | --- | --- | --- |
+| `PATCH /api/mcp/servers/{serverId}/tools/{toolName}` | `mcp:write`（`Permissions.MCP_WRITE`，与现有 `McpAdminController` 一致） | `{"risk":"READ\|WRITE\|DESTRUCTIVE\|EXTERNAL_SEND"}` | `Tool`（含更新后的 `risk`） |
+
+错误码（沿用惯例，不新增）：
+
+| 条件 | 错误码 |
+| --- | --- |
+| `serverId` / `toolName` 不存在 | `NOT_FOUND` |
+| `risk` 缺省、空白或非四态之一 | `BAD_REQUEST` |
+| 无 `mcp:write` | `FORBIDDEN` |
+
+实现落点：`McpAdminController` → `McpAdminService.updateToolRisk` → `McpStore` / `McpRepository`（MyBatis-Plus `updateById` 或按 `server_id`+`name` 更新；禁止 JDBC）。不改已合并迁移；V114 已存在则只用。
+
+### 刷新策略
+
+`refreshTools` → `replaceTools`：
+
+1. 替换前读出该 server 已有工具的 `name → risk` 映射。
+2. 同名工具：**保留**已配置 `risk`（忽略发现结果里的 risk，若有）。
+3. 新工具：默认 `WRITE`（与 V114 列默认一致）。
+4. 已消失的工具随全量替换删除（现状行为不变）。
+
+### UI
+
+`tioka-ui/src/views/Mcp.vue` 工具预览区改为表格（或在现有列表旁加列）：
+
+| 列 | 内容 |
+| --- | --- |
+| 名称 / 描述 | 现有信息；allowlist 勾选保留 |
+| 风险 | `el-select` 四态；`@change` 即调 PATCH，成功后回写本地 `tools`；失败展示错误并回滚选项 |
+
+### 测试
+
+| 层 | 用例 | 断言 |
+| --- | --- | --- |
+| 前端 vitest | 改 risk 调 API | mock `api`/`fetch`：选择新 risk → 发出 `PATCH …/tools/{name}` 且 body `{"risk":…}` |
+| 后端 IT | PATCH 成功 | 200，库中 `mcp_tool.risk` 更新；再次 GET tools 可见 |
+| 后端 IT | 非法枚举 | `BAD_REQUEST` |
+| 后端 IT | 无权限或 404 | viewer 无 `mcp:write` → `FORBIDDEN`；不存在的 tool → `NOT_FOUND` |
+| 后端 IT（可并入上列） | 刷新保留 | 先 PATCH 为 `READ`，再 `refresh-tools`，同名工具仍为 `READ`；新工具为 `WRITE` |
+
+### 完成标准
+
+- [ ] `PATCH` 四态可写；非法枚举 / 缺失资源 / 无权限分别返回 `BAD_REQUEST` / `NOT_FOUND` / `FORBIDDEN`
+- [ ] `refresh-tools` / `replaceTools` 同名保留已配置 `risk`；新工具默认 `WRITE`
+- [ ] MCP 页工具表有 risk 列，改即 PATCH
+- [ ] 前端 vitest「改 risk 调 API」绿；后端 IT 覆盖成功 / 非法枚举 / 无权限或 404
+- [ ] 未改已合并迁移；无 `tenantId`；`*-biz` 不互依赖；ORM 仅 MyBatis-Plus
+
 ## 完成标准
 
 - 杀进程后 Turn 被接管或标记失败（G1 `RecoveryGateIT`）。
 - 审批卡片提交后原 Turn 继续（G1 `ApprovalCrossInstanceGateIT`）。
 - Chat、Flow、IM 只用 `RuntimeApi`；HTTP 请求不再等模型返回。
 - 断网重连后从断点继续（HCI-02 测试）。
+- MCP 页可编辑工具风险且刷新不冲配置（FE-01）。

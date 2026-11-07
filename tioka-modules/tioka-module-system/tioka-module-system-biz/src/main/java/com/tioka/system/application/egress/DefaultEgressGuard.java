@@ -2,8 +2,16 @@ package com.tioka.system.application.egress;
 
 import com.tioka.framework.error.BizException;
 import com.tioka.framework.error.ErrorCode;
+import com.tioka.framework.security.Principal;
+import com.tioka.framework.security.PrincipalHolder;
+import com.tioka.system.api.audit.AuditApi;
+import com.tioka.system.api.audit.AuditEvent;
+import com.tioka.system.api.audit.AuditOutcome;
+import com.tioka.system.api.EgressQueryApi;
 import com.tioka.system.api.spi.EgressGuard;
 import com.tioka.system.config.EgressProperties;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -11,15 +19,19 @@ import java.net.IDN;
 import java.net.InetAddress;
 import java.net.URI;
 import java.net.UnknownHostException;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 
 @Service
-public class DefaultEgressGuard implements EgressGuard {
+public class DefaultEgressGuard implements EgressGuard, EgressQueryApi {
     private final EgressProperties props;
     private final List<Cidr> denyCidrs;
+    private final ObjectProvider<AuditApi> auditApi;
+    private final ObjectProvider<PrincipalHolder> principals;
     private final List<Cidr> privateCidrs = List.of(
             Cidr.parse("10.0.0.0/8"),
             Cidr.parse("172.16.0.0/12"),
@@ -30,8 +42,16 @@ public class DefaultEgressGuard implements EgressGuard {
             Cidr.parse("fe80::/10")
     );
 
+    /** 单测用。 */
+    public DefaultEgressGuard(EgressProperties props, boolean legacyAirgap) {
+        this(props, legacyAirgap, null, null);
+    }
+
+    @Autowired
     public DefaultEgressGuard(EgressProperties props,
-                              @Value("${tioka.airgap.enabled:false}") boolean legacyAirgap) {
+                              @Value("${tioka.airgap.enabled:false}") boolean legacyAirgap,
+                              ObjectProvider<AuditApi> auditApi,
+                              ObjectProvider<PrincipalHolder> principals) {
         if (legacyAirgap && props.getMode() == EgressProperties.Mode.OPEN
                 && (props.getAllowHosts() == null || props.getAllowHosts().isEmpty())) {
             props.setMode(EgressProperties.Mode.ALLOW_LIST);
@@ -43,6 +63,8 @@ public class DefaultEgressGuard implements EgressGuard {
             deny.add(Cidr.parse(c));
         }
         this.denyCidrs = List.copyOf(deny);
+        this.auditApi = auditApi;
+        this.principals = principals;
     }
 
     @Override
@@ -77,8 +99,63 @@ public class DefaultEgressGuard implements EgressGuard {
         deny("not-allowed", rawUrl);
     }
 
+    @Override
+    public boolean isValidHostPattern(String host) {
+        if (host == null || host.isBlank()) {
+            return false;
+        }
+        String raw = host.trim();
+        if (raw.contains("://") || raw.contains("/") || raw.contains("?") || raw.contains("#")
+                || raw.contains("@") || raw.contains(" ") || raw.contains(":")) {
+            return false;
+        }
+        String pattern = lower(raw);
+        String hostname = pattern;
+        if (pattern.startsWith("*.")) {
+            hostname = pattern.substring(2);
+            if (hostname.isBlank() || hostname.contains("*")) {
+                return false;
+            }
+        } else if (pattern.contains("*")) {
+            return false;
+        }
+        try {
+            String ascii = IDN.toASCII(hostname);
+            if (ascii == null || ascii.isBlank()) {
+                return false;
+            }
+            // 标签：字母数字与连字符；至少一段
+            String[] labels = ascii.split("\\.");
+            if (labels.length == 0) {
+                return false;
+            }
+            for (String label : labels) {
+                if (label.isEmpty() || label.length() > 63) {
+                    return false;
+                }
+                if (label.startsWith("-") || label.endsWith("-")) {
+                    return false;
+                }
+                for (int i = 0; i < label.length(); i++) {
+                    char c = label.charAt(i);
+                    if (!(c >= 'a' && c <= 'z') && !(c >= '0' && c <= '9') && c != '-') {
+                        return false;
+                    }
+                }
+            }
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
     public boolean isRestrictive() {
         return props.getMode() != EgressProperties.Mode.OPEN;
+    }
+
+    @Override
+    public boolean isRestricted() {
+        return isRestrictive();
     }
 
     boolean matchesAllowList(String host) {
@@ -128,7 +205,29 @@ public class DefaultEgressGuard implements EgressGuard {
         }
     }
 
-    private static void deny(String reason, String rawUrl) {
+    private void deny(String reason, String rawUrl) {
+        AuditApi api = auditApi == null ? null : auditApi.getIfAvailable();
+        if (api != null) {
+            try {
+                Principal p = principals == null ? null
+                        : principals.getIfAvailable() == null ? null
+                        : principals.getIfAvailable().find().orElse(null);
+                api.recordIndependent(AuditEvent.builder()
+                        .ts(Instant.now())
+                        .workspaceId(p == null ? null : p.workspaceId())
+                        .actorType(p == null ? "system" : p.type().name().toLowerCase(Locale.ROOT))
+                        .actorId(p == null ? "system" : p.userId())
+                        .action("egress.denied")
+                        .resourceType("url")
+                        .resourceId(rawUrl == null ? null : rawUrl.substring(0, Math.min(rawUrl.length(), 64)))
+                        .outcome(AuditOutcome.DENIED)
+                        .reason(reason)
+                        .details(Map.of("url", rawUrl == null ? "" : rawUrl))
+                        .build());
+            } catch (RuntimeException ignored) {
+                // 审计失败不吞出网拒绝
+            }
+        }
         throw new BizException(ErrorCode.EGRESS_DENIED, "出网拒绝(" + reason + "): " + rawUrl);
     }
 

@@ -25,7 +25,7 @@ public class RedisSignalPort implements LoopPorts.SignalPort {
     public void checkpoint(LoopContext ctx) {
         SignalBus.TurnFlags flags = bus.flags(ctx.turnId());
         if (flags != null && flags.cancelRequested.get()) {
-            throw new CancelledSignal();
+            throw new CancelledSignal(bus.cancelReason(ctx.turnId()));
         }
         long now = System.currentTimeMillis();
         AtomicLong last = lastPollMs.computeIfAbsent(ctx.turnId(), k -> new AtomicLong(0));
@@ -35,7 +35,7 @@ public class RedisSignalPort implements LoopPorts.SignalPort {
                 if (flags != null) {
                     flags.cancelRequested.set(true);
                 }
-                throw new CancelledSignal();
+                throw new CancelledSignal(bus.cancelReason(ctx.turnId()));
             }
         }
     }

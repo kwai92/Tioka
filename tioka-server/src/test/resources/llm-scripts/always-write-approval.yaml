@@ -1,0 +1,6 @@
+# RT-07 并发：每次模型调用都返回 WRITE 工具；批准后续跑时再走下一步需另剧本或同 loop 下一次
+# 本剧本仅含工具步，loop 保证多次挂起测试不会耗尽
+loop: true
+calls:
+  - tool_calls: [{ name: erp.update, arguments: { q: "raise-po" } }]
+    usage: { prompt: 8, completion: 4 }

@@ -4,6 +4,8 @@ import com.baomidou.mybatisplus.annotation.TableName;
 import com.tioka.framework.persistence.AppendOnlyDO;
 import com.tioka.framework.persistence.BaseDO;
 import com.tioka.framework.persistence.ImmutableSnapshotDO;
+import com.tioka.framework.persistence.MutableRecordDO;
+import com.tioka.framework.persistence.TechnicalRecordDO;
 import com.tioka.framework.persistence.WorkspaceAwareDO;
 import com.tngtech.archunit.core.domain.JavaClass;
 import com.tngtech.archunit.core.domain.JavaClasses;
@@ -58,7 +60,17 @@ class PersistenceArchTest {
                                 || item.isAssignableTo(WorkspaceAwareDO.class)
                                 || item.isAssignableTo(ImmutableSnapshotDO.class)
                                 || item.isAssignableTo(AppendOnlyDO.class)
-                                || "RuntimeTurnDO".equals(item.getSimpleName());
+                                || item.isAssignableTo(MutableRecordDO.class)
+                                || item.isAssignableTo(TechnicalRecordDO.class)
+                                || "RuntimeTurnDO".equals(item.getSimpleName())
+                                // AST-01：agent_draft 契约仅有 update_at/by + revision，无 create/deleted
+                                || "AgentDraftDO".equals(item.getSimpleName())
+                                // MH-04：model_default_plan 仅 purpose PK + update_at/by
+                                || "ModelDefaultPlanDO".equals(item.getSimpleName())
+                                // TIMESTAMPTZ 列用 Instant，不可继承 LocalDateTime 基类（PG JDBC 拒绝 TIMESTAMPTZ→LocalDateTime）
+                                || "SysApiKeyDO".equals(item.getSimpleName())
+                                || "SysGroupDO".equals(item.getSimpleName())
+                                || "SysResourceAclDO".equals(item.getSimpleName());
                         if (!ok) {
                             events.add(SimpleConditionEvent.violated(item,
                                     item.getName() + " 未继承约定 DO 基类"));

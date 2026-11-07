@@ -15,4 +15,20 @@ describe('router auth guard', () => {
     expect(router.currentRoute.value.path).toBe('/login')
     expect(router.currentRoute.value.query.redirect).toBe('/chat')
   })
+
+  it('无 tenant:admin 直访 /admin/users → 403', async () => {
+    const auth = useAuthStore()
+    auth.accessToken = 'tka_test'
+    auth.permissions = ['chat:use']
+    await router.push('/admin/users')
+    expect(router.currentRoute.value.path).toBe('/admin/forbidden')
+  })
+
+  it('有 audit:read 可进审计页', async () => {
+    const auth = useAuthStore()
+    auth.accessToken = 'tka_test'
+    auth.permissions = ['audit:read']
+    await router.push('/admin/audit')
+    expect(router.currentRoute.value.path).toBe('/admin/audit')
+  })
 })

@@ -3,7 +3,11 @@ package com.tioka.chat.api;
 import com.tioka.chat.application.ChatService;
 import com.tioka.chat.domain.ChatStore;
 import com.tioka.framework.error.ApiResponse;
+import com.tioka.framework.security.Permissions;
 import com.tioka.framework.security.RequirePermission;
+import com.tioka.model.api.CostQueryApi;
+import com.tioka.runtime.api.kernel.RuntimeApi;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -11,7 +15,7 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/chat")
-@RequirePermission("chat:use")
+@RequirePermission(Permissions.CHAT_USE)
 public class ChatController {
     private final ChatService chatService;
 
@@ -25,7 +29,7 @@ public class ChatController {
     }
 
     @PostMapping("/conversations")
-    public ApiResponse<ChatStore.Conversation> create(@RequestBody Map<String, String> body) {
+    public ApiResponse<ChatService.CreatedConversation> create(@RequestBody Map<String, String> body) {
         return ApiResponse.ok(chatService.create(body.get("title"), body.get("agentVersionId")));
     }
 
@@ -41,12 +45,33 @@ public class ChatController {
     }
 
     @PostMapping("/conversations/{id}/messages")
-    public ApiResponse<ChatStore.Message> send(@PathVariable String id, @RequestBody Map<String, String> body) {
-        return ApiResponse.ok(chatService.send(id, body.get("text"), body.get("clientMsgId")));
+    @ResponseStatus(HttpStatus.ACCEPTED)
+    public ApiResponse<ChatService.SendAccepted> send(@PathVariable String id,
+                                                      @RequestBody Map<String, Object> body) {
+        return ApiResponse.ok(chatService.send(id, str(body.get("text")), str(body.get("clientMsgId"))));
     }
 
     @GetMapping("/conversations/{id}/messages")
-    public ApiResponse<List<ChatStore.Message>> messages(@PathVariable String id) {
-        return ApiResponse.ok(chatService.messages(id));
+    public ApiResponse<List<RuntimeApi.ItemView>> messages(
+            @PathVariable String id,
+            @RequestParam(defaultValue = "0") long afterSeq,
+            @RequestParam(defaultValue = "100") int limit) {
+        return ApiResponse.ok(chatService.messages(id, afterSeq, limit));
+    }
+
+    @PostMapping("/conversations/{id}/stop")
+    public ApiResponse<Void> stop(@PathVariable String id) {
+        chatService.stop(id);
+        return ApiResponse.ok(null);
+    }
+
+    /** GOV-05：单会话成本（按关联 runtime thread 汇总）。 */
+    @GetMapping("/conversations/{id}/cost")
+    public ApiResponse<CostQueryApi.CostBucket> cost(@PathVariable String id) {
+        return ApiResponse.ok(chatService.cost(id));
+    }
+
+    private static String str(Object o) {
+        return o == null ? null : String.valueOf(o);
     }
 }

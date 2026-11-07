@@ -3,18 +3,24 @@ package com.tioka.runtime.kernel.application;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tioka.framework.error.BizException;
 import com.tioka.framework.error.ErrorCode;
+import com.tioka.runtime.api.kernel.ApprovalSubjectType;
 import com.tioka.runtime.api.kernel.ItemType;
+import com.tioka.runtime.api.kernel.RuntimeEventType;
 import com.tioka.runtime.api.kernel.TurnStatus;
+import com.tioka.runtime.kernel.approval.ApprovalDecideService;
 import com.tioka.runtime.kernel.events.EventId;
 import com.tioka.runtime.kernel.events.EventStream;
 import com.tioka.runtime.kernel.events.RuntimeEventFactory;
+import com.tioka.runtime.kernel.infrastructure.ApprovalRepository;
 import com.tioka.runtime.kernel.infrastructure.ItemRepository;
 import com.tioka.runtime.kernel.infrastructure.TurnRepository;
+import com.tioka.runtime.kernel.infrastructure.persistence.RuntimeApprovalDO;
 import com.tioka.runtime.kernel.infrastructure.persistence.RuntimeItemDO;
 import com.tioka.runtime.kernel.infrastructure.persistence.RuntimeTurnDO;
 import com.tioka.runtime.kernel.infrastructure.redis.SignalBus;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -30,22 +36,38 @@ public class TurnSignalService {
     private final EventStream streams;
     private final RuntimeEventFactory events;
     private final ObjectMapper mapper;
+    private final ApprovalRepository approvals;
+    private final ApprovalDecideService approvalDecide;
 
     public TurnSignalService(TurnRepository turns,
                              ItemRepository items,
                              SignalBus signals,
                              EventStream streams,
                              RuntimeEventFactory events,
-                             ObjectMapper mapper) {
+                             ObjectMapper mapper,
+                             ApprovalRepository approvals,
+                             ApprovalDecideService approvalDecide) {
         this.turns = turns;
         this.items = items;
         this.signals = signals;
         this.streams = streams;
         this.events = events;
         this.mapper = mapper;
+        this.approvals = approvals;
+        this.approvalDecide = approvalDecide;
     }
 
+    /** FND-04e：身份失效取消原因，写入 {@code runtime_turn.error_code}。 */
+    public static final String REASON_PRINCIPAL_REVOKED = "principal_revoked";
+
     public void interrupt(String turnId) {
+        interrupt(turnId, null);
+    }
+
+    /**
+     * @param reason 非空时写入 error_code（如 {@link #REASON_PRINCIPAL_REVOKED}）
+     */
+    public void interrupt(String turnId, String reason) {
         RuntimeTurnDO turn = turns.findById(turnId)
                 .orElseThrow(() -> new BizException(ErrorCode.NOT_FOUND, "turn 不存在"));
         TurnStatus st = TurnStatus.valueOf(turn.getStatus());
@@ -53,7 +75,7 @@ public class TurnSignalService {
             return;
         }
         if (st == TurnStatus.QUEUED) {
-            int n = turns.cancelQueued(turnId);
+            int n = turns.cancelQueued(turnId, reason, null);
             if (n > 0) {
                 String payload = events.turnStatus(
                         com.tioka.runtime.api.kernel.RuntimeEventType.TURN_CANCELLED,
@@ -63,11 +85,34 @@ public class TurnSignalService {
             }
             return;
         }
+        if (st == TurnStatus.WAITING_APPROVAL) {
+            // RT-07：WAITING 时无 worker，直接 CANCELLED + PENDING 审批 EXPIRED
+            int n = turns.cancelWaitingApproval(turnId, reason, null);
+            if (n > 0) {
+                List<RuntimeApprovalDO> pending = approvals.listBySubject(
+                        ApprovalSubjectType.TURN.wire(), turnId).stream()
+                        .filter(a -> "PENDING".equals(a.getStatus()))
+                        .toList();
+                approvals.expirePendingForSubject(ApprovalSubjectType.TURN.wire(), turnId, "system");
+                for (RuntimeApprovalDO a : pending) {
+                    a.setStatus("EXPIRED");
+                    a.setDecidedBy("system");
+                    approvalDecide.notifyDecided(a);
+                }
+                String payload = events.turnStatus(RuntimeEventType.TURN_CANCELLED,
+                        turn.getSessionId(), turnId, TurnStatus.CANCELLED.name());
+                streams.publish(turn.getSessionId(), null, RuntimeEventType.TURN_CANCELLED.wire(), payload);
+            }
+            return;
+        }
         if (st == TurnStatus.RUNNING
-                || st == TurnStatus.WAITING_APPROVAL
                 || st == TurnStatus.WAITING_CHILD
                 || st == TurnStatus.INTERRUPTED) {
-            signals.publishCancel(turnId);
+            if (reason == null || reason.isBlank()) {
+                signals.publishCancel(turnId);
+            } else {
+                signals.publishCancel(turnId, reason);
+            }
             return;
         }
         throw new BizException(ErrorCode.CONFLICT, "当前状态不可取消: " + st);

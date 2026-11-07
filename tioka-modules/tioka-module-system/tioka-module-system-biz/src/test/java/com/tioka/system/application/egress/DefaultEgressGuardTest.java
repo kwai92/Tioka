@@ -12,7 +12,9 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class DefaultEgressGuardTest {
     private DefaultEgressGuard allowList;
@@ -62,5 +64,16 @@ class DefaultEgressGuardTest {
     void strictRejectsMetadata(String url) {
         BizException ex = assertThrows(BizException.class, () -> strict.assertAllowed(url));
         assertEquals(ErrorCode.EGRESS_DENIED, ex.getErrorCode());
+    }
+
+    @org.junit.jupiter.api.Test
+    void hostPatternValidation() {
+        assertTrue(allowList.isValidHostPattern("api.example.com"));
+        assertTrue(allowList.isValidHostPattern("*.feishu.cn"));
+        assertTrue(allowList.isValidHostPattern("localhost"));
+        assertFalse(allowList.isValidHostPattern("https://evil.com"));
+        assertFalse(allowList.isValidHostPattern("evil.com/path"));
+        assertFalse(allowList.isValidHostPattern(""));
+        assertFalse(allowList.isValidHostPattern("*.*.com"));
     }
 }

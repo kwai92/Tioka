@@ -2,7 +2,7 @@ package com.tioka.server.auth;
 
 import com.tioka.server.support.IntegrationTestSupport;
 import com.tioka.system.application.auth.BootstrapAdminRunner;
-import com.tioka.system.infrastructure.SysMemberRepository;
+import com.tioka.system.infrastructure.SysUserRoleRepository;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -20,6 +20,10 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+/**
+ * V110 起 tenant_admin 落在 {@code sys_user_role}，不再写入 {@code sys_member}。
+ * 本用例不得依赖其它 IT（如 WorkspaceMemberIT）偶发回填 sys_member 才能通过。
+ */
 @SpringBootTest
 @Tag("it")
 class BootstrapAdminIT {
@@ -32,11 +36,14 @@ class BootstrapAdminIT {
     @Autowired
     BootstrapAdminRunner runner;
     @Autowired
-    SysMemberRepository members;
+    SysUserRoleRepository userRoles;
 
     @Test
     void createsOnceAcrossTwoRunners() throws Exception {
-        assertTrue(members.existsEnabledTenantAdmin());
+        assertTrue(userRoles.existsEnabledTenantAdmin(),
+                "BootstrapAdminRunner 应已写入 sys_user_role.tenant_admin");
+        // 共享 Testcontainers DB：其它 IT（OIDC 等）也可能写入 tenant_admin，只断言并发不增量
+        long before = userRoles.countByRole("tenant_admin");
 
         CountDownLatch start = new CountDownLatch(1);
         CountDownLatch done = new CountDownLatch(2);
@@ -58,6 +65,8 @@ class BootstrapAdminIT {
         assertTrue(done.await(30, TimeUnit.SECONDS));
         pool.shutdownNow();
         assertEquals(0, errors.get());
-        assertTrue(members.existsEnabledTenantAdmin());
+        assertTrue(userRoles.existsEnabledTenantAdmin());
+        assertEquals(before, userRoles.countByRole("tenant_admin"),
+                "并发二次 bootstrap 不得再增加 tenant_admin 行数");
     }
 }

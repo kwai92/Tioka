@@ -8,9 +8,12 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 import java.util.Map;
+import com.tioka.framework.security.RequirePermission;
+import com.tioka.framework.security.Permissions;
 
 @RestController
 @RequestMapping("/api/knowledge")
+@RequirePermission(Permissions.KB_WRITE)
 public class KnowledgeController {
     private final KnowledgeService service;
     private final DataSourceService dataSourceService;
@@ -20,9 +23,22 @@ public class KnowledgeController {
         this.dataSourceService = dataSourceService;
     }
 
+    @GetMapping("/embedding-bindings")
+    public ApiResponse<List<KnowledgeService.EmbeddingBindingView>> listEmbeddingBindings() {
+        return ApiResponse.ok(service.listEmbeddingBindings());
+    }
+
     @PostMapping("/bases")
     public ApiResponse<KnowledgeService.KnowledgeBase> createBase(@RequestBody Map<String, String> body) {
-        return ApiResponse.ok(service.createBase(body.getOrDefault("workspaceId", "ws_default"), body.get("name")));
+        return ApiResponse.ok(service.createBase(
+                body.getOrDefault("workspaceId", "ws_default"),
+                body.get("name"),
+                body.get("embeddingBindingId")));
+    }
+
+    @GetMapping("/bases/{id}/reindex-progress")
+    public ApiResponse<KnowledgeService.ReindexProgress> reindexProgress(@PathVariable String id) {
+        return ApiResponse.ok(service.reindexProgress(id));
     }
 
     @PostMapping("/bases/{id}/documents")
@@ -57,7 +73,7 @@ public class KnowledgeController {
     }
 
     @PostMapping("/datasources")
-    public ApiResponse<DataSourceService.DataSource> bindDatasource(@RequestBody Map<String, String> body) {
+    public ApiResponse<com.tioka.knowledge.api.DataSourceApi.DataSourceView> bindDatasource(@RequestBody Map<String, String> body) {
         return ApiResponse.ok(dataSourceService.bind(
                 body.get("kbId"),
                 body.getOrDefault("type", "upload"),

@@ -1,4 +1,3 @@
-
 package com.tioka.runtime.application;
 
 import com.tioka.runtime.api.spi.ToolProvider;
@@ -14,13 +13,14 @@ public class EchoToolProvider implements ToolProvider {
 
     @Override
     public List<ToolDescriptor> listTools(String agentVersionId) {
-        return List.of(new ToolDescriptor(
-                "echo",
-                "Echo back the given text",
-                Map.of("type", "object",
+        return List.of(ToolDescriptor.builder()
+                .name("echo")
+                .description("Echo back the given text")
+                .inputSchema(Map.of(
+                        "type", "object",
                         "properties", Map.of("text", Map.of("type", "string")),
-                        "required", List.of("text"))
-        ));
+                        "required", List.of("text")))
+                .build());
     }
 
     @Override

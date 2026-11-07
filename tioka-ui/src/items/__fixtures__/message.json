@@ -1,0 +1,26 @@
+[
+  {
+    "name": "basic",
+    "item": {
+      "itemId": "fix_message_basic",
+      "seq": 1,
+      "itemType": "message",
+      "role": "assistant",
+      "content": {
+        "text": "你好，Tioka"
+      }
+    }
+  },
+  {
+    "name": "long-text",
+    "item": {
+      "itemId": "fix_message_long-text",
+      "seq": 1,
+      "itemType": "message",
+      "role": "assistant",
+      "content": {
+        "text": "超长文本\n超长文本\n超长文本\n超长文本\n超长文本\n超长文本\n超长文本\n超长文本\n超长文本\n超长文本\n超长文本\n超长文本\n超长文本\n超长文本\n超长文本\n超长文本\n超长文本\n超长文本\n超长文本\n超长文本\n超长文本\n超长文本\n超长文本\n超长文本\n超长文本\n超长文本\n超长文本\n超长文本\n超长文本\n超长文本\n超长文本\n超长文本\n超长文本\n超长文本\n超长文本\n超长文本\n超长文本\n超长文本\n超长文本\n超长文本\nEND"
+      }
+    }
+  }
+]

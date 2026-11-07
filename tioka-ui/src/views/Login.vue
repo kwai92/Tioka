@@ -6,6 +6,10 @@
       <label>用户名<input v-model="username" autocomplete="username" /></label>
       <label>密码<input v-model="password" type="password" autocomplete="current-password" /></label>
       <button type="submit" :disabled="loading">{{ loading ? '登录中…' : '进入工作台' }}</button>
+      <div class="divider" role="separator"><span>或</span></div>
+      <button type="button" class="oidc" :disabled="loading" @click="onEnterpriseLogin">
+        企业账号登录
+      </button>
       <p v-if="error" class="err">{{ error }}</p>
     </form>
   </div>
@@ -15,6 +19,7 @@
 import { ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { buildOidcAuthorizeUrl, normalizeOidcRedirect } from './oidcLogin'
 
 const router = useRouter()
 const route = useRoute()
@@ -23,6 +28,12 @@ const username = ref('admin')
 const password = ref('')
 const loading = ref(false)
 const error = ref('')
+
+function loginRedirect(): string {
+  return normalizeOidcRedirect(
+    typeof route.query.redirect === 'string' ? route.query.redirect : '/chat'
+  )
+}
 
 async function onSubmit() {
   loading.value = true
@@ -33,13 +44,18 @@ async function onSubmit() {
       await router.replace('/account/password')
       return
     }
-    const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '/'
-    await router.replace(redirect || '/')
+    const redirect = loginRedirect()
+    await router.replace(redirect === '/' ? '/chat' : redirect)
   } catch (e: unknown) {
     error.value = e instanceof Error ? e.message : String(e)
   } finally {
     loading.value = false
   }
+}
+
+function onEnterpriseLogin() {
+  const url = buildOidcAuthorizeUrl({ redirect: loginRedirect() })
+  window.location.assign(url)
 }
 </script>
 
@@ -63,5 +79,24 @@ input, button {
 }
 button { background: var(--accent); border-color: transparent; cursor: pointer; font-weight: 600; }
 button:disabled { opacity: 0.6; cursor: wait; }
+button.oidc {
+  background: transparent;
+  border-color: #475569;
+  color: var(--text);
+}
+button.oidc:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+.divider {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 10px;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+.divider::before, .divider::after {
+  content: '';
+  height: 1px;
+  background: #2a3644;
+}
 .err { color: #ff8e8e; margin: 0; }
 </style>

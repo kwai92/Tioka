@@ -59,9 +59,54 @@ public class RuntimeEventFactory {
         return json(root);
     }
 
+    public String itemDiscarded(String threadId, String turnId, String itemId, long seq, String itemType) {
+        ObjectNode root = base(RuntimeEventType.ITEM_DISCARDED, threadId, turnId);
+        ObjectNode it = root.putObject("item");
+        it.put("itemId", itemId);
+        it.put("seq", seq);
+        it.put("itemType", itemType == null ? "message" : itemType);
+        it.putObject("content");
+        return json(root);
+    }
+
     public String turnStatus(RuntimeEventType type, String threadId, String turnId, String status) {
         ObjectNode root = base(type, threadId, turnId);
         root.putObject("turn").put("status", status);
+        return json(root);
+    }
+
+    public String approvalRequested(String threadId, String turnId, String approvalId,
+                                    String subjectType, String subjectId, String kind,
+                                    String status, String toolName, String risk) {
+        ObjectNode root = base(RuntimeEventType.APPROVAL_REQUESTED, threadId, turnId);
+        ObjectNode a = root.putObject("approval");
+        a.put("approvalId", approvalId);
+        a.put("subjectType", subjectType);
+        a.put("subjectId", subjectId);
+        a.put("kind", kind);
+        a.put("status", status);
+        if (toolName != null) {
+            a.put("toolName", toolName);
+        }
+        if (risk != null) {
+            a.put("risk", risk);
+        }
+        return json(root);
+    }
+
+    public String approvalDecided(String threadId, String turnId, String approvalId,
+                                  String subjectType, String subjectId, String kind,
+                                  String status, String decidedBy) {
+        ObjectNode root = base(RuntimeEventType.APPROVAL_DECIDED, threadId, turnId);
+        ObjectNode a = root.putObject("approval");
+        a.put("approvalId", approvalId);
+        a.put("subjectType", subjectType);
+        a.put("subjectId", subjectId);
+        a.put("kind", kind);
+        a.put("status", status);
+        if (decidedBy != null) {
+            a.put("decidedBy", decidedBy);
+        }
         return json(root);
     }
 

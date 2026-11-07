@@ -1,6 +1,6 @@
 import { useAuthStore } from '@/stores/auth'
 
-export type ApiError = Error & { status?: number; code?: number }
+export type ApiError = Error & { status?: number; code?: number; data?: unknown }
 
 let refreshPromise: Promise<boolean> | null = null
 
@@ -76,6 +76,7 @@ export async function api<T = unknown>(path: string, opts: RequestInit = {}): Pr
     const err: ApiError = new Error(body.message || `请求失败 ${res.status}`)
     err.status = res.status
     err.code = body.code
+    err.data = body.data
     throw err
   }
   return body.data as T

@@ -14,6 +14,7 @@ public class ModelRoutingPlanDO extends ImmutableSnapshotDO {
     private String primaryBindingId;
     private String fallbackBindingId;
     private String hardBindingId;
+    private String fallbackChain;
     private Boolean published;
     private String snapshotHash;
 
@@ -29,6 +30,8 @@ public class ModelRoutingPlanDO extends ImmutableSnapshotDO {
     public void setFallbackBindingId(String fallbackBindingId) { this.fallbackBindingId = fallbackBindingId; }
     public String getHardBindingId() { return hardBindingId; }
     public void setHardBindingId(String hardBindingId) { this.hardBindingId = hardBindingId; }
+    public String getFallbackChain() { return fallbackChain; }
+    public void setFallbackChain(String fallbackChain) { this.fallbackChain = fallbackChain; }
     public Boolean getPublished() { return published; }
     public void setPublished(Boolean published) { this.published = published; }
     public String getSnapshotHash() { return snapshotHash; }

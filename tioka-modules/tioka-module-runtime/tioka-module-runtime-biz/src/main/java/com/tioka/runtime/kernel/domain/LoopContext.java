@@ -1,8 +1,7 @@
 package com.tioka.runtime.kernel.domain;
 
-import com.tioka.model.api.ModelRouterApi;
-
 import java.util.List;
+import java.util.Map;
 
 public final class LoopContext {
     private final String threadId;
@@ -16,13 +15,17 @@ public final class LoopContext {
     private final String routingPlanId;
     private final String workspaceId;
     private final String principalId;
+    private final String approvalPolicy;
+    private final String origin;
+    private final List<String> toolAllowList;
+    private final Map<String, Object> agentToolConfig;
     private boolean forceFinalAnswer;
-    private ModelRouterApi.ModelSelection modelSelection;
 
     public LoopContext(String threadId, String turnId, long leaseVersion,
                        int maxSteps, int repeatLimit, int startStep,
                        LoopPorts.SignalPort signals) {
-        this(threadId, turnId, leaseVersion, maxSteps, repeatLimit, startStep, signals, null, null, null, null);
+        this(threadId, turnId, leaseVersion, maxSteps, repeatLimit, startStep, signals,
+                null, null, null, null, null, null, null, null);
     }
 
     public LoopContext(String threadId, String turnId, long leaseVersion,
@@ -30,7 +33,7 @@ public final class LoopContext {
                        LoopPorts.SignalPort signals,
                        String agentVersionId, String routingPlanId, String workspaceId) {
         this(threadId, turnId, leaseVersion, maxSteps, repeatLimit, startStep, signals,
-                agentVersionId, routingPlanId, workspaceId, null);
+                agentVersionId, routingPlanId, workspaceId, null, null, null, null, null);
     }
 
     public LoopContext(String threadId, String turnId, long leaseVersion,
@@ -38,6 +41,27 @@ public final class LoopContext {
                        LoopPorts.SignalPort signals,
                        String agentVersionId, String routingPlanId, String workspaceId,
                        String principalId) {
+        this(threadId, turnId, leaseVersion, maxSteps, repeatLimit, startStep, signals,
+                agentVersionId, routingPlanId, workspaceId, principalId, null, null, null, null);
+    }
+
+    public LoopContext(String threadId, String turnId, long leaseVersion,
+                       int maxSteps, int repeatLimit, int startStep,
+                       LoopPorts.SignalPort signals,
+                       String agentVersionId, String routingPlanId, String workspaceId,
+                       String principalId, String approvalPolicy) {
+        this(threadId, turnId, leaseVersion, maxSteps, repeatLimit, startStep, signals,
+                agentVersionId, routingPlanId, workspaceId, principalId, approvalPolicy,
+                null, null, null);
+    }
+
+    public LoopContext(String threadId, String turnId, long leaseVersion,
+                       int maxSteps, int repeatLimit, int startStep,
+                       LoopPorts.SignalPort signals,
+                       String agentVersionId, String routingPlanId, String workspaceId,
+                       String principalId, String approvalPolicy,
+                       String origin, List<String> toolAllowList,
+                       Map<String, Object> agentToolConfig) {
         this.threadId = threadId;
         this.turnId = turnId;
         this.leaseVersion = leaseVersion;
@@ -49,6 +73,10 @@ public final class LoopContext {
         this.routingPlanId = routingPlanId;
         this.workspaceId = workspaceId;
         this.principalId = principalId;
+        this.approvalPolicy = approvalPolicy;
+        this.origin = origin;
+        this.toolAllowList = toolAllowList == null ? List.of() : List.copyOf(toolAllowList);
+        this.agentToolConfig = agentToolConfig == null ? Map.of() : Map.copyOf(agentToolConfig);
     }
 
     public String threadId() { return threadId; }
@@ -62,10 +90,15 @@ public final class LoopContext {
     public String workspaceId() { return workspaceId; }
     public String principalId() { return principalId; }
 
-    public ModelRouterApi.ModelSelection modelSelection() { return modelSelection; }
-    public void setModelSelection(ModelRouterApi.ModelSelection modelSelection) {
-        this.modelSelection = modelSelection;
-    }
+    /** TurnOptions.approvalPolicy；空则用 agent-config。 */
+    public String approvalPolicy() { return approvalPolicy; }
+
+    public String origin() { return origin; }
+
+    public List<String> toolAllowList() { return toolAllowList; }
+
+    /** CON-01：含 mcpGrants，供 ToolGateway 授权。 */
+    public Map<String, Object> agentToolConfig() { return agentToolConfig; }
 
     public void checkpoint() {
         signals.checkpoint(this);
