@@ -2,8 +2,9 @@ package com.tioka.flow.dsl;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
-import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLGenerator;
+import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
 import com.tioka.flow.api.dsl.FlowDslDocument;
 
 import java.util.Collections;
@@ -13,6 +14,7 @@ import java.util.Map;
 
 /**
  * DSL JSON/YAML 编解码（新包，不碰旧引擎）。
+ * <p>使用 JsonMapper / YAMLMapper，避免直接 {@code new ObjectMapper()}（ENG-05 ArchUnit）。
  */
 public class FlowDslYamlCodec {
 
@@ -20,9 +22,12 @@ public class FlowDslYamlCodec {
     private final ObjectMapper jsonMapper;
 
     public FlowDslYamlCodec() {
-        this.yamlMapper = new ObjectMapper(new YAMLFactory()
-                .disable(YAMLGenerator.Feature.WRITE_DOC_START_MARKER));
-        this.jsonMapper = new ObjectMapper().enable(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS);
+        this.yamlMapper = YAMLMapper.builder()
+                .disable(YAMLGenerator.Feature.WRITE_DOC_START_MARKER)
+                .build();
+        this.jsonMapper = JsonMapper.builder()
+                .enable(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS)
+                .build();
     }
 
     public String toYaml(FlowDslDocument doc) {
