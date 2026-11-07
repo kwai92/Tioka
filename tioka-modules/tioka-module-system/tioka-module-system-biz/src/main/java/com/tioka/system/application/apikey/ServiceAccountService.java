@@ -4,6 +4,7 @@ import com.tioka.framework.error.BizException;
 import com.tioka.framework.error.ErrorCode;
 import com.tioka.framework.security.Permissions;
 import com.tioka.framework.security.PrincipalHolder;
+import com.tioka.system.api.audit.Audited;
 import com.tioka.system.application.WorkspaceService;
 import com.tioka.system.application.auth.PasswordService;
 import com.tioka.system.infrastructure.AuthUserRepository;
@@ -47,6 +48,8 @@ public class ServiceAccountService {
     }
 
     @Transactional
+    @Audited(action = "service_account.create", resourceType = "user",
+            include = {"name", "workspaceId", "role"})
     public Created create(String name, String workspaceId, String role) {
         requireTenantAdmin();
         if (name == null || name.isBlank()) {

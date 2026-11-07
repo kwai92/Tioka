@@ -174,11 +174,16 @@ public class OidcFederationService {
         for (String path : paths) {
             SysGroupDO g = groups.findBySourceAndExternalId(source, path);
             if (g == null) {
+                Instant now = Instant.now();
                 g = new SysGroupDO();
                 g.setId(Ids.newId("grp"));
                 g.setName(pathLeaf(path));
                 g.setSource(source);
                 g.setExternalId(path);
+                g.setCreateAt(now);
+                g.setUpdateAt(now);
+                g.setCreateBy("system");
+                g.setUpdateBy("system");
                 groups.insert(g);
             }
             desiredIds.add(g.getId());

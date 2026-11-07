@@ -10,6 +10,7 @@ import com.tioka.framework.security.Permissions;
 import com.tioka.framework.security.Principal;
 import com.tioka.framework.security.PrincipalHolder;
 import com.tioka.framework.security.PrincipalType;
+import com.tioka.system.api.audit.Audited;
 import com.tioka.system.application.WorkspaceService;
 import com.tioka.system.infrastructure.AuthUserRepository;
 import com.tioka.system.infrastructure.SysApiKeyRepository;
@@ -57,6 +58,8 @@ public class ApiKeyService {
     }
 
     @Transactional
+    @Audited(action = "api_key.create", resourceType = "api_key",
+            include = {"name", "serviceUserId", "workspaceId"})
     public CreatedKey create(String serviceUserId, String name, String workspaceId,
                              List<String> scopes, Instant expiresAt) {
         requireManageApiKeys(workspaceId);
@@ -117,6 +120,7 @@ public class ApiKeyService {
     }
 
     @Transactional
+    @Audited(action = "api_key.revoke", resourceType = "api_key", resourceIdArg = "#id")
     public void revoke(String id) {
         SysApiKeyDO row = keys.findById(id);
         if (row == null) {

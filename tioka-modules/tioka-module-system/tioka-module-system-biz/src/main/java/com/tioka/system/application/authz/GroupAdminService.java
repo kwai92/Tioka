@@ -3,12 +3,14 @@ package com.tioka.system.application.authz;
 import com.tioka.framework.error.BizException;
 import com.tioka.framework.error.ErrorCode;
 import com.tioka.framework.id.Ids;
+import com.tioka.framework.persistence.OperatorAuditor;
 import com.tioka.system.application.auth.PrincipalLoader;
 import com.tioka.system.infrastructure.SysGroupRepository;
 import com.tioka.system.infrastructure.persistence.SysGroupDO;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -35,10 +37,16 @@ public class GroupAdminService {
         if (name == null || name.isBlank()) {
             throw new BizException(ErrorCode.BAD_REQUEST, "name 必填");
         }
+        Instant now = Instant.now();
+        String operator = OperatorAuditor.currentOperator();
         SysGroupDO row = new SysGroupDO();
         row.setId(Ids.newId("grp"));
         row.setName(name.trim());
         row.setSource("local");
+        row.setCreateAt(now);
+        row.setUpdateAt(now);
+        row.setCreateBy(operator);
+        row.setUpdateBy(operator);
         groups.insert(row);
         return toView(row);
     }

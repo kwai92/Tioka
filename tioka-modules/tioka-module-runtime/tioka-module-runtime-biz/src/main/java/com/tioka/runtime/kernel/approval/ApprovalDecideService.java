@@ -7,6 +7,8 @@ import com.networknt.schema.JsonSchema;
 import com.networknt.schema.JsonSchemaFactory;
 import com.networknt.schema.SpecVersion;
 import com.networknt.schema.ValidationMessage;
+import com.tioka.agent.api.AgentSnapshotApi;
+import com.tioka.agent.api.spec.AgentSpec;
 import com.tioka.framework.error.BizException;
 import com.tioka.framework.error.ErrorCode;
 import com.tioka.framework.security.Permissions;
@@ -33,6 +35,8 @@ import com.tioka.runtime.kernel.infrastructure.persistence.RuntimeTurnDO;
 import com.tioka.system.api.audit.AuditApi;
 import com.tioka.system.api.audit.AuditEvent;
 import com.tioka.system.api.audit.AuditOutcome;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -40,7 +44,9 @@ import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -53,6 +59,8 @@ import java.util.stream.Collectors;
  */
 @Service
 public class ApprovalDecideService {
+    private static final Logger log = LoggerFactory.getLogger(ApprovalDecideService.class);
+
     private final ApprovalRepository approvals;
     private final TurnRepository turns;
     private final RuntimeSessionRepository sessions;
@@ -63,6 +71,7 @@ public class ApprovalDecideService {
     private final RuntimeEventFactory events;
     private final ObjectMapper mapper;
     private final ObjectProvider<AuditApi> auditApi;
+    private final ObjectProvider<AgentSnapshotApi> agentSnapshots;
 
     public ApprovalDecideService(ApprovalRepository approvals,
                                  TurnRepository turns,
@@ -73,7 +82,8 @@ public class ApprovalDecideService {
                                  EventStream streams,
                                  RuntimeEventFactory events,
                                  ObjectMapper mapper,
-                                 ObjectProvider<AuditApi> auditApi) {
+                                 ObjectProvider<AuditApi> auditApi,
+                                 ObjectProvider<AgentSnapshotApi> agentSnapshots) {
         this.approvals = approvals;
         this.turns = turns;
         this.sessions = sessions;
@@ -86,6 +96,7 @@ public class ApprovalDecideService {
         this.events = events;
         this.mapper = mapper;
         this.auditApi = auditApi;
+        this.agentSnapshots = agentSnapshots;
     }
 
     @Transactional
@@ -185,12 +196,17 @@ public class ApprovalDecideService {
                     return s == null ? null : s.getAgentVersionId();
                 })
                 .orElse("");
-        ToolProvider.ToolDescriptor desc = tools.listAll(agentVersionId).stream()
+        // ENG-06：必须带 agentToolConfig（mcpGrants），否则 MCP 工具查不到描述会误放行
+        Map<String, Object> agentToolConfig = agentToolConfigOf(agentVersionId);
+        ToolProvider.ToolDescriptor desc = tools.listAll(agentVersionId, agentToolConfig).stream()
                 .filter(d -> d.name().equals(a.getToolName()))
                 .findFirst()
                 .orElse(null);
-        if (desc == null || desc.inputSchema() == null || desc.inputSchema().isEmpty()) {
-            return;
+        if (desc == null) {
+            throw new BizException(ErrorCode.BAD_REQUEST, "工具描述不存在，无法校验修改后的参数");
+        }
+        if (desc.inputSchema() == null || desc.inputSchema().isEmpty()) {
+            throw new BizException(ErrorCode.BAD_REQUEST, "工具无 inputSchema，无法校验修改后的参数");
         }
         try {
             JsonNode schemaNode = mapper.valueToTree(desc.inputSchema());
@@ -205,6 +221,35 @@ public class ApprovalDecideService {
             throw e;
         } catch (Exception e) {
             throw new BizException(ErrorCode.BAD_REQUEST, "参数 schema 校验失败: " + e.getMessage());
+        }
+    }
+
+    /** 与 TurnRunner 一致：从 Agent 快照抽出 mcpGrants。 */
+    private Map<String, Object> agentToolConfigOf(String agentVersionId) {
+        if (agentVersionId == null || agentVersionId.isBlank()) {
+            return Map.of();
+        }
+        AgentSnapshotApi snapshots = agentSnapshots.getIfAvailable();
+        if (snapshots == null) {
+            return Map.of();
+        }
+        try {
+            AgentSpec.ToolSet toolSet = snapshots.get(agentVersionId).spec().tools();
+            if (toolSet == null || toolSet.mcp() == null || toolSet.mcp().isEmpty()) {
+                return Map.of("mcpGrants", List.of());
+            }
+            List<Map<String, Object>> grants = new ArrayList<>();
+            for (AgentSpec.ToolSet.McpBinding b : toolSet.mcp()) {
+                Map<String, Object> g = new LinkedHashMap<>();
+                g.put("serverId", b.serverId());
+                g.put("allowlist", b.allowlist() == null ? List.of() : b.allowlist());
+                grants.add(g);
+            }
+            return Map.of("mcpGrants", grants);
+        } catch (RuntimeException e) {
+            log.warn("load agentToolConfig for approval failed version={}: {}",
+                    agentVersionId, e.toString());
+            return Map.of();
         }
     }
 

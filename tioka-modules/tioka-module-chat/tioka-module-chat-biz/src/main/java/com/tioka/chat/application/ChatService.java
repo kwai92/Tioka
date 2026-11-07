@@ -8,7 +8,9 @@ import com.tioka.framework.error.ErrorCode;
 import com.tioka.framework.id.Ids;
 import com.tioka.model.api.CostQueryApi;
 import com.tioka.runtime.api.kernel.RuntimeApi;
+import com.tioka.system.api.audit.Audited;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Map;
@@ -103,6 +105,8 @@ public class ChatService {
     }
 
     /** 停止当前活动 Turn；无活动 Turn 时幂等成功。 */
+    @Transactional
+    @Audited(action = "chat.stop", resourceType = "conversation", resourceIdArg = "#conversationId")
     public void stop(String conversationId) {
         Conversation c = get(conversationId);
         runtime.findActiveTurn(c.threadId()).ifPresent(t -> runtime.interrupt(t.turnId()));

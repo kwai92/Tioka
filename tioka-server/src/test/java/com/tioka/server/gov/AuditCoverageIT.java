@@ -149,7 +149,12 @@ class AuditCoverageIT {
             "com.tioka.agent.api.AgentController#enable",
             "com.tioka.system.api.UserController#disable",
             "com.tioka.system.api.UserController#enable",
+            "com.tioka.system.api.UserController#resetPassword",
+            "com.tioka.system.api.ApiKeyController#create",
+            "com.tioka.system.api.ApiKeyController#delete",
+            "com.tioka.system.api.ServiceAccountController#create",
             "com.tioka.system.api.WorkspaceController#deleteMember",
+            "com.tioka.chat.api.ChatController#stop",
             "com.tioka.runtime.kernel.api.ApprovalController#decide"
     );
 
