@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tioka.governance.infrastructure.mapper.CfgDraftMapper">
+
+    <select id="findOne" resultType="com.tioka.governance.infrastructure.persistence.CfgDraftDO">
+        <![CDATA[
+            SELECT object_type AS objectType, object_id AS objectId, spec::text AS spec,
+                   revision, based_on_version AS basedOnVersion,
+                   update_at AS updateAt, update_by AS updateBy
+              FROM cfg_draft
+             WHERE object_type = #{objectType} AND object_id = #{objectId}
+        ]]>
+    </select>
+
+    <insert id="insert">
+        <![CDATA[
+            INSERT INTO cfg_draft(object_type, object_id, spec, revision, based_on_version, update_at, update_by)
+            VALUES (#{objectType}, #{objectId}, #{spec}::jsonb, #{revision}, #{basedOnVersion},
+                    #{updateAt}, #{updateBy})
+        ]]>
+    </insert>
+
+    <update id="updateOptimistic">
+        <![CDATA[
+            UPDATE cfg_draft
+               SET spec = #{row.spec}::jsonb,
+                   revision = #{row.revision},
+                   based_on_version = #{row.basedOnVersion},
+                   update_at = #{row.updateAt},
+                   update_by = #{row.updateBy}
+             WHERE object_type = #{row.objectType}
+               AND object_id = #{row.objectId}
+               AND revision = #{expectedRevision}
+        ]]>
+    </update>
+</mapper>

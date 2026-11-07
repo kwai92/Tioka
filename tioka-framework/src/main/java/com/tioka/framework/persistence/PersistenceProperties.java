@@ -70,7 +70,10 @@ public class PersistenceProperties {
             // ORC-02 / V130：平台 outbox / 消费去重 / 死信（无 workspace_id）
             "sys_outbox",
             "sys_consumed",
-            "sys_dead_letter"
+            "sys_dead_letter",
+            // GOV-12 / V150：配置版本框架（无 workspace_id）
+            "cfg_draft",
+            "cfg_version"
     ));
 
     public List<String> getWorkspaceScopeExemptTables() {

@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tioka.governance.infrastructure.mapper.CfgVersionMapper">
+
+    <insert id="insert">
+        <![CDATA[
+            INSERT INTO cfg_version(
+                version_id, object_type, object_id, version_no, spec, content_hash, status,
+                publish_note, published_by, published_at, previous_version_id)
+            VALUES (#{versionId}, #{objectType}, #{objectId}, #{versionNo}, #{spec}::jsonb, #{contentHash},
+                    #{status}, #{publishNote}, #{publishedBy}, #{publishedAt}, #{previousVersionId})
+        ]]>
+    </insert>
+
+    <select id="findByNo" resultType="com.tioka.governance.infrastructure.persistence.CfgVersionDO">
+        <![CDATA[
+            SELECT version_id AS versionId, object_type AS objectType, object_id AS objectId,
+                   version_no AS versionNo, spec::text AS spec, content_hash AS contentHash,
+                   status, publish_note AS publishNote, published_by AS publishedBy,
+                   published_at AS publishedAt, previous_version_id AS previousVersionId
+              FROM cfg_version
+             WHERE object_type = #{objectType} AND object_id = #{objectId} AND version_no = #{versionNo}
+        ]]>
+    </select>
+
+    <select id="findById" resultType="com.tioka.governance.infrastructure.persistence.CfgVersionDO">
+        <![CDATA[
+            SELECT version_id AS versionId, object_type AS objectType, object_id AS objectId,
+                   version_no AS versionNo, spec::text AS spec, content_hash AS contentHash,
+                   status, publish_note AS publishNote, published_by AS publishedBy,
+                   published_at AS publishedAt, previous_version_id AS previousVersionId
+              FROM cfg_version
+             WHERE version_id = #{versionId}
+        ]]>
+    </select>
+
+    <select id="maxVersionNo" resultType="java.lang.Integer">
+        <![CDATA[
+            SELECT MAX(version_no) FROM cfg_version
+             WHERE object_type = #{objectType} AND object_id = #{objectId}
+        ]]>
+    </select>
+</mapper>

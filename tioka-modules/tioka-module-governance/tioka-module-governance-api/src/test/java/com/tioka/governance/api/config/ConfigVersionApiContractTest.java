@@ -27,7 +27,8 @@ class ConfigVersionApiContractTest {
                 "publish",
                 "rollback",
                 "exportPublished",
-                "importAsDrafts"
+                "importAsDrafts",
+                "getCurrent"
         )), () -> "missing ops in " + names);
     }
 }

@@ -68,6 +68,10 @@
             <groupId>com.tioka</groupId>
             <artifactId>tioka-module-ontology-api</artifactId>
         </dependency>
+        <dependency>
+            <groupId>com.tioka</groupId>
+            <artifactId>tioka-module-governance-api</artifactId>
+        </dependency>
 
         <dependency>
             <groupId>com.tioka</groupId>
@@ -112,6 +116,11 @@
         <dependency>
             <groupId>com.tioka</groupId>
             <artifactId>tioka-module-ontology-biz</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.tioka</groupId>
+            <artifactId>tioka-module-governance-biz</artifactId>
             <scope>runtime</scope>
         </dependency>
         <dependency>

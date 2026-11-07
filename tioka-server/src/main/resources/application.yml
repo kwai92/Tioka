@@ -110,6 +110,11 @@ tioka:
   ontology:
     schema:
       enabled: false
+  # GOV-12: 配置版本框架（默认关闭，不改变 M2 行为）
+  config:
+    version:
+      enabled: false
+      reconcile-interval-ms: 30000
 
   # —— M2 配置键（PK-00c；实现包只追加自己的子键）——
   messaging:
