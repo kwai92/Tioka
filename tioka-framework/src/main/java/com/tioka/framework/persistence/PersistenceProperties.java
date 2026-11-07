@@ -44,6 +44,12 @@ public class PersistenceProperties {
             "model_provider",
             "model_routing_plan",
             "model_turn_freeze",
+            // M0 旧编排表（V132 前仍在用；无 workspace_id）
+            "orch_attention",
+            "orch_idem",
+            "orch_rule",
+            "orch_run",
+            "orch_why",
             // V132：无 workspace_id 的编排新表（有列的 orch_event/run/work_item/timer/rule 不在此列）
             "orch_rule_version",
             "orch_decision",

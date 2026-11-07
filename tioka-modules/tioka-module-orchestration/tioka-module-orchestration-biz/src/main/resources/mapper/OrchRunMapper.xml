@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tioka.orchestration.infrastructure.mapper.OrchRunMapper">
+
+    <select id="lockNextClaimable" resultType="String">
+        <![CDATA[
+            SELECT id FROM orch_run
+            WHERE deleted = FALSE
+              AND (status = 'READY' OR (status = 'LEASED' AND lease_until < #{now}))
+            ORDER BY create_at
+            FOR UPDATE SKIP LOCKED
+            LIMIT 1
+            
+]]>
+    </select>
+
+    <update id="markLeased">
+        <![CDATA[
+            UPDATE orch_run
+            SET status = 'LEASED', worker_id = #{workerId}, lease_until = #{leaseUntil},
+                update_at = CURRENT_TIMESTAMP
+            WHERE id = #{id} AND deleted = FALSE
+            
+]]>
+    </update>
+
+</mapper>
