@@ -2,6 +2,7 @@ package com.tioka.connector.application.im;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.tioka.connector.infrastructure.ConnectorSecretBridge;
 import com.tioka.connector.infrastructure.ImBindingRepository;
 import com.tioka.connector.infrastructure.persistence.ImBindingDO;
 import com.tioka.framework.error.BizException;
@@ -45,6 +46,7 @@ public class ImBindingService {
 
     private final ImBindingRepository repository;
     private final SecretStore secretStore;
+    private final ConnectorSecretBridge secretBridge;
     private final EgressClient egress;
     private final PrincipalHolder principals;
     private final ObjectMapper mapper;
@@ -54,6 +56,7 @@ public class ImBindingService {
 
     public ImBindingService(ImBindingRepository repository,
                             SecretStore secretStore,
+                            ConnectorSecretBridge secretBridge,
                             EgressClient egress,
                             PrincipalHolder principals,
                             ObjectMapper mapper,
@@ -61,6 +64,7 @@ public class ImBindingService {
                             @Value("${tioka.im.feishu.api-base:https://open.feishu.cn}") String feishuApiBase) {
         this.repository = repository;
         this.secretStore = secretStore;
+        this.secretBridge = secretBridge;
         this.egress = egress;
         this.principals = principals;
         this.mapper = mapper;
@@ -180,7 +184,7 @@ public class ImBindingService {
         if (!CHANNEL_FEISHU.equals(row.getChannel())) {
             return new ConnectivityCheckResult(false, "仅支持飞书渠道连通性检查");
         }
-        String appSecret = resolveSecret(row.getSecretRef());
+        String appSecret = secretBridge.resolveOrNull(row.getSecretRef());
         if (appSecret == null || appSecret.isBlank()) {
             return new ConnectivityCheckResult(false, "应用密钥缺失");
         }
@@ -255,14 +259,6 @@ public class ImBindingService {
 
     private String callbackUrl(String channel, String bindingId) {
         return publicUrl + "/api/connector/im/" + channel + "/" + bindingId + "/events";
-    }
-
-    private String resolveSecret(String ref) {
-        if (ref == null || ref.isBlank() || !ref.contains("::")) {
-            return null;
-        }
-        String[] parts = ref.split("::", 2);
-        return secretStore.get(parts[0], parts[1]);
     }
 
     private void deleteSecret(String ref) {
