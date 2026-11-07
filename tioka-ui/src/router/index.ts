@@ -9,7 +9,6 @@ import Chat from '@/views/Chat.vue'
 import Models from '@/views/Models.vue'
 import Agents from '@/views/Agents.vue'
 import Mcp from '@/views/Mcp.vue'
-import Approval from '@/views/Approval.vue'
 import Knowledge from '@/views/Knowledge.vue'
 import FlowStudio from '@/views/FlowStudio.vue'
 import Skills from '@/views/Skills.vue'
@@ -23,6 +22,16 @@ import GroupsAdmin from '@/views/admin/GroupsAdmin.vue'
 import ApiKeysAdmin from '@/views/admin/ApiKeysAdmin.vue'
 import AuditAdmin from '@/views/admin/AuditAdmin.vue'
 import QuotaAdmin from '@/views/admin/QuotaAdmin.vue'
+/** M2 占位（PK-00d） */
+import ApprovalDeskPlaceholder from '@/views/approval/ApprovalDeskPlaceholder.vue'
+import TrajectoryPlaceholder from '@/views/trajectory/TrajectoryPlaceholder.vue'
+import RulesPlaceholder from '@/views/orch/RulesPlaceholder.vue'
+import WorkItemsPlaceholder from '@/views/orch/WorkItemsPlaceholder.vue'
+import DeadLettersPlaceholder from '@/views/ops/DeadLettersPlaceholder.vue'
+import TimersPlaceholder from '@/views/ops/TimersPlaceholder.vue'
+import BindingsPlaceholder from '@/views/im/BindingsPlaceholder.vue'
+import FeishuConnectPlaceholder from '@/views/connect/FeishuConnectPlaceholder.vue'
+import ConnectedAppsPlaceholder from '@/views/connect/ConnectedAppsPlaceholder.vue'
 
 export const router = createRouter({
   history: import.meta.env.VITEST ? createMemoryHistory() : createWebHistory(),
@@ -30,6 +39,11 @@ export const router = createRouter({
     { path: '/login', component: Login, meta: { public: true } },
     { path: '/login/callback', component: LoginCallback, meta: { public: true } },
     { path: '/account/password', component: ChangePassword, meta: { auth: true } },
+    {
+      path: '/connect/feishu',
+      component: FeishuConnectPlaceholder,
+      meta: { auth: true }
+    },
     {
       path: '/',
       component: Shell,
@@ -40,7 +54,16 @@ export const router = createRouter({
         { path: 'models', component: Models },
         { path: 'agents', component: Agents },
         { path: 'mcp', component: Mcp },
-        { path: 'approval', component: Approval },
+        /** 旧路径保留，指向 M2 审批台占位 */
+        { path: 'approval', redirect: '/approvals' },
+        { path: 'approvals', component: ApprovalDeskPlaceholder },
+        { path: 'trajectory/:turnId?', component: TrajectoryPlaceholder },
+        { path: 'orch/rules', component: RulesPlaceholder },
+        { path: 'orch/work-items/:id?', component: WorkItemsPlaceholder },
+        { path: 'ops/dead-letters', component: DeadLettersPlaceholder },
+        { path: 'ops/timers', component: TimersPlaceholder },
+        { path: 'im/bindings', component: BindingsPlaceholder },
+        { path: 'settings/connected-apps', component: ConnectedAppsPlaceholder },
         { path: 'observe', component: Observability },
         { path: 'knowledge', component: Knowledge },
         { path: 'flows', component: FlowStudio },
