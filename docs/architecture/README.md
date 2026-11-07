@@ -75,3 +75,7 @@ ADR-015〜040 是 M0〜M4 的权威设计（ADR-032〜035 为可信放权，ADR-
 | [ADR-065](adr/ADR-065-guardrail-pipeline-input-safety.md) | 护栏管线、内容信任分级与输入安全：五检查点、污点、隔离读取、检测、敏感数据与假名化（GRD-00〜04、GRD-06；RT-14 作废） |
 | [ADR-066](adr/ADR-066-structured-output-reliability.md) | 结构化输出可靠性：交付契约、生成方言、严格档、能力记录、八步流水线、降级兜底、Schema 演进（SCH-06〜12） |
 | [ADR-067](adr/ADR-067-output-safety-guardrail-eval.md) | 输出内容安全、生成内容标识与护栏评测（GRD-05、GRD-08、GRD-10） |
+| [ADR-068](adr/ADR-068-eval-methodology.md) | 评测方法规范：评测集分层与密封集、用例卡、评分器优先级与裁判校准、多次运行、聚类与配对统计、非劣效门禁（EVO-07、EVO-09、EVO-15） |
+| [ADR-069](adr/ADR-069-launch-gates-rollout.md) | 场景 Agent 上线规程：评测规格、上线准入单、变更分级、双跑与比例灰度、别名灰度、哨兵评测（EVO-10〜12、MH-15、FE-45） |
+| [ADR-070](adr/ADR-070-model-selection-eval.md) | 模型选型评测：五轮漏斗、按角色、六维对比与推荐、复评触发（EVO-13a、EVO-13） |
+| [ADR-071](adr/ADR-071-feedback-loop-improvement.md) | 反馈回流与持续改进：原因码、漏报入口、分诊、正反例入集、标签版本、改进闭环（EVO-08a、EVO-14、FE-44） |

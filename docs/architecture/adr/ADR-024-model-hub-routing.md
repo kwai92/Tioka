@@ -123,3 +123,13 @@ CREATE TABLE model_usage_daily (day DATE, workspace_id VARCHAR(64), agent_id VAR
 - 模型档案的 `structuredOutput`（ADR-037：`SCHEMA / JSON / TOOL`）改为能力记录：生成方式集合、接受的关键字、规模上限、思考模式兼容、多模态降级、是否要求提示含「json」、`max_tokens` 建议、`GA` / `BETA`、拒答与截断信号、最近一致性测试结果（[ADR-066](ADR-066-structured-output-reliability.md) 第 4 节）。能力以一致性测试为准，`BETA` 方式缺省不选用。
 - 结构化产出的 `SWITCH_MODEL` 降级沿用别名的故障接力列表，只选能力可编译且满足数据标签与配额的模型。
 - 新增用途 `guardrail`：护栏分类器（缺省 Qwen3Guard-Gen 0.6B，私有化部署）经 Model Hub 绑定调用（ADR-065 第 5 节）。
+
+
+## 修订：评测与持续改进（2026-11-07）
+
+见 [ADR-069](ADR-069-launch-gates-rollout.md)、[ADR-070](ADR-070-model-selection-eval.md) 与 ADR-029 第 74 条：
+
+- binding 必须指向供应商的固定快照名；指向「最新版」类滚动名称的 binding 显示警告，R3 Agent 引用的路由计划不得包含（发布校验拒绝）。binding 增加 `retireAt`（供应商下线日期），到期前 30 / 7 天提醒并创建选型复评任务。
+- 路由组的候选（含接力备选）应来自选型实验（ADR-070），路由计划版本说明中链接选型报告；未达场景硬门槛的候选不能作为接力备选。
+- binding 单价变化 ≥ 20% 时，按最近一次选型的实测 token 量重算每业务单位成本（ADR-070 第 5 节）。
+- 胜任度打分（MH-07 / `model_competence`）属于模型裁判，用于路由决策或评测门禁前须按 [ADR-068](ADR-068-eval-methodology.md) 第 4 节校准。
