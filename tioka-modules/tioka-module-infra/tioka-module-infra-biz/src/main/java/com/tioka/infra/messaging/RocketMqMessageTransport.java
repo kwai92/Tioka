@@ -3,15 +3,12 @@ package com.tioka.infra.messaging;
 import com.tioka.infra.messaging.infrastructure.persistence.SysOutboxDO;
 import org.apache.rocketmq.client.producer.SendResult;
 import org.apache.rocketmq.spring.core.RocketMQTemplate;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.messaging.support.MessageBuilder;
-import org.springframework.stereotype.Component;
 
 /**
  * RocketMQ 投递：keys=eventId，sharding key / message group = msg_key。
+ * 由 {@link MessagingConfiguration} 在存在 {@link RocketMQTemplate} 且 mode=rocketmq 时注册。
  */
-@Component
-@ConditionalOnProperty(prefix = "tioka.messaging", name = "mode", havingValue = "rocketmq")
 public class RocketMqMessageTransport implements MessageTransport {
 
     private final RocketMQTemplate rocketMQTemplate;
@@ -26,7 +23,6 @@ public class RocketMqMessageTransport implements MessageTransport {
         var builder = MessageBuilder.withPayload(row.getPayloadJson())
                 .setHeader("KEYS", row.getEventId());
         if (row.getMsgKey() != null && !row.getMsgKey().isBlank()) {
-            // rocketmq-spring：MESSAGE_KEYS / 顺序消息 sharding key 由 header 传递
             builder.setHeader("rocketmq_KEYS", row.getEventId());
             SendResult result = rocketMQTemplate.syncSendOrderly(
                     destination,

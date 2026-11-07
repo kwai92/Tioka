@@ -2,16 +2,13 @@ package com.tioka.infra.messaging;
 
 import com.tioka.framework.messaging.IdempotentConsumer;
 import com.tioka.infra.messaging.infrastructure.persistence.SysOutboxDO;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.stereotype.Component;
 
 import java.util.List;
 
 /**
- * in-memory 模式：中继直接投递给本进程 {@link IdempotentConsumer}（仍走 sys_consumed）。
+ * in-memory / 兜底投递：中继直接投递给本进程 {@link IdempotentConsumer}（仍走 sys_consumed）。
+ * 由 {@link MessagingConfiguration} 在缺少 RocketMQ Template 时注册。
  */
-@Component
-@ConditionalOnProperty(prefix = "tioka.messaging", name = "mode", havingValue = "in-memory", matchIfMissing = true)
 public class InMemoryMessageTransport implements MessageTransport {
 
     private final List<IdempotentConsumer<?>> consumers;
@@ -29,7 +26,6 @@ public class InMemoryMessageTransport implements MessageTransport {
             if (!matches(consumer, row)) {
                 continue;
             }
-            // in-memory：首次投递 reconsumeTimes=0；失败重试由 deliver 内部按 max-attempts 处理
             delivery.deliverAndRetry(consumer, row.getTopic(), row.getTag(), row.getPayloadJson());
         }
     }

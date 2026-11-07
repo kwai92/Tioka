@@ -19,8 +19,8 @@ public class MessagingProperties {
     /** 开发 / 测试校验信封 schema；生产关闭。 */
     private boolean validateEnvelope = true;
 
-    /** 是否启动中继后台线程；双实例锁 IT 可临时关闭。 */
-    private boolean relayEnabled = true;
+    /** 是否启动中继后台线程；IT/local 默认关，避免与 runtime LeaseReaper 串扰。 */
+    private boolean relayEnabled = false;
 
     public String getMode() {
         return mode;
