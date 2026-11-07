@@ -148,8 +148,15 @@
       <el-button type="success" :disabled="!versionId" :loading="publishingTool" @click="publishAsTool">
         发布为 Tool
       </el-button>
+      <el-button :disabled="!flowId" @click="openShare">分享</el-button>
     </div>
-    <p v-if="versionId" class="muted">当前版本：{{ versionId }}</p>
+    <p v-if="flowId || versionId" class="muted">
+      <template v-if="flowId">Flow：{{ flowId }}</template>
+      <template v-if="flowId && versionId"> · </template>
+      <template v-if="versionId">版本：{{ versionId }}</template>
+    </p>
+
+    <ResourceAclDialog v-model="shareOpen" resource-type="flow" :resource-id="flowId" />
 
     <el-card shadow="never" class="playground">
       <template #header>Playground</template>
@@ -196,6 +203,7 @@ import { VueFlow } from '@vue-flow/core'
 import { Background } from '@vue-flow/background'
 import { Controls } from '@vue-flow/controls'
 import { api } from '../api'
+import ResourceAclDialog from '@/components/ResourceAclDialog.vue'
 import {
   extractLegacyLlmDirectFields,
   filterPublishedRoutingPlans,
@@ -218,7 +226,17 @@ const issues = ref([])
 const warnings = ref([])
 const nodeTypes = ref(/** @type {string[]} */ ([]))
 const versionId = ref('')
+const flowId = ref('')
+const shareOpen = ref(false)
 const toolName = ref('studio_flow_tool')
+
+function openShare() {
+  if (!flowId.value) {
+    ElMessage.warning('请先发布版本以获得 Flow ID')
+    return
+  }
+  shareOpen.value = true
+}
 const nodes = ref(/** @type {any[]} */ ([]))
 const edges = ref(/** @type {any[]} */ ([]))
 const graph = ref('')
@@ -516,6 +534,7 @@ async function publish() {
       method: 'POST',
       body: JSON.stringify({ name: 'studio', graph: toDomainGraph() })
     })
+    flowId.value = draft.id
     const pub = await api(`/api/flows/drafts/${draft.id}/publish`, { method: 'POST' })
     versionId.value = pub.id
     uiState.value = 'ok'

@@ -32,10 +32,11 @@
         <el-table-column prop="id" label="ID" min-width="140" />
         <el-table-column prop="name" label="名称" width="140" />
         <el-table-column prop="baseUrl" label="baseUrl" min-width="180" />
-        <el-table-column label="操作" width="160">
+        <el-table-column label="操作" width="220">
           <template #default="{ row }">
             <el-button link type="primary" size="small" @click="loadServer(row)">查看工具</el-button>
             <el-button link size="small" @click="refreshTools(row)">刷新</el-button>
+            <el-button link type="primary" size="small" @click="openShare(row.id)">分享</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -99,12 +100,15 @@
         </el-table-column>
       </el-table>
     </el-card>
+
+    <ResourceAclDialog v-model="shareOpen" resource-type="mcp" :resource-id="shareId" />
   </div>
 </template>
 
 <script setup>
 import { onMounted, reactive, ref } from 'vue'
 import { api } from '../api'
+import ResourceAclDialog from '@/components/ResourceAclDialog.vue'
 import { MCP_TOOL_RISKS, patchToolRisk } from './mcpToolRisk'
 
 const form = reactive({ name: 'mock-mcp', baseUrl: 'mock://mcp', bearerToken: 'tok' })
@@ -119,6 +123,13 @@ const busy = ref(false)
 const riskBusy = ref('')
 const msg = ref('')
 const error = ref('')
+const shareOpen = ref(false)
+const shareId = ref('')
+
+function openShare(id) {
+  shareId.value = id
+  shareOpen.value = true
+}
 
 async function refresh() {
   servers.value = await api('/api/mcp/servers')

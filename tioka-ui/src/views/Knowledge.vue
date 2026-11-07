@@ -50,8 +50,11 @@
       <p v-if="kbId" class="kb-id">
         当前库：{{ kbId }}
         <template v-if="boundEmbeddingId"> · 嵌入：{{ boundEmbeddingId }}</template>
+        <el-button link type="primary" size="small" class="share-btn" @click="openShare">分享</el-button>
       </p>
     </el-card>
+
+    <ResourceAclDialog v-model="shareOpen" resource-type="kb" :resource-id="kbId" />
 
     <el-card v-if="kbId" shadow="never" class="mb">
       <template #header>
@@ -202,11 +205,18 @@
 <script setup>
 import { onMounted, onUnmounted, ref, watch } from 'vue'
 import { api } from '../api'
+import ResourceAclDialog from '@/components/ResourceAclDialog.vue'
 import {
   createKnowledgeBase,
   fetchReindexProgress,
   listEmbeddingBindings
 } from './knowledgeConsole'
+
+const shareOpen = ref(false)
+function openShare() {
+  if (!kbId.value) return
+  shareOpen.value = true
+}
 
 const name = ref('demo-kb')
 const embeddingBindingId = ref('')

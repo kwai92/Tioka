@@ -57,6 +57,7 @@
         <div class="card-head">
           <span>草稿 · {{ agentId }} · rev {{ revision }}</span>
           <div class="actions">
+            <el-button :loading="busy" @click="openShare(agentId)">分享</el-button>
             <el-button :loading="busy" @click="doSave">保存草稿</el-button>
             <el-button :loading="busy" @click="doValidate">校验</el-button>
             <el-input v-model="publishNote" placeholder="发布备注" style="width: 160px" />

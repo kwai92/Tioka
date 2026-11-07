@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { canSeeAdmin, filterAdminNav, hasAnyPermission, routeAllowed } from './adminNav'
 import { buildRolePermissionPayload, groupPermissionsByResource, togglePermission } from './roleMatrix'
 import { clearApiKeyPlaintext, emptyApiKeyPlaintext, setApiKeyPlaintext } from './apiKeyPlaintext'
-import { isOidcGroupSource } from './adminApi'
+import { isOidcGroupSource, parseScopeList } from './adminApi'
 
 describe('adminNav', () => {
   it('无 tenant:admin 时不显示用户/角色菜单', () => {
@@ -51,5 +51,10 @@ describe('adminApi helpers', () => {
   it('OIDC 组来源识别', () => {
     expect(isOidcGroupSource('oidc:keycloak')).toBe(true)
     expect(isOidcGroupSource('local')).toBe(false)
+  })
+
+  it('parseScopeList 去重 trim', () => {
+    expect(parseScopeList(' agent:read, kb:read  agent:read ')).toEqual(['agent:read', 'kb:read'])
+    expect(parseScopeList('')).toEqual([])
   })
 })

@@ -192,7 +192,7 @@ export function replaceAcl(type: string, id: string, entries: AclEntry[]) {
   })
 }
 
-/** FND-06 契约（后端未落地时可失败）。 */
+/** FND-06：服务账号与 API Key。 */
 export function createServiceAccount(body: { name: string; workspaceId: string; role: string }) {
   return api<{ userId: string }>('/api/system/service-accounts', {
     method: 'POST',
@@ -221,6 +221,17 @@ export function listApiKeys() {
 
 export function deleteApiKey(id: string) {
   return api<null>(`/api/system/api-keys/${id}`, { method: 'DELETE' })
+}
+
+/** 逗号 / 空白分隔 scopes → 去重 trim；空串返回 []。 */
+export function parseScopeList(raw: string | null | undefined): string[] {
+  if (!raw || !raw.trim()) return []
+  const seen = new Set<string>()
+  for (const part of raw.split(/[,\s]+/)) {
+    const s = part.trim()
+    if (s) seen.add(s)
+  }
+  return [...seen]
 }
 
 export function isOidcGroupSource(source: string | null | undefined): boolean {
