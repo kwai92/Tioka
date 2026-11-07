@@ -94,8 +94,9 @@ class FlowEngineTest {
         );
         FlowEngine.EngineResult r = engine.run("fr_br", graph, Map.of("route", "A"));
         assertEquals("COMPLETED", r.status());
-        assertTrue(r.trace().stream().anyMatch(t -> "LLM".equals(t.get("type"))));
-        assertTrue(r.trace().stream().noneMatch(t -> "HTTP".equals(t.get("type"))));
+        assertTrue(r.trace().stream().anyMatch(t -> "LLM".equals(t.get("type")) && !"SKIPPED".equals(t.get("status"))));
+        assertTrue(r.trace().stream().anyMatch(t -> "HTTP".equals(t.get("type")) && "SKIPPED".equals(t.get("status"))));
+        assertTrue(r.trace().stream().noneMatch(t -> "HTTP".equals(t.get("type")) && !"SKIPPED".equals(t.get("status"))));
     }
 
     @Test
@@ -115,8 +116,9 @@ class FlowEngineTest {
         );
         FlowEngine.EngineResult r = engine.run("fr_br2", graph, Map.of("route", "B"));
         assertEquals("COMPLETED", r.status());
-        assertTrue(r.trace().stream().anyMatch(t -> "HTTP".equals(t.get("type"))));
-        assertTrue(r.trace().stream().noneMatch(t -> "LLM".equals(t.get("type"))));
+        assertTrue(r.trace().stream().anyMatch(t -> "HTTP".equals(t.get("type")) && !"SKIPPED".equals(t.get("status"))));
+        assertTrue(r.trace().stream().anyMatch(t -> "LLM".equals(t.get("type")) && "SKIPPED".equals(t.get("status"))));
+        assertTrue(r.trace().stream().noneMatch(t -> "LLM".equals(t.get("type")) && !"SKIPPED".equals(t.get("status"))));
     }
 
     @Test
