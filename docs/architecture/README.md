@@ -1,6 +1,6 @@
-# Tioka 架构文档（仓库镜像）
+# Tioka 架构文档（唯一权威源）
 
-与飞书 / `feishu-docs/Tioka` **同构**。权威源以 `feishu-docs/Tioka/` 为准，改完后 push 飞书并同步本目录。
+**ENG-07 文档单源**：本目录 `docs/architecture` 为唯一权威来源。飞书侧镜像由 `scripts/publish-feishu-docs.mjs` 生成（页首标注「自动生成，勿改」）；完成度表由 `scripts/gen-progress.mjs` 写入 [implementation/progress.md](implementation/progress.md)。勿再手工维护 `feishu-docs/` 或其它镜像副本。
 
 ## 层级
 
