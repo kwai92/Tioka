@@ -63,6 +63,11 @@ class OutboxRelayIT {
         AtomicInteger sentByA = new AtomicInteger();
         AtomicInteger sentByB = new AtomicInteger();
 
+        // 先清空同库残留未发送行（其他 IT 在 relay-enabled=false 下会堆积），再隔离本用例的 1 条
+        while (relay.drainOnceForTest(tokenA, n -> {}) > 0) {
+            // drain leftovers
+        }
+
         // A 持锁期间发布一条，仅持锁中继可推进
         String marker = "relay-" + System.nanoTime();
         tx.executeWithoutResult(status -> principals.runAs(principal(), () ->
