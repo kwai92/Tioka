@@ -1,0 +1,29 @@
+[
+  {
+    "name": "basic",
+    "item": {
+      "itemId": "fix_file_ref_basic",
+      "seq": 1,
+      "itemType": "file_ref",
+      "role": "assistant",
+      "content": {
+        "ref": "file_ref-1"
+      }
+    }
+  },
+  {
+    "name": "edge",
+    "item": {
+      "itemId": "fix_file_ref_edge",
+      "seq": 1,
+      "itemType": "file_ref",
+      "role": "assistant",
+      "content": {
+        "note": "unknown-renderer-ok",
+        "payload": {
+          "nested": true
+        }
+      }
+    }
+  }
+]

@@ -1,0 +1,5 @@
+# MH-02：不可切换 400，不得 failover
+calls:
+  - fail: { status: 400, after_chars: 0 }
+  - content: "should-not-reach"
+    usage: { prompt: 1, completion: 1 }

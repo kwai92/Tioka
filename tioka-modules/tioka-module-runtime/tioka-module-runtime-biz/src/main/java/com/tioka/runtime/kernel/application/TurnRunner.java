@@ -2,6 +2,8 @@ package com.tioka.runtime.kernel.application;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.tioka.agent.api.AgentSnapshotApi;
+import com.tioka.agent.api.spec.AgentSpec;
 import com.tioka.framework.error.BizException;
 import com.tioka.framework.error.ErrorCode;
 import com.tioka.framework.security.Principal;
@@ -23,16 +25,23 @@ import com.tioka.runtime.kernel.events.EventStream;
 import com.tioka.runtime.kernel.events.RuntimeEventFactory;
 import com.tioka.runtime.kernel.infrastructure.TurnRepository;
 import com.tioka.runtime.kernel.infrastructure.persistence.RuntimeTurnDO;
-import com.tioka.runtime.application.UsageReportedEvent;
 import com.tioka.runtime.kernel.infrastructure.redis.SessionLock;
 import com.tioka.runtime.kernel.infrastructure.redis.SignalBus;
+import com.tioka.runtime.api.event.TurnCompletedEvent;
+import com.tioka.runtime.kernel.infrastructure.redis.TurnDispatchQueue;
 import com.tioka.system.api.spi.PrincipalLoaderApi;
+import com.tioka.system.api.spi.QuotaGuard;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
@@ -56,7 +65,11 @@ public class TurnRunner {
     private final LoopPorts.SignalPort signalPort;
     private final EventStream streams;
     private final RuntimeEventFactory events;
-    private final ApplicationEventPublisher publisher;
+    private final ObjectProvider<RuntimeTestHooks> testHooks;
+    private final TurnDispatchQueue dispatchQueue;
+    private final ObjectProvider<AgentSnapshotApi> agentSnapshots;
+    private final QuotaGuard quota;
+    private final ApplicationEventPublisher appEvents;
 
     public TurnRunner(TurnRepository turns,
                       RuntimeSessionRepository sessions,
@@ -71,7 +84,11 @@ public class TurnRunner {
                       LoopPorts.SignalPort signalPort,
                       EventStream streams,
                       RuntimeEventFactory events,
-                      ApplicationEventPublisher publisher) {
+                      ObjectProvider<RuntimeTestHooks> testHooks,
+                      TurnDispatchQueue dispatchQueue,
+                      ObjectProvider<AgentSnapshotApi> agentSnapshots,
+                      QuotaGuard quota,
+                      ApplicationEventPublisher appEvents) {
         this.turns = turns;
         this.sessions = sessions;
         this.sessionLock = sessionLock;
@@ -85,7 +102,11 @@ public class TurnRunner {
         this.signalPort = signalPort;
         this.streams = streams;
         this.events = events;
-        this.publisher = publisher;
+        this.testHooks = testHooks;
+        this.dispatchQueue = dispatchQueue;
+        this.agentSnapshots = agentSnapshots;
+        this.quota = quota;
+        this.appEvents = appEvents;
     }
 
     public void run(String turnId) {
@@ -102,17 +123,42 @@ public class TurnRunner {
         AtomicBoolean lost = new AtomicBoolean(false);
         ScheduledFuture<?> renewFuture = null;
         long leaseVersion = -1;
+        boolean finished = false;
+        boolean holdConcurrent = false;
+        String quotaWs = null;
+        String quotaUser = null;
         try {
-            var acquired = turns.acquire(turnId, props.getInstanceId(), Instant.now().plus(props.getLeaseTtl()));
+            // 派发线程尚无 Principal：不可查 workspace 作用域表，从 run_as 解析配额 scope
+            quotaWs = peekRunAsWorkspaceId(turn.getRunAsJson());
+            quotaUser = peekRunAsUserId(turn.getRunAsJson());
+            Instant leaseUntil = Instant.now().plus(props.getLeaseTtl());
+            // GOV-03：并发占位成功才 acquire；失败保持 QUEUED，5 秒后重投
+            if (!quota.tryAcquireConcurrent(quotaWs, quotaUser, turnId, leaseUntil)) {
+                log.debug("concurrent quota full, requeue in 5s turnId={}", turnId);
+                renewScheduler.schedule(() -> dispatchQueue.offer(turnId, threadId), 5, TimeUnit.SECONDS);
+                return;
+            }
+            holdConcurrent = true;
+
+            var acquired = turns.acquire(turnId, props.getInstanceId(), leaseUntil);
             if (acquired.isEmpty()) {
                 return;
             }
             leaseVersion = acquired.getAsLong();
             long lv = leaseVersion;
+            String ws = quotaWs;
+            String user = quotaUser;
             renewFuture = renewScheduler.scheduleAtFixedRate(() -> {
+                RuntimeTestHooks hooks = testHooks.getIfAvailable();
+                if (hooks != null && hooks.isFrozen()) {
+                    return;
+                }
+                Instant next = Instant.now().plus(props.getLeaseTtl());
                 boolean ok = lock.renew()
-                        && turns.renew(turnId, lv, Instant.now().plus(props.getLeaseTtl())) > 0;
-                if (!ok) {
+                        && turns.renew(turnId, lv, next) > 0;
+                if (ok) {
+                    quota.renewConcurrent(ws, user, turnId, next);
+                } else {
                     lost.set(true);
                 }
             }, props.getLeaseRenewInterval().toMillis(), props.getLeaseRenewInterval().toMillis(), TimeUnit.MILLISECONDS);
@@ -120,20 +166,28 @@ public class TurnRunner {
             signalBus.register(turnId);
             try {
                 // 必须先 resolveRunAs：sessions.find 走行级过滤，无 Principal 会炸
+                // R-1：runAs 无效时立刻 FAILED(RUN_AS_INVALID)，释放配额，不续跑
                 Principal runAs;
                 try {
                     runAs = resolveRunAs(turn);
                 } catch (RuntimeException e) {
                     log.warn("turn {} runAs invalid: {}", turnId, e.toString());
                     failTurn(turnId, lv, threadId, "RUN_AS_INVALID", e.getMessage());
+                    finished = true;
                     return;
                 }
                 long finalLv = lv;
-                principals.runAs(runAs, () -> {
+                LoopResult result = principals.runAs(runAs, () -> {
                     RuntimeSessionDO session = sessions.find(threadId);
                     int maxSteps = props.getLoop().getMaxSteps();
+                    // RT-06：崩溃续跑从已累计的 step_count 继续（中断前 model 步已 increment）
+                    int startStep = turn.getStepCount() == null ? 0 : turn.getStepCount();
+                    String approvalPolicy = parseApprovalPolicy(turn.getOptionsJson());
+                    List<String> toolAllowList = parseToolAllowList(turn.getOptionsJson());
+                    Map<String, Object> agentToolConfig = agentToolConfigOf(
+                            session == null ? null : session.getAgentVersionId());
                     LoopContext ctx = new LoopContext(threadId, turnId, finalLv,
-                            maxSteps, props.getLoop().getRepeatCallLimit(), 0,
+                            maxSteps, props.getLoop().getRepeatCallLimit(), startStep,
                             c -> {
                                 if (lost.get()) {
                                     throw new LeaseLost();
@@ -143,36 +197,75 @@ public class TurnRunner {
                             session == null ? null : session.getAgentVersionId(),
                             session == null ? null : session.getRoutingPlanId(),
                             session == null ? null : session.getWorkspaceId(),
-                            runAs.userId());
-                    LoopResult result = agentLoop.run(ctx);
+                            runAs.userId(),
+                            approvalPolicy,
+                            session == null ? null : session.getOrigin(),
+                            toolAllowList,
+                            agentToolConfig);
+                    return agentLoop.run(ctx);
+                });
+                if (result.status() == TurnStatus.WAITING_APPROVAL) {
+                    // 挂起已在 ApprovalSuspendService 内完成；释放锁与并发槽，不 enqueueNext
+                    quota.releaseConcurrent(quotaWs, quotaUser, turnId);
+                    holdConcurrent = false;
+                } else {
                     int n = turns.finish(turnId, finalLv, result.status(),
                             result.errorCode(), truncate(result.errorMessage()),
                             result.promptTokens(), result.completionTokens());
                     turns.requireLeaseWrite(n);
-                    publishUsage(threadId, result);
                     publishTerminal(threadId, turnId, result.status());
-                    streams.expireAfterTurn(threadId);
-                    return null;
-                });
+                    finished = true;
+                }
             } catch (LeaseLost e) {
                 log.warn("turn {} lease lost; leave terminal to reaper", turnId);
+                // 槽位随 ZSet score 过期清理；不在此释放，避免假死复活双占
+                holdConcurrent = false;
             } catch (CancelledSignal e) {
-                turns.finish(turnId, lv, TurnStatus.CANCELLED, null, null, null, null);
+                turns.finish(turnId, lv, TurnStatus.CANCELLED, e.reason(), null, null, null);
                 publishTerminal(threadId, turnId, TurnStatus.CANCELLED);
-                streams.expireAfterTurn(threadId);
+                finished = true;
             } catch (RuntimeException e) {
-                log.error("turn {} failed", turnId, e);
-                failTurn(turnId, lv, threadId, "INTERNAL", e.getMessage());
+                Throwable root = unwrap(e);
+                RuntimeTestHooks hooks = testHooks.getIfAvailable();
+                if (root instanceof RuntimeTestHooks.CrashFrozenAbort
+                        || (hooks != null && hooks.isFrozen())
+                        || !props.isReleaseOnShutdown()) {
+                    log.warn("turn {} left for reaper after crash abort: {}", turnId, root.toString());
+                    holdConcurrent = false;
+                } else {
+                    log.error("turn {} failed", turnId, e);
+                    try {
+                        turns.finish(turnId, lv, TurnStatus.FAILED, "INTERNAL",
+                                truncate(e.getMessage()), null, null);
+                        publishTerminal(threadId, turnId, TurnStatus.FAILED);
+                        finished = true;
+                    } catch (RuntimeException ignored) {
+                        // ignore
+                    }
+                }
             } finally {
                 signalBus.unregister(turnId);
             }
         } finally {
+            if (holdConcurrent) {
+                quota.releaseConcurrent(quotaWs, quotaUser, turnId);
+            }
             if (renewFuture != null) {
                 renewFuture.cancel(false);
             }
-            lock.close();
-            // 同 thread 下一条 / 失败重试由 TurnScheduler 在 release 后统一调度
+            if (props.isReleaseOnShutdown()) {
+                lock.close();
+            }
+            // M1-02：Turn 结束后查 nextQueued，有则重新 XADD
+            if (finished) {
+                enqueueNext(threadId);
+            }
         }
+    }
+
+    /** LeaseReaper / 外部在终态后触发同 thread 下一条。 */
+    public void enqueueNext(String threadId) {
+        turns.nextQueued(threadId).ifPresent(t -> dispatchQueue.offer(t.getId(), threadId));
     }
 
     private void failTurn(String turnId, long leaseVersion, String threadId,
@@ -181,7 +274,6 @@ public class TurnRunner {
             turns.finish(turnId, leaseVersion, TurnStatus.FAILED, errorCode,
                     truncate(errorMessage), null, null);
             publishTerminal(threadId, turnId, TurnStatus.FAILED);
-            streams.expireAfterTurn(threadId);
         } catch (RuntimeException ignored) {
             // ignore
         }
@@ -196,14 +288,35 @@ public class TurnRunner {
         };
         streams.publish(threadId, null, type.wire(),
                 events.turnStatus(type, threadId, turnId, status.name()));
+        if (status == TurnStatus.COMPLETED) {
+            RuntimeTurnDO done = turns.findById(turnId).orElse(null);
+            appEvents.publishEvent(new TurnCompletedEvent(
+                    turnId,
+                    threadId,
+                    done == null ? null : done.getOrigin(),
+                    done == null ? null : done.getOriginRef()));
+        }
     }
 
-    private void publishUsage(String threadId, LoopResult result) {
-        if (result.promptTokens() <= 0 && result.completionTokens() <= 0) {
-            return;
+    /** 仅解析字段供并发配额占位；完整 Principal 仍走 {@link #resolveRunAs}。 */
+    private String peekRunAsUserId(String runAsJson) {
+        return peekRunAsField(runAsJson, "userId");
+    }
+
+    private String peekRunAsWorkspaceId(String runAsJson) {
+        return peekRunAsField(runAsJson, "workspaceId");
+    }
+
+    private String peekRunAsField(String runAsJson, String field) {
+        if (runAsJson == null || runAsJson.isBlank()) {
+            return null;
         }
-        publisher.publishEvent(new UsageReportedEvent(
-                threadId, "turn", result.promptTokens(), result.completionTokens(), "ok"));
+        try {
+            String v = mapper.readTree(runAsJson).path(field).asText(null);
+            return v == null || v.isBlank() || "0".equals(v) ? null : v;
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     /** ADR-029 §6：按 turn.runAsJson 重载发起人权限，禁止一律 SYSTEM。 */
@@ -231,6 +344,78 @@ public class TurnRunner {
             throw e;
         } catch (Exception e) {
             throw new BizException(ErrorCode.INTERNAL, "无法解析 turn.runAs: " + e.getMessage());
+        }
+    }
+
+    private static Throwable unwrap(Throwable e) {
+        Throwable cur = e;
+        while (cur.getCause() != null
+                && (cur instanceof java.util.concurrent.CompletionException
+                || cur instanceof java.util.concurrent.ExecutionException)) {
+            cur = cur.getCause();
+        }
+        return cur;
+    }
+
+    private String parseApprovalPolicy(String optionsJson) {
+        if (optionsJson == null || optionsJson.isBlank()) {
+            return null;
+        }
+        try {
+            JsonNode n = mapper.readTree(optionsJson);
+            String p = n.path("approvalPolicy").asText(null);
+            return p == null || p.isBlank() ? null : p;
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private List<String> parseToolAllowList(String optionsJson) {
+        if (optionsJson == null || optionsJson.isBlank()) {
+            return List.of();
+        }
+        try {
+            JsonNode n = mapper.readTree(optionsJson).path("toolAllowList");
+            if (!n.isArray()) {
+                return List.of();
+            }
+            List<String> out = new ArrayList<>();
+            for (JsonNode item : n) {
+                if (item != null && item.isTextual() && !item.asText().isBlank()) {
+                    out.add(item.asText());
+                }
+            }
+            return out;
+        } catch (Exception e) {
+            return List.of();
+        }
+    }
+
+    /** CON-01：从 Agent 快照抽出 mcpGrants 放入 ToolCallContext.agentToolConfig。 */
+    private Map<String, Object> agentToolConfigOf(String agentVersionId) {
+        if (agentVersionId == null || agentVersionId.isBlank()) {
+            return Map.of();
+        }
+        AgentSnapshotApi snapshots = agentSnapshots.getIfAvailable();
+        if (snapshots == null) {
+            return Map.of();
+        }
+        try {
+            AgentSpec.ToolSet tools = snapshots.get(agentVersionId).spec().tools();
+            if (tools == null || tools.mcp() == null || tools.mcp().isEmpty()) {
+                return Map.of("mcpGrants", List.of());
+            }
+            List<Map<String, Object>> grants = new ArrayList<>();
+            for (AgentSpec.ToolSet.McpBinding b : tools.mcp()) {
+                Map<String, Object> g = new LinkedHashMap<>();
+                g.put("serverId", b.serverId());
+                g.put("allowlist", b.allowlist() == null ? List.of() : b.allowlist());
+                grants.add(g);
+            }
+            return Map.of("mcpGrants", grants);
+        } catch (RuntimeException e) {
+            log.warn("load agentToolConfig failed version={}: {}", agentVersionId, e.toString());
+            return Map.of();
         }
     }
 

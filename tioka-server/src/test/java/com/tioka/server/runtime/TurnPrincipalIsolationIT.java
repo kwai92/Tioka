@@ -76,7 +76,13 @@ class TurnPrincipalIsolationIT {
             assertFalse(knowledge.hasBase(kbId));
             ToolProvider.ToolResult result = kbTools.invoke("kb.search",
                     Map.of("kbId", kbId, "query", "secret", "topK", 3));
-            assertFalse(result.ok(), "跨空间 kb.search 应失败: " + result.content());
+            // KNW-02：无权/跨空间 kbId 被 ACL 滤空；不得泄漏内容
+            if (result.ok()) {
+                assertTrue(result.content().equals("[]") || !result.content().contains("secret"),
+                        "跨空间不得命中: " + result.content());
+            } else {
+                assertFalse(result.content() == null || result.content().contains("secret"));
+            }
         });
     }
 }

@@ -1,18 +1,27 @@
 package com.tioka.flow.application.exec;
 
-import com.tioka.flow.application.CredentialPolicy;
-import com.tioka.model.api.LlmClientApi;
+import com.tioka.framework.id.Ids;
+import com.tioka.framework.security.Principal;
+import com.tioka.model.api.gateway.ModelCallContext;
+import com.tioka.model.api.gateway.ModelGateway;
+import com.tioka.model.api.gateway.ModelPurpose;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Component;
 
-import java.util.*;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 
+/**
+ * FLW-02：LLM 节点仅经 {@link ModelGateway}；节点配置用 {@code routingPlanId}
+ *（空则 FLOW 默认方案），禁止 baseUrl/apiKey/model 直连。
+ */
 @Component
 public class LlmNodeExecutor implements NodeExecutor {
-    private final ObjectProvider<LlmClientApi> llmClient;
+    private final ObjectProvider<ModelGateway> modelGateway;
 
-    public LlmNodeExecutor(ObjectProvider<LlmClientApi> llmClient) {
-        this.llmClient = llmClient;
+    public LlmNodeExecutor(ObjectProvider<ModelGateway> modelGateway) {
+        this.modelGateway = modelGateway;
     }
 
     @Override
@@ -22,27 +31,37 @@ public class LlmNodeExecutor implements NodeExecutor {
     public Object execute(NodeExecContext ctx, Map<String, Object> node, Object input) throws Exception {
         @SuppressWarnings("unchecked")
         Map<String, Object> config = (Map<String, Object>) node.getOrDefault("config", Map.of());
-        String model = String.valueOf(config.getOrDefault("model", "mock"));
-        String baseUrl = String.valueOf(config.getOrDefault("baseUrl", "mock://openai"));
-        String apiKeyRef = config.get("apiKeyRef") == null ? null : String.valueOf(config.get("apiKeyRef"));
-        if (apiKeyRef != null && !apiKeyRef.isBlank()) {
-            CredentialPolicy.assertSecretRef("apiKeyRef", apiKeyRef);
+        String routingPlanId = config.get("routingPlanId") == null
+                ? null : String.valueOf(config.get("routingPlanId"));
+        if (routingPlanId != null && routingPlanId.isBlank()) {
+            routingPlanId = null;
         }
-
         String prompt = extractPrompt(input);
         List<Map<String, Object>> messages = List.of(Map.of("role", "user", "content", prompt));
 
-        LlmClientApi client = llmClient.getIfAvailable();
-        if (client == null) {
-            return Map.of("content", "mock-llm:" + prompt, "model", model, "mock", true);
+        ModelGateway gateway = modelGateway.getIfAvailable();
+        if (gateway == null) {
+            return Map.of("content", "mock-llm:" + prompt, "model", "mock", "mock", true);
         }
-        LlmClientApi.CompletionResult result = client.complete(
-                baseUrl, apiKeyRef == null ? "" : apiKeyRef, model, messages, List.of());
+
+        Principal principal = ctx.runAs();
+        String nodeRunId = ctx.nodeRunId();
+        if (nodeRunId == null || nodeRunId.isBlank()) {
+            nodeRunId = Ids.newId("fnr");
+        }
+        ModelCallContext callCtx = new ModelCallContext(
+                principal, ctx.runId(), nodeRunId, null, routingPlanId, ModelPurpose.FLOW);
+        ModelGateway.ChatResult result = gateway.chat(
+                callCtx,
+                new ModelGateway.ChatRequest(messages, List.of(), null, null),
+                d -> {});
         Map<String, Object> out = new LinkedHashMap<>();
         out.put("content", result.content());
-        out.put("model", model);
+        out.put("model", result.modelRef());
+        out.put("bindingId", result.bindingId());
         out.put("promptTokens", result.promptTokens());
         out.put("completionTokens", result.completionTokens());
+        out.put("nodeRunId", nodeRunId);
         return out;
     }
 

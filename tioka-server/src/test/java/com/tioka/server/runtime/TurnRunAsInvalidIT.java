@@ -19,7 +19,7 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 
 import java.time.Instant;
-import java.time.OffsetDateTime;
+import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.Set;
 
@@ -69,7 +69,7 @@ class TurnRunAsInvalidIT {
             t.setRunAsJson("{\"userId\":\"10\",\"workspaceId\":\"\",\"type\":\"USER\"}");
             t.setStepCount(0);
             t.setLeaseVersion(0L);
-            t.setLeaseUntil(OffsetDateTime.ofInstant(Instant.now().plusSeconds(60), ZoneOffset.UTC));
+            t.setLeaseUntil(LocalDateTime.ofInstant(Instant.now().plusSeconds(60), ZoneOffset.UTC));
             turns.insert(t);
         });
 

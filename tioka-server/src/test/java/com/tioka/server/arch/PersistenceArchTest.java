@@ -4,6 +4,8 @@ import com.baomidou.mybatisplus.annotation.TableName;
 import com.tioka.framework.persistence.AppendOnlyDO;
 import com.tioka.framework.persistence.BaseDO;
 import com.tioka.framework.persistence.ImmutableSnapshotDO;
+import com.tioka.framework.persistence.MutableRecordDO;
+import com.tioka.framework.persistence.TechnicalRecordDO;
 import com.tioka.framework.persistence.WorkspaceAwareDO;
 import com.tngtech.archunit.core.domain.JavaClass;
 import com.tngtech.archunit.core.domain.JavaClasses;
@@ -53,12 +55,20 @@ class PersistenceArchTest {
                 .should(new ArchCondition<>("extend agreed persistence base") {
                     @Override
                     public void check(JavaClass item, ConditionEvents events) {
-                        // RuntimeTurnDO：M0-03 明确无逻辑删、不继承 BaseDO；无 @TableName 时本规则本就不适用
                         boolean ok = item.isAssignableTo(BaseDO.class)
                                 || item.isAssignableTo(WorkspaceAwareDO.class)
                                 || item.isAssignableTo(ImmutableSnapshotDO.class)
                                 || item.isAssignableTo(AppendOnlyDO.class)
-                                || "RuntimeTurnDO".equals(item.getSimpleName());
+                                || item.isAssignableTo(MutableRecordDO.class)
+                                || item.isAssignableTo(TechnicalRecordDO.class)
+                                // AST-01：agent_draft 契约仅有 update_at/by + revision，无 create/deleted
+                                || "AgentDraftDO".equals(item.getSimpleName())
+                                // MH-04：model_default_plan 仅 purpose PK + update_at/by
+                                || "ModelDefaultPlanDO".equals(item.getSimpleName())
+                                // 历史 Instant 映射；新表优先 MutableRecordDO + UtcLocalDateTimeTypeHandler
+                                || "SysApiKeyDO".equals(item.getSimpleName())
+                                || "SysGroupDO".equals(item.getSimpleName())
+                                || "SysResourceAclDO".equals(item.getSimpleName());
                         if (!ok) {
                             events.add(SimpleConditionEvent.violated(item,
                                     item.getName() + " 未继承约定 DO 基类"));

@@ -27,20 +27,42 @@ public interface SysMemberMapper extends BaseMapper<SysMemberDO> {
     Object advisoryLockBootstrap();
 
     @Insert("""
-            INSERT INTO sys_member (workspace_id, user_id, role_code, create_at, update_at, create_by, update_by, deleted)
-            VALUES (#{workspaceId}, #{userId}, #{roleCode}, now(), now(), 'system', 'system', FALSE)
-            ON CONFLICT (workspace_id, user_id, role_code) DO NOTHING
+            INSERT INTO sys_member (workspace_id, user_id, role_code, source, create_at, update_at, create_by, update_by, deleted)
+            VALUES (#{workspaceId}, #{userId}, #{roleCode}, 'manual', now(), now(), 'system', 'system', FALSE)
+            ON CONFLICT (workspace_id, user_id, role_code) DO UPDATE
+              SET deleted = FALSE, update_at = now()
             """)
     void upsertMember(@Param("workspaceId") String workspaceId,
                       @Param("userId") String userId,
                       @Param("roleCode") String roleCode);
 
+    @Insert("""
+            INSERT INTO sys_member (workspace_id, user_id, role_code, source, create_at, update_at, create_by, update_by, deleted)
+            VALUES (#{workspaceId}, #{userId}, #{roleCode}, #{source}, now(), now(), 'system', 'system', FALSE)
+            ON CONFLICT (workspace_id, user_id, role_code) DO UPDATE
+              SET deleted = FALSE, source = EXCLUDED.source, update_at = now(), update_by = 'system'
+            """)
+    void upsertMemberWithSource(@Param("workspaceId") String workspaceId,
+                                @Param("userId") String userId,
+                                @Param("roleCode") String roleCode,
+                                @Param("source") String source);
+
     @Select("""
-            SELECT workspace_id AS workspaceId, user_id AS userId, role_code AS roleCode, deleted AS deleted
+            SELECT workspace_id AS workspaceId, user_id AS userId, role_code AS roleCode,
+                   source AS source, deleted AS deleted
             FROM sys_member
             WHERE user_id = #{userId} AND deleted = FALSE
             """)
     java.util.List<SysMemberDO> listByUserId(@Param("userId") String userId);
+
+    @Select("""
+            SELECT workspace_id AS workspaceId, user_id AS userId, role_code AS roleCode,
+                   source AS source, deleted AS deleted
+            FROM sys_member
+            WHERE user_id = #{userId} AND source = #{source} AND deleted = FALSE
+            """)
+    java.util.List<SysMemberDO> listByUserIdAndSource(@Param("userId") String userId,
+                                                      @Param("source") String source);
 
     @Select("""
             SELECT EXISTS(
@@ -51,7 +73,8 @@ public interface SysMemberMapper extends BaseMapper<SysMemberDO> {
     boolean isMember(@Param("workspaceId") String workspaceId, @Param("userId") String userId);
 
     @Select("""
-            SELECT workspace_id AS workspaceId, user_id AS userId, role_code AS roleCode, deleted AS deleted
+            SELECT workspace_id AS workspaceId, user_id AS userId, role_code AS roleCode,
+                   source AS source, deleted AS deleted
             FROM sys_member
             WHERE workspace_id = #{workspaceId} AND deleted = FALSE
               AND role_code <> 'tenant_admin'
@@ -87,4 +110,13 @@ public interface SysMemberMapper extends BaseMapper<SysMemberDO> {
               AND role_code <> 'tenant_admin' AND deleted = FALSE
             """)
     int softDeleteWorkspaceRoles(@Param("workspaceId") String workspaceId, @Param("userId") String userId);
+
+    @Update("""
+            UPDATE sys_member SET deleted = TRUE, update_at = now(), update_by = 'system'
+            WHERE workspace_id = #{workspaceId} AND user_id = #{userId}
+              AND role_code = #{roleCode} AND deleted = FALSE
+            """)
+    int softDeleteOne(@Param("workspaceId") String workspaceId,
+                      @Param("userId") String userId,
+                      @Param("roleCode") String roleCode);
 }

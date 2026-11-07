@@ -4,18 +4,26 @@ import com.tioka.framework.error.BizException;
 import com.tioka.framework.error.ErrorCode;
 import com.tioka.framework.security.Permissions;
 import com.tioka.framework.security.PrincipalHolder;
+import com.tioka.system.api.audit.AuditApi;
+import com.tioka.system.api.audit.AuditEvent;
+import com.tioka.system.api.audit.AuditOutcome;
+import com.tioka.system.api.event.MemberRemovedEvent;
 import com.tioka.system.application.auth.PrincipalLoader;
+import com.tioka.system.application.lifecycle.AfterCommitEvents;
 import com.tioka.system.infrastructure.AuthUserRepository;
 import com.tioka.system.infrastructure.SysMemberRepository;
 import com.tioka.system.infrastructure.SysRoleRepository;
 import com.tioka.system.infrastructure.dataobject.SysMemberDO;
 import com.tioka.system.infrastructure.persistence.AuthUserDO;
 import com.tioka.system.infrastructure.persistence.SysRoleDO;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 @Service
 public class WorkspaceMemberService {
@@ -25,19 +33,25 @@ public class WorkspaceMemberService {
     private final AuthUserRepository users;
     private final PrincipalLoader principalCache;
     private final PrincipalHolder principals;
+    private final ApplicationEventPublisher events;
+    private final AuditApi audit;
 
     public WorkspaceMemberService(WorkspaceService workspaces,
                                   SysMemberRepository members,
                                   SysRoleRepository roles,
                                   AuthUserRepository users,
                                   PrincipalLoader principalCache,
-                                  PrincipalHolder principals) {
+                                  PrincipalHolder principals,
+                                  ApplicationEventPublisher events,
+                                  AuditApi audit) {
         this.workspaces = workspaces;
         this.members = members;
         this.roles = roles;
         this.users = users;
         this.principalCache = principalCache;
         this.principals = principals;
+        this.events = events;
+        this.audit = audit;
     }
 
     public Page<MemberView> list(String workspaceId, int page, int size) {
@@ -90,7 +104,17 @@ public class WorkspaceMemberService {
             throw new BizException(ErrorCode.LAST_ADMIN);
         }
         members.removeUser(workspaceId, userId);
+        // 同步清缓存；事件 afterCommit 后监听方再清一次并取消 Turn（FND-04e）
         principalCache.evictUser(Long.parseLong(userId));
+        String operatorId = principals.current().userId();
+        Instant at = Instant.now();
+        audit.record(new AuditEvent(null, at, null, workspaceId,
+                "user", operatorId, "member.remove", "workspace_member",
+                workspaceId + ":" + userId,
+                AuditOutcome.SUCCESS, null, null, null, null,
+                Map.of("userId", userId, "source", MemberRemovedEvent.SOURCE_MANUAL)));
+        AfterCommitEvents.publish(events,
+                new MemberRemovedEvent(workspaceId, userId, MemberRemovedEvent.SOURCE_MANUAL));
     }
 
     /**

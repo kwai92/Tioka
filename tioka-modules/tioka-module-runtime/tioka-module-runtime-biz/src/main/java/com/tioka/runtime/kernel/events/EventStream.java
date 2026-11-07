@@ -60,6 +60,15 @@ public class EventStream {
         return redis.opsForValue().get(curKey(threadId));
     }
 
+    /** 读取单条 stream 事件（用于崩溃回收解析 rt:cur 预占 seq）。 */
+    public StreamEvent getEntry(String threadId, String entryId) {
+        if (entryId == null || entryId.isBlank()) {
+            return null;
+        }
+        List<StreamEvent> rows = range(threadId, entryId, entryId);
+        return rows.isEmpty() ? null : rows.get(0);
+    }
+
     public void expireAfterTurn(String threadId) {
         redis.expire(streamKey(threadId), props.getEvents().getStreamTtlAfterTurn());
     }

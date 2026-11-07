@@ -1,7 +1,7 @@
 # M1-05 — Agent 资产快照、发布校验与 G1 闸门基座
 
 - 负责人：BE-C（AST-01、ENG-04b）；BE-A（AST-02）；BE-B（G1 端到端用例）；FE（Agent 编辑器）
-- 工作项：AST-01、AST-02、ENG-04b、G1-E2E（按实施顺序）
+- 工作项：AST-01、AST-02、ENG-04b、G1-E2E、FE-02（按实施顺序）
 - 约束：ADR-023、ADR-015、ADR-016、ADR-029 第 11、29、33、60 条；ADR-032、ADR-037〜040 的预留字段（只占位，不实现）
 - 前置：FND-04 的 `ResourceGuard`（AST-02 用）；M0 的 `DualInstance`、`LlmStubServer`（ENG-04b 在其上扩充）
 - 迁移：V123、V124（Java）、V125
@@ -168,8 +168,95 @@ M0 的闸门基座只有 PostgreSQL、Redis、双实例（同一 JVM 内两个 S
 
 步骤 8 与 `G1PermissionGateIT` 有重叠，保留在这里是为了确认端到端链路上拒绝也成立。夜间真实模型任务跑的是第 1〜7 步（真实模型不一定按剧本调工具，第 4 步只断言「至少 1 次工具调用且 Turn COMPLETED」）。
 
+---
+
+## FE-02 Agent 分区编辑器、发布错误定位与版本（P0，前端 5 人天）
+
+挂靠本文件理由：M1-00 设计列已指向 05；依赖 AST-01/AST-02 已落地的草稿 / 校验 / 发布 / 版本 / diff / 回滚 REST。现状：`Agents.vue` 仍调已废弃的 `/drafts` + `/versions/{id}/publish`，无分区表单、无 422 path 定位、无版本列表。**不重做 AST**，只改 `tioka-ui`。
+
+### 目标
+
+1. 按 `agent-spec-v1.json` **分区表单**编辑草稿（`GET/PUT …/draft`，乐观锁 `revision`）。
+2. 发布失败（422 `AGENT_PUBLISH_INVALID`）按 `errors[{path,code,message}]` **高亮分区/字段并滚动**。
+3. **版本列表** + **diff**（RFC 6902）+ **回滚确认**。
+
+### 页面与路由
+
+**改造现有** `/agents` → `Agents.vue`（列表 + 选中后右侧/下方编辑器），**不新增** `/agents/:id`。
+
+理由：Shell 已有「Agent」入口；G1 手工演示与 Chat 选 Agent 均从列表起步；同页切换 agent 即可完成「创建 → 填分区 → 发布 → 回滚」，减少路由与状态扩散。若日后要深链分享编辑页，再加子路由，本项不做。
+
+布局要点：
+
+| 区 | 内容 |
+| --- | --- |
+| 列表卡 | 现有：创建、表格、选中编辑 |
+| 编辑器卡 | `el-tabs` 九分区；顶栏：保存草稿 / 校验 / 发布；侧栏或折叠：版本列表 |
+| 版本区 | 版本表（`versionNo/status/publishedAt/note/current`）；选两条看 diff；对非 current 的 `PUBLISHED` 行「回滚」 |
+
+### 分区 ↔ Schema
+
+| Tab | JSON Pointer 前缀 | 可编辑字段（M1） |
+| --- | --- | --- |
+| Profile | `/profile` | `name`、`description`、`icon`、`tags[]`、`kind`（CHAT/TASK/READONLY） |
+| Instructions | `/instructions` | `sections[{key,text}]`（至少可增删一行） |
+| Model | `/model` | `routingPlanId`（下拉已发布 CHAT 方案）、`allowUserOverride` |
+| Tools | `/tools` | `builtin[]`（文本多选或逗号输入）；`mcp[{serverId,allowlist[]}]`（选 MCP Server + 工具多选）；`flows`/`business` 固定 `[]` 只读提示「M3」 |
+| Skills | `/skills` | `[{skillVersionId, mode: ALWAYS\|MANUAL}]` |
+| Knowledge | `/knowledge` | `kbIds[]`、`mode`（TOOL/AUTO_RETRIEVE） |
+| Sandbox | `/sandbox` | `level`（READ/EDIT/FULL）、`networkAllowlist[]` |
+| Approval | `/approval` | `toolPolicies`（工具名 → auto/approve/deny）、`assignee` |
+| Limits | `/limits` | `maxSteps`（默认 20）、`maxTokensPerTurn` |
+
+预留字段 `charter` / `output` / `subAgents` / `dataClearance`：**UI 不展示**；`PUT draft` / `publish` 前强制写 `null`（避免旧草稿脏值触发 `RESERVED_FIELD`）。`schemaVersion` 固定 `1`，隐藏。
+
+选项数据来源（只读列表，不新增后端）：`GET /api/model/routing-plans`（`published`）、`GET /api/mcp/servers` + `…/tools`、`GET /api/skills`（取已发布版本 id）、`GET /api/knowledge/bases`。内置工具名无专用列表 API 时允许自由输入，发布时由 AST-02 校验。
+
+### API（对齐 AST-01，前端封装）
+
+| 方法与路径 | 用途 |
+| --- | --- |
+| `GET /api/agents/{id}/draft` | 进入编辑：填 `spec` + `revision` |
+| `PUT /api/agents/{id}/draft` | `{spec, revision}` → 新 `DraftView`；409 = 乐观锁冲突，提示刷新 |
+| `POST /api/agents/{id}/validate` | 不发布；预览 `errors[]` |
+| `POST /api/agents/{id}/publish` | `{revision, note?}` → `{versionId, versionNo}` |
+| `GET /api/agents/{id}/versions` | 版本列表 |
+| `GET /api/agents/{id}/versions/diff?from&to` | JSON Patch 数组 |
+| `POST /api/agents/{id}/rollback` | `{versionId}` |
+
+422 时响应 `code=42201`，`data.errors=[{path,code,message}]`。`http.ts` 的 `ApiError` **须透传 `data`**（否则无法定位）。落点：`tioka-ui/src/views/agentEditor.ts`（纯函数 + API 封装，对齐 FE-01 `mcpToolRisk.ts`）+ 改写 `Agents.vue`。
+
+### UX
+
+| 场景 | 行为 |
+| --- | --- |
+| 保存草稿 | 带当前 `revision`；成功回写 `revision`；409 提示「他人已保存，请重新加载草稿」并 `GET draft` |
+| 发布失败 | 解析 `data.errors`；按 path 首段映射 Tab（如 `/model/…` → Model）；高亮对应表单项；`scrollIntoView` 第一条；顶栏列出全部错误可点击跳转 |
+| 版本 / diff | 勾选 `from`/`to` 拉 diff，只读展示 op/path/value |
+| 回滚 | `ElMessageBox.confirm` 后调 rollback；失败同样走 path 定位（回滚会重跑 AST-02） |
+
+### 测试（vitest 最小集）
+
+| 用例 | 断言 |
+| --- | --- |
+| 保存草稿 | mock `api`：`PUT …/draft` body 含 `spec`+`revision`；成功后 revision 更新 |
+| 发布失败多条定位 | 422 `data.errors` 两条不同 path → `mapPublishErrorsToSections` 得到两个分区；`firstErrorPath` 指向第一条 |
+| 回滚调 API | `rollbackAgent(api, id, versionId)` 发出 `POST …/rollback` 且 body `{"versionId":…}` |
+
+不强制挂载整页 Vue（对齐 FE-01 抽纯函数测 API/映射）；可选组件冒烟不计入完成标准。
+
+### 完成标准
+
+- [ ] `/agents` 分区表单可编辑九分区；预留字段不展示且提交为 null
+- [ ] 保存草稿走 `PUT …/draft` 乐观锁；409 可感知并刷新
+- [ ] 发布 / 校验失败按 path 高亮分区并滚动；`ApiError` 透传 `data.errors`
+- [ ] 版本列表 + diff + 回滚确认可用
+- [ ] vitest：保存草稿、多错误定位、回滚调 API 绿；`npm test` / `npm run typecheck` 绿
+- [ ] 未改 AST 后端与已合并迁移；仅前端
+
 ## 完成标准
 
 - 已发布版本不可变，会话固定版本，发布校验拒绝借 Agent 越权（AST-01、AST-02 测试全过）。
 - 旧 `agent_version` 绑定列、`agent_sandbox`、`mcp_grant` 已删除，`AgentQueryApi.AgentVersionView` 无引用。
 - `GateInfraSmokeIT` 绿；G1 全部 8 个闸门用例在 CI 运行（见 [M1-00](M1-00-M1实施计划.md) 第 5 节）。
+- Agent 页可分区编辑草稿、按 path 定位发布错误、版本 diff/回滚（FE-02）。

@@ -13,4 +13,12 @@ public interface SysRoleMapper {
             WHERE code = #{code} AND deleted = FALSE
             """)
     SysRoleDO findByCode(@Param("code") String code);
+
+    @Select("""
+            SELECT code, name, scope, builtin
+            FROM sys_role
+            WHERE deleted = FALSE
+            ORDER BY builtin DESC, code
+            """)
+    java.util.List<SysRoleDO> listAll();
 }

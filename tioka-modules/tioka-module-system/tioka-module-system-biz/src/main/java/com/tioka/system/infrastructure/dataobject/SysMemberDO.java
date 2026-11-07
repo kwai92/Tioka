@@ -11,6 +11,8 @@ public class SysMemberDO extends BaseDO {
     private String workspaceId;
     private String userId;
     private String roleCode;
+    /** manual / oidc:{idp}（V113） */
+    private String source;
 
     public String getWorkspaceId() { return workspaceId; }
     public void setWorkspaceId(String workspaceId) { this.workspaceId = workspaceId; }
@@ -18,4 +20,6 @@ public class SysMemberDO extends BaseDO {
     public void setUserId(String userId) { this.userId = userId; }
     public String getRoleCode() { return roleCode; }
     public void setRoleCode(String roleCode) { this.roleCode = roleCode; }
+    public String getSource() { return source; }
+    public void setSource(String source) { this.source = source; }
 }

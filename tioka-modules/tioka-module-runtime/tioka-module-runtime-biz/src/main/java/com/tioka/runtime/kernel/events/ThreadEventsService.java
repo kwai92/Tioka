@@ -56,6 +56,7 @@ public class ThreadEventsService {
         String L = streams.latestEntryId(threadId);
         SseEmitter emitter = new SseEmitter(props.getEvents().getSseTimeout().toMillis());
         EventId sent = EventId.parse(lastEventId);
+        boolean subscribed = false;
         try {
             // 1. 补发活动 Turn 状态
             RuntimeTurnDO active = turns.findActive(threadId);
@@ -110,13 +111,21 @@ public class ThreadEventsService {
                     sent = eid;
                 }
             }
+
+            // 4. 先挂上 StreamPump，再发 connected 注释提交响应。
+            // 否则闸门客户端 subscribe() 返回时可能尚未入泵；MH-02 在 rt:cur 清除后，
+            // 晚到的连接无法从 DB 补到 item.discarded（仅 Redis 流式事件）。
+            pump.subscribe(threadId, L, sent, emitter);
+            subscribed = true;
+            emitter.send(SseEmitter.event().comment("connected"));
         } catch (Exception e) {
-            pump.releaseConnection();
+            if (!subscribed) {
+                pump.releaseConnection();
+            }
             emitter.completeWithError(e);
             return emitter;
         }
 
-        pump.subscribe(threadId, L, sent, emitter);
         return emitter;
     }
 

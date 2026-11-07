@@ -10,7 +10,7 @@ import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
-import java.time.OffsetDateTime;
+import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
@@ -51,12 +51,12 @@ public class TurnRepository {
     }
 
     public OptionalLong acquire(String turnId, String workerId, Instant leaseUntil) {
-        Long lv = mapper.acquire(turnId, workerId, OffsetDateTime.ofInstant(leaseUntil, ZoneOffset.UTC));
+        Long lv = mapper.acquire(turnId, workerId, LocalDateTime.ofInstant(leaseUntil, ZoneOffset.UTC));
         return lv == null ? OptionalLong.empty() : OptionalLong.of(lv);
     }
 
     public int renew(String turnId, long leaseVersion, Instant leaseUntil) {
-        return mapper.renew(turnId, leaseVersion, OffsetDateTime.ofInstant(leaseUntil, ZoneOffset.UTC));
+        return mapper.renew(turnId, leaseVersion, LocalDateTime.ofInstant(leaseUntil, ZoneOffset.UTC));
     }
 
     public int finish(String turnId, long leaseVersion, TurnStatus to,
@@ -71,16 +71,32 @@ public class TurnRepository {
         return mapper.incrementStep(turnId, leaseVersion);
     }
 
+    public int markWaitingApproval(String turnId, long leaseVersion) {
+        return mapper.markWaitingApproval(turnId, leaseVersion);
+    }
+
+    public int requeueFromWaitingApproval(String turnId) {
+        return mapper.requeueFromWaitingApproval(turnId);
+    }
+
+    public int cancelWaitingApproval(String turnId, String errorCode, String errorMessage) {
+        return mapper.cancelWaitingApproval(turnId, errorCode, errorMessage);
+    }
+
     public int cancelQueued(String turnId) {
-        return mapper.cancelQueued(turnId);
+        return cancelQueued(turnId, null, null);
+    }
+
+    public int cancelQueued(String turnId, String errorCode, String errorMessage) {
+        return mapper.cancelQueued(turnId, errorCode, errorMessage);
+    }
+
+    public List<RuntimeTurnDO> findActiveByPrincipal(String userId, String workspaceId) {
+        return mapper.findActiveByPrincipal(userId, workspaceId);
     }
 
     public List<String> findExpired(Instant now, int limit) {
-        return mapper.findExpired(OffsetDateTime.ofInstant(now, ZoneOffset.UTC), limit);
-    }
-
-    public List<String> findOrphanQueuedHeads(int limit) {
-        return mapper.findOrphanQueuedHeads(limit);
+        return mapper.findExpired(LocalDateTime.ofInstant(now, ZoneOffset.UTC), limit);
     }
 
     public int markInterrupted(String turnId) {
@@ -91,12 +107,28 @@ public class TurnRepository {
         return mapper.failInterrupted(turnId, errorCode, errorMessage);
     }
 
+    public int requeueInterrupted(String turnId) {
+        return mapper.requeueInterrupted(turnId);
+    }
+
     public Optional<RuntimeTurnDO> nextQueued(String sessionId) {
         return Optional.ofNullable(mapper.nextQueued(sessionId));
     }
 
     public Optional<RuntimeTurnDO> findActive(String sessionId) {
         return Optional.ofNullable(mapper.findActive(sessionId));
+    }
+
+    public List<RuntimeTurnDO> findStaleQueuedForDispatch() {
+        return mapper.findStaleQueuedForDispatch();
+    }
+
+    public boolean tryAdvisoryLockQueuedSweeper() {
+        return mapper.tryAdvisoryLockQueuedSweeper();
+    }
+
+    public void unlockAdvisoryLockQueuedSweeper() {
+        mapper.unlockAdvisoryLockQueuedSweeper();
     }
 
     public void requireLeaseWrite(int affected) {

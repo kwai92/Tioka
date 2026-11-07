@@ -2,13 +2,18 @@ package com.tioka.runtime.kernel.model;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.tioka.framework.security.Principal;
+import com.tioka.framework.security.PrincipalHolder;
 import com.tioka.framework.security.TiokaExecutors;
+import com.tioka.runtime.api.spi.ToolCallContexts;
 import com.tioka.runtime.api.spi.ToolGateway;
 import com.tioka.runtime.api.spi.ToolProvider;
 import com.tioka.runtime.config.KernelProperties;
+import com.tioka.runtime.kernel.application.RuntimeTestHooks;
 import com.tioka.runtime.kernel.domain.LoopContext;
 import com.tioka.runtime.kernel.domain.LoopPorts;
 import com.tioka.runtime.kernel.infrastructure.redis.SignalBus;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -21,7 +26,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
 /**
- * M0：经 {@link ToolGateway} 描述与调用工具；有界并行 + 超时。
+ * 经 {@link ToolGateway} 描述与调用工具；有界并行 + 超时（CON-01 注入完整 ToolCallContext）。
  */
 @Component
 public class GatewayToolPort implements LoopPorts.ToolPort {
@@ -29,16 +34,22 @@ public class GatewayToolPort implements LoopPorts.ToolPort {
     private final ObjectMapper mapper;
     private final KernelProperties props;
     private final SignalBus signals;
+    private final ObjectProvider<RuntimeTestHooks> testHooks;
+    private final PrincipalHolder principals;
     private final ExecutorService pool;
 
     public GatewayToolPort(ToolGateway gateway,
                            ObjectMapper mapper,
                            KernelProperties props,
-                           SignalBus signals) {
+                           SignalBus signals,
+                           ObjectProvider<RuntimeTestHooks> testHooks,
+                           PrincipalHolder principals) {
         this.gateway = gateway;
         this.mapper = mapper;
         this.props = props;
         this.signals = signals;
+        this.testHooks = testHooks;
+        this.principals = principals;
         int n = Math.max(1, props.getLoop().getToolParallelism());
         this.pool = TiokaExecutors.wrap(Executors.newFixedThreadPool(n, r -> {
             Thread t = new Thread(r, "rt-tool");
@@ -57,15 +68,21 @@ public class GatewayToolPort implements LoopPorts.ToolPort {
         if (calls == null || calls.isEmpty()) {
             return List.of();
         }
-        ToolGateway.SessionToolContext toolCtx = toolCtx(ctx);
+        ToolGateway.ToolCallContext toolCtx = toolCtx(ctx);
         long timeoutMs = props.getLoop().getToolTimeout().toMillis();
         List<CompletableFuture<LoopPorts.ToolOutcome>> futures = new ArrayList<>();
         for (LoopPorts.ToolCall c : calls) {
             futures.add(CompletableFuture.supplyAsync(() -> invokeOne(toolCtx, c), pool)
                     .orTimeout(timeoutMs, TimeUnit.MILLISECONDS)
-                    .exceptionally(ex -> {
-                        long dur = timeoutMs;
+                    .handle((ok, ex) -> {
+                        if (ex == null) {
+                            return ok;
+                        }
                         Throwable root = ex.getCause() == null ? ex : ex.getCause();
+                        if (root instanceof RuntimeTestHooks.CrashFrozenAbort abort) {
+                            throw abort;
+                        }
+                        long dur = timeoutMs;
                         if (root instanceof TimeoutException) {
                             return new LoopPorts.ToolOutcome(c.callId(), c.name(), false, "timeout", dur);
                         }
@@ -83,14 +100,20 @@ public class GatewayToolPort implements LoopPorts.ToolPort {
         return out;
     }
 
-    private LoopPorts.ToolOutcome invokeOne(ToolGateway.SessionToolContext toolCtx, LoopPorts.ToolCall c) {
+    private LoopPorts.ToolOutcome invokeOne(ToolGateway.ToolCallContext toolCtx, LoopPorts.ToolCall c) {
         long t0 = System.currentTimeMillis();
         try {
+            RuntimeTestHooks hooks = testHooks.getIfAvailable();
+            if (hooks != null) {
+                hooks.awaitUnfrozenOrInterrupt();
+            }
             Map<String, Object> args = mapper.readValue(
                     c.argumentsJson() == null ? "{}" : c.argumentsJson(), new TypeReference<>() {});
             ToolProvider.ToolResult r = gateway.call(toolCtx, c.name(), args);
             return new LoopPorts.ToolOutcome(c.callId(), c.name(), r.ok(), r.content(),
                     System.currentTimeMillis() - t0);
+        } catch (RuntimeTestHooks.CrashFrozenAbort e) {
+            throw e;
         } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
             return new LoopPorts.ToolOutcome(c.callId(), c.name(), false,
                     "arguments 不是合法 JSON：" + e.getMessage(), 0);
@@ -101,8 +124,15 @@ public class GatewayToolPort implements LoopPorts.ToolPort {
         }
     }
 
-    private static ToolGateway.SessionToolContext toolCtx(LoopContext ctx) {
-        return new ToolGateway.SessionToolContext(
-                ctx.threadId(), ctx.agentVersionId(), ctx.workspaceId(), ctx.principalId());
+    private ToolGateway.ToolCallContext toolCtx(LoopContext ctx) {
+        Principal principal = principals.find().orElse(null);
+        return ToolCallContexts.forTurn(
+                principal,
+                ctx.threadId(),
+                ctx.turnId(),
+                ctx.agentVersionId(),
+                ctx.origin(),
+                ctx.toolAllowList(),
+                ctx.agentToolConfig());
     }
 }

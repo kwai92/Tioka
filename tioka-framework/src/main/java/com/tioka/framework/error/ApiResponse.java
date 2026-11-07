@@ -16,9 +16,14 @@ public class ApiResponse<T> {
     }
 
     public static <T> ApiResponse<T> fail(ErrorCode errorCode, String message) {
+        return fail(errorCode, message, null);
+    }
+
+    public static <T> ApiResponse<T> fail(ErrorCode errorCode, String message, T data) {
         ApiResponse<T> r = new ApiResponse<>();
         r.code = errorCode.getCode();
         r.message = message == null ? errorCode.getMessage() : message;
+        r.data = data;
         r.traceId = com.tioka.framework.trace.TraceContext.getTraceId();
         return r;
     }

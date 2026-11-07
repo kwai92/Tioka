@@ -5,7 +5,6 @@ import com.tioka.knowledge.infrastructure.mapper.*;
 import com.tioka.knowledge.infrastructure.persistence.*;
 import org.springframework.stereotype.Repository;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -13,15 +12,18 @@ import java.util.Map;
 @Repository
 public class KnowledgeRepository {
     private final KbBaseMapper bases;
+    private final KbBaseLockMapper baseLocks;
     private final KbDocumentMapper documents;
     private final KbChunkMapper chunks;
     private final KbCitationMapper citations;
     private final KbWikiMapper wikis;
     private final KbDatasourceMapper datasources;
 
-    public KnowledgeRepository(KbBaseMapper bases, KbDocumentMapper documents, KbChunkMapper chunks,
+    public KnowledgeRepository(KbBaseMapper bases, KbBaseLockMapper baseLocks,
+                               KbDocumentMapper documents, KbChunkMapper chunks,
                                KbCitationMapper citations, KbWikiMapper wikis, KbDatasourceMapper datasources) {
         this.bases = bases;
+        this.baseLocks = baseLocks;
         this.documents = documents;
         this.chunks = chunks;
         this.citations = citations;
@@ -31,13 +33,43 @@ public class KnowledgeRepository {
 
     public void insertBase(KbBaseDO row) { bases.insert(row); }
     public boolean hasBase(String id) { return bases.selectById(id) != null; }
+    public KbBaseDO findBase(String id) { return bases.selectById(id); }
+
+    /** AST-02：FOR SHARE 确认知识库存在且未删除。 */
+    public boolean lockBaseExists(String id) { return baseLocks.selectIdForShare(id) != null; }
     public void insertDocument(KbDocumentDO row) { documents.insert(row); }
     public void updateDocument(KbDocumentDO row) { documents.updateById(row); }
     public KbDocumentDO findDocument(String id) { return documents.selectById(id); }
-    public void insertChunk(KbChunkDO row) { chunks.insert(row); }
-    public void insertChunkWithVector(String id, String docId, String kbId, String text, int ordinal, String embedding, String vectorLiteral) {
-        chunks.insertWithVector(id, docId, kbId, text, ordinal, embedding, vectorLiteral);
+
+    public List<KbDocumentDO> listDocumentsByStatus(String status, int limit) {
+        return documents.selectList(Wrappers.<KbDocumentDO>lambdaQuery()
+                .eq(KbDocumentDO::getStatus, status)
+                .orderByAsc(KbDocumentDO::getUpdateAt)
+                .last("LIMIT " + Math.max(1, limit)));
     }
+
+    /** FE-04：按知识库聚合文档状态计数（status → count）。 */
+    public Map<String, Long> countDocumentsByStatus(String kbId) {
+        List<KbDocumentDO> rows = documents.selectList(Wrappers.<KbDocumentDO>lambdaQuery()
+                .eq(KbDocumentDO::getKbId, kbId)
+                .select(KbDocumentDO::getStatus));
+        Map<String, Long> out = new HashMap<>();
+        for (KbDocumentDO row : rows) {
+            String status = row.getStatus() == null ? "" : row.getStatus();
+            out.merge(status, 1L, Long::sum);
+        }
+        return out;
+    }
+
+    public void insertChunkWithVector(String id, String docId, String kbId, String workspaceId,
+                                      String text, int ordinal, String vectorLiteral) {
+        chunks.insertWithVector(id, docId, kbId, workspaceId, text, ordinal, vectorLiteral);
+    }
+
+    public void updateChunkVector(String id, String vectorLiteral) {
+        chunks.updateVector(id, vectorLiteral);
+    }
+
     public KbChunkDO findChunk(String id) { return chunks.selectById(id); }
     public List<KbChunkDO> listChunksByDoc(String docId) {
         return chunks.selectList(Wrappers.<KbChunkDO>lambdaQuery()
@@ -47,26 +79,12 @@ public class KnowledgeRepository {
     public void insertCitation(KbCitationDO row) { citations.insert(row); }
     public KbCitationDO findCitation(String id) { return citations.selectById(id); }
 
-    /** local 后端：内存检索用；pgvector 请用 {@link #searchNearest}。 */
-    public List<Map<String, Object>> listChunksWithDoc(String kbId) {
-        List<KbChunkDO> chunkRows = chunks.selectList(Wrappers.<KbChunkDO>lambdaQuery().eq(KbChunkDO::getKbId, kbId));
-        List<Map<String, Object>> out = new ArrayList<>();
-        for (KbChunkDO c : chunkRows) {
-            KbDocumentDO d = documents.selectById(c.getDocId());
-            Map<String, Object> m = new HashMap<>();
-            m.put("chunk_id", c.getId());
-            m.put("doc_id", c.getDocId());
-            m.put("text", c.getText());
-            m.put("ordinal", c.getOrdinal());
-            m.put("embedding", c.getEmbedding());
-            m.put("title", d == null ? "" : d.getTitle());
-            out.add(m);
-        }
-        return out;
-    }
-
     public List<Map<String, Object>> searchNearest(String kbId, String vectorLiteral, int k) {
         return chunks.searchNearest(kbId, vectorLiteral, k);
+    }
+
+    public List<Map<String, Object>> searchVisible(Map<String, Object> params) {
+        return chunks.searchVisible(params);
     }
 
     public void insertWiki(KbWikiDO row) { wikis.insert(row); }

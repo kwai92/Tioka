@@ -49,8 +49,9 @@
             <span class="preview">{{ (row.skillMd || '').slice(0, 80) }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="100">
+        <el-table-column label="操作" width="160">
           <template #default="{ row }">
+            <el-button link type="primary" size="small" @click="openShare(row.id)">分享</el-button>
             <el-button
               v-if="!row.published"
               link
@@ -64,12 +65,15 @@
         </el-table-column>
       </el-table>
     </el-card>
+
+    <ResourceAclDialog v-model="shareOpen" resource-type="skill" :resource-id="shareId" />
   </div>
 </template>
 
 <script setup>
 import { onMounted, ref } from 'vue'
 import { api } from '../api'
+import ResourceAclDialog from '@/components/ResourceAclDialog.vue'
 
 const skills = ref([])
 const file = ref(null)
@@ -77,6 +81,13 @@ const loading = ref(false)
 const uploading = ref(false)
 const msg = ref('')
 const error = ref('')
+const shareOpen = ref(false)
+const shareId = ref('')
+
+function openShare(id) {
+  shareId.value = id
+  shareOpen.value = true
+}
 
 async function refresh() {
   loading.value = true

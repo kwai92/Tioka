@@ -2,13 +2,14 @@ package com.tioka.knowledge.application;
 
 import com.tioka.framework.id.Ids;
 
+import com.tioka.knowledge.api.WikiApi;
 import com.tioka.knowledge.infrastructure.KnowledgeRepository;
 import com.tioka.knowledge.infrastructure.persistence.KbWikiDO;
 import org.springframework.stereotype.Service;
 
 
 @Service
-public class WikiService {
+public class WikiService implements WikiApi {
     private final KnowledgeService knowledgeService;
     private final KnowledgeRepository repo;
 
@@ -17,9 +18,10 @@ public class WikiService {
         this.repo = repo;
     }
 
-    public WikiPage upsert(String kbId, String title, String body) {
+    @Override
+    public WikiPageView upsert(String kbId, String title, String body) {
         String id = Ids.newId("wiki");
-        WikiPage page = new WikiPage(id, kbId, title, body);
+        WikiPageView page = new WikiPageView(id, kbId, title, body);
         KbWikiDO row = new KbWikiDO();
         row.setId(page.id());
         row.setKbId(page.kbId());
@@ -29,6 +31,4 @@ public class WikiService {
         knowledgeService.ingest(kbId, title, body, "wiki");
         return page;
     }
-
-    public record WikiPage(String id, String kbId, String title, String body) {}
 }

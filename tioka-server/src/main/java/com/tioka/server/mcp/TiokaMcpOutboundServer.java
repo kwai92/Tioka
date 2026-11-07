@@ -1,25 +1,29 @@
 package com.tioka.server.mcp;
 
-import com.tioka.flow.application.FlowPublicationService;
-import com.tioka.knowledge.application.KnowledgeService;
+import com.tioka.system.api.audit.Audited;
+
+import com.tioka.flow.api.FlowInvokeApi;
+import com.tioka.framework.error.ApiResponse;
+import com.tioka.framework.security.Permissions;
+import com.tioka.framework.security.RequirePermission;
+import com.tioka.knowledge.api.KnowledgeSearchApi;
 import org.springframework.stereotype.Service;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Map;
 
-import com.tioka.framework.error.ApiResponse;
-
 @Service
 @RestController
 @RequestMapping("/api/mcp/outbound")
+@RequirePermission(Permissions.MCP_READ)
 public class TiokaMcpOutboundServer {
-    private final KnowledgeService knowledgeService;
-    private final FlowPublicationService flowPublicationService;
+    private final KnowledgeSearchApi knowledgeSearchApi;
+    private final FlowInvokeApi flowInvokeApi;
 
-    public TiokaMcpOutboundServer(KnowledgeService knowledgeService, FlowPublicationService flowPublicationService) {
-        this.knowledgeService = knowledgeService;
-        this.flowPublicationService = flowPublicationService;
+    public TiokaMcpOutboundServer(KnowledgeSearchApi knowledgeSearchApi, FlowInvokeApi flowInvokeApi) {
+        this.knowledgeSearchApi = knowledgeSearchApi;
+        this.flowInvokeApi = flowInvokeApi;
     }
 
     @GetMapping("/tools")
@@ -31,15 +35,17 @@ public class TiokaMcpOutboundServer {
     }
 
     @PostMapping("/call")
+    @Audited(action = "mcp.outbound.call", resourceType = "mcp_tool")
     public ApiResponse<Object> call(@RequestBody Map<String, Object> body) {
         String name = String.valueOf(body.get("name"));
         @SuppressWarnings("unchecked")
         Map<String, Object> args = (Map<String, Object>) body.getOrDefault("arguments", Map.of());
         if ("tioka.kb.search".equals(name)) {
-            return ApiResponse.ok(knowledgeService.search(String.valueOf(args.get("kbId")), String.valueOf(args.get("query")), 3));
+            return ApiResponse.ok(knowledgeSearchApi.searchKnowledge(
+                    String.valueOf(args.get("kbId")), String.valueOf(args.get("query")), 3));
         }
         if ("tioka.flow.run".equals(name)) {
-            return ApiResponse.ok(flowPublicationService.invokeInternalApi(String.valueOf(args.get("versionId")), args));
+            return ApiResponse.ok(flowInvokeApi.invokeInternalApi(String.valueOf(args.get("versionId")), args));
         }
         return ApiResponse.ok(Map.of("error", "unknown"));
     }

@@ -1,0 +1,29 @@
+[
+  {
+    "name": "basic",
+    "item": {
+      "itemId": "fix_compaction_basic",
+      "seq": 1,
+      "itemType": "compaction",
+      "role": "assistant",
+      "content": {
+        "ref": "compaction-1"
+      }
+    }
+  },
+  {
+    "name": "edge",
+    "item": {
+      "itemId": "fix_compaction_edge",
+      "seq": 1,
+      "itemType": "compaction",
+      "role": "assistant",
+      "content": {
+        "note": "unknown-renderer-ok",
+        "payload": {
+          "nested": true
+        }
+      }
+    }
+  }
+]

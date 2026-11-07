@@ -1,19 +1,29 @@
 package com.tioka.flow.application.exec;
 
-import com.tioka.flow.application.CredentialPolicy;
-import com.tioka.model.api.LlmClientApi;
+import com.tioka.framework.error.BizException;
+import com.tioka.framework.error.ErrorCode;
+import com.tioka.framework.id.Ids;
+import com.tioka.runtime.api.kernel.RuntimeApi;
+import com.tioka.runtime.api.kernel.TurnAwaiter;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Component;
 
-import java.util.*;
+import java.time.Duration;
+import java.util.List;
+import java.util.Map;
 
-/** 最小 Agent：LLM + system「agent」；可选 RuntimeSession 过重则不强制。 */
+/**
+ * MH-04 / RT-08：Agent 节点经 {@link RuntimeApi} + {@link TurnAwaiter}，禁止直连模型 HTTP。
+ */
 @Component
 public class AgentNodeExecutor implements NodeExecutor {
-    private final ObjectProvider<LlmClientApi> llmClient;
+    private final ObjectProvider<RuntimeApi> runtimeApi;
+    private final ObjectProvider<TurnAwaiter> turnAwaiter;
 
-    public AgentNodeExecutor(ObjectProvider<LlmClientApi> llmClient) {
-        this.llmClient = llmClient;
+    public AgentNodeExecutor(ObjectProvider<RuntimeApi> runtimeApi,
+                             ObjectProvider<TurnAwaiter> turnAwaiter) {
+        this.runtimeApi = runtimeApi;
+        this.turnAwaiter = turnAwaiter;
     }
 
     @Override
@@ -23,24 +33,34 @@ public class AgentNodeExecutor implements NodeExecutor {
     public Object execute(NodeExecContext ctx, Map<String, Object> node, Object input) throws Exception {
         @SuppressWarnings("unchecked")
         Map<String, Object> config = (Map<String, Object>) node.getOrDefault("config", Map.of());
-        String model = String.valueOf(config.getOrDefault("model", "mock"));
-        String baseUrl = String.valueOf(config.getOrDefault("baseUrl", "mock://openai"));
-        String apiKeyRef = config.get("apiKeyRef") == null ? null : String.valueOf(config.get("apiKeyRef"));
-        if (apiKeyRef != null && !apiKeyRef.isBlank()) {
-            CredentialPolicy.assertSecretRef("apiKeyRef", apiKeyRef);
-        }
         String user = extractText(input);
-        List<Map<String, Object>> messages = List.of(
-                Map.of("role", "system", "content", "agent"),
-                Map.of("role", "user", "content", user)
-        );
-        LlmClientApi client = llmClient.getIfAvailable();
-        if (client == null) {
-            return Map.of("content", "agent:" + user, "role", "agent");
+        RuntimeApi runtime = runtimeApi.getIfAvailable();
+        TurnAwaiter awaiter = turnAwaiter.getIfAvailable();
+        if (runtime == null || awaiter == null) {
+            return Map.of("content", "agent:" + user, "role", "agent", "mock", true);
         }
-        LlmClientApi.CompletionResult result = client.complete(
-                baseUrl, apiKeyRef == null ? "" : apiKeyRef, model, messages, List.of());
-        return Map.of("content", result.content(), "role", "agent");
+        Object rawVersion = config.get("agentVersionId");
+        String agentVersionId = rawVersion == null ? null : String.valueOf(rawVersion);
+        if (agentVersionId == null || agentVersionId.isBlank() || "null".equals(agentVersionId)) {
+            throw new BizException(ErrorCode.BAD_REQUEST, "Agent 节点缺少 agentVersionId");
+        }
+        String nodeId = node.get("id") == null ? "" : String.valueOf(node.get("id"));
+        RuntimeApi.ThreadView thread = runtime.createThread(new RuntimeApi.CreateThreadCmd(
+                agentVersionId, "flow", ctx.runId(), null,
+                Map.of("runId", ctx.runId(), "nodeId", nodeId)));
+        RuntimeApi.TurnHandle handle = runtime.startTurn(thread.threadId(), new RuntimeApi.StartTurnCmd(
+                Ids.newId("cm"),
+                List.of(RuntimeApi.InputItem.text(user)),
+                null,
+                "flow",
+                nodeId));
+        RuntimeApi.TurnView view = awaiter.await(handle.turnId(), Duration.ofMinutes(5));
+        String text = awaiter.finalText(handle.turnId()).orElse("");
+        return Map.of(
+                "content", text,
+                "role", "agent",
+                "turnId", handle.turnId(),
+                "turnStatus", view.status().name());
     }
 
     private static String extractText(Object input) {

@@ -27,8 +27,8 @@ check "飞书 OpenAPI Adapter" "tioka-modules/tioka-module-connector/tioka-modul
 grep -q 'tenant_access_token' tioka-modules/tioka-module-connector/tioka-module-connector-biz/src/main/java/com/tioka/connector/infrastructure/FeishuImChannelAdapter.java \
   || { echo "MISS feishu tenant_access_token"; fail=1; }
 
-check "OIDC Adapter" "tioka-modules/tioka-module-system/tioka-module-system-biz/src/main/java/com/tioka/system/infrastructure/spi/LocalOidcIdPAdapter.java"
-grep -q 'oidc/callback' tioka-modules/tioka-module-system/tioka-module-system-biz/src/main/java/com/tioka/system/api/AuthController.java \
+check "OIDC Login" "tioka-modules/tioka-module-system/tioka-module-system-biz/src/main/java/com/tioka/system/application/oidc/OidcLoginService.java"
+grep -q 'oidc/{idp}/callback' tioka-modules/tioka-module-system/tioka-module-system-biz/src/main/java/com/tioka/system/api/AuthController.java \
   || { echo "MISS oidc callback API"; fail=1; }
 
 check "ext profile" "tioka-server/src/main/resources/application-ext.yml"

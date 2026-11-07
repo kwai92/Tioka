@@ -26,8 +26,20 @@ public class SysMemberRepository {
         mapper.upsertMember(workspaceId, userId, roleCode);
     }
 
+    public void upsertWithSource(String workspaceId, String userId, String roleCode, String source) {
+        mapper.upsertMemberWithSource(workspaceId, userId, roleCode, source);
+    }
+
     public List<SysMemberDO> findByUserId(String userId) {
         return mapper.listByUserId(userId);
+    }
+
+    public List<SysMemberDO> findByUserIdAndSource(String userId, String source) {
+        return mapper.listByUserIdAndSource(userId, source);
+    }
+
+    public void softDeleteOne(String workspaceId, String userId, String roleCode) {
+        mapper.softDeleteOne(workspaceId, userId, roleCode);
     }
 
     public boolean isMember(String workspaceId, String userId) {

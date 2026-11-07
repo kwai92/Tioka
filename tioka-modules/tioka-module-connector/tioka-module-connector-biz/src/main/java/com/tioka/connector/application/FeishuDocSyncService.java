@@ -4,6 +4,7 @@ import com.tioka.framework.id.Ids;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.tioka.connector.api.FeishuDocSyncApi;
 import com.tioka.connector.api.spi.FeishuDocContentSpi;
 import com.tioka.connector.infrastructure.FeishuDocRepository;
 import com.tioka.connector.infrastructure.persistence.FeishuDocMapDO;
@@ -27,7 +28,7 @@ import java.util.concurrent.atomic.AtomicReference;
  * - push → 本地镜像 +（可选）POST 创建空文档占位（官方 create 不支持正文）
  */
 @Service
-public class FeishuDocSyncService implements FeishuDocContentSpi {
+public class FeishuDocSyncService implements FeishuDocContentSpi, FeishuDocSyncApi {
     private static final Logger log = LoggerFactory.getLogger(FeishuDocSyncService.class);
     private final FeishuDocRepository docs;
     private final ObjectMapper mapper;
@@ -49,9 +50,10 @@ public class FeishuDocSyncService implements FeishuDocContentSpi {
         this.apiBase = apiBase == null || apiBase.isBlank() ? "https://open.feishu.cn" : apiBase.replaceAll("/$", "");
     }
 
-    public Mapping map(String localDocId, String feishuDocToken) {
+    @Override
+    public MappingView map(String localDocId, String feishuDocToken) {
         String id = Ids.newId("map");
-        Mapping m = new Mapping(id, localDocId, feishuDocToken);
+        MappingView m = new MappingView(id, localDocId, feishuDocToken);
         FeishuDocMapDO row = new FeishuDocMapDO();
         row.setId(m.id());
         row.setLocalDocId(m.localDocId());
@@ -61,7 +63,7 @@ public class FeishuDocSyncService implements FeishuDocContentSpi {
     }
 
     public String push(String mappingId, String content) {
-        Mapping m = require(mappingId);
+        MappingView m = require(mappingId);
         String remote = "feishu://" + m.feishuDocToken();
         upsertPush(remote, content == null ? "" : content);
         if (live()) {
@@ -77,7 +79,7 @@ public class FeishuDocSyncService implements FeishuDocContentSpi {
     }
 
     public String pull(String mappingId) {
-        Mapping m = require(mappingId);
+        MappingView m = require(mappingId);
         return pullByToken(m.feishuDocToken());
     }
 
@@ -166,9 +168,9 @@ public class FeishuDocSyncService implements FeishuDocContentSpi {
         return token;
     }
 
-    private Mapping require(String mappingId) {
+    private MappingView require(String mappingId) {
         FeishuDocMapDO row = docs.findMap(mappingId);
-        return new Mapping(row.getId(), row.getLocalDocId(), row.getFeishuDocToken());
+        return new MappingView(row.getId(), row.getLocalDocId(), row.getFeishuDocToken());
     }
 
     private static String firstLine(String content) {
@@ -179,5 +181,4 @@ public class FeishuDocSyncService implements FeishuDocContentSpi {
     }
 
     private record CachedToken(String token, long expireAtMs) {}
-    public record Mapping(String id, String localDocId, String feishuDocToken) {}
 }

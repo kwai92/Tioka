@@ -6,9 +6,12 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Map;
+import com.tioka.framework.security.RequirePermission;
+import com.tioka.framework.security.Permissions;
 
 @RestController
 @RequestMapping("/api/connector/im")
+@RequirePermission(Permissions.CHAT_USE)
 public class ImController {
     private final FeishuImChannelAdapter feishu;
 

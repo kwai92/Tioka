@@ -7,32 +7,39 @@ import { gateSend, shouldAppendStreamPart, sidebarIsProductCost } from './chatUx
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 const chatVue = readFileSync(join(root, 'views/Chat.vue'), 'utf8')
 
-describe('CH-01 Chat UX gates', () => {
-  it('rejects empty message and cancelled send', () => {
-    expect(gateSend({ text: '  ', activeId: 'c1', cancelled: false })).toBe('消息不能为空')
-    expect(gateSend({ text: 'hi', activeId: '', cancelled: false })).toBe('请先创建或选择会话')
-    expect(gateSend({ text: 'hi', activeId: 'c1', cancelled: true })).toContain('已取消')
-    expect(gateSend({ text: 'hi', activeId: 'c1', cancelled: false })).toBeNull()
+describe('CH-01 / HCI-02 Chat UX gates', () => {
+  it('rejects empty message and busy send', () => {
+    expect(gateSend({ text: '  ', activeId: 'c1' })).toBe('消息不能为空')
+    expect(gateSend({ text: 'hi', activeId: '' })).toBe('请先创建或选择会话')
+    expect(gateSend({ text: 'hi', activeId: 'c1', sending: true })).toContain('等待')
+    expect(gateSend({ text: 'hi', activeId: 'c1', sending: false })).toBeNull()
   })
 
-  it('stops stream append after cancel', () => {
+  it('shouldAppendStreamPart still gates cancelled (compat)', () => {
     expect(shouldAppendStreamPart(false)).toBe(true)
     expect(shouldAppendStreamPart(true)).toBe(false)
   })
 
-  it('Chat.vue wires multi-conversation switch + PartRenderer', () => {
+  it('Chat.vue wires multi-conversation switch + ItemList + streamThread', () => {
     expect(chatVue).toMatch(/v-for="c in conversations"/)
     expect(chatVue).toMatch(/@click="open\(c\.id\)"/)
     expect(chatVue).toMatch(/newConv/)
-    expect(chatVue).toMatch(/<PartRenderer/)
+    expect(chatVue).toMatch(/<ItemList/)
+    expect(chatVue).not.toMatch(/PartRenderer/)
+    expect(chatVue).toMatch(/streamThread/)
+    expect(chatVue).toMatch(/startChatTurn/)
+    expect(chatVue).toMatch(/stopActiveTurn|function stop/)
+    expect(chatVue).not.toMatch(/openSessionStream/)
     expect(chatVue).not.toMatch(/<pre[\s>]/)
   })
 
-  it('Chat.vue shows error banner and cancel stops streaming', () => {
+  it('Chat.vue shows reconnect banner, optimistic send, stop', () => {
     expect(chatVue).toMatch(/errorBanner/)
     expect(chatVue).toMatch(/gateSend/)
-    expect(chatVue).toMatch(/shouldAppendStreamPart\(cancelled/)
-    expect(chatVue).toMatch(/cancelled\.value = true/)
+    expect(chatVue).toMatch(/重连中/)
+    expect(chatVue).toMatch(/optimisticUser/)
+    expect(chatVue).toMatch(/clientMsgId/)
+    expect(chatVue).toMatch(/function stop/)
   })
 
   it('sidebar is cost/model not env dump', () => {

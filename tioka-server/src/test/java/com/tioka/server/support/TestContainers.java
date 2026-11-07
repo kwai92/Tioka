@@ -28,10 +28,16 @@ public final class TestContainers {
     private TestContainers() {}
 
     public static void register(DynamicPropertyRegistry r) {
-        r.add("spring.datasource.url", PG::getJdbcUrl);
+        // M0-P2：与 application.yml 一致，会话 TimeZone=UTC（Testcontainers URL 会覆盖 yml）
+        r.add("spring.datasource.url", () -> appendUtcSession(PG.getJdbcUrl()));
         r.add("spring.datasource.username", PG::getUsername);
         r.add("spring.datasource.password", PG::getPassword);
         r.add("spring.data.redis.host", REDIS::getHost);
         r.add("spring.data.redis.port", () -> REDIS.getMappedPort(6379));
+    }
+
+    static String appendUtcSession(String jdbcUrl) {
+        String sep = jdbcUrl.contains("?") ? "&" : "?";
+        return jdbcUrl + sep + "options=-c%20TimeZone%3DUTC";
     }
 }
