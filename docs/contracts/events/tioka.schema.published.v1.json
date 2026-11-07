@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tioka.dev/schema/tioka.schema.published.v1.json",
+  "title": "tioka.schema.published.v1",
+  "description": "SCH-01 Schema 登记表发布，刷新本地缓存。",
+  "type": "object",
+  "required": [
+    "schemaKey",
+    "version"
+  ],
+  "properties": {
+    "schemaKey": {
+      "type": "string"
+    },
+    "version": {
+      "type": "string"
+    },
+    "contentHash": {
+      "type": "string"
+    },
+    "workspaceId": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": true
+}

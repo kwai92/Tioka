@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tioka.dev/schema/tioka.trust.action_undone.v1.json",
+  "title": "tioka.trust.action_undone.v1",
+  "description": "TRU-07 撤销成功（F31）；M4 TRU-13 账本冲销消费。Payload 含 Agent、版本、动作类别、金额、记录数、编排 Run ID。",
+  "type": "object",
+  "required": [
+    "actionId",
+    "agentId",
+    "agentVersionId",
+    "actionCategory",
+    "amountMicros",
+    "recordCount"
+  ],
+  "properties": {
+    "actionId": {
+      "type": "string"
+    },
+    "agentId": {
+      "type": "string"
+    },
+    "agentVersionId": {
+      "type": "string"
+    },
+    "actionCategory": {
+      "type": "string"
+    },
+    "amountMicros": {
+      "type": "integer"
+    },
+    "recordCount": {
+      "type": "integer"
+    },
+    "orchRunId": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "workspaceId": {
+      "type": "string"
+    },
+    "undoScopeId": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": true
+}

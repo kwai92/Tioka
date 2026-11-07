@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tioka.dev/schema/tioka.quota.threshold.v1.json",
+  "title": "tioka.quota.threshold.v1",
+  "description": "MH-09 / ADR-041 配额越过预警线或 100%。",
+  "type": "object",
+  "required": [
+    "quotaKey",
+    "thresholdPct",
+    "used",
+    "limit"
+  ],
+  "properties": {
+    "quotaKey": {
+      "type": "string"
+    },
+    "thresholdPct": {
+      "type": "number"
+    },
+    "used": {
+      "type": "number"
+    },
+    "limit": {
+      "type": "number"
+    },
+    "workspaceId": {
+      "type": "string"
+    },
+    "period": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": true
+}

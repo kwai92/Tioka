@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tioka.dev/schema/tioka.knowledge.external_queried.v1.json",
+  "title": "tioka.knowledge.external_queried.v1",
+  "description": "KNW-16 外部知识库联邦检索调用台账事件。",
+  "type": "object",
+  "required": [
+    "providerKey",
+    "queryId",
+    "ok"
+  ],
+  "properties": {
+    "providerKey": {
+      "type": "string"
+    },
+    "queryId": {
+      "type": "string"
+    },
+    "ok": {
+      "type": "boolean"
+    },
+    "hitCount": {
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "workspaceId": {
+      "type": "string"
+    },
+    "latencyMs": {
+      "type": [
+        "integer",
+        "null"
+      ]
+    }
+  },
+  "additionalProperties": true
+}
