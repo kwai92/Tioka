@@ -95,6 +95,12 @@ tioka:
     trusted-proxies: []
     physical-purge-enabled: false
     degraded-relative-path: audit/audit-degraded.jsonl
+  # FND-12: plugin host（默认关闭）
+  plugin:
+    enabled: false
+    signature-required: true
+    verification-keys: []
+    directory: /opt/tioka/plugins
   knowledge:
     embedding-dim: ${TIOKA_EMBEDDING_DIM:1024}
     reindex-enabled: true
