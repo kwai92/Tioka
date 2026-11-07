@@ -244,3 +244,7 @@ public interface FoldingEngine {
 - Word 解析必须渲染自动编号、按单元格输出表格、采纳修订并分离批注（ADR-060 第 2.1 节），否则条款树建不出来。
 - 「OCR 是 Model Hub 的一种能力」改为：OCR 是文档解析服务的一个阶段，由解析方案选择引擎；VLM 类识别器仍经 Model Hub 调用，外购产品与自部署服务按 ADR-061 接入。
 - 合并规则在 M3-03 的 IoU 规则之外，增加文字层与页图一致性抽检、第二意见与来源冲突标记；取值「待复核」的条件扩充为低置信、来源冲突、手写金额日期、印章遮挡（ADR-062 第 5 节）。
+
+## 修订：文档结构树与证照抽取（2026-11-07）
+
+见 [ADR-063](ADR-063-docast-layers-element-processing.md)、[ADR-064](ADR-064-certificate-structured-extraction.md) 与 ADR-029 第 72 条：M4 起 `doc_clause` 由解析契约的章节树 `tree` 生成，`clause_path` 取节点 `path`，M3 的正则建树由结构重建器取代、口径一致；@model.build 第 0 步解析之后，对合同附带的证照段（营业执照、身份证、不动产权证书、授权委托书、发票）自动调用 `@doc.extract`，结果作为对象属性的证据来源，证据绑定照常校验；印章块的类型属性可作为「是否加盖公章或合同专用章」等要点的证据。

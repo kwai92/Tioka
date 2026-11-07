@@ -191,3 +191,14 @@ M3（PRS-00）只要求：`pages`（kind、尺寸、页图）、`blocks`（`type
 | FE-37 | 解析结果查看器组件（页图、块框、高亮、来源）；ONT-08 复用 | M4 | P1 | 前端 4 | PRS-01 | 低置信与手写块高亮可见，点击显示来源引擎 |
 
 PRS-03〜08 见 ADR-061、ADR-062；PRS-10〜12、FE-38 在 M4 之后。原计划的 PRS-09（知识库改用解析服务）已由 ADR-055 的 KNW-11 在 M3 覆盖，编号不再使用。
+
+## 修订：文档结构树、图层与证照（2026-11-07）
+
+来由：负责人指出开源引擎与 PDFBox / POI / 百炼 OCR 都产不出结构树，证照出不了结构化数据，也没有图层与元素专项处理；[调研 06](../research/06-文档结构树图层与证照抽取补充调研.md)；ADR-029 第 72 条。
+
+- **契约增补**为完整的 DocAST（[ADR-063](ADR-063-docast-layers-element-processing.md) 第 1 节）：`tree`（章节树）、`inlines`（行内对象）、`chars`（字符级，可选）、页上的 `layers`（图层）、`relations`（题注、续接、键值、交叉引用）；文档级增加 `segments`（文档段分类，[ADR-064](ADR-064-certificate-structured-extraction.md) 第 1 节）。均为可选字段，符合第 3.5 节「只增不改」。
+- **流水线**：阶段 4「页图」扩展为「页图与图层」（规范化、去水印、去章、印章与手写掩膜，ADR-063 第 3 节）；阶段 6「区域识别」改为按元素类型路由到专项处理器链（ADR-063 第 4 节）；阶段 8「组装」改由结构重建器完成（ADR-063 第 2 节）；阶段 9 之后增加「文档段分类」，证照与票据段交给 `@doc.extract`（ADR-064）。
+- **规范化**：MinerU 4.x 原生支持 DOC、XLSX、PPTX、OFD、RTF 等格式，规范化阶段优先交给它，LibreOffice 转换只作兜底；OFD 不再等到 M4 之后。
+- **方案是装配出来的，不是安装要求**：系统按客户已登记的引擎实例自动生成推荐方案，缺失能力按 ADR-063 第 5 节降级并在 `capabilityReport` 中报告；下表与本条所说的默认方案都只是推荐配方。PRS-02 由 3 人日增至 4 人日。
+- **默认方案**（第 4 节表格）：`standard-private` 的版面、文字、表格主引擎改为 MinerU 4.x（standard 档；CPU 12 核以上可用），印章与手写专项为 PaddleOCR；`standard-cloud` 在此基础上可把 TextIn xParse 放在各链首位（采购评估通过后），第二意见仍为 `qwen-vl-ocr`。最终以 ADR-062 评测集上 MinerU 4.x 与 PaddleOCR 的对比结果定稿（PRS-03）。
+- 文档层 `doc_clause` 改由 `tree` 生成（第 6 节映射表相应修订）。
