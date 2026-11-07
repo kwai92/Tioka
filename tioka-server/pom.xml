@@ -64,6 +64,10 @@
             <groupId>com.tioka</groupId>
             <artifactId>tioka-module-skill-api</artifactId>
         </dependency>
+        <dependency>
+            <groupId>com.tioka</groupId>
+            <artifactId>tioka-module-ontology-api</artifactId>
+        </dependency>
 
         <dependency>
             <groupId>com.tioka</groupId>
@@ -103,6 +107,11 @@
         <dependency>
             <groupId>com.tioka</groupId>
             <artifactId>tioka-module-skill-biz</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.tioka</groupId>
+            <artifactId>tioka-module-ontology-biz</artifactId>
             <scope>runtime</scope>
         </dependency>
         <dependency>
