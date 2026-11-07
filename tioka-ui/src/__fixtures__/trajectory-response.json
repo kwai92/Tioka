@@ -1,0 +1,126 @@
+{
+  "turn": {
+    "turnId": "trn_fixture_01",
+    "threadId": "thd_fixture_01",
+    "seq": 1,
+    "status": "SUCCEEDED",
+    "origin": "chat",
+    "originRef": null,
+    "stepCount": 3,
+    "errorCode": null,
+    "errorMessage": null,
+    "promptTokens": 420,
+    "completionTokens": 180,
+    "createdAt": "2026-11-07T02:00:00Z",
+    "startedAt": "2026-11-07T02:00:01Z",
+    "endedAt": "2026-11-07T02:00:12Z"
+  },
+  "steps": [
+    {
+      "step": 1,
+      "modelRef": "gpt-mock@primary",
+      "promptTokens": 120,
+      "completionTokens": 40,
+      "latencyMs": 800,
+      "costMicros": 1200,
+      "failover": false,
+      "items": [
+        {
+          "itemId": "itm_msg_1",
+          "threadId": "thd_fixture_01",
+          "turnId": "trn_fixture_01",
+          "seq": 1,
+          "step": 1,
+          "type": "message",
+          "role": "assistant",
+          "content": { "text": "先查一下工单状态。" },
+          "createdAt": "2026-11-07T02:00:02Z",
+          "discarded": false
+        }
+      ]
+    },
+    {
+      "step": 2,
+      "modelRef": "gpt-mock@primary",
+      "promptTokens": 180,
+      "completionTokens": 60,
+      "latencyMs": 1500,
+      "costMicros": 2100,
+      "failover": false,
+      "items": [
+        {
+          "itemId": "itm_tool_call_1",
+          "threadId": "thd_fixture_01",
+          "turnId": "trn_fixture_01",
+          "seq": 2,
+          "step": 2,
+          "type": "tool_call",
+          "role": "assistant",
+          "content": { "name": "echo", "args": { "q": "status" } },
+          "createdAt": "2026-11-07T02:00:04Z",
+          "discarded": false
+        },
+        {
+          "itemId": "itm_tool_result_1",
+          "threadId": "thd_fixture_01",
+          "turnId": "trn_fixture_01",
+          "seq": 3,
+          "step": 2,
+          "type": "tool_result",
+          "role": "tool",
+          "content": { "ok": true, "output": "OPEN" },
+          "createdAt": "2026-11-07T02:00:05Z",
+          "discarded": false
+        }
+      ]
+    },
+    {
+      "step": 3,
+      "modelRef": "gpt-mock@backup",
+      "promptTokens": 120,
+      "completionTokens": 80,
+      "latencyMs": 900,
+      "costMicros": 1500,
+      "failover": true,
+      "items": [
+        {
+          "itemId": "itm_msg_discarded",
+          "threadId": "thd_fixture_01",
+          "turnId": "trn_fixture_01",
+          "seq": 4,
+          "step": 3,
+          "type": "message",
+          "role": "assistant",
+          "content": { "text": "（已作废）旧模型半成品" },
+          "createdAt": "2026-11-07T02:00:08Z",
+          "discarded": true
+        },
+        {
+          "itemId": "itm_msg_2",
+          "threadId": "thd_fixture_01",
+          "turnId": "trn_fixture_01",
+          "seq": 5,
+          "step": 3,
+          "type": "message",
+          "role": "assistant",
+          "content": { "text": "工单仍为 OPEN，已发起审批。" },
+          "createdAt": "2026-11-07T02:00:10Z",
+          "discarded": false
+        },
+        {
+          "itemId": "itm_future_data",
+          "threadId": "thd_fixture_01",
+          "turnId": "trn_fixture_01",
+          "seq": 6,
+          "step": 3,
+          "type": "data",
+          "role": "assistant",
+          "content": { "rows": [{ "k": "status", "v": "OPEN" }] },
+          "createdAt": "2026-11-07T02:00:11Z",
+          "discarded": false
+        }
+      ]
+    }
+  ],
+  "traceUrl": "http://jaeger.local/trace/abc123"
+}

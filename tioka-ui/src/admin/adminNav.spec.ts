@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { canSeeAdmin, filterAdminNav, hasAnyPermission, routeAllowed } from './adminNav'
+import {
+  APP_NAV,
+  CONNECT_ROUTES,
+  canSeeAdmin,
+  filterAdminNav,
+  hasAnyPermission,
+  routeAllowed
+} from './adminNav'
 import { buildRolePermissionPayload, groupPermissionsByResource, togglePermission } from './roleMatrix'
 import { clearApiKeyPlaintext, emptyApiKeyPlaintext, setApiKeyPlaintext } from './apiKeyPlaintext'
 import { isOidcGroupSource, parseScopeList } from './adminApi'
@@ -20,6 +27,19 @@ describe('adminNav', () => {
     expect(routeAllowed(['quota:read'], ['quota:read', 'tenant:admin'])).toBe(true)
     expect(routeAllowed(['chat:use'], ['tenant:admin'])).toBe(false)
     expect(hasAnyPermission(['tenant:admin'], ['tenant:admin'])).toBe(true)
+  })
+
+  it('PK-00d 登记 M2 工作台与连接页导航', () => {
+    const paths = APP_NAV.map((n) => n.path)
+    expect(paths).toContain('/approvals')
+    expect(paths).toContain('/trajectory')
+    expect(paths).toContain('/orch/rules')
+    expect(paths).toContain('/orch/work-items')
+    expect(paths).toContain('/ops/dead-letters')
+    expect(paths).toContain('/ops/timers')
+    expect(paths).toContain('/im/bindings')
+    expect(paths).toContain('/settings/connected-apps')
+    expect(CONNECT_ROUTES.map((r) => r.path)).toEqual(['/connect/feishu'])
   })
 })
 

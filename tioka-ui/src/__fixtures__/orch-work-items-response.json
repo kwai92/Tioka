@@ -1,0 +1,38 @@
+[
+  {
+    "id": "wi_fixture_01",
+    "workspaceId": "ws_demo",
+    "ruleId": "rule_fixture_01",
+    "ruleName": "飞书@机器人自动接单",
+    "subjectKey": "feishu:chat_abc:root_1",
+    "status": "OPEN",
+    "activeRunId": "run_fixture_01",
+    "threadId": "thd_fixture_01",
+    "lastEventAt": "2026-11-07T03:00:00Z",
+    "mandate": {
+      "id": "md_fixture_01",
+      "ruleVersionId": "rv_fixture_stable",
+      "serviceAccountId": "sa_orch",
+      "strength": "EXPLICIT",
+      "via": "ADDRESSED",
+      "status": "ACTIVE",
+      "requesterUserId": "usr_alice",
+      "revokedBy": null,
+      "revokedReason": null,
+      "createAt": "2026-11-07T02:30:00Z"
+    },
+    "runs": [
+      {
+        "id": "run_fixture_01",
+        "status": "WAITING_ATTENTION",
+        "attempt": 1,
+        "threadId": "thd_fixture_01",
+        "turnId": "trn_fixture_01",
+        "createAt": "2026-11-07T02:30:01Z",
+        "endedAt": null
+      }
+    ],
+    "createAt": "2026-11-07T02:30:00Z",
+    "updateAt": "2026-11-07T03:00:00Z"
+  }
+]
