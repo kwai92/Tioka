@@ -243,6 +243,7 @@ ADR-037 的 `structuredOutput: SCHEMA | JSON | TOOL` 改为能力记录，放在
 | 编排派工器（ADR-020） | 规则可匹配 `outcome`；未匹配 `FAILED` 时按缺省规则生成待办给 Agent 负责人 |
 | 业务提交工具 | 入参引用登记表 Schema（ADR-037 已定）；ToolGateway `prepare` 只接受 `VALID` / `VALID_WITH_UNKNOWN` 的 `data` item 引用或通过同一流水线第 3〜8 步的参数；`unknownPaths` 非空时，提交是否允许由工具声明（`acceptsUnknown`），缺省不允许并转审批 |
 | 黑板 `team.publish` | 只接受 `VALID` / `VALID_WITH_UNKNOWN` |
+| 证照与票据抽取 `@doc.extract`（[ADR-064](ADR-064-certificate-structured-extraction.md)） | 产出的 `data` item 同样经本 ADR 的流水线与四种结局；证照 Schema 按严格档发布，低置信与校验失败的字段走兜底值或人工补录 |
 | 外部调用方（Flow 发布为 API、A2A） | 响应体固定包含 `outcome`；`FAILED` 时 HTTP 仍为 200，`outcome=FAILED` 与原因码，不返回 500（500 只用于平台自身故障） |
 
 ## 9. Schema 演进
