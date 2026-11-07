@@ -64,12 +64,11 @@ class AuditCoverageIT {
             new WhitelistEntry("/api/connector/im/feishu/text", WhitelistKind.INBOUND_LEDGER, "飞书入站回调台账"),
             new WhitelistEntry("/api/flows/publications/webhook/{versionId}", WhitelistKind.INBOUND_LEDGER, "Flow webhook 入站"),
             new WhitelistEntry("/api/flows/publications/internal/{versionId}", WhitelistKind.INBOUND_LEDGER, "Flow 内部触发入站"),
-            // ORC-05：旧编排 REST 显式 501，待 ORC-03/04 重建
-            new WhitelistEntry("/api/orch/events", WhitelistKind.NOT_IMPLEMENTED, "ORC-05 stub；ORC-03"),
-            new WhitelistEntry("/api/orch/runs/claim", WhitelistKind.NOT_IMPLEMENTED, "ORC-05 stub；ORC-03"),
-            new WhitelistEntry("/api/orch/runs/{id}/heartbeat", WhitelistKind.NOT_IMPLEMENTED, "ORC-05 stub；ORC-03"),
-            new WhitelistEntry("/api/orch/attentions", WhitelistKind.NOT_IMPLEMENTED, "ORC-05 stub；ORC-04"),
-            new WhitelistEntry("/api/orch/attentions/{id}/answer", WhitelistKind.NOT_IMPLEMENTED, "ORC-05 stub；ORC-04")
+            // ORC-03：events/cancel 已 @Audited；claim/heartbeat 仍 501，attentions 待 ORC-04
+            new WhitelistEntry("/api/orch/runs/claim", WhitelistKind.NOT_IMPLEMENTED, "ORC-03 stub；claim 未接线"),
+            new WhitelistEntry("/api/orch/runs/{id}/heartbeat", WhitelistKind.NOT_IMPLEMENTED, "ORC-03 stub；heartbeat 未接线"),
+            new WhitelistEntry("/api/orch/attentions", WhitelistKind.NOT_IMPLEMENTED, "ORC-04 stub；人审未重建"),
+            new WhitelistEntry("/api/orch/attentions/{id}/answer", WhitelistKind.NOT_IMPLEMENTED, "ORC-04 stub；人审未重建")
     );
 
     private static final Set<String> PATH_WHITELIST = WHITELIST.stream()
