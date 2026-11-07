@@ -1,22 +1,17 @@
 package com.tioka.runtime.api.mq;
 
 /**
- * MQ Topic/Tag 常量（禁止在 biz 内硬编码字符串）。
+ * MQ Topic / 事件名常量（禁止在 biz 内硬编码字符串）。事件名见 M2-01 ORC-02。
  */
 public final class RuntimeMqTopics {
 
     public static final String TOPIC = "tioka-runtime";
 
-    public static final String TAG_SESSION_CREATED = "session.created";
-    public static final String TAG_SESSION_COMPLETED = "session.completed";
-    public static final String TAG_TURN_STARTED = "turn.started";
-    public static final String TAG_TURN_COMPLETED = "turn.completed";
-    public static final String TAG_PART_APPENDED = "part.appended";
-    public static final String TAG_TOOL_INVOKED = "tool.invoked";
-    public static final String TAG_APPROVAL_REQUESTED = "approval.requested";
-    public static final String TAG_SUBAGENT_FINISHED = "subagent.finished";
-    public static final String TAG_USAGE_REPORTED = "usage.reported";
-    public static final String TAG_SANDBOX_DESTROYED = "sandbox.destroyed";
+    public static final String TURN_FINISHED = "tioka.runtime.turn_finished.v1";
+    public static final String TURN_WAITING = "tioka.runtime.turn_waiting.v1";
+    public static final String APPROVAL_REQUESTED = "tioka.runtime.approval_requested.v1";
+    public static final String APPROVAL_DECIDED = "tioka.runtime.approval_decided.v1";
+    public static final String CHILD_FINISHED = "tioka.runtime.child_finished.v1";
 
     private RuntimeMqTopics() {
     }

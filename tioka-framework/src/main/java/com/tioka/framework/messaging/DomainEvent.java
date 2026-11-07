@@ -5,7 +5,7 @@ import java.util.Objects;
 import java.util.regex.Pattern;
 
 /**
- * 待发布的跨域事件；信封其余字段（eventId、tenantId、runAs、traceId 等）由 {@link EventPublisher} 补齐。
+ * 待发布的跨域事件；信封其余字段（eventId、workspaceId、runAs、traceId、traceparent 等）由 {@link EventPublisher} 补齐。
  *
  * @param event      事件名，{@code tioka.{domain}.{event}.v{n}}（ADR-029 第 15 条）
  * @param topic      RocketMQ 主题，每个领域一个，如 {@code tioka-orch}

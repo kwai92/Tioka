@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tioka.dev/schema/tioka.runtime.approval_requested.v1.json",
+  "title": "tioka.runtime.approval_requested.v1",
+  "description": "Approval created; consumed by approval desk and IM cards (M2-03/M2-04).",
+  "type": "object",
+  "required": ["approvalId", "subjectType", "subjectId", "kind"],
+  "properties": {
+    "approvalId": { "type": "string" },
+    "subjectType": { "type": "string", "description": "turn | orch_run | flow_node_run" },
+    "subjectId": { "type": "string" },
+    "kind": { "type": "string" },
+    "title": { "type": "string" },
+    "summary": { "type": "string" },
+    "workspaceId": { "type": "string" },
+    "requestedBy": { "type": "string" },
+    "assigneeUserIds": { "type": "array", "items": { "type": "string" } },
+    "assigneeRoles": { "type": "array", "items": { "type": "string" } },
+    "expiresAt": { "type": "string", "format": "date-time" }
+  },
+  "additionalProperties": true
+}
