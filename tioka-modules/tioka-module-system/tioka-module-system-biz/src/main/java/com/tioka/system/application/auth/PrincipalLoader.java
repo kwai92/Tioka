@@ -103,7 +103,10 @@ public class PrincipalLoader implements PrincipalLoaderApi {
         Set<String> perms = rolePermissions.expand(roles);
         // 预热组缓存
         groupIds(uid);
-        Principal principal = new Principal(uid, resolvedWs, PrincipalType.USER, roles, perms, method);
+        PrincipalType type = "SERVICE".equalsIgnoreCase(u.getType())
+                ? PrincipalType.SERVICE
+                : PrincipalType.USER;
+        Principal principal = new Principal(uid, resolvedWs, type, roles, perms, method);
         try {
             redis.opsForValue().set(cacheKey, objectMapper.writeValueAsString(principal), CACHE_TTL);
         } catch (JsonProcessingException ignored) {

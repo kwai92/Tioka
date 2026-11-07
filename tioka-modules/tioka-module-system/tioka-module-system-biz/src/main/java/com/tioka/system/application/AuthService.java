@@ -78,6 +78,12 @@ public class AuthService {
             auditAuth("auth.login", null, username, clientIp, AuditOutcome.DENIED, "用户名或密码错误");
             throw new BizException(ErrorCode.UNAUTHORIZED, "用户名或密码错误");
         }
+        if ("SERVICE".equalsIgnoreCase(row.getType())) {
+            recordFailure(clientIp, username);
+            auditAuth("auth.login", String.valueOf(row.getId()), username, clientIp,
+                    AuditOutcome.DENIED, "服务账号不能登录");
+            throw new BizException(ErrorCode.UNAUTHORIZED, "服务账号不能登录");
+        }
         if (!passwords.matches(password, row.getPasswordHash())) {
             recordFailure(clientIp, username);
             auditAuth("auth.login", String.valueOf(row.getId()), username, clientIp,

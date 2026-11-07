@@ -18,6 +18,8 @@ public class AuthUserDO extends BaseDO {
     private String defaultWorkspaceId;
     private Boolean mustChangePassword;
     private String email;
+    /** USER / SERVICE（V113 / FND-06）。 */
+    private String type;
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
@@ -39,4 +41,6 @@ public class AuthUserDO extends BaseDO {
     public void setMustChangePassword(Boolean mustChangePassword) { this.mustChangePassword = mustChangePassword; }
     public String getEmail() { return email; }
     public void setEmail(String email) { this.email = email; }
+    public String getType() { return type; }
+    public void setType(String type) { this.type = type; }
 }

@@ -1,10 +1,14 @@
 package com.tioka.flow.api;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tioka.framework.error.ApiResponse;
+import com.tioka.framework.error.BizException;
+import com.tioka.framework.error.ErrorCode;
+import com.tioka.framework.security.AccessLevel;
 import com.tioka.framework.security.Permissions;
-import com.tioka.framework.security.PublicApi;
+import com.tioka.framework.security.Principal;
+import com.tioka.framework.security.PrincipalHolder;
 import com.tioka.framework.security.RequirePermission;
+import com.tioka.framework.security.ResourceGuard;
 import com.tioka.flow.application.FlowPublicationService;
 import org.springframework.web.bind.annotation.*;
 
@@ -15,11 +19,15 @@ import java.util.Map;
 @RequirePermission(Permissions.FLOW_RUN)
 public class FlowPublicationController {
     private final FlowPublicationService publicationService;
-    private final ObjectMapper mapper;
+    private final ResourceGuard resourceGuard;
+    private final PrincipalHolder principals;
 
-    public FlowPublicationController(FlowPublicationService publicationService, ObjectMapper mapper) {
-        this.mapper = mapper;
+    public FlowPublicationController(FlowPublicationService publicationService,
+                                     ResourceGuard resourceGuard,
+                                     PrincipalHolder principals) {
         this.publicationService = publicationService;
+        this.resourceGuard = resourceGuard;
+        this.principals = principals;
     }
 
     @PostMapping("/tools")
@@ -32,15 +40,16 @@ public class FlowPublicationController {
         return ApiResponse.ok(publicationService.invokeInternalApi(versionId, body));
     }
 
-    @PublicApi(reason = "Flow webhook；M1 起改 API Key（FND-06）")
+    /** FND-06：要求 API Key，且服务账号对该 Flow 有 USE。 */
     @PostMapping("/webhook/{versionId}")
     public ApiResponse<Map<String, Object>> webhook(@PathVariable String versionId,
-                                                    @RequestHeader(value = "X-Signature", required = false) String signature,
-                                                    @RequestHeader(value = "X-Tioka-Signature", required = false) String tiokaSignature,
-                                                    @RequestBody(required = false) Map<String, Object> body) throws Exception {
-        String sig = signature != null ? signature : tiokaSignature;
-        String payload = body == null ? "{}" : mapper.writeValueAsString(body);
-        publicationService.verifyWebhook(sig, payload);
+                                                    @RequestBody(required = false) Map<String, Object> body) {
+        Principal p = principals.current();
+        if (!"api_key".equals(p.authMethod())) {
+            throw new BizException(ErrorCode.UNAUTHORIZED, "webhook 需使用 API Key");
+        }
+        String draftId = publicationService.requireDraftId(versionId);
+        resourceGuard.check("flow", draftId, AccessLevel.USE);
         return ApiResponse.ok(publicationService.invokeInternalApi(versionId, body));
     }
 }

@@ -55,6 +55,15 @@ public class FlowPublicationService implements ToolProvider {
         return toRunPayload(run);
     }
 
+    /** FND-06 webhook：由 version 解析 draft（资源 ACL 主体）。 */
+    public String requireDraftId(String versionId) {
+        var ver = repo.findVersion(versionId);
+        if (ver == null || !Boolean.TRUE.equals(ver.getPublished())) {
+            throw new BizException(ErrorCode.NOT_FOUND, "Flow 未发布");
+        }
+        return ver.getDraftId();
+    }
+
     public void verifyWebhook(String signature, String payload) {
         if (signature == null || !signature.startsWith("sha256=")) {
             throw new BizException(ErrorCode.UNAUTHORIZED, "Webhook 验签失败");

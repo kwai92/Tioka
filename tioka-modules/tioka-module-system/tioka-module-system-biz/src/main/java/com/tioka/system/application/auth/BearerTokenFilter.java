@@ -4,6 +4,7 @@ import com.tioka.framework.error.BizException;
 import com.tioka.framework.error.ErrorCode;
 import com.tioka.framework.security.Principal;
 import com.tioka.framework.security.TiokaAuthentication;
+import com.tioka.system.application.apikey.ApiKeyService;
 import com.tioka.system.application.oidc.IdPAdapter;
 import com.tioka.system.application.oidc.OidcFederationService;
 import com.tioka.system.application.oidc.OidcIdPAdapter;
@@ -29,24 +30,27 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * FND-05：{@code tka_} → Redis；三段式 JWT 且 resource-server.enabled → IdP JWT；{@code tk_live_} 留给 FND-06。
+ * FND-05 / FND-06：{@code tka_} → Redis；{@code tk_live_} → API Key；三段式 JWT 且 resource-server.enabled → IdP JWT。
  */
 @Component
 public class BearerTokenFilter extends OncePerRequestFilter {
     private final TokenService tokens;
     private final PrincipalLoader loader;
     private final AuthUserRepository users;
+    private final ApiKeyService apiKeys;
     private final ObjectProvider<OidcProviderRegistry> oidcRegistry;
     private final ObjectProvider<OidcFederationService> oidcFederation;
 
     public BearerTokenFilter(TokenService tokens,
                              PrincipalLoader loader,
                              AuthUserRepository users,
+                             ApiKeyService apiKeys,
                              ObjectProvider<OidcProviderRegistry> oidcRegistry,
                              ObjectProvider<OidcFederationService> oidcFederation) {
         this.tokens = tokens;
         this.loader = loader;
         this.users = users;
+        this.apiKeys = apiKeys;
         this.oidcRegistry = oidcRegistry;
         this.oidcFederation = oidcFederation;
     }
@@ -63,8 +67,7 @@ public class BearerTokenFilter extends OncePerRequestFilter {
                 if (token.startsWith("tka_")) {
                     principal = loadOpaque(token, wsId);
                 } else if (token.startsWith("tk_live_")) {
-                    // FND-06
-                    throw new BizException(ErrorCode.UNAUTHORIZED, "未登录或令牌已过期");
+                    principal = loadApiKey(token, wsId);
                 } else if (looksLikeJwt(token) && resourceServerEnabled()) {
                     principal = loadOidcJwt(token, wsId);
                 } else {
@@ -101,8 +104,19 @@ public class BearerTokenFilter extends OncePerRequestFilter {
             tokens.revokeAll(userId);
             throw new BizException(ErrorCode.UNAUTHORIZED, "未登录或令牌已过期");
         }
+        if ("SERVICE".equalsIgnoreCase(user.getType())) {
+            throw new BizException(ErrorCode.UNAUTHORIZED, "未登录或令牌已过期");
+        }
         String method = user.getIdp() != null && user.getIdp().startsWith("oidc:") ? "oidc" : "password";
         return loader.load(userId, wsId, method);
+    }
+
+    private Principal loadApiKey(String token, String wsHeader) {
+        ApiKeyService.Resolved resolved = apiKeys.authenticate(token);
+        // 绑定空间后忽略 X-Workspace-Id
+        String ws = resolved.workspaceId() != null ? resolved.workspaceId() : wsHeader;
+        Principal base = loader.load(resolved.serviceUserId(), ws, "api_key");
+        return apiKeys.applyScopes(base, resolved.scopes());
     }
 
     private Principal loadOidcJwt(String token, String wsId) {
