@@ -704,8 +704,8 @@ M3 内置四个模板：知识库问答、文档结构化抽取、带人审的�
 
 ## 修订：结构化输出的结局端口（2026-11-07）
 
-见 [ADR-063](ADR-063-guardrail-pipeline-input-safety.md)〜[ADR-065](ADR-065-output-safety-guardrail-eval.md) 与 ADR-029 第 72 条：
+见 [ADR-065](ADR-065-guardrail-pipeline-input-safety.md)〜[ADR-067](ADR-067-output-safety-guardrail-eval.md) 与 ADR-029 第 73 条：
 
-- 声明了输出契约的结构化抽取节点与 Agent 节点有三个输出端口：`valid`（含 `VALID_WITH_UNKNOWN`）、`pending`（人工补录期间挂起）、`failed`（[ADR-064](ADR-064-structured-output-reliability.md) 第 8 节）。
+- 声明了输出契约的结构化抽取节点与 Agent 节点有三个输出端口：`valid`（含 `VALID_WITH_UNKNOWN`）、`pending`（人工补录期间挂起）、`failed`（[ADR-066](ADR-066-structured-output-reliability.md) 第 8 节）。
 - DSL 校验清单增加一条：`failed` 端口必须有连线，或节点配置「失败时终止并通知」，否则发布被拒。
 - Flow 发布为 API 时，响应体固定含 `outcome`；结构化产出失败返回 HTTP 200 与 `outcome=FAILED`，500 只用于平台故障。

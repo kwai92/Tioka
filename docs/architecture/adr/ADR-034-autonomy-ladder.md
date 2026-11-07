@@ -172,7 +172,7 @@ ID 前缀：`aev` 等级事件、`shd` 影子用例。
 
 ## 修订：污点与复核提级（2026-11-07）
 
-见 [ADR-063](ADR-063-guardrail-pipeline-input-safety.md)〜[ADR-065](ADR-065-output-safety-guardrail-eval.md) 与 ADR-029 第 72 条：
+见 [ADR-065](ADR-065-guardrail-pipeline-input-safety.md)〜[ADR-067](ADR-067-output-safety-guardrail-eval.md) 与 ADR-029 第 73 条：
 
-- `TAINTED` 的 Turn 中，`injectionSensitive` 工具的有效自治等级上限为 L2（[ADR-063](ADR-063-guardrail-pipeline-input-safety.md) 第 3.2 节），不影响其他工具。
-- 文档中检测到指向 AI 的指令文字时，该文档本次处理的复核等级提高一级（ADR-063 第 5.2 节）。
+- `TAINTED` 的 Turn 中，`injectionSensitive` 工具的有效自治等级上限为 L2（[ADR-065](ADR-065-guardrail-pipeline-input-safety.md) 第 3.2 节），不影响其他工具。
+- 文档中检测到指向 AI 的指令文字时，该文档本次处理的复核等级提高一级（ADR-065 第 5.2 节）。

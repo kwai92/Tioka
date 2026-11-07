@@ -127,8 +127,8 @@ ID 前缀：`dset` 数据集。新增错误码：`NO_ELIGIBLE_MODEL`、`DATA_LAB
 
 ## 修订：可逆假名化（2026-11-07）
 
-见 [ADR-063](ADR-063-guardrail-pipeline-input-safety.md)〜[ADR-065](ADR-065-output-safety-guardrail-eval.md) 与 ADR-029 第 72 条：
+见 [ADR-065](ADR-065-guardrail-pipeline-input-safety.md)〜[ADR-067](ADR-067-output-safety-guardrail-eval.md) 与 ADR-029 第 73 条：
 
-- 模型调用去向增加可选处理「可逆假名化」（[ADR-063](ADR-063-guardrail-pipeline-input-safety.md) 第 6.3 节），**缺省关闭**，由空间开启。开启后空间可配置：仅因 PII 被标为 `CONFIDENTIAL` 的内容，假名化后按 `INTERNAL` 判定去向许可；因其他原因达到的标签不受影响。
+- 模型调用去向增加可选处理「可逆假名化」（[ADR-065](ADR-065-guardrail-pipeline-input-safety.md) 第 6.3 节），**缺省关闭**，由空间开启。开启后空间可配置：仅因 PII 被标为 `CONFIDENTIAL` 的内容，假名化后按 `INTERNAL` 判定去向许可；因其他原因达到的标签不受影响。
 - 阿里云 AI 安全护栏等外部检测服务是云端去向，受去向许可约束。
 - 消息类去向的脱敏改由 `SINK` 检查点的 `pii.detect` 执行，规则不变。

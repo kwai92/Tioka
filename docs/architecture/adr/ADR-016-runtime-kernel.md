@@ -120,8 +120,8 @@ Chat、Flow、Orchestration、IM 四个入口只使用 `RuntimeApi`，不再各�
 
 ## 修订：安全护栏与结构化输出（2026-11-07）
 
-见 [ADR-063](ADR-063-guardrail-pipeline-input-safety.md)〜[ADR-065](ADR-065-output-safety-guardrail-eval.md) 与 ADR-029 第 72 条：
+见 [ADR-065](ADR-065-guardrail-pipeline-input-safety.md)〜[ADR-067](ADR-067-output-safety-guardrail-eval.md) 与 ADR-029 第 73 条：
 
-- **RT-14 作废**，由 [ADR-063](ADR-063-guardrail-pipeline-input-safety.md) 的 GRD-01 取代。护栏挂点由三个改为五个检查点：`IN`、`INGEST`（新增：外部内容进入上下文前）、`TOOL`、`OUT`、`SINK`；结果为 `ALLOW` / `REWRITE` / `FLAG` / `BLOCK` / `ESCALATE`，增加故障模式与时延预算。`IN` 的分类器检查与本 Turn 第一次模型调用并行。
-- `runtime_turn` 增加 `taint`、`taint_sources`（ADR-063 第 3 节）。
-- 声明了输出契约的 Turn 在结束前执行 [ADR-064](ADR-064-structured-output-reliability.md) 的八步输出流水线；修复与降级阶梯可能多次调用模型，均计入本 Turn 预算；`HUMAN_PENDING` 时 Turn 进入 `WAITING`，补录后续跑。输出流水线内的异常不向 Turn 循环传播。
+- **RT-14 作废**，由 [ADR-065](ADR-065-guardrail-pipeline-input-safety.md) 的 GRD-01 取代。护栏挂点由三个改为五个检查点：`IN`、`INGEST`（新增：外部内容进入上下文前）、`TOOL`、`OUT`、`SINK`；结果为 `ALLOW` / `REWRITE` / `FLAG` / `BLOCK` / `ESCALATE`，增加故障模式与时延预算。`IN` 的分类器检查与本 Turn 第一次模型调用并行。
+- `runtime_turn` 增加 `taint`、`taint_sources`（ADR-065 第 3 节）。
+- 声明了输出契约的 Turn 在结束前执行 [ADR-066](ADR-066-structured-output-reliability.md) 的八步输出流水线；修复与降级阶梯可能多次调用模型，均计入本 Turn 预算；`HUMAN_PENDING` 时 Turn 进入 `WAITING`，补录后续跑。输出流水线内的异常不向 Turn 循环传播。

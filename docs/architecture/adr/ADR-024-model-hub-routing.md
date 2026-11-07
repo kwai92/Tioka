@@ -118,8 +118,8 @@ CREATE TABLE model_usage_daily (day DATE, workspace_id VARCHAR(64), agent_id VAR
 
 ## 修订：结构化输出能力记录（2026-11-07）
 
-见 [ADR-063](ADR-063-guardrail-pipeline-input-safety.md)〜[ADR-065](ADR-065-output-safety-guardrail-eval.md) 与 ADR-029 第 72 条：
+见 [ADR-065](ADR-065-guardrail-pipeline-input-safety.md)〜[ADR-067](ADR-067-output-safety-guardrail-eval.md) 与 ADR-029 第 73 条：
 
-- 模型档案的 `structuredOutput`（ADR-037：`SCHEMA / JSON / TOOL`）改为能力记录：生成方式集合、接受的关键字、规模上限、思考模式兼容、多模态降级、是否要求提示含「json」、`max_tokens` 建议、`GA` / `BETA`、拒答与截断信号、最近一致性测试结果（[ADR-064](ADR-064-structured-output-reliability.md) 第 4 节）。能力以一致性测试为准，`BETA` 方式缺省不选用。
+- 模型档案的 `structuredOutput`（ADR-037：`SCHEMA / JSON / TOOL`）改为能力记录：生成方式集合、接受的关键字、规模上限、思考模式兼容、多模态降级、是否要求提示含「json」、`max_tokens` 建议、`GA` / `BETA`、拒答与截断信号、最近一致性测试结果（[ADR-066](ADR-066-structured-output-reliability.md) 第 4 节）。能力以一致性测试为准，`BETA` 方式缺省不选用。
 - 结构化产出的 `SWITCH_MODEL` 降级沿用别名的故障接力列表，只选能力可编译且满足数据标签与配额的模型。
-- 新增用途 `guardrail`：护栏分类器（缺省 Qwen3Guard-Gen 0.6B，私有化部署）经 Model Hub 绑定调用（ADR-063 第 5 节）。
+- 新增用途 `guardrail`：护栏分类器（缺省 Qwen3Guard-Gen 0.6B，私有化部署）经 Model Hub 绑定调用（ADR-065 第 5 节）。

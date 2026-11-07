@@ -1,16 +1,16 @@
-# ADR-064 — 结构化输出可靠性：生成方言、交付契约、降级兜底与 Schema 演进
+# ADR-066 — 结构化输出可靠性：生成方言、交付契约、降级兜底与 Schema 演进
 
 - 状态：Accepted（设计定案，待实现）
 - 日期：2026-11-07
-- 覆盖工作项：SCH-06〜SCH-12、FE-41（新增）；SCH-01〜SCH-03 的验收补充
-- 来由：[调研 06](../research/06-安全护栏与结构化输出可靠性调研.md) 选项 T2、U2、V2；负责人 2026-11-07 提出「如何保证模型的输出一定能满足后续程序的需要，且不出现异常」；ADR-029 第 72 条
-- 相关：[ADR-016](ADR-016-runtime-kernel.md)、[ADR-024](ADR-024-model-hub-routing.md)、[ADR-028](ADR-028-hci-frontend.md)、[ADR-031](ADR-031-agent-eval-experience.md)、[ADR-036](ADR-036-business-ontology-domain-pack.md)、[ADR-037](ADR-037-structured-outputs.md)、[ADR-038](ADR-038-multi-agent-team.md)、[ADR-041](ADR-041-config-versioning-observability.md)、[ADR-043](ADR-043-flow-orchestration-detail.md)、[ADR-046](ADR-046-execution-strategy.md)、[ADR-063](ADR-063-guardrail-pipeline-input-safety.md)
+- 覆盖工作项：SCH-06〜SCH-12、FE-43（新增）；SCH-01〜SCH-03 的验收补充
+- 来由：[调研 07](../research/07-安全护栏与结构化输出可靠性调研.md) 选项 T2、U2、V2；负责人 2026-11-07 提出「如何保证模型的输出一定能满足后续程序的需要，且不出现异常」；ADR-029 第 73 条
+- 相关：[ADR-016](ADR-016-runtime-kernel.md)、[ADR-024](ADR-024-model-hub-routing.md)、[ADR-028](ADR-028-hci-frontend.md)、[ADR-031](ADR-031-agent-eval-experience.md)、[ADR-036](ADR-036-business-ontology-domain-pack.md)、[ADR-037](ADR-037-structured-outputs.md)、[ADR-038](ADR-038-multi-agent-team.md)、[ADR-041](ADR-041-config-versioning-observability.md)、[ADR-043](ADR-043-flow-orchestration-detail.md)、[ADR-046](ADR-046-execution-strategy.md)、[ADR-065](ADR-065-guardrail-pipeline-input-safety.md)
 - 约束：本 ADR 在 ADR-037 之上细化，不改变 Schema 登记表、`OutputContract`、`data` item 的基本形态；两者冲突时以本 ADR 为准（ADR-037 已加修订节）。与 [ADR-029](ADR-029-design-rulings.md) 定案冲突时以定案为准；修改本 ADR 走 [ADR-030](ADR-030-anti-drift-process.md) 的变更流程。
 - 写法说明：只用文字和表格，不附代码。
 
 ## 背景
 
-ADR-037 定了结构化输出的骨架：Schema 登记表、三种约束生成方式、校验、证据绑定、最多 2 轮修复、`data` item 可为 `valid=false`。调研 06 对照各供应商与研究结果，发现这套骨架还不足以回答「下游程序能否放心使用」：
+ADR-037 定了结构化输出的骨架：Schema 登记表、三种约束生成方式、校验、证据绑定、最多 2 轮修复、`data` item 可为 `valid=false`。调研 07 对照各供应商与研究结果，发现这套骨架还不足以回答「下游程序能否放心使用」：
 
 - 供应商的「严格模式」各有例外：拒答、长度截断、空内容、多模态降级、枚举大小写；受限解码引擎本身也有「约束不足」。
 - 国内供应商能力差异大且变化快：百炼只有 Qwen3.7 / 3.8 系列支持 `json_schema` 严格模式；DeepSeek 只有 `json_object` 与 Beta 严格工具调用；火山方舟严格模式仍是 Beta。可移植的关键字子集很窄。
@@ -42,7 +42,7 @@ ADR-037 定了结构化输出的骨架：Schema 登记表、三种约束生成�
 | `FAILED` | 自动链路失败，契约声明不转人工 | `valid=false`，`failure` 含原因码 | 走调用方声明的失败处理（第 8 节） |
 
 - 任何结局下，`payload` 要么是通过权威 Schema 的完整对象，要么为空。**不交付部分对象**：`FAILED` 与 `HUMAN_PENDING` 时，最后一次候选输出作为 `lastCandidate` 存档供排查与人工补录预填，标记为不可消费，任何消费接口都不返回它。
-- `data` item 增加字段：`outcome`、`unknownPaths`、`failure`（原因码、阶段、错误清单）、`producedBy`（模型、生成方式、修复轮次、降级步骤）、`schemaRef`（精确到版本）、`dialectHash`（第 2 节）、`taint`（ADR-063）。
+- `data` item 增加字段：`outcome`、`unknownPaths`、`failure`（原因码、阶段、错误清单）、`producedBy`（模型、生成方式、修复轮次、降级步骤）、`schemaRef`（精确到版本）、`dialectHash`（第 2 节）、`taint`（ADR-065）。
 
 ### 1.2 原因码
 
@@ -57,7 +57,7 @@ ADR-037 定了结构化输出的骨架：Schema 登记表、三种约束生成�
 | `SCHEMA` | Schema 校验 | 附 JSON Pointer 与关键字 |
 | `RULE` | 语义规则 | 附规则 ID 与路径 |
 | `EVIDENCE` / `QUOTE_MISMATCH` / `PATH_NOT_FOUND` / `REF_NOT_FOUND` | 证据与引用 | 沿用 ADR-037 并补充 |
-| `UNKNOWN_PLACEHOLDER` | 证据与引用 | 假名化占位符无法还原（ADR-063 第 6.3 节） |
+| `UNKNOWN_PLACEHOLDER` | 证据与引用 | 假名化占位符无法还原（ADR-065 第 6.3 节） |
 | `HOOK` | 领域钩子 | 领域包校验失败 |
 | `BUDGET` | 修复 / 降级 | Turn 预算或修复 token 上限用尽 |
 | `NO_ELIGIBLE_MODEL` | 降级 | 阶梯中没有满足标签、能力与配额的模型 |
@@ -152,7 +152,7 @@ ADR-037 的 `structuredOutput: SCHEMA | JSON | TOOL` 改为能力记录，放在
 | `REASON_THEN_FORMAT` | 第一步不加格式约束，自由推理并作答（可用思考模式与工具）；第二步以第一步的结论为输入、不带工具，只做格式转换，按第 4.1 节选方式 | 需要多步推理的综合判断 |
 
 - 第二步可使用契约指定的另一个模型别名（`formatModelAlias`，通常是便宜且支持 `STRICT_SCHEMA` 的模型）。
-- 第二步的输入只含第一步的最终回答，不含原始上下文中的 `EXTERNAL` 段；但污点照常继承（ADR-063）。
+- 第二步的输入只含第一步的最终回答，不含原始上下文中的 `EXTERNAL` 段；但污点照常继承（ADR-065）。
 - 证据绑定仍对最终 payload 做；第二步编造的引文会在第 5 节第 7 步被拒。
 
 ## 5. 输出处理流水线
@@ -168,7 +168,7 @@ ADR-037 的 `structuredOutput: SCHEMA | JSON | TOOL` 改为能力记录，放在
 | 7 | 证据与引用 | ADR-037 的证据绑定；`x-tioka-path` 路径存在；`x-tioka-ref` 引用存在（第 5.2 节）；假名化还原检查 | `EVIDENCE` 等 |
 | 8 | 领域钩子 | 领域包注册的校验器，返回 `ERROR` / `WARN` | `HOOK`；`WARN` 不阻断，结局为 `VALID_WITH_UNKNOWN` 并记录 |
 
-第 1〜8 步都在 `OUT` 检查点内执行（ADR-063），永远 `FAIL_CLOSED`。ADR-063 第 6.3 节的假名化还原在第 2 步之后、第 3 步之前执行。
+第 1〜8 步都在 `OUT` 检查点内执行（ADR-065），永远 `FAIL_CLOSED`。ADR-065 第 6.3 节的假名化还原在第 2 步之后、第 3 步之前执行。
 
 ### 5.1 语义规则 `x-tioka-rules`
 
@@ -307,7 +307,7 @@ ADR-037 的「发布后不可改」「不做自动迁移（存储中的旧数据
 
 | 闸门 | 条件 |
 | --- | --- |
-| G3（合同场景） | 合同 Schema（`lease.finding`、`lease.contract.*`）在 30 份评测合同上：最终失败率 ≤ 0.5%；异常逃逸为零；`VALID` 结局中证据绑定错误为零；注入样本见 ADR-063 GRD-08a |
+| G3（合同场景） | 合同 Schema（`lease.finding`、`lease.contract.*`）在 30 份评测合同上：最终失败率 ≤ 0.5%；异常逃逸为零；`VALID` 结局中证据绑定错误为零；注入样本见 ADR-065 GRD-08a |
 | Schema 发布 | 第 10.2 节的发布测试通过 |
 | 模型启用结构化能力 | 第 10.2 节的接入测试通过 |
 
@@ -329,6 +329,6 @@ ADR-037 的「发布后不可改」「不做自动迁移（存储中的旧数据
 | SCH-10 | 一致性测试集与模型接入测试、指标与告警 | M3 | P1 | 后端 1 | SCH-06、GOV-13 | 百炼与 DeepSeek 各一个模型测出能力记录 |
 | SCH-11 | 兼容组、发布时兼容性判定、消费方声明与引用表、读时升级与跨组升级器 | M4 | P1 | 后端 3 | SCH-06 | 新增枚举值在同组发布被拒 |
 | SCH-12 | `DECOMPOSE` 分解生成、`REASON_THEN_FORMAT` 两步法与 `formatModelAlias` | M4 | P1 | 后端 3 | SCH-09、EXE-02 | 200 条费用明细分批生成后整体通过 |
-| FE-41 | 结构化输出指标页、`data` item 结局与降级步骤展示、人工补录表单 | M4 | P1 | 前端 2 | SCH-09、SCH-10 | — |
+| FE-43 | 结构化输出指标页、`data` item 结局与降级步骤展示、人工补录表单 | M4 | P1 | 前端 2 | SCH-09、SCH-10 | — |
 
-人工补录表单的最小版本（只显示 JSON 与错误、可编辑提交）随 SCH-09 在 M3 由 SCH-04 的通用 JSON 树扩展实现，不另计前端人日；FE-41 做正式的 Schema 表单。
+人工补录表单的最小版本（只显示 JSON 与错误、可编辑提交）随 SCH-09 在 M3 由 SCH-04 的通用 JSON 树扩展实现，不另计前端人日；FE-43 做正式的 Schema 表单。

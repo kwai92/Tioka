@@ -108,13 +108,13 @@ AgentSpec 增加字段 `OutputContract output`（可空，空表示自由文本 
 
 ## 修订：结构化输出可靠性（2026-11-07）
 
-见 [ADR-063](ADR-063-guardrail-pipeline-input-safety.md)〜[ADR-065](ADR-065-output-safety-guardrail-eval.md) 与 ADR-029 第 72 条。负责人 2026-11-07 提出「如何保证模型的输出一定能满足后续程序的需要，且不出现异常」，[ADR-064](ADR-064-structured-output-reliability.md) 在本 ADR 之上细化，冲突时以 ADR-064 为准：
+见 [ADR-065](ADR-065-guardrail-pipeline-input-safety.md)〜[ADR-067](ADR-067-output-safety-guardrail-eval.md) 与 ADR-029 第 73 条。负责人 2026-11-07 提出「如何保证模型的输出一定能满足后续程序的需要，且不出现异常」，[ADR-066](ADR-066-structured-output-reliability.md) 在本 ADR 之上细化，冲突时以 ADR-066 为准：
 
 - **保证的定义**：平台保证交付契约，每次结构化产出恰好以 `VALID`、`VALID_WITH_UNKNOWN`、`HUMAN_PENDING`、`FAILED` 之一交付，不交付部分对象，失败是值而不是异常；`data` item 增加 `outcome`、`unknownPaths`、`failure`、`producedBy`、`dialectHash`、`taint`。原 `COMPLETED(reason=output_invalid)` 保留，对应 `FAILED`。
 - **两层 Schema**：登记表中的是权威 Schema；发给模型的是按模型能力编译的生成方言。校验永远用权威 Schema。用于模型产出的 Schema 须符合严格档（全部必填、封闭对象、不递归、规模上限、字段说明、理由在前、声明兜底）。
-- **能力记录**取代 `structuredOutput` 三档（见 ADR-024 修订）。第 1 步「约束生成」按 ADR-064 第 4.1 节的五种方式依次选择；百炼 `json_schema` 仅 Qwen3.7 / 3.8 系列可用，DeepSeek 官方无 `json_schema`，其严格工具调用为 Beta。
+- **能力记录**取代 `structuredOutput` 三档（见 ADR-024 修订）。第 1 步「约束生成」按 ADR-066 第 4.1 节的五种方式依次选择；百炼 `json_schema` 仅 Qwen3.7 / 3.8 系列可用，DeepSeek 官方无 `json_schema`，其严格工具调用为 Beta。
 - 第 2〜4 步扩展为八步流水线（完成状态、提取、严格解析、白名单规整、Schema 校验、语义规则 `x-tioka-rules`、证据与引用 `x-tioka-ref`、领域钩子）；修复按原因分类处理，截断与拒答不进入格式修复，错误相同时早停；修复用尽后按 `OutputContract.fallback` 降级（换方式、换模型、分解、兜底值、人工补录、失败）。
 - `x-tioka-*` 扩展由四个增加到十个：`x-tioka-rules`、`x-tioka-ref`、`x-tioka-fallback`、`x-tioka-coerce`、`x-tioka-reasoning`、`x-tioka-group`（另有 `x-tioka-enum-doc`、`x-tioka-open-enum`、`x-tioka-tier` 为说明与分级标注）。
-- 「不做 Schema 的自动迁移」保持：存储中的旧数据不改写；增加兼容组、发布时兼容性判定、消费方版本声明与读时升级（ADR-064 第 9 节，M4）。
+- 「不做 Schema 的自动迁移」保持：存储中的旧数据不改写；增加兼容组、发布时兼容性判定、消费方版本声明与读时升级（ADR-066 第 9 节，M4）。
 - 「需要条件约束时由领域包校验钩子处理」改为：跨字段条件优先写成 `x-tioka-rules`（CEL），需要外部数据的才写钩子。
 - SCH-02 验收补充：能力不支持的关键字被编译掉后，平台校验仍拦住违反该约束的值。SCH-03 验收补充：截断不进入格式修复；变异测试零异常逃逸。

@@ -83,9 +83,9 @@ ALTER TABLE sys_workspace ADD COLUMN promotes_to VARCHAR(64);
 
 ## 修订：安全护栏（2026-11-07）
 
-见 [ADR-063](ADR-063-guardrail-pipeline-input-safety.md)〜[ADR-065](ADR-065-output-safety-guardrail-eval.md) 与 ADR-029 第 72 条：
+见 [ADR-065](ADR-065-guardrail-pipeline-input-safety.md)〜[ADR-067](ADR-067-output-safety-guardrail-eval.md) 与 ADR-029 第 73 条：
 
-- `ContentSafetyHook` 的三个挂点并入 [ADR-063](ADR-063-guardrail-pipeline-input-safety.md) 的护栏管线（`IN`、`OUT`、`TOOL` / `SINK`），动作「放行 / 脱敏 / 拦截」对应 `ALLOW` / `REWRITE` / `BLOCK`，另增 `FLAG`、`ESCALATE`。
+- `ContentSafetyHook` 的三个挂点并入 [ADR-065](ADR-065-guardrail-pipeline-input-safety.md) 的护栏管线（`IN`、`OUT`、`TOOL` / `SINK`），动作「放行 / 脱敏 / 拦截」对应 `ALLOW` / `REWRITE` / `BLOCK`，另增 `FLAG`、`ESCALATE`。
 - `gov_safety_policy` 由版本化配置 `guardrail_policy` 取代（ADR-041 资产类型），迁移按 `(workspace_id, hook_point)` 映射。
 - GOV-10 的内置正则仍随 DAT-02 在 M3 交付；M4 的 GRD-04 替换为带校验位的识别器，并增加可逆假名化（缺省关闭）与密钥检测。
-- 输出渲染安全、生成内容标识与护栏评测见 [ADR-065](ADR-065-output-safety-guardrail-eval.md)。
+- 输出渲染安全、生成内容标识与护栏评测见 [ADR-067](ADR-067-output-safety-guardrail-eval.md)。
