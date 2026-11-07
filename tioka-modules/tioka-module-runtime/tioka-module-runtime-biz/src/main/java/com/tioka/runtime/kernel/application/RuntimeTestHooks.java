@@ -19,6 +19,11 @@ public class RuntimeTestHooks {
         frozen.set(true);
     }
 
+    /** 崩溃接管后解冻续跑实例。 */
+    public void unfreeze() {
+        frozen.set(false);
+    }
+
     public boolean isFrozen() {
         return frozen.get();
     }

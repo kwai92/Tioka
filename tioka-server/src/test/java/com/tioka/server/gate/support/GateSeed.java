@@ -141,11 +141,12 @@ public final class GateSeed {
         RuntimeApi runtime = ctx.getBean(RuntimeApi.class);
         Set<TurnStatus> want = Set.of(wanted);
         long deadline = System.currentTimeMillis() + timeoutMs;
+        RuntimeApi.TurnView last = null;
         while (System.currentTimeMillis() < deadline) {
-            RuntimeApi.TurnView v = principals.runAs(user(bundle.userId(), bundle.workspaceId()), () ->
+            last = principals.runAs(user(bundle.userId(), bundle.workspaceId()), () ->
                     runtime.getTurn(turnId));
-            if (want.contains(v.status())) {
-                return v;
+            if (want.contains(last.status())) {
+                return last;
             }
             try {
                 Thread.sleep(40);
@@ -154,7 +155,9 @@ public final class GateSeed {
                 throw new IllegalStateException(e);
             }
         }
-        throw new AssertionError("turn 未在 " + timeoutMs + "ms 内到达 " + want + ": " + turnId);
+        throw new AssertionError("turn 未在 " + timeoutMs + "ms 内到达 " + want + ": " + turnId
+                + " last=" + (last == null ? "null"
+                : last.status() + "/" + last.errorCode() + "/" + last.errorMessage()));
     }
 
     public static Principal user(String uid, String ws) {

@@ -129,7 +129,7 @@ public class ToolApprovalCoordinator {
         ApprovalPolicy policy = policies.resolve(ctx.approvalPolicy(), principal);
         List<PendingToolCall> out = new ArrayList<>();
         for (CallBinding b : bindings) {
-            ToolProvider.ToolDescriptor desc = findDescriptor(ctx.agentVersionId(), b.call().name());
+            ToolProvider.ToolDescriptor desc = findDescriptor(ctx, b.call().name());
             Map<String, Object> args = parseMap(b.call().argumentsJson());
             ApprovalPolicy.ApprovalRequestContext req = ApprovalRequestContexts.from(
                     principal, ctx.agentVersionId(), b.call().name(), args, desc, Map.of());
@@ -142,8 +142,9 @@ public class ToolApprovalCoordinator {
         suspendService.suspend(ctx, requires);
     }
 
-    private ToolProvider.ToolDescriptor findDescriptor(String agentVersionId, String name) {
-        return tools.listAll(agentVersionId).stream()
+    /** 必须带 agentToolConfig，否则 MCP 工具查不到会默认 WRITE 误挂起审批。 */
+    private ToolProvider.ToolDescriptor findDescriptor(LoopContext ctx, String name) {
+        return tools.listAll(ctx.agentVersionId(), ctx.agentToolConfig()).stream()
                 .filter(d -> d.name().equals(name))
                 .findFirst()
                 .orElse(new ToolProvider.ToolDescriptor(name, "", Map.of(), ToolRisk.WRITE));

@@ -158,10 +158,6 @@ public class LeaseReaper {
         if (turnItems.isEmpty()) {
             return;
         }
-        RuntimeItemDO last = turnItems.get(turnItems.size() - 1);
-        if (!ItemType.TOOL_CALL.wire().equals(last.getType())) {
-            return;
-        }
         Set<String> done = new HashSet<>();
         for (RuntimeItemDO i : turnItems) {
             if (ItemType.TOOL_RESULT.wire().equals(i.getType())) {

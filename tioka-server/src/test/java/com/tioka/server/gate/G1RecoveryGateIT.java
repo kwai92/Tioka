@@ -26,7 +26,7 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * 闸门 G1：RT-06。Turn 执行工具时关掉 A，B 接管续跑至 COMPLETED。
+ * 闸门 G1：RT-06。Turn 执行工具时关掉持有实例，另一实例接管续跑至 COMPLETED。
  */
 @Tag("gate")
 class G1RecoveryGateIT {
@@ -41,57 +41,73 @@ class G1RecoveryGateIT {
             GateSeed.Bundle bundle = GateSeed.seedPublishedAgent(di.a(), di.llm().baseUrl());
             var thr = GateSeed.createThread(di.a(), bundle);
 
-            // 先冻结：工具进入 await 后卡住，保证 crash 时仍在工具执行中
+            // 双实例都冻结：避免非 crash 目标抢到 Turn 后无冻结跑完全程
             di.a().getBean(RuntimeTestHooks.class).freeze();
+            di.b().getBean(RuntimeTestHooks.class).freeze();
 
-            try (SseCollector sse = SseCollector.subscribe(
-                    di.baseUrlB(), bundle.token(), bundle.workspaceId(), thr.threadId(), null)) {
-                var handle = GateSeed.startTurn(di.a(), bundle, thr.threadId(),
-                        "cm-recovery-crash", "please use tools");
+            var handle = GateSeed.startTurn(di.a(), bundle, thr.threadId(),
+                    "cm-recovery-crash", "please use tools");
 
-                ItemRepository itemsA = di.a().getBean(ItemRepository.class);
-                long deadline = System.currentTimeMillis() + 30_000;
-                boolean sawToolCall = false;
-                while (System.currentTimeMillis() < deadline) {
-                    List<RuntimeItemDO> calls = itemsA.listBySession(thr.threadId()).stream()
-                            .filter(i -> ItemType.TOOL_CALL.wire().equals(i.getType()))
-                            .toList();
-                    if (!calls.isEmpty()) {
+            ItemRepository itemsA = di.a().getBean(ItemRepository.class);
+            TurnRepository turnsA = di.a().getBean(TurnRepository.class);
+            long deadline = System.currentTimeMillis() + 30_000;
+            boolean sawToolCall = false;
+            String workerId = null;
+            while (System.currentTimeMillis() < deadline) {
+                List<RuntimeItemDO> calls = itemsA.listBySession(thr.threadId()).stream()
+                        .filter(i -> ItemType.TOOL_CALL.wire().equals(i.getType()))
+                        .toList();
+                if (!calls.isEmpty()) {
+                    RuntimeTurnDO row = turnsA.findById(handle.turnId()).orElseThrow();
+                    if (TurnStatus.RUNNING.name().equals(row.getStatus())
+                            && row.getWorkerId() != null && !row.getWorkerId().isBlank()) {
                         sawToolCall = true;
+                        workerId = row.getWorkerId();
                         break;
                     }
-                    Thread.sleep(40);
                 }
-                assertTrue(sawToolCall, "应先写出 tool_call 再阻塞于工具执行");
+                Thread.sleep(40);
+            }
+            assertTrue(sawToolCall, "应先写出 tool_call 再阻塞于工具执行");
+            assertNotNull(workerId);
 
-                plantInFlightStream(di.b(), thr.threadId(), handle.turnId());
-                di.cluster().crash(0);
+            int crashIdx = "A".equals(workerId) ? 0 : 1;
+            int survivorIdx = crashIdx == 0 ? 1 : 0;
+            String survivorId = crashIdx == 0 ? "B" : "A";
 
-                TurnRepository turnsB = di.b().getBean(TurnRepository.class);
-                LeaseReaper reaperB = di.b().getBean(LeaseReaper.class);
-                JdbcTemplate jdbc = di.b().getBean(JdbcTemplate.class);
+            try (SseCollector sse = SseCollector.subscribe(
+                    di.cluster().baseUrl(survivorIdx), bundle.token(), bundle.workspaceId(),
+                    thr.threadId(), null)) {
+                plantInFlightStream(di.cluster().instance(survivorIdx), thr.threadId(), handle.turnId());
+                di.cluster().crash(crashIdx);
+                di.cluster().instance(survivorIdx).getBean(RuntimeTestHooks.class).unfreeze();
+
+                TurnRepository turnsSurvivor = di.cluster().instance(survivorIdx).getBean(TurnRepository.class);
+                LeaseReaper reaperSurvivor = di.cluster().instance(survivorIdx).getBean(LeaseReaper.class);
+                JdbcTemplate jdbc = di.cluster().instance(survivorIdx).getBean(JdbcTemplate.class);
                 long reapDeadline = System.currentTimeMillis() + 15_000;
                 while (System.currentTimeMillis() < reapDeadline) {
-                    RuntimeTurnDO row = turnsB.findById(handle.turnId()).orElseThrow();
+                    RuntimeTurnDO row = turnsSurvivor.findById(handle.turnId()).orElseThrow();
                     if (row.getRecoverCount() != null && row.getRecoverCount() >= 1) {
                         break;
                     }
                     if (TurnStatus.RUNNING.name().equals(row.getStatus())) {
                         jdbc.update("UPDATE runtime_turn SET lease_until = now() - interval '1 second' "
                                 + "WHERE id = ? AND status = 'RUNNING'", handle.turnId());
-                        reaperB.reap();
+                        reaperSurvivor.reap();
                     }
                     Thread.sleep(100);
                 }
 
-                var done = GateSeed.awaitTerminal(di.b(), bundle, handle.turnId(), 90_000);
+                var done = GateSeed.awaitTerminal(
+                        di.cluster().instance(survivorIdx), bundle, handle.turnId(), 90_000);
                 assertEquals(TurnStatus.COMPLETED, done.status(), () -> done.errorMessage());
 
-                RuntimeTurnDO finalRow = turnsB.findById(handle.turnId()).orElseThrow();
+                RuntimeTurnDO finalRow = turnsSurvivor.findById(handle.turnId()).orElseThrow();
                 assertEquals(1, finalRow.getRecoverCount());
-                assertEquals("B", finalRow.getWorkerId());
+                assertEquals(survivorId, finalRow.getWorkerId());
 
-                List<RuntimeItemDO> lost = di.b().getBean(ItemRepository.class)
+                List<RuntimeItemDO> lost = di.cluster().instance(survivorIdx).getBean(ItemRepository.class)
                         .listBySession(thr.threadId()).stream()
                         .filter(i -> ItemType.TOOL_RESULT.wire().equals(i.getType()))
                         .filter(i -> i.getContentJson() != null
