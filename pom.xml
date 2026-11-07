@@ -57,7 +57,7 @@
                     <version>3.5.2</version>
                     <configuration>
                         <!-- Java 24：Mockito inline / Byte Buddy 需 experimental -->
-                        <argLine>-Dnet.bytebuddy.experimental=true</argLine>
+                        <argLine>-Dnet.bytebuddy.experimental=true -Duser.timezone=UTC</argLine>
                         <excludedGroups>gate</excludedGroups>
                         <runOrder>random</runOrder>
                         <excludes>
@@ -70,7 +70,7 @@
                     <artifactId>maven-failsafe-plugin</artifactId>
                     <version>3.5.2</version>
                     <configuration>
-                        <argLine>-Dnet.bytebuddy.experimental=true</argLine>
+                        <argLine>-Dnet.bytebuddy.experimental=true -Duser.timezone=UTC</argLine>
                         <excludedGroups>gate</excludedGroups>
                         <runOrder>random</runOrder>
                     </configuration>
@@ -113,7 +113,7 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
                 <configuration>
-                    <argLine>-Dnet.bytebuddy.experimental=true</argLine>
+                    <argLine>-Dnet.bytebuddy.experimental=true -Duser.timezone=UTC</argLine>
                     <excludedGroups>gate</excludedGroups>
                     <runOrder>random</runOrder>
                     <excludes>
@@ -159,7 +159,7 @@
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-surefire-plugin</artifactId>
                         <configuration>
-                            <argLine>-Dnet.bytebuddy.experimental=true -Dgate=true</argLine>
+                            <argLine>-Dnet.bytebuddy.experimental=true -Duser.timezone=UTC -Dgate=true</argLine>
                             <groups>gate</groups>
                             <excludedGroups combine.self="override"/>
                             <includes>

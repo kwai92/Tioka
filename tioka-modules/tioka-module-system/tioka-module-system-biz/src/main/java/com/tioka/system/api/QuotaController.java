@@ -1,5 +1,7 @@
 package com.tioka.system.api;
 
+import com.tioka.system.api.audit.Audited;
+
 import com.tioka.framework.error.ApiResponse;
 import com.tioka.framework.security.Permissions;
 import com.tioka.framework.security.RequirePermission;
@@ -31,6 +33,7 @@ public class QuotaController {
 
     @PutMapping("/{scopeType}/{scopeId}/{metric}")
     @RequirePermission(Permissions.QUOTA_ADMIN)
+    @Audited(action = "quota.put", resourceType = "quota", resourceIdArg = "#metric")
     public ApiResponse<Map<String, Object>> put(
             @PathVariable String scopeType,
             @PathVariable String scopeId,

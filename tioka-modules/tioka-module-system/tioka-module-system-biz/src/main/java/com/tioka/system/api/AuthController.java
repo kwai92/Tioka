@@ -8,6 +8,7 @@ import com.tioka.framework.security.PrincipalHolder;
 import com.tioka.framework.security.PublicApi;
 import com.tioka.framework.security.RequirePermission;
 import com.tioka.system.application.AuthService;
+import com.tioka.system.application.audit.ClientIpResolver;
 import com.tioka.system.application.oidc.OidcLoginService;
 import com.tioka.system.config.AuthProperties;
 import jakarta.servlet.http.Cookie;
@@ -29,17 +30,20 @@ public class AuthController {
     private final AuthProperties authProperties;
     private final OidcLoginService oidcLogin;
     private final PrincipalHolder principals;
+    private final ClientIpResolver clientIpResolver;
     private final boolean cookieSecure;
 
     public AuthController(AuthService authService,
                           AuthProperties authProperties,
                           OidcLoginService oidcLogin,
                           PrincipalHolder principals,
+                          ClientIpResolver clientIpResolver,
                           @org.springframework.beans.factory.annotation.Value("${tioka.auth.cookie-secure:false}") boolean cookieSecure) {
         this.authService = authService;
         this.authProperties = authProperties;
         this.oidcLogin = oidcLogin;
         this.principals = principals;
+        this.clientIpResolver = clientIpResolver;
         this.cookieSecure = cookieSecure;
     }
 
@@ -48,7 +52,8 @@ public class AuthController {
     public ApiResponse<AuthService.LoginResult> login(@RequestBody LoginRequest req,
                                                       HttpServletRequest request,
                                                       HttpServletResponse response) {
-        AuthService.LoginResult result = authService.login(req.username(), req.password(), clientIp(request));
+        AuthService.LoginResult result = authService.login(req.username(), req.password(),
+                clientIpResolver.resolve(request));
         writeRefreshCookie(response, result.refreshToken());
         return ApiResponse.ok(result);
     }
@@ -193,14 +198,6 @@ public class AuthController {
             }
         }
         return null;
-    }
-
-    private static String clientIp(HttpServletRequest request) {
-        String xff = request.getHeader("X-Forwarded-For");
-        if (xff != null && !xff.isBlank()) {
-            return xff.split(",")[0].trim();
-        }
-        return request.getRemoteAddr();
     }
 
     public record LoginRequest(@NotBlank String username, @NotBlank String password) {}

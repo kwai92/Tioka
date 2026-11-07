@@ -1,5 +1,7 @@
 package com.tioka.system.api;
 
+import com.tioka.system.api.audit.Audited;
+
 import com.tioka.framework.error.ApiResponse;
 import com.tioka.framework.security.Permissions;
 import com.tioka.framework.security.RequirePermission;
@@ -36,6 +38,7 @@ public class WorkspaceController {
 
     @RequirePermission(Permissions.TENANT_ADMIN)
     @PostMapping
+    @Audited(action = "workspace.create", resourceType = "workspace")
     public ApiResponse<WorkspaceService.Workspace> create(@RequestBody Map<String, String> body) {
         return ApiResponse.ok(workspaceService.create(body.get("name")));
     }
@@ -57,6 +60,7 @@ public class WorkspaceController {
 
     @RequirePermission(Permissions.WORKSPACE_MANAGE)
     @PutMapping("/{id}/members/{userId}")
+    @Audited(action = "workspace.member.put", resourceType = "workspace", resourceIdArg = "#id")
     public ApiResponse<Void> putMember(@PathVariable String id,
                                        @PathVariable String userId,
                                        @RequestBody Map<String, String> body) {

@@ -3,7 +3,7 @@ package com.tioka.runtime.infrastructure.mapper;
 import com.tioka.runtime.kernel.infrastructure.persistence.RuntimeTurnDO;
 import org.apache.ibatis.annotations.*;
 
-import java.time.OffsetDateTime;
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Mapper
@@ -74,7 +74,7 @@ public interface RuntimeTurnMapper {
             """)
     Long acquire(@Param("turnId") String turnId,
                  @Param("workerId") String workerId,
-                 @Param("leaseUntil") OffsetDateTime leaseUntil);
+                 @Param("leaseUntil") LocalDateTime leaseUntil);
 
     @Update("""
             UPDATE runtime_turn
@@ -83,7 +83,7 @@ public interface RuntimeTurnMapper {
             """)
     int renew(@Param("turnId") String turnId,
               @Param("leaseVersion") long leaseVersion,
-              @Param("leaseUntil") OffsetDateTime leaseUntil);
+              @Param("leaseUntil") LocalDateTime leaseUntil);
 
     @Update("""
             UPDATE runtime_turn
@@ -196,7 +196,7 @@ public interface RuntimeTurnMapper {
              ORDER BY lease_until
              LIMIT #{limit}
             """)
-    List<String> findExpired(@Param("now") OffsetDateTime now, @Param("limit") int limit);
+    List<String> findExpired(@Param("now") LocalDateTime now, @Param("limit") int limit);
 
     @Update("""
             UPDATE runtime_turn

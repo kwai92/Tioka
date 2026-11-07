@@ -14,6 +14,7 @@ import com.tioka.runtime.api.spi.ToolProvider;
 import com.tioka.runtime.application.tool.ToolCallPipeline;
 import com.tioka.runtime.application.tool.ToolRpmLimiter;
 import com.tioka.system.api.audit.AuditApi;
+import com.tioka.system.api.audit.AuditDegradedSink;
 import com.tioka.system.api.spi.EgressGuard;
 import com.tioka.system.api.spi.PrincipalLoaderApi;
 import org.junit.jupiter.api.BeforeEach;
@@ -73,7 +74,9 @@ class DefaultToolGatewayTest {
                 registry, grant, guard, holder, loader, rpm, egress, new ObjectMapper());
         ObjectProvider<AuditApi> audit = mock(ObjectProvider.class);
         when(audit.getIfAvailable()).thenReturn(null);
-        gw = new DefaultToolGateway(registry, pipeline, audit, new ObjectMapper());
+        ObjectProvider<AuditDegradedSink> degraded = mock(ObjectProvider.class);
+        when(degraded.getIfAvailable()).thenReturn(null);
+        gw = new DefaultToolGateway(registry, pipeline, audit, degraded, new ObjectMapper());
     }
 
     private ToolGateway.ToolCallContext ctx(String agentVersionId) {

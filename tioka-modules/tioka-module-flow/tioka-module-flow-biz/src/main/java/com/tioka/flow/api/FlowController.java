@@ -1,5 +1,7 @@
 package com.tioka.flow.api;
 
+import com.tioka.system.api.audit.Audited;
+
 import com.tioka.framework.error.ApiResponse;
 import com.tioka.flow.application.FlowService;
 import org.springframework.web.bind.annotation.*;
@@ -24,6 +26,7 @@ public class FlowController {
     }
 
     @PostMapping("/drafts")
+    @Audited(action = "flow.draft.save", resourceType = "flow")
     public ApiResponse<FlowService.FlowDraft> save(@RequestBody Map<String, Object> body) {
         @SuppressWarnings("unchecked")
         Map<String, Object> graph = (Map<String, Object>) body.get("graph");
@@ -31,11 +34,13 @@ public class FlowController {
     }
 
     @PostMapping("/drafts/{id}/publish")
+    @Audited(action = "flow.draft.publish", resourceType = "flow", resourceIdArg = "#id")
     public ApiResponse<FlowService.FlowVersion> publish(@PathVariable String id) {
         return ApiResponse.ok(flowService.publish(id));
     }
 
     @PostMapping("/versions/{id}/run")
+    @Audited(action = "flow.version.run", resourceType = "flow_version", resourceIdArg = "#id")
     public ApiResponse<FlowService.FlowRun> run(@PathVariable String id, @RequestBody(required = false) Map<String, Object> body) {
         return ApiResponse.ok(flowService.run(id, body == null ? Map.of() : body));
     }

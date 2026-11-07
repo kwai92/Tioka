@@ -64,3 +64,15 @@ tioka:
 
 - `KeycloakGateSupport`：Testcontainers Keycloak 单例
 - `KeycloakLogin`：从 Tioka authorize 入口走表单登录，经 callback + `/refresh` 换 `tka_` 令牌
+
+## 夜间真实模型机密（ENG-04b）
+
+`nightly-real-model.yml` 在 GitHub Actions Secrets 中读取：
+
+| Secret | 用途 |
+| --- | --- |
+| `TIOKA_REAL_MODEL_BASE_URL` | 真实模型 HTTP 基址 |
+| `TIOKA_REAL_MODEL_API_KEY` | API Key |
+| `TIOKA_REAL_MODEL_MODEL` | 模型名 |
+
+缺任一则 job 跳过（非失败）。配置后：`gh workflow run nightly-real-model.yml`。走查清单见 `m1-closure-walkthrough.md`。

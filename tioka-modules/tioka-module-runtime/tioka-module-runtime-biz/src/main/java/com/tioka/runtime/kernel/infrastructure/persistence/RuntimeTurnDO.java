@@ -1,11 +1,13 @@
 package com.tioka.runtime.kernel.infrastructure.persistence;
 
-import java.time.OffsetDateTime;
+import com.tioka.framework.persistence.MutableRecordDO;
+
+import java.time.LocalDateTime;
 
 /**
- * runtime_turn 行。无逻辑删、不继承 BaseDO（施工 M0-03 RT-02）。
+ * runtime_turn 行。无逻辑删；审计四列见 {@link MutableRecordDO}（M0-P2 / M0-01 ENG-11）。
  */
-public class RuntimeTurnDO {
+public class RuntimeTurnDO extends MutableRecordDO {
     private String id;
     private String sessionId;
     private Integer seq;
@@ -20,15 +22,13 @@ public class RuntimeTurnDO {
     private Integer recoverCount;
     private String workerId;
     private Long leaseVersion;
-    private OffsetDateTime leaseUntil;
+    private LocalDateTime leaseUntil;
     private String errorCode;
     private String errorMessage;
     private Integer promptTokens;
     private Integer completionTokens;
-    private OffsetDateTime startedAt;
-    private OffsetDateTime endedAt;
-    private OffsetDateTime createAt;
-    private OffsetDateTime updateAt;
+    private LocalDateTime startedAt;
+    private LocalDateTime endedAt;
 
     public String getId() { return id; }
     public void setId(String id) { this.id = id; }
@@ -56,8 +56,8 @@ public class RuntimeTurnDO {
     public void setWorkerId(String workerId) { this.workerId = workerId; }
     public Long getLeaseVersion() { return leaseVersion; }
     public void setLeaseVersion(Long leaseVersion) { this.leaseVersion = leaseVersion; }
-    public OffsetDateTime getLeaseUntil() { return leaseUntil; }
-    public void setLeaseUntil(OffsetDateTime leaseUntil) { this.leaseUntil = leaseUntil; }
+    public LocalDateTime getLeaseUntil() { return leaseUntil; }
+    public void setLeaseUntil(LocalDateTime leaseUntil) { this.leaseUntil = leaseUntil; }
     public String getErrorCode() { return errorCode; }
     public void setErrorCode(String errorCode) { this.errorCode = errorCode; }
     public String getErrorMessage() { return errorMessage; }
@@ -66,12 +66,8 @@ public class RuntimeTurnDO {
     public void setPromptTokens(Integer promptTokens) { this.promptTokens = promptTokens; }
     public Integer getCompletionTokens() { return completionTokens; }
     public void setCompletionTokens(Integer completionTokens) { this.completionTokens = completionTokens; }
-    public OffsetDateTime getStartedAt() { return startedAt; }
-    public void setStartedAt(OffsetDateTime startedAt) { this.startedAt = startedAt; }
-    public OffsetDateTime getEndedAt() { return endedAt; }
-    public void setEndedAt(OffsetDateTime endedAt) { this.endedAt = endedAt; }
-    public OffsetDateTime getCreateAt() { return createAt; }
-    public void setCreateAt(OffsetDateTime createAt) { this.createAt = createAt; }
-    public OffsetDateTime getUpdateAt() { return updateAt; }
-    public void setUpdateAt(OffsetDateTime updateAt) { this.updateAt = updateAt; }
+    public LocalDateTime getStartedAt() { return startedAt; }
+    public void setStartedAt(LocalDateTime startedAt) { this.startedAt = startedAt; }
+    public LocalDateTime getEndedAt() { return endedAt; }
+    public void setEndedAt(LocalDateTime endedAt) { this.endedAt = endedAt; }
 }

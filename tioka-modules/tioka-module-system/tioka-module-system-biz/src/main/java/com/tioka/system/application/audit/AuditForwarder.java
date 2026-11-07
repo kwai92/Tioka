@@ -59,6 +59,11 @@ public class AuditForwarder {
     @Scheduled(cron = "${tioka.audit.retention-cron:0 30 3 * * *}")
     @Transactional
     public void purgeExpired() {
+        if (!props.isPhysicalPurgeEnabled()) {
+            log.debug("audit physical purge disabled (OBS-01 / GOV-09 pending)");
+            return;
+        }
+        // 仅显式打开时执行；生产在 GOV-09 前不得打开
         int days = Math.max(1, props.getRetentionDays());
         Instant before = Instant.now().minus(days, ChronoUnit.DAYS);
         int n = repository.deleteExpiredForwarded(before);

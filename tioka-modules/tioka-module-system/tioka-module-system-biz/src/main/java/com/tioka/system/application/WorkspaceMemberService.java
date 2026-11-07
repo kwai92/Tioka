@@ -111,7 +111,7 @@ public class WorkspaceMemberService {
         audit.record(new AuditEvent(null, at, null, workspaceId,
                 "user", operatorId, "member.remove", "workspace_member",
                 workspaceId + ":" + userId,
-                AuditOutcome.SUCCESS, null, null, null,
+                AuditOutcome.SUCCESS, null, null, null, null,
                 Map.of("userId", userId, "source", MemberRemovedEvent.SOURCE_MANUAL)));
         AfterCommitEvents.publish(events,
                 new MemberRemovedEvent(workspaceId, userId, MemberRemovedEvent.SOURCE_MANUAL));

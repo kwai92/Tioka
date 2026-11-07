@@ -17,10 +17,10 @@ public interface AuditEventMapper {
     @Insert("""
             INSERT INTO audit_event
               (id, ts, workspace_id, actor_type, actor_id, action,
-               resource_type, resource_id, outcome, reason, trace_id, client_ip, details_json, forwarded)
+               resource_type, resource_id, outcome, reason, trace_id, request_id, client_ip, details_json, forwarded)
             VALUES
               (#{id}, #{ts}, #{workspaceId}, #{actorType}, #{actorId}, #{action},
-               #{resourceType}, #{resourceId}, #{outcome}, #{reason}, #{traceId}, #{clientIp}, #{detailsJson}, FALSE)
+               #{resourceType}, #{resourceId}, #{outcome}, #{reason}, #{traceId}, #{requestId}, #{clientIp}, #{detailsJson}, FALSE)
             """)
     int insert(@Param("id") String id,
                @Param("ts") Instant ts,
@@ -33,13 +33,14 @@ public interface AuditEventMapper {
                @Param("outcome") String outcome,
                @Param("reason") String reason,
                @Param("traceId") String traceId,
+               @Param("requestId") String requestId,
                @Param("clientIp") String clientIp,
                @Param("detailsJson") String detailsJson);
 
     @Select("""
             SELECT id, ts, workspace_id AS workspaceId, actor_type AS actorType, actor_id AS actorId,
                    action, resource_type AS resourceType, resource_id AS resourceId,
-                   outcome, reason, trace_id AS traceId, client_ip AS clientIp,
+                   outcome, reason, trace_id AS traceId, request_id AS requestId, client_ip AS clientIp,
                    details_json AS detailsJson, forwarded
             FROM audit_event
             WHERE (#{workspaceId}::varchar IS NULL OR workspace_id = #{workspaceId})
@@ -67,7 +68,7 @@ public interface AuditEventMapper {
     @Select("""
             SELECT id, ts, workspace_id AS workspaceId, actor_type AS actorType, actor_id AS actorId,
                    action, resource_type AS resourceType, resource_id AS resourceId,
-                   outcome, reason, trace_id AS traceId, client_ip AS clientIp,
+                   outcome, reason, trace_id AS traceId, request_id AS requestId, client_ip AS clientIp,
                    details_json AS detailsJson, forwarded
             FROM audit_event
             WHERE forwarded = FALSE

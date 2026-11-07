@@ -1,5 +1,7 @@
 package com.tioka.server.ops;
 
+import com.tioka.system.api.audit.Audited;
+
 import com.tioka.agent.api.AgentShareApi;
 import com.tioka.connector.api.FeishuDocSyncApi;
 import com.tioka.framework.error.ApiResponse;
@@ -55,16 +57,19 @@ public class OpsFacadeController {
     }
 
     @PostMapping("/datasources")
+    @Audited(action = "ops.datasource.bind", resourceType = "kb_datasource")
     public ApiResponse<?> ds(@RequestBody Map<String, String> body) {
         return ApiResponse.ok(dataSourceApi.bind(body.get("kbId"), body.get("type"), body.get("uri")));
     }
 
     @PostMapping("/feishu/map")
+    @Audited(action = "ops.feishu.map", resourceType = "feishu_doc")
     public ApiResponse<?> map(@RequestBody Map<String, String> body) {
         return ApiResponse.ok(feishuDocSyncApi.map(body.get("localDocId"), body.get("feishuDocToken")));
     }
 
     @PostMapping("/wiki")
+    @Audited(action = "ops.wiki.upsert", resourceType = "wiki")
     public ApiResponse<?> wiki(@RequestBody Map<String, String> body) {
         return ApiResponse.ok(wikiApi.upsert(body.get("kbId"), body.get("title"), body.get("body")));
     }
@@ -81,6 +86,7 @@ public class OpsFacadeController {
     }
 
     @PostMapping("/scim/sync")
+    @Audited(action = "ops.scim.sync", resourceType = "scim")
     public ApiResponse<?> scim(@RequestBody List<Map<String, String>> delta) {
         return ApiResponse.ok(scimSyncApi.sync(delta));
     }
@@ -101,6 +107,7 @@ public class OpsFacadeController {
     }
 
     @PostMapping("/agents/{id}/share")
+    @Audited(action = "ops.agent.share", resourceType = "agent", resourceIdArg = "#id")
     public ApiResponse<?> share(@PathVariable String id, @RequestBody Map<String, String> body) {
         return ApiResponse.ok(agentShareApi.share(id, body.get("mode")));
     }

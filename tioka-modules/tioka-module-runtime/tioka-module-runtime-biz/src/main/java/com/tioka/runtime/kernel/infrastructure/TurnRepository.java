@@ -10,7 +10,7 @@ import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
-import java.time.OffsetDateTime;
+import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
@@ -51,12 +51,12 @@ public class TurnRepository {
     }
 
     public OptionalLong acquire(String turnId, String workerId, Instant leaseUntil) {
-        Long lv = mapper.acquire(turnId, workerId, OffsetDateTime.ofInstant(leaseUntil, ZoneOffset.UTC));
+        Long lv = mapper.acquire(turnId, workerId, LocalDateTime.ofInstant(leaseUntil, ZoneOffset.UTC));
         return lv == null ? OptionalLong.empty() : OptionalLong.of(lv);
     }
 
     public int renew(String turnId, long leaseVersion, Instant leaseUntil) {
-        return mapper.renew(turnId, leaseVersion, OffsetDateTime.ofInstant(leaseUntil, ZoneOffset.UTC));
+        return mapper.renew(turnId, leaseVersion, LocalDateTime.ofInstant(leaseUntil, ZoneOffset.UTC));
     }
 
     public int finish(String turnId, long leaseVersion, TurnStatus to,
@@ -96,7 +96,7 @@ public class TurnRepository {
     }
 
     public List<String> findExpired(Instant now, int limit) {
-        return mapper.findExpired(OffsetDateTime.ofInstant(now, ZoneOffset.UTC), limit);
+        return mapper.findExpired(LocalDateTime.ofInstant(now, ZoneOffset.UTC), limit);
     }
 
     public int markInterrupted(String turnId) {

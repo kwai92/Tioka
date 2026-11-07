@@ -1,5 +1,7 @@
 package com.tioka.mcp.api;
 
+import com.tioka.system.api.audit.Audited;
+
 import com.tioka.framework.error.ApiResponse;
 import com.tioka.mcp.application.McpAdminService;
 import com.tioka.mcp.application.McpHealthService;
@@ -27,6 +29,7 @@ public class McpHealthController {
     }
 
     @PostMapping("/servers/{id}/trial")
+    @Audited(action = "mcp.server.trial", resourceType = "mcp_server", resourceIdArg = "#id")
     public ApiResponse<Map<String, Object>> trial(@PathVariable String id, @RequestBody Map<String, Object> body) {
         healthService.check(id);
         String tool = String.valueOf(body.getOrDefault("tool", "mcp_echo"));

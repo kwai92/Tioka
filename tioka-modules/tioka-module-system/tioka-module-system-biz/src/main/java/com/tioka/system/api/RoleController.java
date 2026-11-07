@@ -1,5 +1,7 @@
 package com.tioka.system.api;
 
+import com.tioka.system.api.audit.Audited;
+
 import com.tioka.framework.error.ApiResponse;
 import com.tioka.framework.security.Permissions;
 import com.tioka.framework.security.RequirePermission;
@@ -26,6 +28,7 @@ public class RoleController {
 
     @RequirePermission(Permissions.TENANT_ADMIN)
     @PostMapping("/roles")
+    @Audited(action = "role.create", resourceType = "role")
     public ApiResponse<RoleAdminService.RoleView> createRole(@RequestBody Map<String, Object> body) {
         @SuppressWarnings("unchecked")
         List<String> permissions = (List<String>) body.getOrDefault("permissions", List.of());
@@ -38,6 +41,7 @@ public class RoleController {
 
     @RequirePermission(Permissions.TENANT_ADMIN)
     @PutMapping("/roles/{code}")
+    @Audited(action = "role.update", resourceType = "role", resourceIdArg = "#code")
     public ApiResponse<RoleAdminService.RoleView> updateRole(@PathVariable String code,
                                                              @RequestBody Map<String, Object> body) {
         @SuppressWarnings("unchecked")
@@ -47,6 +51,7 @@ public class RoleController {
 
     @RequirePermission(Permissions.TENANT_ADMIN)
     @DeleteMapping("/roles/{code}")
+    @Audited(action = "role.delete", resourceType = "role", resourceIdArg = "#code")
     public ApiResponse<Void> deleteRole(@PathVariable String code) {
         roles.delete(code);
         return ApiResponse.ok(null);

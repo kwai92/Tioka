@@ -30,7 +30,7 @@ import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.Instant;
-import java.time.OffsetDateTime;
+import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -318,8 +318,8 @@ public class KernelRuntimeService implements RuntimeApi {
                         : item.getCreateAt().atZone(ZoneOffset.UTC).toInstant());
     }
 
-    private static Instant toInstant(OffsetDateTime t) {
-        return t == null ? null : t.toInstant();
+    private static Instant toInstant(LocalDateTime t) {
+        return t == null ? null : t.toInstant(ZoneOffset.UTC);
     }
 
     private String json(Object o) {
