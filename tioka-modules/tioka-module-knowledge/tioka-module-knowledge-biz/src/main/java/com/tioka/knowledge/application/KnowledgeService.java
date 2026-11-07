@@ -62,6 +62,35 @@ public class KnowledgeService implements KnowledgeSearchApi {
         this.tx = new TransactionTemplate(transactionManager);
     }
 
+    /** FE-04：可用嵌入 binding（kind=embedding、enabled、维度对齐配置）。 */
+    public List<EmbeddingBindingView> listEmbeddingBindings() {
+        return bindings.listByKind("embedding").stream()
+                .filter(BindingQueryApi.BindingInfo::enabled)
+                .filter(b -> b.embeddingDim() != null && b.embeddingDim() == embeddingDim)
+                .map(b -> {
+                    String label = b.modelName() == null || b.modelName().isBlank()
+                            ? b.id() + " (dim=" + b.embeddingDim() + ")"
+                            : b.modelName() + " (" + b.id() + ", dim=" + b.embeddingDim() + ")";
+                    return new EmbeddingBindingView(b.id(), b.embeddingDim(), b.enabled(), label);
+                })
+                .toList();
+    }
+
+    /** FE-04：当前库文档重嵌入进度（REINDEX_PENDING）。 */
+    public ReindexProgress reindexProgress(String kbId) {
+        if (!repo.hasBase(kbId)) {
+            throw new BizException(ErrorCode.NOT_FOUND, "知识库不存在");
+        }
+        Map<String, Long> byStatus = repo.countDocumentsByStatus(kbId);
+        long pending = byStatus.getOrDefault("REINDEX_PENDING", 0L);
+        long ready = byStatus.getOrDefault("READY", 0L);
+        long failed = byStatus.getOrDefault("FAILED", 0L);
+        long embedding = byStatus.getOrDefault("EMBEDDING", 0L);
+        long total = byStatus.values().stream().mapToLong(Long::longValue).sum();
+        int percent = total == 0 ? 100 : (int) Math.round(100.0 * (total - pending) / total);
+        return new ReindexProgress(kbId, pending, ready, failed, embedding, total, percent);
+    }
+
     public KnowledgeBase createBase(String workspaceId, String name) {
         return createBase(workspaceId, name, null);
     }
@@ -435,6 +464,9 @@ public class KnowledgeService implements KnowledgeSearchApi {
             this(id, workspaceId, name, null);
         }
     }
+    public record EmbeddingBindingView(String id, Integer embeddingDim, boolean enabled, String label) {}
+    public record ReindexProgress(String kbId, long pending, long ready, long failed, long embedding,
+                                  long total, int percent) {}
     public record Document(String id, String kbId, String title, String sourceType, String status, String format) {}
     public record RetrievalHit(String docId, String chunkId, String kbId, String text, double score, String title,
                                String citationId) {

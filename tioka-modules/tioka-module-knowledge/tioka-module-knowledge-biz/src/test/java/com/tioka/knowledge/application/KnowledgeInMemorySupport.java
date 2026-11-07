@@ -54,6 +54,15 @@ final class KnowledgeInMemorySupport {
                         .limit(limit)
                         .toList();
             }
+            @Override public Map<String, Long> countDocumentsByStatus(String kbId) {
+                Map<String, Long> out = new HashMap<>();
+                for (KbDocumentDO d : docs.values()) {
+                    if (!kbId.equals(d.getKbId())) continue;
+                    String status = d.getStatus() == null ? "" : d.getStatus();
+                    out.merge(status, 1L, Long::sum);
+                }
+                return out;
+            }
             @Override public void insertChunkWithVector(String id, String docId, String kbId, String workspaceId,
                                                         String text, int ordinal, String vectorLiteral) {
                 KbChunkDO row = new KbChunkDO();

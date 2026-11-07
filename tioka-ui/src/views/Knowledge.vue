@@ -16,11 +16,70 @@
         <el-form-item label="名称">
           <el-input v-model="name" placeholder="知识库名称" />
         </el-form-item>
+        <el-form-item label="嵌入 binding">
+          <el-select
+            v-model="embeddingBindingId"
+            clearable
+            filterable
+            placeholder="选择 kind=embedding"
+            style="min-width: 280px"
+            :disabled="!embeddingBindings.length"
+          >
+            <el-option
+              v-for="b in embeddingBindings"
+              :key="b.id"
+              :label="b.label"
+              :value="b.id"
+            />
+          </el-select>
+        </el-form-item>
         <el-form-item>
-          <el-button type="primary" :loading="busy" @click="createKb">创建库</el-button>
+          <el-button
+            type="primary"
+            :loading="busy"
+            :disabled="!embeddingBindings.length"
+            @click="createKb"
+          >
+            创建库
+          </el-button>
         </el-form-item>
       </el-form>
-      <p v-if="kbId" class="kb-id">当前库：{{ kbId }}</p>
+      <p v-if="!embeddingBindings.length" class="hint">
+        暂无可用嵌入 binding（需 kind=embedding、已启用且维度对齐配置）。请先在「模型」页配置。
+      </p>
+      <p v-if="kbId" class="kb-id">
+        当前库：{{ kbId }}
+        <template v-if="boundEmbeddingId"> · 嵌入：{{ boundEmbeddingId }}</template>
+      </p>
+    </el-card>
+
+    <el-card v-if="kbId" shadow="never" class="mb">
+      <template #header>
+        <div class="card-head">
+          <span>重嵌入进度</span>
+          <el-button size="small" :loading="progressLoading" @click="refreshProgress">刷新</el-button>
+        </div>
+      </template>
+      <template v-if="progress">
+        <el-progress
+          :percentage="progress.percent"
+          :status="progress.pending > 0 ? undefined : 'success'"
+        />
+        <p class="progress-meta">
+          REINDEX_PENDING {{ progress.pending }} / 共 {{ progress.total }}
+          · READY {{ progress.ready }}
+          · FAILED {{ progress.failed }}
+          · EMBEDDING {{ progress.embedding }}
+        </p>
+        <el-alert
+          v-if="progress.pending > 0"
+          type="info"
+          :closable="false"
+          show-icon
+          title="后台 ReindexJob 正在消化 REINDEX_PENDING（V119 / 维度统一后常见）"
+        />
+      </template>
+      <p v-else class="muted">加载进度中…</p>
     </el-card>
 
     <el-card v-if="kbId" shadow="never" class="mb">
@@ -141,10 +200,18 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { onMounted, onUnmounted, ref, watch } from 'vue'
 import { api } from '../api'
+import {
+  createKnowledgeBase,
+  fetchReindexProgress,
+  listEmbeddingBindings
+} from './knowledgeConsole'
 
 const name = ref('demo-kb')
+const embeddingBindingId = ref('')
+const embeddingBindings = ref([])
+const boundEmbeddingId = ref('')
 const kbId = ref('')
 const title = ref('手册')
 const content = ref('# Tioka\nretrieval citation vector hybrid search')
@@ -163,6 +230,9 @@ const drawerOpen = ref(false)
 const msg = ref('')
 const error = ref('')
 const citeError = ref('')
+const progress = ref(null)
+const progressLoading = ref(false)
+let pollTimer = null
 
 function escapeHtml(s) {
   return String(s)
@@ -187,17 +257,69 @@ function highlightText(text, q) {
   return out
 }
 
+async function loadEmbeddingBindings() {
+  try {
+    embeddingBindings.value = await listEmbeddingBindings(api)
+    if (!embeddingBindingId.value && embeddingBindings.value.length === 1) {
+      embeddingBindingId.value = embeddingBindings.value[0].id
+    }
+  } catch (e) {
+    error.value = e.message
+    embeddingBindings.value = []
+  }
+}
+
+async function refreshProgress() {
+  if (!kbId.value) return
+  progressLoading.value = true
+  try {
+    progress.value = await fetchReindexProgress(api, kbId.value)
+  } catch (e) {
+    error.value = e.message
+  } finally {
+    progressLoading.value = false
+  }
+}
+
+function stopPoll() {
+  if (pollTimer) {
+    clearInterval(pollTimer)
+    pollTimer = null
+  }
+}
+
+function startPollIfNeeded() {
+  stopPoll()
+  if (!kbId.value) return
+  pollTimer = setInterval(async () => {
+    if (!kbId.value) return
+    try {
+      progress.value = await fetchReindexProgress(api, kbId.value)
+      if (progress.value && progress.value.pending === 0) stopPoll()
+    } catch {
+      /* 轮询失败不打断主流程 */
+    }
+  }, 5000)
+}
+
 async function createKb() {
+  if (!embeddingBindingId.value) {
+    error.value = '请选择嵌入 binding'
+    return
+  }
   busy.value = true
   error.value = ''
   msg.value = ''
   try {
-    const kb = await api('/api/knowledge/bases', {
-      method: 'POST',
-      body: JSON.stringify({ name: name.value })
+    const kb = await createKnowledgeBase(api, {
+      name: name.value,
+      embeddingBindingId: embeddingBindingId.value
     })
     kbId.value = kb.id
+    boundEmbeddingId.value = kb.embeddingBindingId || embeddingBindingId.value
     msg.value = `已创建知识库 ${kb.id}`
+    await refreshProgress()
+    startPollIfNeeded()
   } catch (e) {
     error.value = e.message
   } finally {
@@ -221,6 +343,7 @@ async function ingest() {
       })
     })
     msg.value = `已入库 ${doc.id || doc.title || '文档'}`
+    await refreshProgress()
   } catch (e) {
     error.value = e.message
   } finally {
@@ -250,6 +373,7 @@ async function doUpload() {
     })
     msg.value = `上传成功 ${doc.id || doc.title || ''}`
     uploadFile.value = null
+    await refreshProgress()
   } catch (e) {
     error.value = `文件上传失败：${e.message || e}（请确认后端已提供 /documents/upload）`
   } finally {
@@ -288,6 +412,24 @@ async function resolve(id) {
     resolving.value = false
   }
 }
+
+watch(kbId, (id) => {
+  if (id) {
+    refreshProgress()
+    startPollIfNeeded()
+  } else {
+    stopPoll()
+    progress.value = null
+  }
+})
+
+onMounted(() => {
+  loadEmbeddingBindings()
+})
+
+onUnmounted(() => {
+  stopPoll()
+})
 </script>
 
 <style scoped>
@@ -296,6 +438,8 @@ async function resolve(id) {
 .mb { margin-bottom: 12px; }
 .card-head { display: flex; justify-content: space-between; align-items: center; }
 .kb-id { margin: 0; color: var(--muted); font-size: 12px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.hint { margin: 0; color: var(--muted); font-size: 12px; }
+.progress-meta { margin: 8px 0 0; font-size: 12px; color: var(--muted); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
 .hits { list-style: none; padding: 0; margin: 8px 0 0; }
 .hits li {
   padding: 12px;

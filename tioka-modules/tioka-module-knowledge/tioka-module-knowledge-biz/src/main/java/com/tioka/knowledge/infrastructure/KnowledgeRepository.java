@@ -5,6 +5,7 @@ import com.tioka.knowledge.infrastructure.mapper.*;
 import com.tioka.knowledge.infrastructure.persistence.*;
 import org.springframework.stereotype.Repository;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -45,6 +46,19 @@ public class KnowledgeRepository {
                 .eq(KbDocumentDO::getStatus, status)
                 .orderByAsc(KbDocumentDO::getUpdateAt)
                 .last("LIMIT " + Math.max(1, limit)));
+    }
+
+    /** FE-04：按知识库聚合文档状态计数（status → count）。 */
+    public Map<String, Long> countDocumentsByStatus(String kbId) {
+        List<KbDocumentDO> rows = documents.selectList(Wrappers.<KbDocumentDO>lambdaQuery()
+                .eq(KbDocumentDO::getKbId, kbId)
+                .select(KbDocumentDO::getStatus));
+        Map<String, Long> out = new HashMap<>();
+        for (KbDocumentDO row : rows) {
+            String status = row.getStatus() == null ? "" : row.getStatus();
+            out.merge(status, 1L, Long::sum);
+        }
+        return out;
     }
 
     public void insertChunkWithVector(String id, String docId, String kbId, String workspaceId,

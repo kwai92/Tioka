@@ -23,12 +23,22 @@ public class KnowledgeController {
         this.dataSourceService = dataSourceService;
     }
 
+    @GetMapping("/embedding-bindings")
+    public ApiResponse<List<KnowledgeService.EmbeddingBindingView>> listEmbeddingBindings() {
+        return ApiResponse.ok(service.listEmbeddingBindings());
+    }
+
     @PostMapping("/bases")
     public ApiResponse<KnowledgeService.KnowledgeBase> createBase(@RequestBody Map<String, String> body) {
         return ApiResponse.ok(service.createBase(
                 body.getOrDefault("workspaceId", "ws_default"),
                 body.get("name"),
                 body.get("embeddingBindingId")));
+    }
+
+    @GetMapping("/bases/{id}/reindex-progress")
+    public ApiResponse<KnowledgeService.ReindexProgress> reindexProgress(@PathVariable String id) {
+        return ApiResponse.ok(service.reindexProgress(id));
     }
 
     @PostMapping("/bases/{id}/documents")
