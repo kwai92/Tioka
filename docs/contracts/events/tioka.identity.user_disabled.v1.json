@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tioka.dev/schema/tioka.identity.user_disabled.v1.json",
+  "title": "tioka.identity.user_disabled.v1",
+  "description": "User disabled; bridges UserDisabledEvent via outbox (M1-01 F7, ID-BR).",
+  "type": "object",
+  "required": ["userId", "operatorId", "at"],
+  "properties": {
+    "userId": { "type": "string" },
+    "operatorId": { "type": "string" },
+    "at": { "type": "string", "format": "date-time" }
+  },
+  "additionalProperties": true
+}

@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tioka.dev/schema/tioka.orch.run_created.v1.json",
+  "title": "tioka.orch.run_created.v1",
+  "description": "Orchestration Run inserted as PENDING; consumed by orch-dispatcher (M2-02).",
+  "type": "object",
+  "required": ["runId", "workItemId"],
+  "properties": {
+    "runId": { "type": "string" },
+    "workItemId": { "type": "string" },
+    "ruleId": { "type": "string" },
+    "ruleVersionId": { "type": "string" },
+    "workspaceId": { "type": "string" }
+  },
+  "additionalProperties": true
+}

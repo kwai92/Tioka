@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tioka.dev/schema/tioka.orch.run_finished.v1.json",
+  "title": "tioka.orch.run_finished.v1",
+  "description": "Orchestration Run reached a terminal status; same transaction as orch_fact (ADR-020, ADR-035).",
+  "type": "object",
+  "required": ["runId", "workItemId", "status"],
+  "properties": {
+    "runId": { "type": "string" },
+    "workItemId": { "type": "string" },
+    "status": {
+      "type": "string",
+      "enum": ["SUCCEEDED", "FAILED", "CANCELLED", "UNCERTAIN"]
+    },
+    "ruleId": { "type": "string" },
+    "ruleVersionId": { "type": "string" },
+    "workspaceId": { "type": "string" },
+    "outcome": { "type": "string" },
+    "errorCode": { "type": ["string", "null"] }
+  },
+  "additionalProperties": true
+}
