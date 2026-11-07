@@ -90,3 +90,7 @@ CREATE TABLE sys_adapter_registration (id VARCHAR(32) PRIMARY KEY, tenant_id VAR
 ## 修订：文档解析引擎 SPI（2026-11-06）
 
 见 [ADR-061](ADR-061-parse-engine-spi-external-ocr.md) 与 ADR-029 第 71 条：插件宿主加载的 SPI 增加第十类「文档解析引擎」。适配器清单除通用的签名、SPI 版本、权限声明外，还声明能力、调用模式、坐标形式、计费单位与去向属性；去向属性由引擎实例填写、空间管理员确认，不由插件作者决定。
+
+## 修订：数据库账号与迁移执行（2026-11-07）
+
+见 ADR-029 第 79 条与 [M4-06](../construction/M4-06-企业交付与审计.md) 第 0.1 节：部署形态中「启动时由拿到锁的实例执行迁移」改为**由独立的迁移 Job 以属主账号 `tioka_owner` 执行**，应用以 `tioka_app` 运行，封印与归档各用 `tioka_sealer`、`tioka_archiver`；否则 ADR-072 要求的「应用账号对审计类表只有 INSERT 与 SELECT」不起作用（表属主不受 REVOKE 约束）。开发与 Compose 环境可以只用一个账号。
