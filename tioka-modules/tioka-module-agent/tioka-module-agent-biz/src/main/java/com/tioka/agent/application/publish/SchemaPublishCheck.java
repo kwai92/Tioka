@@ -34,9 +34,7 @@ public class SchemaPublishCheck implements PublishCheck {
         if (isSet(spec.charter())) {
             errors.add(new PublishError("/charter", "RESERVED_FIELD", "M1 预留字段 charter 必须为 null"));
         }
-        if (isSet(spec.output())) {
-            errors.add(new PublishError("/output", "RESERVED_FIELD", "M1 预留字段 output 必须为 null"));
-        }
+        // SCH-02：output 已解冻为 OutputContract；schemaRef 由 OutputContractPublishCheck 校验
         if (isSet(spec.subAgents())) {
             errors.add(new PublishError("/subAgents", "RESERVED_FIELD", "M1 预留字段 subAgents 必须为 null"));
         }

@@ -6,7 +6,8 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Agent 配置快照（M1 子集，schemaVersion=1）。预留字段 M1 必须为 null。
+ * Agent 配置快照（schemaVersion=1）。
+ * charter / subAgents / dataClearance 仍为预留（须 null）；output 自 SCH-02 起为 {@link OutputContract}（可空）。
  */
 public record AgentSpec(
         int schemaVersion,
@@ -20,7 +21,7 @@ public record AgentSpec(
         ApprovalSettings approval,
         Limits limits,
         JsonNode charter,
-        JsonNode output,
+        OutputContract output,
         JsonNode subAgents,
         String dataClearance
 ) {
