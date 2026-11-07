@@ -42,6 +42,8 @@ class BootstrapAdminIT {
     void createsOnceAcrossTwoRunners() throws Exception {
         assertTrue(userRoles.existsEnabledTenantAdmin(),
                 "BootstrapAdminRunner 应已写入 sys_user_role.tenant_admin");
+        // 共享 Testcontainers DB：其它 IT（OIDC 等）也可能写入 tenant_admin，只断言并发不增量
+        long before = userRoles.countByRole("tenant_admin");
 
         CountDownLatch start = new CountDownLatch(1);
         CountDownLatch done = new CountDownLatch(2);
@@ -64,7 +66,7 @@ class BootstrapAdminIT {
         pool.shutdownNow();
         assertEquals(0, errors.get());
         assertTrue(userRoles.existsEnabledTenantAdmin());
-        assertEquals(1L, userRoles.countByRole("tenant_admin"),
-                "并发二次 bootstrap 不得再造出第二个 tenant_admin");
+        assertEquals(before, userRoles.countByRole("tenant_admin"),
+                "并发二次 bootstrap 不得再增加 tenant_admin 行数");
     }
 }
