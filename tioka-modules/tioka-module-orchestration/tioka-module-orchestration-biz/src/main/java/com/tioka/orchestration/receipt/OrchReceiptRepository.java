@@ -22,15 +22,15 @@ public class OrchReceiptRepository {
 
     private final OrchRunMapper runs;
     private final OrchRuleVersionMapper versions;
-    private final OrchFactMapper facts;
-    private final OrchWorkItemMapper workItems;
+    private final OrchReceiptFactMapper facts;
+    private final OrchReceiptWorkItemMapper workItems;
     private final OrchTimerMapper timers;
     private final ObjectMapper mapper;
 
     public OrchReceiptRepository(OrchRunMapper runs,
                                  OrchRuleVersionMapper versions,
-                                 OrchFactMapper facts,
-                                 OrchWorkItemMapper workItems,
+                                 OrchReceiptFactMapper facts,
+                                 OrchReceiptWorkItemMapper workItems,
                                  OrchTimerMapper timers,
                                  ObjectMapper mapper) {
         this.runs = runs;
