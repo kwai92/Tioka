@@ -1,9 +1,12 @@
 package com.tioka.system.infrastructure;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.tioka.system.infrastructure.mapper.AuthUserMapper;
 import com.tioka.system.infrastructure.persistence.AuthUserDO;
 import org.springframework.stereotype.Repository;
+
+import java.util.List;
 
 @Repository
 public class AuthUserRepositoryImpl implements AuthUserRepository {
@@ -43,5 +46,27 @@ public class AuthUserRepositoryImpl implements AuthUserRepository {
     @Override
     public long nextId() {
         return mapper.nextId();
+    }
+
+    @Override
+    public List<AuthUserDO> search(String q, int offset, int limit) {
+        return mapper.selectList(searchWrapper(q)
+                .orderByDesc(AuthUserDO::getId)
+                .last("LIMIT " + Math.max(limit, 1) + " OFFSET " + Math.max(offset, 0)));
+    }
+
+    @Override
+    public long countSearch(String q) {
+        Long n = mapper.selectCount(searchWrapper(q));
+        return n == null ? 0L : n;
+    }
+
+    private static LambdaQueryWrapper<AuthUserDO> searchWrapper(String q) {
+        LambdaQueryWrapper<AuthUserDO> w = Wrappers.lambdaQuery();
+        if (q != null && !q.isBlank()) {
+            String like = "%" + q.trim() + "%";
+            w.and(x -> x.like(AuthUserDO::getUsername, like).or().like(AuthUserDO::getDisplayName, like));
+        }
+        return w;
     }
 }

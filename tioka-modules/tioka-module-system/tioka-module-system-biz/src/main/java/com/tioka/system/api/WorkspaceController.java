@@ -27,6 +27,13 @@ public class WorkspaceController {
         return ApiResponse.ok(workspaceService.mine());
     }
 
+    /** HCI-03：租户级空间列表。 */
+    @RequirePermission(Permissions.TENANT_ADMIN)
+    @GetMapping
+    public ApiResponse<List<WorkspaceService.Workspace>> list() {
+        return ApiResponse.ok(workspaceService.listAll());
+    }
+
     @RequirePermission(Permissions.TENANT_ADMIN)
     @PostMapping
     public ApiResponse<WorkspaceService.Workspace> create(@RequestBody Map<String, String> body) {

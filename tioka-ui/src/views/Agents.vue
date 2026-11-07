@@ -43,9 +43,10 @@
             {{ row.publishedVersionId || '未发布' }}
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="100">
+        <el-table-column label="操作" width="160">
           <template #default="{ row }">
             <el-button link type="primary" size="small" @click="pick(row)">编辑</el-button>
+            <el-button link type="primary" size="small" @click="openShare(row.id)">分享</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -336,6 +337,12 @@
       </el-table>
       <pre v-if="diffOps" class="diff">{{ JSON.stringify(diffOps, null, 2) }}</pre>
     </el-card>
+
+    <ResourceAclDialog
+      v-model="shareOpen"
+      resource-type="agent"
+      :resource-id="shareAgentId"
+    />
   </div>
 </template>
 
@@ -343,6 +350,7 @@
 import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
 import { ElMessageBox } from 'element-plus'
 import { api } from '../api'
+import ResourceAclDialog from '@/components/ResourceAclDialog.vue'
 import {
   EDITOR_SECTIONS,
   diffVersions,
@@ -368,6 +376,13 @@ const toolsByServer = reactive({})
 const msg = ref('')
 const error = ref('')
 const busy = ref(false)
+const shareOpen = ref(false)
+const shareAgentId = ref('')
+
+function openShare(id) {
+  shareAgentId.value = id
+  shareOpen.value = true
+}
 const revision = ref(0)
 const spec = ref(null)
 const activeTab = ref('profile')

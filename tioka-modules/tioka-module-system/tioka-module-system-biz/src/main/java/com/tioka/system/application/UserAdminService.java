@@ -18,6 +18,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.security.SecureRandom;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 
 @Service
@@ -42,6 +44,20 @@ public class UserAdminService {
         this.principals = principals;
         this.events = events;
         this.audit = audit;
+    }
+
+    /** HCI-03：用户列表搜索。 */
+    public Page<UserView> list(String q, int page, int size) {
+        requireTenantAdmin();
+        int p = Math.max(page, 1);
+        int s = Math.min(Math.max(size, 1), 100);
+        int offset = (p - 1) * s;
+        List<AuthUserDO> rows = users.search(q, offset, s);
+        List<UserView> items = new ArrayList<>(rows.size());
+        for (AuthUserDO row : rows) {
+            items.add(toView(row));
+        }
+        return new Page<>(items, users.countSearch(q), p, s);
     }
 
     @Transactional
@@ -107,6 +123,33 @@ public class UserAdminService {
         AfterCommitEvents.publish(events, new UserEnabledEvent(userId, operatorId, at));
     }
 
+    /** HCI-03：重置密码，明文仅返回一次。 */
+    @Transactional
+    public ResetPasswordResult resetPassword(String userId) {
+        requireTenantAdmin();
+        AuthUserDO row = requireUser(userId);
+        String raw = randomPassword(16);
+        row.setPasswordHash(passwords.hash(raw));
+        row.setMustChangePassword(true);
+        users.update(row);
+        String operatorId = principals.current().userId();
+        Instant at = Instant.now();
+        audit.record(new AuditEvent(null, at, null, principals.current().workspaceId(),
+                "user", operatorId, "user.reset_password", "user", userId,
+                AuditOutcome.SUCCESS, null, null, null, Map.of()));
+        return new ResetPasswordResult(raw);
+    }
+
+    private static UserView toView(AuthUserDO row) {
+        return new UserView(
+                String.valueOf(row.getId()),
+                row.getUsername(),
+                row.getDisplayName(),
+                Boolean.TRUE.equals(row.getEnabled()),
+                row.getIdp(),
+                Boolean.TRUE.equals(row.getMustChangePassword()));
+    }
+
     private AuthUserDO requireUser(String userId) {
         long id;
         try {
@@ -137,4 +180,11 @@ public class UserAdminService {
     }
 
     public record CreatedUser(String id, String initialPassword) {}
+
+    public record ResetPasswordResult(String initialPassword) {}
+
+    public record UserView(String id, String username, String displayName, boolean enabled,
+                           String idp, boolean mustChangePassword) {}
+
+    public record Page<T>(List<T> items, long total, int page, int size) {}
 }

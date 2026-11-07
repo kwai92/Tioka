@@ -72,6 +72,16 @@ class AuthServiceTest {
             public long nextId() {
                 return seq.incrementAndGet();
             }
+
+            @Override
+            public java.util.List<AuthUserDO> search(String q, int offset, int limit) {
+                return byId.values().stream().skip(offset).limit(limit).toList();
+            }
+
+            @Override
+            public long countSearch(String q) {
+                return byId.size();
+            }
         };
         passwords = new PasswordService();
         AuthUserDO admin = new AuthUserDO();

@@ -13,6 +13,7 @@
         <router-link to="/observe">观测</router-link>
         <router-link to="/knowledge">知识</router-link>
         <router-link to="/flows">Flow</router-link>
+        <router-link v-if="showAdmin" to="/admin">管理后台</router-link>
       </nav>
       <div class="user" v-if="auth.user">{{ auth.user.displayName || auth.user.username }}</div>
       <button class="logout" @click="logout">退出</button>
@@ -21,12 +22,15 @@
   </div>
 </template>
 <script setup lang="ts">
+import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { canSeeAdmin } from '@/admin/adminNav'
 import WorkspaceSwitcher from '@/components/WorkspaceSwitcher.vue'
 
 const router = useRouter()
 const auth = useAuthStore()
+const showAdmin = computed(() => canSeeAdmin(auth.permissions))
 
 async function logout() {
   await auth.logout()
