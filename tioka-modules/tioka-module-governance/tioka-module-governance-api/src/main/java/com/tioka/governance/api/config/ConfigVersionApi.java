@@ -3,10 +3,11 @@ package com.tioka.governance.api.config;
 import com.fasterxml.jackson.databind.JsonNode;
 
 import java.util.List;
+import java.util.Optional;
 
 /**
  * 统一配置版本框架契约（ADR-041 §2 / GOV-12）。
- * <p>本接口为契约先行；实现与生命周期 IT 在后续工作项完成。
+ * <p>实现位于 governance-biz {@code config} 子域；特性开关默认关闭。
  */
 public interface ConfigVersionApi {
 
@@ -33,6 +34,9 @@ public interface ConfigVersionApi {
 
     /** 导入后生成草稿，不自动发布。 */
     List<ConfigDraft> importAsDrafts(ExportBundle bundle);
+
+    /** 当前生效版本（本地投影）；无则 empty。 */
+    Optional<ConfigVersion> getCurrent(ObjectRef ref);
 
     record ObjectRef(String objectType, String objectId) {}
 

@@ -13,5 +13,6 @@
     <name>tioka-module-governance</name>
     <modules>
         <module>tioka-module-governance-api</module>
+        <module>tioka-module-governance-biz</module>
     </modules>
 </project>
