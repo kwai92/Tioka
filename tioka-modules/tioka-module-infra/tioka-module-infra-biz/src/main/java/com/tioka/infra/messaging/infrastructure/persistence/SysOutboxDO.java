@@ -3,14 +3,15 @@ package com.tioka.infra.messaging.infrastructure.persistence;
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
+import com.tioka.framework.persistence.TechnicalRecordDO;
 
 import java.time.Instant;
 
 /**
- * {@code sys_outbox}（V130）。表结构无逻辑删 / updateBy，不继承 BaseDO。
+ * {@code sys_outbox}（V130）。平台技术表：无 soft-delete / workspace。
  */
 @TableName("sys_outbox")
-public class SysOutboxDO {
+public class SysOutboxDO extends TechnicalRecordDO {
 
     @TableId(type = IdType.AUTO)
     private Long id;

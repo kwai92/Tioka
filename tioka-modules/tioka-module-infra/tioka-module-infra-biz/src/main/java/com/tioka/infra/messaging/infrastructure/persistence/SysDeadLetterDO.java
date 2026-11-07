@@ -1,15 +1,17 @@
 package com.tioka.infra.messaging.infrastructure.persistence;
 
+import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
+import com.tioka.framework.persistence.TechnicalRecordDO;
 
 import java.time.Instant;
 
-/** {@code sys_dead_letter}（V130）。 */
+/** {@code sys_dead_letter}（V130）。平台技术表。 */
 @TableName("sys_dead_letter")
-public class SysDeadLetterDO {
+public class SysDeadLetterDO extends TechnicalRecordDO {
 
-    @TableId
+    @TableId(type = IdType.INPUT)
     private String id;
     private String consumer;
     private String topic;
