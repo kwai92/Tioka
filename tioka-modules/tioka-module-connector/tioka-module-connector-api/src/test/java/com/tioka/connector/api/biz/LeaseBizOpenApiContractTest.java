@@ -118,6 +118,18 @@ class LeaseBizOpenApiContractTest {
         assertEquals(docsRoot, root, "CON-07a 快照必须与 docs/contracts 一致");
     }
 
+    @Test
+    void eventPayloadSchemasPresentInDocs() {
+        for (String name : Set.of(
+                "lease-contract-submitted-v1.json",
+                "contract-model-confirmed-v1.json",
+                "lease-review-feedback-v1.json")) {
+            Path p = findRepoFile(Path.of("docs/contracts/events/" + name));
+            assertNotNull(p, "missing event schema " + name);
+            assertTrue(Files.isRegularFile(p));
+        }
+    }
+
     private static Path findRepoFile(Path relative) {
         Path cur = Path.of(".").toAbsolutePath().normalize();
         for (int i = 0; i < 8; i++) {

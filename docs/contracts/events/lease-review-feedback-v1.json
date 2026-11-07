@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tioka.local/contracts/events/lease-review-feedback-v1.json",
+  "title": "lease.review.feedback data",
+  "type": "object",
+  "required": ["reviewRunId", "findingId", "checkpointCode", "action", "handledBy"],
+  "properties": {
+    "reviewRunId": { "type": "string" },
+    "findingId": { "type": "string" },
+    "checkpointCode": { "type": "string" },
+    "action": { "type": "string" },
+    "finalConclusion": { "type": "string" },
+    "reason": { "type": "string" },
+    "handledBy": { "type": "string" }
+  },
+  "additionalProperties": false
+}
