@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tioka.dev/schema/orch-receipt-v1.json",
+  "title": "orch.receipt tool arguments v1 (ADR-020 rev. 4-7, construction M2-02)",
+  "type": "object",
+  "required": ["outcome", "summary"],
+  "additionalProperties": false,
+  "properties": {
+    "outcome": { "enum": ["DONE", "NOTHING", "FAILED", "CANCELLED"] },
+    "summary": { "type": "string", "maxLength": 2000 },
+    "data": { "type": "object" },
+    "actions": {
+      "type": "array",
+      "maxItems": 20,
+      "items": {
+        "oneOf": [
+          {
+            "type": "object", "additionalProperties": false, "required": ["kind", "text"],
+            "properties": {
+              "kind": { "const": "notice" },
+              "text": { "type": "string", "maxLength": 4000 },
+              "to": { "enum": ["requester", "owner", "channel"], "default": "requester" }
+            }
+          },
+          {
+            "type": "object", "additionalProperties": false, "required": ["kind", "key", "title"],
+            "properties": {
+              "kind": { "const": "ask" },
+              "key": { "type": "string", "minLength": 1, "maxLength": 128 },
+              "title": { "type": "string", "maxLength": 255 },
+              "form": {
+                "type": "array", "maxItems": 20,
+                "items": {
+                  "type": "object", "required": ["name", "type"],
+                  "properties": {
+                    "name": { "type": "string" },
+                    "label": { "type": "string" },
+                    "type": { "enum": ["text", "textarea", "number", "boolean", "select", "date"] },
+                    "options": { "type": "array", "items": { "type": "string" } },
+                    "required": { "type": "boolean" }
+                  }
+                }
+              },
+              "assignee": {
+                "type": "object", "additionalProperties": false,
+                "properties": {
+                  "users": { "type": "array", "items": { "type": "string" } },
+                  "roles": { "type": "array", "items": { "type": "string" } }
+                }
+              },
+              "timeout": { "type": "string", "description": "ISO-8601 duration, at most P7D", "default": "PT24H" },
+              "onTimeout": { "type": "object", "properties": { "default": { "type": "object" } } }
+            }
+          },
+          {
+            "type": "object", "additionalProperties": false, "required": ["kind", "key", "at"],
+            "properties": {
+              "kind": { "const": "later" },
+              "key": { "type": "string", "minLength": 1, "maxLength": 128 },
+              "at": { "type": "string", "format": "date-time", "description": "Future, at most 90 days ahead" },
+              "input": { "type": "string", "maxLength": 4000 }
+            }
+          },
+          {
+            "type": "object", "additionalProperties": false, "required": ["kind", "type"],
+            "properties": {
+              "kind": { "const": "emit" },
+              "type": { "type": "string", "maxLength": 128 },
+              "subjectKey": { "type": "string", "maxLength": 255 },
+              "attrs": { "type": "object", "additionalProperties": { "type": "string" } },
+              "body": { "type": "object" }
+            }
+          }
+        ]
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "outcome": { "const": "FAILED" } } },
+      "then": { "properties": { "actions": { "items": { "properties": { "kind": { "const": "notice" } } } } } }
+    }
+  ]
+}
