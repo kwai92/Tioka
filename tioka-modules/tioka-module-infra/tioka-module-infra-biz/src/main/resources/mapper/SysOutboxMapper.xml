@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tioka.infra.messaging.infrastructure.mapper.SysOutboxMapper">
+
+    <select id="selectUnsent" resultType="com.tioka.infra.messaging.infrastructure.persistence.SysOutboxDO">
+        SELECT id, event_id AS eventId, topic, tag, msg_key AS msgKey, payload_json AS payloadJson,
+               attempts, last_error AS lastError, create_at AS createAt, sent_at AS sentAt
+        FROM sys_outbox
+        WHERE sent_at IS NULL
+        ORDER BY id
+        LIMIT #{limit}
+    </select>
+
+    <update id="markSent">
+        UPDATE sys_outbox SET sent_at = #{sentAt} WHERE id = #{id} AND sent_at IS NULL
+    </update>
+
+    <update id="markAttemptFailed">
+        UPDATE sys_outbox
+        SET attempts = attempts + 1, last_error = #{lastError}
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteSentBefore">
+        DELETE FROM sys_outbox WHERE sent_at IS NOT NULL AND sent_at &lt; #{before}
+    </delete>
+
+    <update id="notifyOutbox">
+        SELECT pg_notify('tioka_outbox', '')
+    </update>
+</mapper>

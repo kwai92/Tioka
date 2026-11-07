@@ -18,4 +18,45 @@ public abstract class IdempotentConsumer<P> {
 
     /** 业务处理；必须自身可重入；由适配器在事务与 {@code runAs} 上下文中调用。 */
     protected abstract void handle(EventEnvelope envelope, P payload);
+
+    /**
+     * 订阅主题（RocketMQ Topic / in-memory 路由）。默认 {@code null} 表示接受任意主题
+     *（仅测试桩；生产消费者应覆盖）。
+     */
+    protected String topic() {
+        return null;
+    }
+
+    /**
+     * Tag 订阅表达式；默认 {@code *}。需要按事件名过滤时覆盖为具体事件名。
+     */
+    protected String tagExpression() {
+        return "*";
+    }
+
+    /** 适配器读取消费组名（不改动抽象签名）。 */
+    public final String resolvedConsumerName() {
+        return consumerName();
+    }
+
+    /** 适配器读取订阅主题。 */
+    public final String resolvedTopic() {
+        return topic();
+    }
+
+    /** 适配器读取 Tag 表达式。 */
+    public final String resolvedTagExpression() {
+        return tagExpression();
+    }
+
+    /** 适配器读取 payload 类型。 */
+    public final Class<P> resolvedPayloadType() {
+        return payloadType();
+    }
+
+    /** 适配器在 runAs / 事务上下文中回调业务 {@link #handle}。 */
+    @SuppressWarnings("unchecked")
+    public final void dispatch(EventEnvelope envelope, Object payload) {
+        handle(envelope, (P) payload);
+    }
 }

@@ -114,6 +114,8 @@ tioka:
   # —— M2 配置键（PK-00c；实现包只追加自己的子键）——
   messaging:
     mode: ${TIOKA_MESSAGING_MODE:in-memory}   # rocketmq | in-memory（IT 默认 in-memory）
+    relay-enabled: true
+    validate-envelope: true
     relay:
       batch: 200
       idle-wait: 200ms
