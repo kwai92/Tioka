@@ -6,6 +6,7 @@ import com.tioka.mcp.infrastructure.McpRepository;
 import com.tioka.mcp.infrastructure.persistence.McpServerDO;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
 import java.util.Optional;
 
 @Service
@@ -39,5 +40,12 @@ public class McpServerQueryService implements McpServerQueryApi {
             return false;
         }
         return store.findTool(serverId, toolName).isPresent();
+    }
+
+    @Override
+    public List<ServerSummary> listSummaries() {
+        return store.servers().stream()
+                .map(s -> new ServerSummary(s.id(), s.name()))
+                .toList();
     }
 }

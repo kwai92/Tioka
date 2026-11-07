@@ -3,6 +3,7 @@ package com.tioka.agent.application;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.tioka.agent.api.AgentCatalogApi;
 import com.tioka.agent.api.AgentPublishedEvent;
 import com.tioka.agent.api.publish.PublishCheck;
 import com.tioka.agent.api.publish.PublishValidator;
@@ -38,7 +39,7 @@ import java.util.Map;
 import java.util.Set;
 
 @Service
-public class AgentService {
+public class AgentService implements AgentCatalogApi {
     private final AgentStore store;
     private final AgentRepository repo;
     private final AgentDraftRepository drafts;
@@ -293,6 +294,11 @@ public class AgentService {
     public List<Agent> list() {
         Set<String> visible = resourceGuard.visibleIds("agent", AccessLevel.VIEW);
         return store.agents().stream().filter(a -> visible.contains(a.id())).toList();
+    }
+
+    @Override
+    public List<AgentRef> listSummaries() {
+        return list().stream().map(a -> new AgentRef(a.id(), a.name())).toList();
     }
 
     public void requireUse(String agentId) {

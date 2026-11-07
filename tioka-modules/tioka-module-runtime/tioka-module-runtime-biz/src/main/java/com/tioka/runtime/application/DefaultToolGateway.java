@@ -59,7 +59,7 @@ public class DefaultToolGateway implements ToolGateway {
         if (ctx == null || ctx.agentVersionId() == null || ctx.agentVersionId().isBlank()) {
             return List.of();
         }
-        List<ToolProvider.ToolDescriptor> all = registry.listAll(ctx.agentVersionId());
+        List<ToolProvider.ToolDescriptor> all = registry.listAll(ctx.agentVersionId(), ctx.agentToolConfig());
         List<String> allow = ctx.toolAllowList();
         if (allow == null || allow.isEmpty()) {
             return all;
@@ -96,7 +96,8 @@ public class DefaultToolGateway implements ToolGateway {
         AuthorizedCall ac = ((AuthorizeResult.Ok) authz).call();
         ToolProvider.ToolResult result;
         try {
-            result = ac.provider().invoke(ctx.agentVersionId(), name, ac.args());
+            result = ac.provider().invoke(ctx.agentVersionId(), name, ac.args(),
+                    ctx == null ? Map.of() : ctx.agentToolConfig());
         } catch (RuntimeException e) {
             String err = e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage();
             result = new ToolProvider.ToolResult(false, err);

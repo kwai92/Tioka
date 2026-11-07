@@ -78,8 +78,9 @@ public class ToolCallPipeline {
         }
         String name = toolName == null ? "" : toolName;
 
-        // 1. 解析工具
-        Optional<ToolRegistry.ResolvedTool> resolved = registry.resolve(ctx.agentVersionId(), name);
+        // 1. 解析工具（ENG-06：带 agentToolConfig，供 MCP 列举）
+        Optional<ToolRegistry.ResolvedTool> resolved =
+                registry.resolve(ctx.agentVersionId(), ctx.agentToolConfig(), name);
         if (resolved.isEmpty()) {
             return new AuthorizeResult.Reject("工具不存在", 1, false);
         }
@@ -139,7 +140,7 @@ public class ToolCallPipeline {
                 }
 
                 // 7. 出网
-                Optional<String> egress = provider.egressUrl(ctx.agentVersionId(), name);
+                Optional<String> egress = provider.egressUrl(ctx.agentVersionId(), name, ctx.agentToolConfig());
                 if (egress.isPresent()) {
                     EgressGuard guard = egressGuard.getIfAvailable();
                     if (guard != null) {
@@ -182,7 +183,7 @@ public class ToolCallPipeline {
 
         // MCP
         if ("mcp".equals(providerName)) {
-            Optional<String> serverId = provider.mcpServerId(ctx.agentVersionId(), name);
+            Optional<String> serverId = provider.mcpServerId(ctx.agentVersionId(), name, ctx.agentToolConfig());
             if (serverId.isEmpty()) {
                 return "MCP 工具未绑定 server";
             }

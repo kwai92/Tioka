@@ -73,7 +73,7 @@ public class KnowledgeController {
     }
 
     @PostMapping("/datasources")
-    public ApiResponse<DataSourceService.DataSource> bindDatasource(@RequestBody Map<String, String> body) {
+    public ApiResponse<com.tioka.knowledge.api.DataSourceApi.DataSourceView> bindDatasource(@RequestBody Map<String, String> body) {
         return ApiResponse.ok(dataSourceService.bind(
                 body.get("kbId"),
                 body.getOrDefault("type", "upload"),

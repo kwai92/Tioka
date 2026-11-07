@@ -11,14 +11,121 @@
     <artifactId>tioka-server</artifactId>
     <name>tioka-server</name>
     <dependencies>
+        <!-- ENG-06：编译期只依赖 -api；biz 仅 runtime 装入 fat jar（测试 classpath 含 runtime） -->
+        <dependency>
+            <groupId>com.tioka</groupId>
+            <artifactId>tioka-framework</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.tioka</groupId>
+            <artifactId>tioka-module-system-api</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.tioka</groupId>
+            <artifactId>tioka-module-infra-api</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.tioka</groupId>
+            <artifactId>tioka-module-runtime-api</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.tioka</groupId>
+            <artifactId>tioka-module-orchestration-api</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.tioka</groupId>
+            <artifactId>tioka-module-chat-api</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.tioka</groupId>
+            <artifactId>tioka-module-knowledge-api</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.tioka</groupId>
+            <artifactId>tioka-module-flow-api</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.tioka</groupId>
+            <artifactId>tioka-module-connector-api</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.tioka</groupId>
+            <artifactId>tioka-module-model-api</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.tioka</groupId>
+            <artifactId>tioka-module-agent-api</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.tioka</groupId>
+            <artifactId>tioka-module-mcp-api</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.tioka</groupId>
+            <artifactId>tioka-module-skill-api</artifactId>
+        </dependency>
+
         <dependency>
             <groupId>com.tioka</groupId>
             <artifactId>tioka-module-system-biz</artifactId>
+            <scope>runtime</scope>
         </dependency>
         <dependency>
             <groupId>com.tioka</groupId>
             <artifactId>tioka-module-infra-biz</artifactId>
+            <scope>runtime</scope>
         </dependency>
+        <dependency>
+            <groupId>com.tioka</groupId>
+            <artifactId>tioka-module-runtime-biz</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.tioka</groupId>
+            <artifactId>tioka-module-connector-biz</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.tioka</groupId>
+            <artifactId>tioka-module-model-biz</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.tioka</groupId>
+            <artifactId>tioka-module-agent-biz</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.tioka</groupId>
+            <artifactId>tioka-module-mcp-biz</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.tioka</groupId>
+            <artifactId>tioka-module-skill-biz</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.tioka</groupId>
+            <artifactId>tioka-module-chat-biz</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.tioka</groupId>
+            <artifactId>tioka-module-orchestration-biz</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.tioka</groupId>
+            <artifactId>tioka-module-knowledge-biz</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.tioka</groupId>
+            <artifactId>tioka-module-flow-biz</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
@@ -87,47 +194,6 @@
             <artifactId>testcontainers-keycloak</artifactId>
             <version>3.3.0</version>
             <scope>test</scope>
-        </dependency>
-        <!-- W0 起装入空域模块以便 ArchUnit 扫描全仓包 -->
-        <dependency>
-            <groupId>com.tioka</groupId>
-            <artifactId>tioka-module-runtime-biz</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.tioka</groupId>
-            <artifactId>tioka-module-connector-biz</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.tioka</groupId>
-            <artifactId>tioka-module-model-biz</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.tioka</groupId>
-            <artifactId>tioka-module-agent-biz</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.tioka</groupId>
-            <artifactId>tioka-module-mcp-biz</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.tioka</groupId>
-            <artifactId>tioka-module-skill-biz</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.tioka</groupId>
-            <artifactId>tioka-module-chat-biz</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.tioka</groupId>
-            <artifactId>tioka-module-orchestration-biz</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.tioka</groupId>
-            <artifactId>tioka-module-knowledge-biz</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.tioka</groupId>
-            <artifactId>tioka-module-flow-biz</artifactId>
         </dependency>
     </dependencies>
     <build>

@@ -20,11 +20,17 @@ public class ToolRegistry {
     public record ResolvedTool(ToolProvider provider, ToolProvider.ToolDescriptor descriptor) {}
 
     public Optional<ResolvedTool> resolve(String agentVersionId, String toolName) {
+        return resolve(agentVersionId, Map.of(), toolName);
+    }
+
+    public Optional<ResolvedTool> resolve(String agentVersionId, Map<String, Object> agentToolConfig,
+                                          String toolName) {
         if (agentVersionId == null || agentVersionId.isBlank() || toolName == null || toolName.isBlank()) {
             return Optional.empty();
         }
+        Map<String, Object> cfg = agentToolConfig == null ? Map.of() : agentToolConfig;
         for (ToolProvider p : providers) {
-            for (ToolProvider.ToolDescriptor d : p.listTools(agentVersionId)) {
+            for (ToolProvider.ToolDescriptor d : p.listTools(agentVersionId, cfg)) {
                 if (toolName.equals(d.name())) {
                     return Optional.of(new ResolvedTool(p, d));
                 }
@@ -34,17 +40,29 @@ public class ToolRegistry {
     }
 
     public List<ToolProvider.ToolDescriptor> listAll(String agentVersionId) {
+        return listAll(agentVersionId, Map.of());
+    }
+
+    public List<ToolProvider.ToolDescriptor> listAll(String agentVersionId,
+                                                     Map<String, Object> agentToolConfig) {
+        Map<String, Object> cfg = agentToolConfig == null ? Map.of() : agentToolConfig;
         List<ToolProvider.ToolDescriptor> all = new ArrayList<>();
         for (ToolProvider p : providers) {
-            all.addAll(p.listTools(agentVersionId));
+            all.addAll(p.listTools(agentVersionId, cfg));
         }
         return all;
     }
 
     public ToolProvider.ToolResult invoke(String agentVersionId, String toolName, Map<String, Object> args) {
+        return invoke(agentVersionId, Map.of(), toolName, args);
+    }
+
+    public ToolProvider.ToolResult invoke(String agentVersionId, Map<String, Object> agentToolConfig,
+                                          String toolName, Map<String, Object> args) {
         Map<String, Object> safeArgs = args == null ? Map.of() : args;
-        return resolve(agentVersionId, toolName)
-                .map(r -> r.provider().invoke(agentVersionId, toolName, safeArgs))
+        Map<String, Object> cfg = agentToolConfig == null ? Map.of() : agentToolConfig;
+        return resolve(agentVersionId, cfg, toolName)
+                .map(r -> r.provider().invoke(agentVersionId, toolName, safeArgs, cfg))
                 .orElseGet(() -> new ToolProvider.ToolResult(false, "tool not found: " + toolName));
     }
 

@@ -11,9 +11,23 @@ public interface ToolProvider {
     List<ToolDescriptor> listTools(String agentVersionId);
     ToolResult invoke(String toolName, Map<String, Object> arguments);
 
+    /**
+     * ENG-06：带 {@code agentToolConfig}（含 mcpGrants）的列举；默认回退仅 agentVersionId。
+     * MCP 提供方须覆盖本方法，禁止反查 Agent。
+     */
+    default List<ToolDescriptor> listTools(String agentVersionId, Map<String, Object> agentToolConfig) {
+        return listTools(agentVersionId);
+    }
+
     /** 带 AgentVersion 作用域的调用；默认回退无作用域 invoke。 */
     default ToolResult invoke(String agentVersionId, String toolName, Map<String, Object> arguments) {
         return invoke(toolName, arguments);
+    }
+
+    /** ENG-06：带 agentToolConfig 的调用；默认回退三参 invoke。 */
+    default ToolResult invoke(String agentVersionId, String toolName, Map<String, Object> arguments,
+                              Map<String, Object> agentToolConfig) {
+        return invoke(agentVersionId, toolName, arguments);
     }
 
     /**
@@ -23,11 +37,21 @@ public interface ToolProvider {
         return Optional.empty();
     }
 
+    default Optional<String> egressUrl(String agentVersionId, String toolName,
+                                       Map<String, Object> agentToolConfig) {
+        return egressUrl(agentVersionId, toolName);
+    }
+
     /**
      * MCP 工具所属 serverId（CON-01 授权）；非 MCP 为空。
      */
     default Optional<String> mcpServerId(String agentVersionId, String toolName) {
         return Optional.empty();
+    }
+
+    default Optional<String> mcpServerId(String agentVersionId, String toolName,
+                                         Map<String, Object> agentToolConfig) {
+        return mcpServerId(agentVersionId, toolName);
     }
 
     /**

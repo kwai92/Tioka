@@ -72,6 +72,7 @@ public class FileAuditSink implements AuditSink {
         return filePath;
     }
 
+    @Override
     public List<Map<String, Object>> recent(int limit) {
         int n = Math.max(1, Math.min(limit, recent.size()));
         if (recent.isEmpty()) {

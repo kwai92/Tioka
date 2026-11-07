@@ -4,7 +4,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tioka.framework.security.PublicApi;
 import com.tioka.framework.security.RequirePermission;
 import com.tioka.model.api.gateway.ModelGateway;
-import com.tioka.model.infrastructure.provider.ProviderClient;
 import com.tngtech.archunit.core.domain.JavaAnnotation;
 import com.tngtech.archunit.core.domain.JavaClass;
 import com.tngtech.archunit.core.domain.JavaModifier;
@@ -45,7 +44,8 @@ class TiokaArchitectureTest {
     @ArchTest
     static final ArchRule onlyModelBizTalksToModelHttp =
             noClasses().that().resideOutsideOfPackage("com.tioka.model..")
-                    .should().dependOnClassesThat().areAssignableTo(ProviderClient.class)
+                    .should().dependOnClassesThat()
+                    .haveFullyQualifiedName("com.tioka.model.infrastructure.provider.ProviderClient")
                     .because("仅 model-biz 可直接依赖模型 HTTP 客户端（ADR-017 / MH-04）");
 
     @ArchTest
@@ -61,14 +61,15 @@ class TiokaArchitectureTest {
                     .because("HashEmbeddingClient 仅允许测试使用（MH-04 / KNW-01）");
 
 
+    /** ENG-06：冻结库存已清零，规则立即生效。 */
     @ArchTest
-    static final ArchRule serverDependsOnlyOnApi = FreezingArchRule.freeze(
+    static final ArchRule serverDependsOnlyOnApi =
             noClasses().that().resideInAPackage("com.tioka.server..")
                     .should().dependOnClassesThat().resideInAnyPackage(
                             "com.tioka..application..",
                             "com.tioka..infrastructure..",
                             "com.tioka..domain..")
-                    .because("tioka-server 只应依赖各域 api 与 framework（ADR-030）"));
+                    .because("tioka-server 只应依赖各域 api 与 framework（ADR-030）");
 
     /** 现存 synchronized 由 ORC-01 / RT 新内核清除；此处冻结库存，禁止新增。 */
     @ArchTest

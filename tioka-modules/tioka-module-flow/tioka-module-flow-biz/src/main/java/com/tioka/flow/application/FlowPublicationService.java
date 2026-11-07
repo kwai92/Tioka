@@ -1,6 +1,7 @@
 package com.tioka.flow.application;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.tioka.flow.api.FlowInvokeApi;
 import com.tioka.flow.infrastructure.FlowRepository;
 import com.tioka.flow.infrastructure.FlowSecretBridge;
 import com.tioka.flow.infrastructure.persistence.FlowToolPubDO;
@@ -20,7 +21,7 @@ import java.util.List;
 import java.util.Map;
 
 @Service
-public class FlowPublicationService implements ToolProvider {
+public class FlowPublicationService implements ToolProvider, FlowInvokeApi {
     private final FlowService flowService;
     private final FlowRepository repo;
     private final ObjectProvider<FlowSecretBridge> secretBridge;
@@ -50,6 +51,7 @@ public class FlowPublicationService implements ToolProvider {
         return name;
     }
 
+    @Override
     public Map<String, Object> invokeInternalApi(String versionId, Map<String, Object> input) {
         var run = flowService.run(versionId, input == null ? Map.of() : input);
         return toRunPayload(run);

@@ -7,6 +7,7 @@ import com.tioka.framework.security.PrincipalHolder;
 import com.tioka.system.api.audit.AuditApi;
 import com.tioka.system.api.audit.AuditEvent;
 import com.tioka.system.api.audit.AuditOutcome;
+import com.tioka.system.api.EgressQueryApi;
 import com.tioka.system.api.spi.EgressGuard;
 import com.tioka.system.config.EgressProperties;
 import org.springframework.beans.factory.ObjectProvider;
@@ -26,7 +27,7 @@ import java.util.Map;
 import java.util.Set;
 
 @Service
-public class DefaultEgressGuard implements EgressGuard {
+public class DefaultEgressGuard implements EgressGuard, EgressQueryApi {
     private final EgressProperties props;
     private final List<Cidr> denyCidrs;
     private final ObjectProvider<AuditApi> auditApi;
@@ -150,6 +151,11 @@ public class DefaultEgressGuard implements EgressGuard {
 
     public boolean isRestrictive() {
         return props.getMode() != EgressProperties.Mode.OPEN;
+    }
+
+    @Override
+    public boolean isRestricted() {
+        return isRestrictive();
     }
 
     boolean matchesAllowList(String host) {
