@@ -52,6 +52,7 @@ public final class LlmStubServer implements AutoCloseable {
             stub.loadClasspath("llm-scripts/backoff-retry.yaml", "backoff-retry");
             stub.loadClasspath("llm-scripts/kb-search.yaml", "kb-search");
             stub.loadClasspath("llm-scripts/chat-async-delay.yaml", "chat-async-delay");
+            stub.loadClasspath("llm-scripts/chat-index-preview.yaml", "chat-index-preview");
             stub.server.setDispatcher(stub.dispatcher());
             stub.server.start();
             return stub;

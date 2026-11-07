@@ -1,5 +1,5 @@
 -- CHT-02 前置：会话索引字段（last_active_at / last_preview）。
--- CHT-03 将补：迁移前校验 + DROP TABLE chat_message（见 docs/contracts/db/V115 注释）。
+-- CHT-03 DROP chat_message 见 V126__DropChatMessage（勿改本已合并文件）。
 ALTER TABLE chat_conversation ADD COLUMN IF NOT EXISTS last_active_at TIMESTAMPTZ;
 ALTER TABLE chat_conversation ADD COLUMN IF NOT EXISTS last_preview   VARCHAR(200);
 UPDATE chat_conversation c SET last_active_at = COALESCE(

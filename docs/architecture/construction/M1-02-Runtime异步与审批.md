@@ -4,7 +4,7 @@
 - 工作项：RT-06、RT-07、RT-08、CHT-02、CHT-03、HCI-02、HCI-04、FE-01
 - 约束：ADR-016、ADR-022、ADR-028、ADR-029 第 1〜7、16、30 条
 - 前置：[M0-03](M0-03-Runtime内核.md)；FND-04（审批权限）
-- 迁移：V114、V115（V116 预留未用）
+- 迁移：V114、V115（索引列，CHT-02）、V126（DROP `chat_message`，CHT-03；V116 预留未用）
 - 排期与人天：以 [M1-00 实施计划](M1-00-M1实施计划.md) 为准；CHT-02、CHT-03 由 BE-C 负责
 
 ---
@@ -245,11 +245,12 @@ public interface TurnAwaiter {
 
 ## CHT-03 消息去双份（P1，2 人天）
 
-- V115：`chat_conversation` 加 `last_active_at TIMESTAMPTZ`、`last_preview VARCHAR(200)`；回填后 `DROP TABLE chat_message`（历史已在 V104 转入 `runtime_item`，迁移前校验每个会话的 item 数 ≥ 原消息数，不满足则迁移失败并输出会话 ID）。
+- V115（CHT-02 已合入）：`chat_conversation` 加 `last_active_at TIMESTAMPTZ`、`last_preview VARCHAR(200)` 并回填索引。
+- V126（本项）：迁移前校验每个会话的 `runtime_item` 数 ≥ 原 `chat_message` 数，不满足则失败并输出会话 ID；通过后 `DROP TABLE chat_message`（历史已在 V104 转入 `runtime_item`）。勿改已合并的 V115。
 - `last_preview` 由 `TurnRunner` 在 Turn 完成时通过 `ConversationIndexListener`（监听 Spring 事件 `TurnCompletedEvent`，origin=chat 时）更新。
 - `ChatStore` 中消息相关方法删除。
 
-测试：`ChatIndexIT#previewUpdatedAfterTurn`；`V115MigrationIT`。
+测试：`ChatIndexIT#previewUpdatedAfterTurn`；`V115MigrationIT`（覆盖 V126 校验与 DROP）。
 
 ---
 

@@ -1,26 +1,19 @@
 package com.tioka.chat.domain;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tioka.chat.infrastructure.ChatRepository;
 import com.tioka.chat.infrastructure.persistence.ChatConversationDO;
-import com.tioka.chat.infrastructure.persistence.ChatMessageDO;
 import org.springframework.stereotype.Repository;
 
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicLong;
 
 @Repository
 public class ChatStore {
     private final ChatRepository repo;
-    private final ObjectMapper mapper;
-    private final AtomicLong ord = new AtomicLong(System.currentTimeMillis());
 
-    public ChatStore(ChatRepository repo, ObjectMapper mapper) {
-        this.mapper = mapper;
+    public ChatStore(ChatRepository repo) {
         this.repo = repo;
     }
 
@@ -56,42 +49,17 @@ public class ChatStore {
         repo.touchActivity(conversationId, newTitleOrNull, OffsetDateTime.now());
     }
 
-    public void addMessage(Message m) {
-        ChatMessageDO row = new ChatMessageDO();
-        row.setId(m.id());
-        row.setConversationId(m.conversationId());
-        row.setRole(m.role());
-        row.setText(m.text());
-        row.setPartsJson(toJson(m.parts()));
-        row.setCreatedOrd(ord.incrementAndGet());
-        repo.insertMessage(row);
+    /** CHT-03：Turn 完成后回写会话预览（不校验归属，派发线程可能无 Principal）。 */
+    public void updateLastPreview(String conversationId, String preview) {
+        repo.updateLastPreview(conversationId, preview);
     }
 
-    public List<Message> messages(String conversationId) {
-        return repo.listMessages(conversationId).stream()
-                .map(r -> new Message(r.getId(), r.getConversationId(), r.getRole(), r.getText(), fromJson(r.getPartsJson())))
-                .toList();
+    public String findConversationIdByThreadId(String threadId) {
+        return repo.findConversationIdByThreadId(threadId);
     }
 
     private Conversation toConversation(ChatConversationDO row) {
         return new Conversation(row.getId(), row.getTitle(), row.getAgentVersionId(), row.getRuntimeSessionId());
-    }
-
-    private String toJson(List<Map<String, Object>> parts) {
-        try {
-            return mapper.writeValueAsString(parts == null ? List.of() : parts);
-        } catch (Exception e) {
-            throw new IllegalStateException(e);
-        }
-    }
-
-    private List<Map<String, Object>> fromJson(String json) {
-        try {
-            return mapper.readValue(json, new TypeReference<>() {});
-        } catch (Exception e) {
-            throw new com.tioka.framework.error.BizException(
-                    com.tioka.framework.error.ErrorCode.BAD_REQUEST, "partsJson 解析失败");
-        }
     }
 
     /**
@@ -109,5 +77,6 @@ public class ChatStore {
         }
     }
 
+    /** 卡片 API 响应 DTO；内容只存 Runtime Item，不再落 chat_message。 */
     public record Message(String id, String conversationId, String role, String text, List<Map<String, Object>> parts) {}
 }

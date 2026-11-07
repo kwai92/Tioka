@@ -27,12 +27,14 @@ import com.tioka.runtime.kernel.infrastructure.TurnRepository;
 import com.tioka.runtime.kernel.infrastructure.persistence.RuntimeTurnDO;
 import com.tioka.runtime.kernel.infrastructure.redis.SessionLock;
 import com.tioka.runtime.kernel.infrastructure.redis.SignalBus;
+import com.tioka.runtime.api.event.TurnCompletedEvent;
 import com.tioka.runtime.kernel.infrastructure.redis.TurnDispatchQueue;
 import com.tioka.system.api.spi.PrincipalLoaderApi;
 import com.tioka.system.api.spi.QuotaGuard;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
@@ -67,6 +69,7 @@ public class TurnRunner {
     private final TurnDispatchQueue dispatchQueue;
     private final ObjectProvider<AgentSnapshotApi> agentSnapshots;
     private final QuotaGuard quota;
+    private final ApplicationEventPublisher appEvents;
 
     public TurnRunner(TurnRepository turns,
                       RuntimeSessionRepository sessions,
@@ -84,7 +87,8 @@ public class TurnRunner {
                       ObjectProvider<RuntimeTestHooks> testHooks,
                       TurnDispatchQueue dispatchQueue,
                       ObjectProvider<AgentSnapshotApi> agentSnapshots,
-                      QuotaGuard quota) {
+                      QuotaGuard quota,
+                      ApplicationEventPublisher appEvents) {
         this.turns = turns;
         this.sessions = sessions;
         this.sessionLock = sessionLock;
@@ -102,6 +106,7 @@ public class TurnRunner {
         this.dispatchQueue = dispatchQueue;
         this.agentSnapshots = agentSnapshots;
         this.quota = quota;
+        this.appEvents = appEvents;
     }
 
     public void run(String turnId) {
@@ -263,6 +268,14 @@ public class TurnRunner {
         };
         streams.publish(threadId, null, type.wire(),
                 events.turnStatus(type, threadId, turnId, status.name()));
+        if (status == TurnStatus.COMPLETED) {
+            RuntimeTurnDO done = turns.findById(turnId).orElse(null);
+            appEvents.publishEvent(new TurnCompletedEvent(
+                    turnId,
+                    threadId,
+                    done == null ? null : done.getOrigin(),
+                    done == null ? null : done.getOriginRef()));
+        }
     }
 
     /** 仅解析字段供并发配额占位；完整 Principal 仍走 {@link #resolveRunAs}。 */
