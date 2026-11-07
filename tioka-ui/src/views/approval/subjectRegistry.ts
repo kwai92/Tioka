@@ -3,10 +3,10 @@
  * M3 新增主体时只登记新渲染器，不改审批台布局。
  */
 import type { Component } from 'vue'
-import TurnSubjectPlaceholder from './subjects/TurnSubjectPlaceholder.vue'
-import OrchRunSubjectPlaceholder from './subjects/OrchRunSubjectPlaceholder.vue'
-import FlowNodeRunSubjectPlaceholder from './subjects/FlowNodeRunSubjectPlaceholder.vue'
-import UnknownSubjectPlaceholder from './subjects/UnknownSubjectPlaceholder.vue'
+import TurnSubjectCard from './subjects/TurnSubjectCard.vue'
+import OrchRunSubjectCard from './subjects/OrchRunSubjectCard.vue'
+import FlowNodeRunSubjectCard from './subjects/FlowNodeRunSubjectCard.vue'
+import UnknownSubjectCard from './subjects/UnknownSubjectCard.vue'
 import type { ApprovalSubjectType } from '@/api/approval'
 
 export const APPROVAL_SUBJECT_TYPES: ApprovalSubjectType[] = [
@@ -15,14 +15,20 @@ export const APPROVAL_SUBJECT_TYPES: ApprovalSubjectType[] = [
   'flow_node_run'
 ]
 
+export const SUBJECT_LABELS: Record<ApprovalSubjectType, string> = {
+  turn: '对话',
+  orch_run: '编排',
+  flow_node_run: 'Flow'
+}
+
 export const approvalSubjectRenderers: Record<string, Component> = {
-  turn: TurnSubjectPlaceholder,
-  orch_run: OrchRunSubjectPlaceholder,
-  flow_node_run: FlowNodeRunSubjectPlaceholder
+  turn: TurnSubjectCard,
+  orch_run: OrchRunSubjectCard,
+  flow_node_run: FlowNodeRunSubjectCard
 }
 
 export function resolveApprovalSubjectRenderer(subjectType: string): Component {
-  return approvalSubjectRenderers[subjectType] ?? UnknownSubjectPlaceholder
+  return approvalSubjectRenderers[subjectType] ?? UnknownSubjectCard
 }
 
 export function registerApprovalSubjectRenderer(
