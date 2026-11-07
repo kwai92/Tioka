@@ -65,6 +65,7 @@ public class ImBindingController {
     }
 
     @PostMapping("/{id}/connectivity")
+    @Audited(action = "im.binding.connectivity", resourceType = "im_binding", resourceIdArg = "#id")
     public ApiResponse<ConnectivityCheckResult> connectivity(@PathVariable String id) {
         return ApiResponse.ok(service.checkConnectivity(id));
     }
