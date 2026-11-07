@@ -1,0 +1,107 @@
+{
+  "items": [
+    {
+      "id": "apr_turn_01",
+      "subjectType": "turn",
+      "subjectId": "trn_fixture_01",
+      "kind": "tool",
+      "title": "调用 echo 需确认",
+      "summary": "工具审批：echo",
+      "toolName": "echo",
+      "args": { "q": "status" },
+      "card": null,
+      "risk": "MEDIUM",
+      "status": "PENDING",
+      "workspaceId": "ws_demo",
+      "requestedBy": "usr_alice",
+      "requestedByName": "Alice",
+      "assigneeUserIds": ["usr_bob"],
+      "assigneeRoles": ["workspace_admin"],
+      "decidedBy": null,
+      "decidedByName": null,
+      "decidedAt": null,
+      "answer": null,
+      "comment": null,
+      "expiresAt": "2026-11-08T02:00:00Z",
+      "createdAt": "2026-11-07T02:00:06Z",
+      "link": {
+        "type": "turn",
+        "id": "trn_fixture_01",
+        "title": "会话轨迹",
+        "url": "/trajectory/trn_fixture_01"
+      }
+    },
+    {
+      "id": "apr_orch_01",
+      "subjectType": "orch_run",
+      "subjectId": "run_fixture_01",
+      "kind": "card",
+      "title": "编排回执 ask：是否退款",
+      "summary": "编排人审",
+      "toolName": null,
+      "args": null,
+      "card": {
+        "form": [
+          { "name": "approveRefund", "type": "boolean", "label": "同意退款" },
+          { "name": "note", "type": "textarea", "label": "备注" }
+        ]
+      },
+      "risk": "HIGH",
+      "status": "PENDING",
+      "workspaceId": "ws_demo",
+      "requestedBy": "sa_orch",
+      "requestedByName": "编排服务账号",
+      "assigneeUserIds": ["usr_bob"],
+      "assigneeRoles": [],
+      "decidedBy": null,
+      "decidedByName": null,
+      "decidedAt": null,
+      "answer": null,
+      "comment": null,
+      "expiresAt": "2026-11-10T02:00:00Z",
+      "createdAt": "2026-11-07T03:00:00Z",
+      "link": {
+        "type": "orch_run",
+        "id": "run_fixture_01",
+        "title": "工单 Run",
+        "url": "/orch/work-items/wi_fixture_01"
+      }
+    },
+    {
+      "id": "apr_flow_01",
+      "subjectType": "flow_node_run",
+      "subjectId": "fnr_fixture_01",
+      "kind": "card",
+      "title": "Flow 人工节点：确认合同条款",
+      "summary": "Flow HumanCard",
+      "toolName": null,
+      "args": null,
+      "card": {
+        "form": [{ "name": "ok", "type": "boolean", "label": "条款无误" }]
+      },
+      "risk": "LOW",
+      "status": "PENDING",
+      "workspaceId": "ws_demo",
+      "requestedBy": "usr_alice",
+      "requestedByName": "Alice",
+      "assigneeUserIds": ["usr_carol"],
+      "assigneeRoles": [],
+      "decidedBy": null,
+      "decidedByName": null,
+      "decidedAt": null,
+      "answer": null,
+      "comment": null,
+      "expiresAt": null,
+      "createdAt": "2026-11-07T04:00:00Z",
+      "link": {
+        "type": "flow_node_run",
+        "id": "fnr_fixture_01",
+        "title": "Flow 运行",
+        "url": "/flows"
+      }
+    }
+  ],
+  "total": 3,
+  "page": 0,
+  "size": 20
+}
