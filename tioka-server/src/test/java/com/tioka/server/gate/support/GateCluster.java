@@ -17,21 +17,26 @@ import java.util.Map;
 import java.util.Objects;
 
 /**
- * ENG-04b：同一 JVM 内 N 个 Spring 上下文，共享 Testcontainers PG/Redis（可选 Keycloak）与 LLM/MCP 桩。
+ * ENG-04b / ENG-04c：同一 JVM 内 N 个 Spring 上下文，共享 Testcontainers PG/Redis（可选 Keycloak）与 LLM/MCP 桩。
+ * ENG-04c：{@link #stop(String)} / {@link #start(String)} / {@link #restart(String)} 按名称停启；
+ * 与 {@link #crash(int)}（租约不释放、槽位不复活）分离。
  */
 public final class GateCluster implements AutoCloseable {
     private final List<ConfigurableApplicationContext> instances;
+    private final Map<String, Object> sharedProps;
     private final LlmStubServer llm;
     private final McpStubServer mcp;
     private final KeycloakGateSupport keycloak;
     private final boolean ownKeycloak;
 
     private GateCluster(List<ConfigurableApplicationContext> instances,
+                        Map<String, Object> sharedProps,
                         LlmStubServer llm,
                         McpStubServer mcp,
                         KeycloakGateSupport keycloak,
                         boolean ownKeycloak) {
         this.instances = instances;
+        this.sharedProps = sharedProps;
         this.llm = llm;
         this.mcp = mcp;
         this.keycloak = keycloak;
@@ -62,11 +67,11 @@ public final class GateCluster implements AutoCloseable {
             String id = Character.toString((char) ('A' + i));
             ctxs.add(run(withInstance(shared, id)));
         }
-        return new GateCluster(ctxs, llm, mcp, keycloak, withKeycloak);
+        return new GateCluster(ctxs, Map.copyOf(shared), llm, mcp, keycloak, withKeycloak);
     }
 
     public ConfigurableApplicationContext instance(int i) {
-        return Objects.requireNonNull(instances.get(i), "instance " + i + " already crashed");
+        return Objects.requireNonNull(instances.get(i), "instance " + i + " already stopped/crashed");
     }
 
     public int size() {
@@ -117,6 +122,62 @@ public final class GateCluster implements AutoCloseable {
         ctx.getBean(KernelProperties.class).setReleaseOnShutdown(false);
         ctx.close();
         instances.set(i, null);
+    }
+
+    /** 按槽位优雅停止（释放租约），槽位置空；可用 {@link #startInstance(int)} 复活。 */
+    public void stopInstance(int i) {
+        ConfigurableApplicationContext ctx = instances.get(i);
+        if (ctx == null) {
+            throw new IllegalStateException("instance " + i + " is not running");
+        }
+        ctx.close();
+        instances.set(i, null);
+    }
+
+    /** 按 {@code tioka.runtime.instance-id}（A/B/…）优雅停止。 */
+    public void stop(String instanceId) {
+        stopInstance(indexOf(instanceId));
+    }
+
+    /** 按槽位启动（仅当已 stop/crash 为空槽时）。 */
+    public void startInstance(int i) {
+        if (i < 0 || i >= instances.size()) {
+            throw new IllegalArgumentException("instance index out of range: " + i);
+        }
+        if (instances.get(i) != null) {
+            throw new IllegalStateException("instance " + i + " is already running");
+        }
+        String id = Character.toString((char) ('A' + i));
+        instances.set(i, run(withInstance(sharedProps, id)));
+    }
+
+    /** 按名称启动已停止的实例。 */
+    public void startInstance(String instanceId) {
+        startInstance(indexOf(instanceId));
+    }
+
+    /**
+     * ENG-04c：按槽位优雅重启（释放租约）→ 同 {@code instance-id} 重建应用上下文。
+     */
+    public void restart(int i) {
+        stopInstance(i);
+        startInstance(i);
+    }
+
+    /** 按 {@code tioka.runtime.instance-id}（A/B/…）重启。 */
+    public void restart(String instanceId) {
+        restart(indexOf(instanceId));
+    }
+
+    private int indexOf(String instanceId) {
+        if (instanceId == null || instanceId.length() != 1) {
+            throw new IllegalArgumentException("instanceId 须为单字母 A/B/…");
+        }
+        int i = instanceId.charAt(0) - 'A';
+        if (i < 0 || i >= instances.size()) {
+            throw new IllegalArgumentException("unknown instanceId: " + instanceId);
+        }
+        return i;
     }
 
     @Override
