@@ -19,7 +19,7 @@
 
 ### 近期 ADR
 
-ADR-015〜040 是 M0〜M4 的权威设计（ADR-032〜035 为可信放权，ADR-038〜040 为多智能体与运行时权限，见下表；ADR-036、ADR-037 为业务本体与结构化输出，来自商业租赁合同场景），推进计划见 [34-M0至M4推进规划与工作项](implementation/34-M0至M4推进规划与工作项.md)，契约见 [docs/contracts](../contracts/README.md)。M0〜M2 的施工设计（逐工作项的改动清单、关键代码、迁移、接口、测试与完成标准）见 [construction/00-施工总纲](construction/00-施工总纲.md)。
+ADR-015〜040 是 M0〜M4 的权威设计（ADR-032〜035 为可信放权，ADR-038〜040 为多智能体与运行时权限，见下表；ADR-036、ADR-037 为业务本体与结构化输出，来自商业租赁合同场景），推进计划见 [34-M0至M4推进规划与工作项](implementation/34-M0至M4推进规划与工作项.md)，契约见 [docs/contracts](../contracts/README.md)。M0〜M2 的施工设计（逐工作项的改动清单、关键代码、迁移、接口、测试与完成标准）见 [construction/00-施工总纲](construction/00-施工总纲.md)。2026-11-07 起排期以 34 号计划「统一排期」一节为唯一权威（ADR-029 第 76 条：M3 W24–W57、M4 W58–W79、F W80–W89），M4、F 阶段的逐周计划见 [M4-00](construction/M4-00-M4实施计划.md)、[F-00](construction/F-00-F阶段实施计划.md)。
 
 | ADR | 主题 |
 | --- | --- |
