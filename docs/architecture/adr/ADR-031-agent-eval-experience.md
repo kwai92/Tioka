@@ -137,3 +137,14 @@ CREATE TABLE exp_hit (turn_id VARCHAR(64) NOT NULL, exp_id VARCHAR(32) NOT NULL,
 - **定位**：经验即 Agent 级的程序记忆；用户与空间的语义记忆见 [ADR-050](ADR-050-memory-system.md)。两者的区别：经验来自本 Agent 的评测轨迹，可对低风险 Agent 自动生效；空间记忆来自成员对话，必须人审。
 - **评估器**增加「记忆」与「上下文」两组（ADR-050 第 8 节，MEM-03）：抽取准确率、知识更新、时间推理、拒答、跨空间泄漏（必须为 0）、投毒用例、压缩质量。
 - 评测运行记录上下文清单（ADR-048 第 4 节），保证可复现。
+
+## 修订：评测与持续改进调研落地（2026-11-07）
+
+来由：[调研 08](../research/08-评测与持续改进调研.md)；按负责人「有选项时按推荐方案直接写设计」的要求落地，见 ADR-029 第 74 条。
+
+- **方法口径**以 [ADR-068](ADR-068-eval-methodology.md) 为准：数据集分层（含只用于准入的密封集）与材料单元键、用例卡新字段、评分器优先级、模型裁判校准、每条用例多次运行、聚类区间与配对差异（EVO-07，M3，并入 EVO-02；EVO-09，M4）。
+- **实验（EVO-04）**：对比一律配对、多次运行、报相关系数；模型选型是实验的一种（`kind = MODEL_SELECTION`），流程见 [ADR-070](ADR-070-model-selection-eval.md)。
+- **发布回归门禁（EVO-06）**：「低于稳定版本超过 2 个百分点阻止」改为 ADR-068 第 6.2 节的非劣效判定与回归集逐条必过；跑哪些集合由 [ADR-069](ADR-069-launch-gates-rollout.md) 第 4 节变更分级决定。
+- **上线规程**：场景 Agent 按 ADR-069 的 E0〜E5 上线，准入时生成上线准入单（EVO-10）；在岗新版本用双跑或按比例灰度（EVO-11）；哨兵评测（EVO-12）。
+- **反馈**：`eval_feedback` 与 EVO-03「待标注」统一为反馈项，带原因码并每周分诊；只有分诊确认为 Agent 错误的反馈进入经验提取的失败组与回归集（[ADR-071](ADR-071-feedback-loop-improvement.md)，EVO-08a M3、EVO-14 M4）。
+- 数据模型增量（字段级，迁移编号在施工设计中分配）：`eval_dataset` 加 `tier`、`unit_key_path`；`eval_case` 加第 ADR-068 第 2 节字段；`eval_run` 加 `trials`；`eval_evaluator` 加 `version`、`config_hash` 与校准结果；新增 `eval_feedback_item`、`eval_improvement`、`agent_launch_stage`、`eval_readiness_report`。
