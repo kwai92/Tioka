@@ -3,6 +3,7 @@ package com.tioka.runtime.agui;
 import com.tioka.framework.security.Permissions;
 import com.tioka.framework.security.RequirePermission;
 import com.tioka.runtime.agui.dto.AgUiRunAgentInput;
+import com.tioka.system.api.audit.Audited;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -27,6 +28,7 @@ public class AgUiController {
     @PostMapping(path = "/agents/{agentVersionId}/run",
             consumes = MediaType.APPLICATION_JSON_VALUE,
             produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    @Audited(action = "agui.agent.run", resourceType = "agent", resourceIdArg = "#agentVersionId")
     public SseEmitter run(@PathVariable String agentVersionId,
                           @RequestBody AgUiRunAgentInput input) {
         return runs.run(agentVersionId, input);
