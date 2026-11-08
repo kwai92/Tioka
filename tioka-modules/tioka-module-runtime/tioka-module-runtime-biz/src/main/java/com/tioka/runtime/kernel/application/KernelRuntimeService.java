@@ -276,10 +276,14 @@ public class KernelRuntimeService implements RuntimeApi {
             return null;
         }
         int max = options.maxSteps() == null ? props.getLoop().getMaxSteps() : Math.min(50, options.maxSteps());
-        return json(Map.of(
-                "maxSteps", max,
-                "approvalPolicy", options.approvalPolicy() == null ? "" : options.approvalPolicy(),
-                "toolAllowList", options.toolAllowList() == null ? List.of() : options.toolAllowList()));
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("maxSteps", max);
+        m.put("approvalPolicy", options.approvalPolicy() == null ? "" : options.approvalPolicy());
+        m.put("toolAllowList", options.toolAllowList() == null ? List.of() : options.toolAllowList());
+        if (options.maxDuration() != null) {
+            m.put("maxDuration", options.maxDuration().toString());
+        }
+        return json(m);
     }
 
     private String eventsUrl(String threadId) {

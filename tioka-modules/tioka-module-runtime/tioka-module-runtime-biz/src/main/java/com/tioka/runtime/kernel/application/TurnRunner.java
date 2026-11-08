@@ -46,6 +46,7 @@ import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -234,13 +235,15 @@ public class TurnRunner {
                     if (thread != null && thread.getAgentVersionId() != null) {
                         span.setAttribute("tioka.agent_version_id", thread.getAgentVersionId());
                     }
-                    int maxSteps = props.getLoop().getMaxSteps();
+                    int maxSteps = parseMaxSteps(turn.getOptionsJson(), props.getLoop().getMaxSteps());
                     // RT-06：崩溃续跑从已累计的 step_count 继续（中断前 model 步已 increment）
                     int startStep = turn.getStepCount() == null ? 0 : turn.getStepCount();
                     String approvalPolicy = parseApprovalPolicy(turn.getOptionsJson());
                     List<String> toolAllowList = parseToolAllowList(turn.getOptionsJson());
                     Map<String, Object> agentToolConfig = agentToolConfigOf(
                             thread == null ? null : thread.getAgentVersionId());
+                    String origin = thread == null ? null : thread.getOrigin();
+                    Instant deadline = resolveDeadline(turn, origin);
                     LoopContext ctx = new LoopContext(threadId, turnId, finalLv,
                             maxSteps, props.getLoop().getRepeatCallLimit(), startStep,
                             c -> {
@@ -254,13 +257,15 @@ public class TurnRunner {
                             thread == null ? null : thread.getWorkspaceId(),
                             runAs.userId(),
                             approvalPolicy,
-                            thread == null ? null : thread.getOrigin(),
+                            origin,
                             toolAllowList,
-                            agentToolConfig);
+                            agentToolConfig,
+                            deadline);
                     return agentLoop.run(ctx);
                 });
-                if (result.status() == TurnStatus.WAITING_APPROVAL) {
-                    // 挂起已在 ApprovalSuspendService 内完成；释放锁与并发槽，不 enqueueNext
+                if (result.status() == TurnStatus.WAITING_APPROVAL
+                        || result.status() == TurnStatus.WAITING_CHILD) {
+                    // 挂起已在 suspend 服务内完成；释放锁与并发槽，不 enqueueNext
                     quota.releaseConcurrent(quotaWs, quotaUser, turnId);
                     holdConcurrent = false;
                 } else {
@@ -435,6 +440,55 @@ public class TurnRunner {
             cur = cur.getCause();
         }
         return cur;
+    }
+
+    private int parseMaxSteps(String optionsJson, int defaultMax) {
+        if (optionsJson == null || optionsJson.isBlank()) {
+            return defaultMax;
+        }
+        try {
+            JsonNode n = mapper.readTree(optionsJson).path("maxSteps");
+            if (n.isNumber()) {
+                return Math.min(50, Math.max(1, n.asInt(defaultMax)));
+            }
+        } catch (Exception ignored) {
+            // fall through
+        }
+        return defaultMax;
+    }
+
+    /**
+     * RT-09：默认 30 分钟；origin=orch|job 上限 4 小时，其他 1 小时。
+     */
+    private Instant resolveDeadline(RuntimeTurnDO turn, String origin) {
+        Duration requested = parseMaxDuration(turn.getOptionsJson());
+        if (requested == null) {
+            requested = Duration.ofMinutes(30);
+        }
+        Duration cap = ("orch".equalsIgnoreCase(origin) || "job".equalsIgnoreCase(origin))
+                ? Duration.ofHours(4) : Duration.ofHours(1);
+        if (requested.compareTo(cap) > 0) {
+            requested = cap;
+        }
+        Instant start = turn.getStartedAt() == null
+                ? Instant.now()
+                : turn.getStartedAt().toInstant(java.time.ZoneOffset.UTC);
+        return start.plus(requested);
+    }
+
+    private Duration parseMaxDuration(String optionsJson) {
+        if (optionsJson == null || optionsJson.isBlank()) {
+            return null;
+        }
+        try {
+            JsonNode n = mapper.readTree(optionsJson).path("maxDuration");
+            if (n.isMissingNode() || n.isNull() || n.asText("").isBlank()) {
+                return null;
+            }
+            return Duration.parse(n.asText());
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     private String parseApprovalPolicy(String optionsJson) {

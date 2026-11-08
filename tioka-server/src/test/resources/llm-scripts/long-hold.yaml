@@ -1,0 +1,5 @@
+# RT-09：长任务期间靠租约续期不被回收（单次流式拉长）
+calls:
+  - content: "holding"
+    stream_chunk_chars: 1
+    chunk_delay_ms: 400
