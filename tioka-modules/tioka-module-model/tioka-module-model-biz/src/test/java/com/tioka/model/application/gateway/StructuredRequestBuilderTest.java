@@ -3,6 +3,10 @@ package com.tioka.model.application.gateway;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.tioka.model.api.constraint.EmitOutputToolConstraintParams;
+import com.tioka.model.api.constraint.JsonObjectConstraintParams;
+import com.tioka.model.api.constraint.JsonSchemaConstraintParams;
+import com.tioka.model.api.constraint.StructuredConstraintRequest;
 import com.tioka.model.api.profile.ModelProfile;
 import com.tioka.model.api.profile.StructuredOutputCapability;
 import com.tioka.model.api.profile.StructuredOutputMode;
@@ -19,7 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * SCH-02：三种能力各自生成正确的约束请求形态。
+ * SCH-02 / M3-03 §5：三种能力各自生成正确的约束请求形态。
  */
 class StructuredRequestBuilderTest {
 
@@ -28,7 +32,7 @@ class StructuredRequestBuilderTest {
     private JsonNode authoritativeSchema;
 
     @BeforeEach
-    void setUp() throws Exception {
+    void setUp() {
         builder = new StructuredRequestBuilder(mapper);
         ObjectNode schema = mapper.createObjectNode();
         schema.put("type", "object");
@@ -48,16 +52,15 @@ class StructuredRequestBuilderTest {
         ModelProfile profile = profileWith(Set.of(StructuredOutputMode.STRICT_SCHEMA), Set.of(
                 "type", "properties", "required", "additionalProperties", "description", "minLength"));
 
-        StructuredChatRequest req = builder.build(profile, authoritativeSchema, false);
+        StructuredConstraintRequest req = builder.build(profile, authoritativeSchema, false);
 
         assertEquals(StructuredOutputMode.STRICT_SCHEMA, req.selectedMode());
         assertNotNull(req.responseFormat());
         assertEquals("json_schema", req.responseFormat().get("type"));
-        @SuppressWarnings("unchecked")
-        Map<String, Object> jsonSchema = (Map<String, Object>) req.responseFormat().get("json_schema");
-        assertNotNull(jsonSchema);
-        assertEquals("tioka_output", jsonSchema.get("name"));
-        assertEquals(true, jsonSchema.get("strict"));
+        JsonSchemaConstraintParams params = req.asJsonSchema().orElseThrow();
+        assertEquals("tioka_output", params.name());
+        assertTrue(params.strict());
+        assertFalse(params.schema().isEmpty());
         assertNull(req.systemPromptSuffix());
         assertTrue(req.tools() == null || req.tools().isEmpty());
         assertFalse(req.dialectSchema().has("x-tioka-path"));
@@ -68,14 +71,14 @@ class StructuredRequestBuilderTest {
     void jsonModeProducesJsonObjectAndPromptWithSchema() {
         ModelProfile profile = profileWith(Set.of(StructuredOutputMode.JSON_OBJECT), Set.of());
 
-        StructuredChatRequest req = builder.build(profile, authoritativeSchema, false);
+        StructuredConstraintRequest req = builder.build(profile, authoritativeSchema, false);
 
         assertEquals(StructuredOutputMode.JSON_OBJECT, req.selectedMode());
         assertNotNull(req.responseFormat());
         assertEquals("json_object", req.responseFormat().get("type"));
-        assertNotNull(req.systemPromptSuffix());
-        assertTrue(req.systemPromptSuffix().toLowerCase().contains("json"));
-        assertTrue(req.systemPromptSuffix().contains("\"type\""));
+        JsonObjectConstraintParams params = req.asJsonObject().orElseThrow();
+        assertTrue(params.requireJsonKeyword());
+        assertTrue(params.systemPromptSuffix().contains("\"type\""));
         assertTrue(req.tools() == null || req.tools().isEmpty());
     }
 
@@ -84,18 +87,14 @@ class StructuredRequestBuilderTest {
         ModelProfile profile = profileWith(Set.of(StructuredOutputMode.TOOL), Set.of(
                 "type", "properties", "required", "additionalProperties", "description"));
 
-        StructuredChatRequest req = builder.build(profile, authoritativeSchema, false);
+        StructuredConstraintRequest req = builder.build(profile, authoritativeSchema, false);
 
         assertEquals(StructuredOutputMode.TOOL, req.selectedMode());
         assertNull(req.responseFormat());
-        assertNotNull(req.tools());
-        assertEquals(1, req.tools().size());
-        Map<String, Object> tool = req.tools().get(0);
-        assertEquals("function", tool.get("type"));
-        @SuppressWarnings("unchecked")
-        Map<String, Object> function = (Map<String, Object>) tool.get("function");
-        assertEquals("emit_output", function.get("name"));
-        assertNotNull(function.get("parameters"));
+        EmitOutputToolConstraintParams params = req.asEmitOutputTool().orElseThrow();
+        assertEquals("emit_output", params.toolName());
+        assertFalse(params.strict());
+        assertNotNull(params.parameters());
     }
 
     @Test
@@ -104,7 +103,7 @@ class StructuredRequestBuilderTest {
                 Set.of(StructuredOutputMode.STRICT_SCHEMA),
                 Set.of("type", "properties", "required", "additionalProperties", "description"));
 
-        StructuredChatRequest req = builder.build(profile, authoritativeSchema, false);
+        StructuredConstraintRequest req = builder.build(profile, authoritativeSchema, false);
 
         JsonNode name = req.dialectSchema().path("properties").path("name");
         assertFalse(name.has("minLength"), "不支持的关键字应被编译掉");
@@ -117,7 +116,7 @@ class StructuredRequestBuilderTest {
                 Set.of(StructuredOutputMode.STRICT_SCHEMA, StructuredOutputMode.JSON_OBJECT, StructuredOutputMode.TOOL),
                 Set.of("type", "properties", "required", "additionalProperties", "description"));
 
-        StructuredChatRequest req = builder.build(profile, authoritativeSchema, false);
+        StructuredConstraintRequest req = builder.build(profile, authoritativeSchema, false);
 
         assertEquals(StructuredOutputMode.STRICT_SCHEMA, req.selectedMode());
     }
@@ -139,7 +138,7 @@ class StructuredRequestBuilderTest {
                 null);
         ModelProfile profile = new ModelProfile("demo", cap);
 
-        StructuredChatRequest req = builder.build(profile, authoritativeSchema, true);
+        StructuredConstraintRequest req = builder.build(profile, authoritativeSchema, true);
 
         assertEquals(StructuredOutputMode.JSON_OBJECT, req.selectedMode());
     }
