@@ -17,8 +17,11 @@ import com.tioka.runtime.api.spi.ToolGateway;
 import com.tioka.runtime.api.spi.ToolInvocation;
 import com.tioka.runtime.api.spi.ToolProvider;
 import com.tioka.runtime.api.spi.TransactionalTool;
+import com.tioka.runtime.api.pipeline.ToolPipelineContext;
+import com.tioka.runtime.api.pipeline.ToolPipelineVerdict;
 import com.tioka.runtime.application.gateway.ChangeSetFactory;
 import com.tioka.runtime.application.gateway.PreparedCallStore;
+import com.tioka.runtime.application.pipeline.ToolPipelineStepRegistry;
 import com.tioka.runtime.application.tool.ToolCallPipeline;
 import com.tioka.runtime.application.tool.ToolCallPipeline.AuthorizeResult;
 import com.tioka.runtime.application.tool.ToolCallPipeline.AuthorizedCall;
@@ -39,6 +42,7 @@ import org.springframework.stereotype.Component;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.HexFormat;
 import java.util.HashMap;
@@ -66,6 +70,7 @@ public class DefaultToolGateway implements ToolGateway {
     private final PreparedCallStore preparedCalls;
     private final ChangeSetFactory changeSets;
     private final ApprovalPolicyResolver policies;
+    private final ToolPipelineStepRegistry pipelineSteps;
 
     public DefaultToolGateway(ToolRegistry registry,
                               ToolCallPipeline pipeline,
@@ -74,7 +79,8 @@ public class DefaultToolGateway implements ToolGateway {
                               ObjectMapper mapper,
                               PreparedCallStore preparedCalls,
                               ChangeSetFactory changeSets,
-                              ApprovalPolicyResolver policies) {
+                              ApprovalPolicyResolver policies,
+                              ToolPipelineStepRegistry pipelineSteps) {
         this.registry = registry;
         this.pipeline = pipeline;
         this.auditApi = auditApi;
@@ -83,6 +89,9 @@ public class DefaultToolGateway implements ToolGateway {
         this.preparedCalls = preparedCalls;
         this.changeSets = changeSets;
         this.policies = policies;
+        this.pipelineSteps = pipelineSteps == null
+                ? new ToolPipelineStepRegistry(List.of())
+                : pipelineSteps;
     }
 
     @Override
@@ -146,6 +155,27 @@ public class DefaultToolGateway implements ToolGateway {
         Reversibility rev = desc.reversibility() == null
                 ? (risk == ToolRisk.READ ? Reversibility.NONE : Reversibility.IRREVERSIBLE)
                 : desc.reversibility();
+
+        // P3-00b / K1b：按序号跑已注册步骤；空注册表无副作用（行为 = 现状）
+        ToolPipelineContext pipeCtx = new ToolPipelineContext(ctx, name, ac.args());
+        ToolPipelineVerdict pipeVerdict = pipelineSteps.run(pipeCtx);
+        if (pipeVerdict == ToolPipelineVerdict.ESCALATE) {
+            // 尚无步骤 bean 时不会走到；预留给 GOV-07 / TRU-09 转审批
+            String stepName = pipeCtx.get("pipeline.step", String.class);
+            ApprovalPolicy.Decision escalated = new ApprovalPolicy.RequireApproval(
+                    new ApprovalPolicy.Assignee(List.of(), List.of()),
+                    Duration.ofHours(24),
+                    "pipeline:" + (stepName == null ? "escalate" : stepName));
+            GateDecision gate = toGate(escalated);
+            PolicyOutcome policy = toPolicy(escalated);
+            ToolInvocation inv = new ToolInvocation(name, ac.args());
+            ChangeSet changeSet = changeSets.estimatedFromArgs(name, inv);
+            String itemId = Ids.newId("itm");
+            String agentId = ctx.agentVersionId() == null ? "" : ctx.agentVersionId();
+            TrustActionDO row = preparedCalls.insertProposed(
+                    ctx, agentId, name, name, risk, rev, gate, inv, changeSet, itemId);
+            return new PreparedCall(row.getId(), row.getActionClass(), changeSet, policy, gate);
+        }
 
         ToolInvocation inv = new ToolInvocation(name, ac.args());
         ChangeSet changeSet;

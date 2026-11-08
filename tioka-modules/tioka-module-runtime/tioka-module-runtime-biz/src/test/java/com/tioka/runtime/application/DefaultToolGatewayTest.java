@@ -14,6 +14,7 @@ import com.tioka.runtime.api.spi.ToolGateway;
 import com.tioka.runtime.api.spi.ToolProvider;
 import com.tioka.runtime.application.gateway.ChangeSetFactory;
 import com.tioka.runtime.application.gateway.PreparedCallStore;
+import com.tioka.runtime.application.pipeline.ToolPipelineStepRegistry;
 import com.tioka.runtime.application.tool.ToolCallPipeline;
 import com.tioka.runtime.application.tool.ToolRpmLimiter;
 import com.tioka.runtime.kernel.approval.ApprovalPolicyResolver;
@@ -88,7 +89,7 @@ class DefaultToolGatewayTest {
         when(allow.evaluate(any())).thenReturn(new ApprovalPolicy.Allow());
         when(policies.resolve(any(), any())).thenReturn(allow);
         gw = new DefaultToolGateway(registry, pipeline, audit, degraded, new ObjectMapper(),
-                preparedCalls, changeSets, policies);
+                preparedCalls, changeSets, policies, new ToolPipelineStepRegistry(List.of()));
     }
 
     private ToolGateway.ToolCallContext ctx(String agentVersionId) {
