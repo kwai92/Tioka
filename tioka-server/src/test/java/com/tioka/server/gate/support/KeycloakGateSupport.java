@@ -29,10 +29,17 @@ public final class KeycloakGateSupport implements AutoCloseable {
     public static final String USER_ALICE = "alice";
     public static final String USER_BOB = "bob";
     public static final String USER_CAROL = "carol";
+    /** ENG-04d：华东 / 华南区域测试用户（属性 region），供 DAT 与 G3EndToEndGateIT。 */
+    public static final String USER_EAST = "user_east";
+    public static final String USER_SOUTH = "user_south";
+    public static final String REGION_EAST = "华东";
+    public static final String REGION_SOUTH = "华南";
     /** 与 realm 导入一致；见 oidc-keycloak.md。 */
     public static final String PASSWORD_ALICE = "AlicePass1!";
     public static final String PASSWORD_BOB = "BobPass1!";
     public static final String PASSWORD_CAROL = "CarolPass1!";
+    public static final String PASSWORD_EAST = "EastPass1!";
+    public static final String PASSWORD_SOUTH = "SouthPass1!";
 
     private static final Object LOCK = new Object();
     private static KeycloakGateSupport singleton;
@@ -163,6 +170,97 @@ public final class KeycloakGateSupport implements AutoCloseable {
             }
         } catch (Exception e) {
             throw new IllegalStateException("removeUserFromGroup " + username + " " + groupPath, e);
+        }
+    }
+
+    /**
+     * ENG-04d：确保华东 / 华南两位区域用户存在且 {@code region} 属性不同。
+     * 幂等；挂在 {@code /tioka/sales}，与 bob 同组以便后续 DAT 闸门复用。
+     */
+    public synchronized void ensureRegionUsers() {
+        ensureRegionUser(USER_EAST, PASSWORD_EAST, "East", "Huadong", REGION_EAST);
+        ensureRegionUser(USER_SOUTH, PASSWORD_SOUTH, "South", "Huanan", REGION_SOUTH);
+    }
+
+    public String userRegionAttribute(String username) {
+        try {
+            String admin = adminToken();
+            String userId = findUserId(admin, username);
+            HttpResponse<String> resp = http.send(
+                    HttpRequest.newBuilder(URI.create(authServerUrl()
+                                    + "/admin/realms/" + REALM + "/users/" + userId))
+                            .header("Authorization", "Bearer " + admin).GET().build(),
+                    HttpResponse.BodyHandlers.ofString());
+            if (resp.statusCode() != 200) {
+                throw new IllegalStateException("get user: " + resp.statusCode() + " " + resp.body());
+            }
+            JsonNode attrs = json.readTree(resp.body()).path("attributes").path("region");
+            if (attrs.isArray() && !attrs.isEmpty()) {
+                return attrs.get(0).asText();
+            }
+            return "";
+        } catch (Exception e) {
+            throw new IllegalStateException("userRegionAttribute " + username, e);
+        }
+    }
+
+    private void ensureRegionUser(String username, String password, String first, String last, String region) {
+        try {
+            String admin = adminToken();
+            try {
+                findUserId(admin, username);
+            } catch (IllegalStateException missing) {
+                ObjectNode user = json.createObjectNode();
+                user.put("username", username);
+                user.put("enabled", true);
+                user.put("email", username + "@tioka.local");
+                user.put("emailVerified", true);
+                user.put("firstName", first);
+                user.put("lastName", last);
+                ObjectNode attrs = user.putObject("attributes");
+                attrs.putArray("region").add(region);
+                ArrayNode creds = user.putArray("credentials");
+                ObjectNode cred = creds.addObject();
+                cred.put("type", "password");
+                cred.put("value", password);
+                cred.put("temporary", false);
+                HttpResponse<String> create = http.send(
+                        HttpRequest.newBuilder(URI.create(authServerUrl()
+                                        + "/admin/realms/" + REALM + "/users"))
+                                .header("Authorization", "Bearer " + admin)
+                                .header("Content-Type", "application/json")
+                                .POST(HttpRequest.BodyPublishers.ofString(json.writeValueAsString(user)))
+                                .build(),
+                        HttpResponse.BodyHandlers.ofString());
+                if (create.statusCode() / 100 != 2 && create.statusCode() != 409) {
+                    throw new IllegalStateException("create user " + username + ": "
+                            + create.statusCode() + " " + create.body());
+                }
+            }
+            // 保证 region 属性与组
+            String userId = findUserId(admin, username);
+            HttpResponse<String> get = http.send(
+                    HttpRequest.newBuilder(URI.create(authServerUrl()
+                                    + "/admin/realms/" + REALM + "/users/" + userId))
+                            .header("Authorization", "Bearer " + admin).GET().build(),
+                    HttpResponse.BodyHandlers.ofString());
+            ObjectNode existing = (ObjectNode) json.readTree(get.body());
+            ObjectNode attrs = existing.with("attributes");
+            attrs.putArray("region").add(region);
+            HttpResponse<String> put = http.send(
+                    HttpRequest.newBuilder(URI.create(authServerUrl()
+                                    + "/admin/realms/" + REALM + "/users/" + userId))
+                            .header("Authorization", "Bearer " + admin)
+                            .header("Content-Type", "application/json")
+                            .PUT(HttpRequest.BodyPublishers.ofString(json.writeValueAsString(existing)))
+                            .build(),
+                    HttpResponse.BodyHandlers.ofString());
+            if (put.statusCode() / 100 != 2) {
+                throw new IllegalStateException("update region attr: " + put.statusCode() + " " + put.body());
+            }
+            addUserToGroup(username, "/tioka/sales");
+        } catch (Exception e) {
+            throw new IllegalStateException("ensureRegionUser " + username, e);
         }
     }
 
