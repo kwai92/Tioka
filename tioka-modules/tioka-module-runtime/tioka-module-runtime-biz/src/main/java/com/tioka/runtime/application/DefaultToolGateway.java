@@ -3,12 +3,27 @@ package com.tioka.runtime.application;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tioka.framework.error.BizException;
 import com.tioka.framework.error.ErrorCode;
+import com.tioka.framework.id.Ids;
 import com.tioka.framework.security.Principal;
+import com.tioka.runtime.api.approval.ApprovalPolicy;
+import com.tioka.runtime.api.approval.ApprovalRequestContexts;
+import com.tioka.runtime.api.approval.ToolRisk;
+import com.tioka.runtime.api.spi.ChangeSet;
+import com.tioka.runtime.api.spi.GateDecision;
+import com.tioka.runtime.api.spi.PolicyOutcome;
+import com.tioka.runtime.api.spi.Reversibility;
+import com.tioka.runtime.api.spi.StaleChangeSetException;
 import com.tioka.runtime.api.spi.ToolGateway;
+import com.tioka.runtime.api.spi.ToolInvocation;
 import com.tioka.runtime.api.spi.ToolProvider;
+import com.tioka.runtime.api.spi.TransactionalTool;
+import com.tioka.runtime.application.gateway.ChangeSetFactory;
+import com.tioka.runtime.application.gateway.PreparedCallStore;
 import com.tioka.runtime.application.tool.ToolCallPipeline;
 import com.tioka.runtime.application.tool.ToolCallPipeline.AuthorizeResult;
 import com.tioka.runtime.application.tool.ToolCallPipeline.AuthorizedCall;
+import com.tioka.runtime.infrastructure.persistence.TrustActionDO;
+import com.tioka.runtime.kernel.approval.ApprovalPolicyResolver;
 import com.tioka.system.api.audit.AuditApi;
 import com.tioka.system.api.audit.AuditDegradedSink;
 import com.tioka.system.api.audit.AuditEvent;
@@ -34,7 +49,7 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * CON-01：authorize → 调用 → 审计（ADR-029 第 8 条：调用返回后单独写）。
+ * CON-01：authorize → 调用 → 审计；TRU-05：prepare / commit（ADR-033）。
  */
 @Component
 public class DefaultToolGateway implements ToolGateway {
@@ -48,17 +63,26 @@ public class DefaultToolGateway implements ToolGateway {
     private final ObjectProvider<AuditApi> auditApi;
     private final ObjectProvider<AuditDegradedSink> degradedSink;
     private final ObjectMapper mapper;
+    private final PreparedCallStore preparedCalls;
+    private final ChangeSetFactory changeSets;
+    private final ApprovalPolicyResolver policies;
 
     public DefaultToolGateway(ToolRegistry registry,
                               ToolCallPipeline pipeline,
                               ObjectProvider<AuditApi> auditApi,
                               ObjectProvider<AuditDegradedSink> degradedSink,
-                              ObjectMapper mapper) {
+                              ObjectMapper mapper,
+                              PreparedCallStore preparedCalls,
+                              ChangeSetFactory changeSets,
+                              ApprovalPolicyResolver policies) {
         this.registry = registry;
         this.pipeline = pipeline;
         this.auditApi = auditApi;
         this.degradedSink = degradedSink;
         this.mapper = mapper;
+        this.preparedCalls = preparedCalls;
+        this.changeSets = changeSets;
+        this.policies = policies;
     }
 
     @Override
@@ -81,7 +105,22 @@ public class DefaultToolGateway implements ToolGateway {
                 .setAttribute("tioka.tool", name)
                 .startSpan();
         try (Scope ignored = span.makeCurrent()) {
-            ToolProvider.ToolResult result = callTracked(ctx, name, args);
+            ToolProvider.ToolDescriptor desc = resolveDescriptor(ctx, name);
+            ToolRisk risk = desc == null || desc.risk() == null ? ToolRisk.READ : desc.risk();
+            ToolProvider.ToolResult result;
+            if (risk == ToolRisk.READ) {
+                result = callTracked(ctx, name, args);
+            } else {
+                // 兼容 Allow 写工具：prepare + AUTO_COMMIT 时立即 commit；否则提示走审批
+                PreparedCall prepared = prepare(ctx, name, args);
+                result = switch (prepared.gate()) {
+                    case AUTO_COMMIT -> commit(ctx, prepared.preparedId());
+                    case DENIED -> new ToolProvider.ToolResult(false,
+                            "策略拒绝：" + (prepared.policy() == PolicyOutcome.DENY ? "DENY" : "DENIED"));
+                    case REQUIRE_APPROVAL, SHADOW_ONLY -> new ToolProvider.ToolResult(false,
+                            "写工具需预演审批，preparedId=" + prepared.preparedId());
+                };
+            }
             span.setAttribute("tioka.tool.ok", result.ok());
             return result;
         } catch (RuntimeException e) {
@@ -90,6 +129,95 @@ public class DefaultToolGateway implements ToolGateway {
             throw e;
         } finally {
             span.end();
+        }
+    }
+
+    @Override
+    public PreparedCall prepare(ToolCallContext ctx, String toolName, Map<String, Object> args) {
+        String name = toolName == null ? "" : toolName;
+        Map<String, Object> safeArgs = args == null ? Map.of() : args;
+        AuthorizeResult authz = pipeline.authorize(ctx, name, safeArgs);
+        if (authz instanceof AuthorizeResult.Reject reject) {
+            if (reject.rateLimited()) {
+                throw new BizException(ErrorCode.RATE_LIMITED, "工具调用过于频繁: " + name);
+            }
+            throw new BizException(ErrorCode.FORBIDDEN, "无权预演工具 " + name + "：" + reject.reason());
+        }
+        AuthorizedCall ac = ((AuthorizeResult.Ok) authz).call();
+        ToolProvider.ToolDescriptor desc = ac.descriptor();
+        ToolRisk risk = desc.risk() == null ? ToolRisk.WRITE : desc.risk();
+        Reversibility rev = desc.reversibility() == null
+                ? (risk == ToolRisk.READ ? Reversibility.NONE : Reversibility.IRREVERSIBLE)
+                : desc.reversibility();
+
+        ToolInvocation inv = new ToolInvocation(name, ac.args());
+        ChangeSet changeSet;
+        if (ac.provider() instanceof TransactionalTool tx) {
+            changeSet = tx.preview(inv);
+        } else {
+            changeSet = changeSets.estimatedFromArgs(name, inv);
+        }
+
+        ApprovalPolicy.Decision decision = evaluatePolicy(ctx, name, ac.args(), desc);
+        GateDecision gate = toGate(decision);
+        PolicyOutcome policy = toPolicy(decision);
+
+        String itemId = Ids.newId("itm");
+        String agentId = ctx.agentVersionId() == null ? "" : ctx.agentVersionId();
+        TrustActionDO row = preparedCalls.insertProposed(
+                ctx, agentId, name, name, risk, rev, gate, inv, changeSet, itemId);
+        return new PreparedCall(row.getId(), row.getActionClass(), changeSet, policy, gate);
+    }
+
+    @Override
+    public ToolProvider.ToolResult commit(ToolCallContext ctx, String preparedId) {
+        TrustActionDO row = preparedCalls.lockForUpdate(preparedId);
+        if (PreparedCallStore.STATUS_APPLIED.equals(row.getStatus())) {
+            ChangeSet.ApplyReceipt cached = preparedCalls.readReceipt(row);
+            String content = cached == null ? "already applied" : writeJson(cached);
+            return new ToolProvider.ToolResult(true, content);
+        }
+        if (preparedCalls.expired(row)) {
+            preparedCalls.markStale(row);
+            return new ToolProvider.ToolResult(false, "预演已过期，请重新确认后再执行");
+        }
+        ToolInvocation inv = preparedCalls.readInvocation(row);
+        ChangeSet approved = preparedCalls.readChangeSet(row);
+        var resolved = registry.resolve(ctx.agentVersionId(),
+                ctx == null ? Map.of() : ctx.agentToolConfig(), row.getToolName());
+        if (resolved.isEmpty()) {
+            preparedCalls.markFailed(row, "tool not found");
+            return new ToolProvider.ToolResult(false, "tool not found: " + row.getToolName());
+        }
+        ToolProvider provider = resolved.get().provider();
+        long t0 = System.currentTimeMillis();
+        try {
+            if (provider instanceof TransactionalTool tx) {
+                ChangeSet.ApplyReceipt receipt = tx.apply(inv, approved, row.getItemId());
+                preparedCalls.markApplied(row, receipt);
+                ToolProvider.ToolResult ok = new ToolProvider.ToolResult(true, writeJson(receipt));
+                auditInvoke(ctx, ctx == null ? null : ctx.principal(), row.getToolName(),
+                        inv.arguments(), ok, true, System.currentTimeMillis() - t0, null);
+                return ok;
+            }
+            ToolProvider.ToolResult result = provider.invoke(ctx.agentVersionId(), row.getToolName(),
+                    inv.arguments(), ctx == null ? Map.of() : ctx.agentToolConfig());
+            if (result.ok()) {
+                preparedCalls.markApplied(row, new ChangeSet.ApplyReceipt(
+                        row.getItemId(), Map.of(), Instant.now()));
+            } else {
+                preparedCalls.markFailed(row, result.content());
+            }
+            auditInvoke(ctx, ctx == null ? null : ctx.principal(), row.getToolName(),
+                    inv.arguments(), result, result.ok(), System.currentTimeMillis() - t0, null);
+            return result;
+        } catch (StaleChangeSetException e) {
+            preparedCalls.markStale(row);
+            return new ToolProvider.ToolResult(false, "数据已变化，请重新确认后再执行");
+        } catch (RuntimeException e) {
+            String err = e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage();
+            preparedCalls.markFailed(row, err);
+            throw e;
         }
     }
 
@@ -134,6 +262,43 @@ public class DefaultToolGateway implements ToolGateway {
         log.info("tool_call thread={} tool={} ok={} durMs={}",
                 ctx == null ? null : ctx.threadId(), name, result.ok(), dur);
         return result;
+    }
+
+    private ApprovalPolicy.Decision evaluatePolicy(ToolCallContext ctx, String name,
+                                                   Map<String, Object> args,
+                                                   ToolProvider.ToolDescriptor desc) {
+        Principal principal = ctx == null ? null : ctx.principal();
+        ApprovalPolicy policy = policies.resolve(null, principal);
+        ApprovalPolicy.ApprovalRequestContext req = ApprovalRequestContexts.from(
+                principal, ctx == null ? null : ctx.agentVersionId(), name, args, desc, Map.of());
+        return policy.evaluate(req);
+    }
+
+    private static GateDecision toGate(ApprovalPolicy.Decision d) {
+        if (d instanceof ApprovalPolicy.Allow) {
+            return GateDecision.AUTO_COMMIT;
+        }
+        if (d instanceof ApprovalPolicy.Deny) {
+            return GateDecision.DENIED;
+        }
+        return GateDecision.REQUIRE_APPROVAL;
+    }
+
+    private static PolicyOutcome toPolicy(ApprovalPolicy.Decision d) {
+        if (d instanceof ApprovalPolicy.Allow) {
+            return PolicyOutcome.ALLOW;
+        }
+        if (d instanceof ApprovalPolicy.Deny) {
+            return PolicyOutcome.DENY;
+        }
+        return PolicyOutcome.ESCALATE;
+    }
+
+    private ToolProvider.ToolDescriptor resolveDescriptor(ToolCallContext ctx, String name) {
+        return registry.resolve(ctx == null ? null : ctx.agentVersionId(),
+                        ctx == null ? Map.of() : ctx.agentToolConfig(), name)
+                .map(ToolRegistry.ResolvedTool::descriptor)
+                .orElse(null);
     }
 
     @Override
@@ -251,6 +416,14 @@ public class DefaultToolGateway implements ToolGateway {
             return HexFormat.of().formatHex(dig);
         } catch (NoSuchAlgorithmException | com.fasterxml.jackson.core.JsonProcessingException e) {
             return "";
+        }
+    }
+
+    private String writeJson(Object value) {
+        try {
+            return mapper.writeValueAsString(value == null ? Map.of() : value);
+        } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
+            return "{}";
         }
     }
 }
