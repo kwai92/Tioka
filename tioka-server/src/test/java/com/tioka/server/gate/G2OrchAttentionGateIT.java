@@ -281,7 +281,7 @@ class G2OrchAttentionGateIT {
                 AgentSpec.SandboxPolicy.defaults(),
                 AgentSpec.ApprovalSettings.empty(),
                 AgentSpec.Limits.defaults(),
-                null, null, null, null)).versionId();
+                null, null, null, null, null, null, null, null)).versionId();
     }
 
     private static Principal principal(TestFixtures.Actor actor) {
