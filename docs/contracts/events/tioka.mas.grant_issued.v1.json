@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tioka.dev/schema/tioka.mas.grant_issued.v1.json",
+  "title": "tioka.mas.grant_issued.v1",
+  "description": "MAS-01 委派授予签发。",
+  "type": "object",
+  "required": [
+    "grantId",
+    "parentTurnId",
+    "childTurnId",
+    "agentId"
+  ],
+  "properties": {
+    "grantId": {
+      "type": "string"
+    },
+    "parentTurnId": {
+      "type": "string"
+    },
+    "childTurnId": {
+      "type": "string"
+    },
+    "agentId": {
+      "type": "string"
+    },
+    "onBehalfOf": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "workspaceId": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": true
+}

@@ -5,9 +5,8 @@ import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import com.tioka.framework.persistence.TechnicalRecordDO;
 
-import java.time.Instant;
+import java.time.LocalDateTime;
 
-/** V132 {@code orch_event}。 */
 @TableName("orch_event")
 public class OrchEventDO extends TechnicalRecordDO {
     @TableId(type = IdType.INPUT)
@@ -22,7 +21,7 @@ public class OrchEventDO extends TechnicalRecordDO {
     private Integer hops;
     private String disposition;
     private String strength;
-    private Instant receivedAt;
+    private LocalDateTime receivedAt;
 
     public String getId() { return id; }
     public void setId(String id) { this.id = id; }
@@ -46,6 +45,6 @@ public class OrchEventDO extends TechnicalRecordDO {
     public void setDisposition(String disposition) { this.disposition = disposition; }
     public String getStrength() { return strength; }
     public void setStrength(String strength) { this.strength = strength; }
-    public Instant getReceivedAt() { return receivedAt; }
-    public void setReceivedAt(Instant receivedAt) { this.receivedAt = receivedAt; }
+    public LocalDateTime getReceivedAt() { return receivedAt; }
+    public void setReceivedAt(LocalDateTime receivedAt) { this.receivedAt = receivedAt; }
 }

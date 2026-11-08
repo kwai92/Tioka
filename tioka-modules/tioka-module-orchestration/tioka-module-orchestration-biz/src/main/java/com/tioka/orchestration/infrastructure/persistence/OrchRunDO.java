@@ -5,10 +5,11 @@ import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import com.tioka.framework.persistence.TechnicalRecordDO;
 
-import java.time.Instant;
+import java.time.LocalDateTime;
 
 /**
- * V132 {@code orch_run}：无逻辑删 / create_by；TIMESTAMPTZ 用 Instant。
+ * V132 {@code orch_run}：有 {@code workspace_id}/状态机更新，无逻辑删、无 create_by/update_by，
+ * 故用 {@link TechnicalRecordDO}（非 {@link com.tioka.framework.persistence.WorkspaceAwareDO}/{@code BaseDO}）。
  */
 @TableName("orch_run")
 public class OrchRunDO extends TechnicalRecordDO {
@@ -28,9 +29,12 @@ public class OrchRunDO extends TechnicalRecordDO {
     private String runAsJson;
     private String errorCode;
     private String errorMessage;
-    private Instant createAt;
-    private Instant updateAt;
-    private Instant endedAt;
+    /** OBS-03 / V133：关联上下文。 */
+    private String requestId;
+    private String subject;
+    private LocalDateTime createAt;
+    private LocalDateTime updateAt;
+    private LocalDateTime endedAt;
 
     public String getId() { return id; }
     public void setId(String id) { this.id = id; }
@@ -62,10 +66,14 @@ public class OrchRunDO extends TechnicalRecordDO {
     public void setErrorCode(String errorCode) { this.errorCode = errorCode; }
     public String getErrorMessage() { return errorMessage; }
     public void setErrorMessage(String errorMessage) { this.errorMessage = errorMessage; }
-    public Instant getCreateAt() { return createAt; }
-    public void setCreateAt(Instant createAt) { this.createAt = createAt; }
-    public Instant getUpdateAt() { return updateAt; }
-    public void setUpdateAt(Instant updateAt) { this.updateAt = updateAt; }
-    public Instant getEndedAt() { return endedAt; }
-    public void setEndedAt(Instant endedAt) { this.endedAt = endedAt; }
+    public String getRequestId() { return requestId; }
+    public void setRequestId(String requestId) { this.requestId = requestId; }
+    public String getSubject() { return subject; }
+    public void setSubject(String subject) { this.subject = subject; }
+    public LocalDateTime getCreateAt() { return createAt; }
+    public void setCreateAt(LocalDateTime createAt) { this.createAt = createAt; }
+    public LocalDateTime getUpdateAt() { return updateAt; }
+    public void setUpdateAt(LocalDateTime updateAt) { this.updateAt = updateAt; }
+    public LocalDateTime getEndedAt() { return endedAt; }
+    public void setEndedAt(LocalDateTime endedAt) { this.endedAt = endedAt; }
 }

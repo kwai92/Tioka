@@ -1,0 +1,42 @@
+---
+description: M3 并行开发热点锁与越界/迁移约束（M3-07）
+alwaysApply: true
+---
+
+# M3 并行约束
+
+权威：`docs/architecture/construction/M3-07-并行开发任务包.md` 第 3.2、3.3、9.1 节；排期与验收以 [M3-00](docs/architecture/construction/M3-00-M3实施计划.md) 为准。
+
+沿用 M2-06 第 3 节：一包一分支一工作树一 PR、契约先行、测试先红后绿。分支名 `feat/{工作项ID}-{英文短名}`。
+
+## 三个注册点（P3-00b 建后，各包只新增类）
+
+| 注册点 | 位置 | 规则 |
+| --- | --- | --- |
+| 工具管线步骤 | `runtime-api` 步骤接口与序号表；`DefaultToolGateway` 按序号调已注册步骤 | 每步一类一序号；同序号唯一实现 |
+| 上下文段提供者 | `runtime-api` 段提供者接口；RT-10 组装器按区与顺序调用 | 新段须在 ADR-048 有名 |
+| AgentSpec 段校验器 | `agent-api` 的 `AgentSpec` + `AgentSpecValidatorRegistry` | 每段校验器一类；改 `AgentSpec` 记录本身须持 K9 |
+
+## 热点锁（同一把锁同一时间只有一个未合入 PR 持有）
+
+K2〜K8 范围与规则同 M2-06 第 3.3 节。K1 拆分，另加 K9〜K11：
+
+| 锁 | 范围 | M3 内持有顺序 |
+| --- | --- | --- |
+| K1a 执行循环与上下文组装 | `TurnRunner`、`TurnDispatcher`、上下文组装器、子 Turn 派发 | M2 PK-10 → M2 PK-24b → P3-00b（段提供者注册）→ RT-10 → RT-12 → CTX-01 → CCH-01 |
+| K1b 工具管线 | `DefaultToolGateway`、管线上下文、步骤序号表 | M2 PK-24b → P3-00b（步骤注册）→ 之后仅调序号表时持有；各包只新增步骤类 |
+| K1c 模型网关 | `DefaultModelGateway`、参数组装、选模与路由入口 | MH-08 → MH-06 → MH-14 → MH-09 → SCH-06 → MH-12 → DAT-03 → CCH-01 |
+| K9 AgentSpec | `agent-api` 的 `AgentSpec` 与段记录、发布校验器注册表 | P3-00b 一次加齐后，只在段结构变更时持有 |
+| K10 共用 CEL 环境 | CEL 运行时封装与函数注册表 | DAT-01 → ONT-04 → SCH-08 → LSE-04；新函数只经注册表 |
+| K11 G3 端到端 | `G3EndToEndGateIT`、演示数据与 fixtures | 只有 P3-A36 |
+
+K4 由 P3-B01 持有；K5 由 P3-00b 建 M3-00 第 8.4 节规则与冻结库，各包只能**删**自己的冻结条目；K7 由 P3-00c 登记；K8 只用 M3-00 第 9 节登记的迁移号。
+
+**#71 PK-24b 未合入前**：不要改 `DefaultToolGateway`、`TurnRunner`、`TurnDispatcher`、工具管线执行循环、上下文组装器接线。
+
+持有者在 PR 描述写「持有 Kx」，合入即释放。没轮到的包先用接口或扩展点绕开，绕不开就等。
+
+## 越界与迁移
+
+3. **只改「可改范围」里的路径。** 范围外文件写入 PR「越界申请」，不要自己改；不要改别的任务包负责的类，不要顺手重构。
+4. **数据库迁移只用本任务包登记的版本号**，先提交 `docs/contracts/db`，再原样复制到迁移目录，不改内容，不新建其他版本号。

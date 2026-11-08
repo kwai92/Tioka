@@ -1,93 +1,134 @@
 package com.tioka.orchestration.api;
 
 import com.tioka.framework.error.ApiResponse;
-import com.tioka.framework.error.BizException;
-import com.tioka.framework.error.ErrorCode;
+import com.tioka.framework.error.NotImplemented;
 import com.tioka.framework.security.Permissions;
 import com.tioka.framework.security.RequirePermission;
 import com.tioka.orchestration.api.engine.OrchApi;
-import com.tioka.orchestration.application.OrchRuleService;
-import org.springframework.web.bind.annotation.*;
+import com.tioka.system.api.audit.Audited;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 import java.util.Map;
 
 /**
- * V132：旧 claim/attention HTTP 废弃；events 转发 engine.OrchApi.ingest。
+ * 编排 REST：事件接入 / Run 查询（ORC-03）。人审面由 ORC-04 重建。
  */
 @RestController
 @RequestMapping("/api/orch")
-@RequirePermission(Permissions.ORCH_WRITE)
 public class OrchController {
-    private final OrchApi orchEngine;
-    private final OrchRuleService rules;
 
-    public OrchController(OrchApi orchEngine, OrchRuleService rules) {
-        this.orchEngine = orchEngine;
-        this.rules = rules;
+    private final OrchApi orchApi;
+
+    public OrchController(OrchApi orchApi) {
+        this.orchApi = orchApi;
     }
 
     @PostMapping("/events")
+    @RequirePermission(Permissions.ORCH_WRITE)
+    @Audited(action = "orch.event.ingest", resourceType = "orch_event")
     public ApiResponse<OrchApi.EventAck> ingest(@RequestBody Map<String, Object> body) {
-        String type = String.valueOf(body.getOrDefault("eventType", body.get("type")));
-        String idem = body.get("idempotencyKey") == null ? null : String.valueOf(body.get("idempotencyKey"));
-        OrchApi.EventEnvelope env = new OrchApi.EventEnvelope(
-                String.valueOf(body.getOrDefault("source", "http")),
-                type,
-                idem,
-                body.get("subjectKey") == null ? null : String.valueOf(body.get("subjectKey")),
-                Map.of(),
-                body,
-                0);
-        return ApiResponse.ok(orchEngine.ingest(env));
+        String source = str(body.get("source"));
+        String type = str(body.get("type"));
+        String idem = str(body.get("idempotencyKey"));
+        String subject = str(body.get("subjectKey"));
+        @SuppressWarnings("unchecked")
+        Map<String, String> attrs = body.get("attrs") instanceof Map<?, ?> m
+                ? castAttrs(m) : Map.of();
+        @SuppressWarnings("unchecked")
+        Map<String, Object> eventBody = body.get("body") instanceof Map<?, ?> m
+                ? castBody(m) : Map.of();
+        int hops = body.get("hops") instanceof Number n ? n.intValue() : 0;
+        return ApiResponse.ok(orchApi.ingest(
+                new OrchApi.EventEnvelope(source, type, idem, subject, attrs, eventBody, hops)));
     }
 
-    @GetMapping("/rules")
-    public ApiResponse<List<OrchRuleService.RuleView>> listRules() {
-        return ApiResponse.ok(rules.list());
+    @GetMapping("/runs/{id}")
+    @RequirePermission(Permissions.ORCH_READ)
+    public ApiResponse<OrchApi.RunView> getRun(@PathVariable String id) {
+        return ApiResponse.ok(orchApi.getRun(id));
     }
 
-    @PostMapping("/rules")
-    public ApiResponse<OrchRuleService.RuleView> saveRule(@RequestBody Map<String, Object> body) {
-        throw gone("规则写入待 ORC-05");
+    @GetMapping("/runs/{id}/facts")
+    @RequirePermission(Permissions.ORCH_READ)
+    public ApiResponse<List<OrchApi.FactView>> facts(@PathVariable String id,
+                                                     @RequestParam(defaultValue = "0") long afterSeq) {
+        return ApiResponse.ok(orchApi.facts(id, afterSeq));
     }
 
-    @PostMapping("/rules/{id}/publish")
-    public ApiResponse<OrchRuleService.RuleView> publishRule(@PathVariable String id) {
-        throw gone("规则发布待 ORC-05");
+    @PostMapping("/runs/{id}/cancel")
+    @RequirePermission(Permissions.ORCH_OPERATE)
+    @Audited(action = "orch.run.cancel", resourceType = "orch_run", resourceIdArg = "#id")
+    public ApiResponse<Void> cancel(@PathVariable String id, @RequestBody(required = false) Map<String, Object> body) {
+        String reason = body == null ? null : str(body.get("reason"));
+        orchApi.cancelRun(id, reason);
+        return ApiResponse.ok(null);
     }
 
     @PostMapping("/runs/claim")
-    public ApiResponse<?> claim(@RequestBody Map<String, String> body) {
-        throw gone("claim 已随 V132 移除");
+    @RequirePermission(Permissions.ORCH_WRITE)
+    public ApiResponse<Void> claimRemoved() {
+        throw NotImplemented.of("OrchController.claim", "ORC-03");
     }
 
     @PostMapping("/runs/{id}/heartbeat")
-    public ApiResponse<Void> heartbeat(@PathVariable String id, @RequestBody Map<String, String> body) {
-        throw gone("heartbeat 已随 V132 移除");
+    @RequirePermission(Permissions.ORCH_WRITE)
+    public ApiResponse<Void> heartbeatRemoved(@PathVariable String id) {
+        throw NotImplemented.of("OrchController.heartbeat", "ORC-03");
     }
 
     @PostMapping("/attentions")
-    public ApiResponse<?> open(@RequestBody Map<String, Object> body) {
-        throw gone("orch_attention 已随 V132 移除；待 ORC-04");
+    @RequirePermission(Permissions.ORCH_WRITE)
+    public ApiResponse<Void> openAttentionRemoved() {
+        throw NotImplemented.of("OrchController.openAttention", "ORC-04");
     }
 
     @PostMapping("/attentions/{id}/answer")
-    public ApiResponse<?> answer(@PathVariable String id, @RequestBody Map<String, Object> body) {
-        throw gone("orch_attention 已随 V132 移除；待 ORC-04");
+    @RequirePermission(Permissions.ORCH_WRITE)
+    public ApiResponse<Void> answerRemoved(@PathVariable String id) {
+        throw NotImplemented.of("OrchController.answer", "ORC-04");
     }
 
     @GetMapping("/attentions")
-    public ApiResponse<?> listOpen() {
-        throw gone("orch_attention 已随 V132 移除；待 ORC-04");
+    @RequirePermission(Permissions.ORCH_READ)
+    public ApiResponse<Void> listAttentionsRemoved() {
+        throw NotImplemented.of("OrchController.listAttentions", "ORC-04");
     }
 
     @GetMapping("/runs/{id}/why")
-    public ApiResponse<List<OrchApi.FactView>> why(@PathVariable String id) {
-        return ApiResponse.ok(orchEngine.facts(id, 0));
+    @RequirePermission(Permissions.ORCH_READ)
+    public ApiResponse<List<OrchApi.FactView>> why(@PathVariable String id,
+                                                   @RequestParam(defaultValue = "0") long afterSeq) {
+        return ApiResponse.ok(orchApi.facts(id, afterSeq));
     }
 
-    private static BizException gone(String msg) {
-        return new BizException(ErrorCode.NOT_IMPLEMENTED, msg);
+    private static String str(Object o) {
+        return o == null ? null : String.valueOf(o);
+    }
+
+    private static Map<String, String> castAttrs(Map<?, ?> m) {
+        java.util.Map<String, String> out = new java.util.LinkedHashMap<>();
+        m.forEach((k, v) -> {
+            if (k != null && v != null) {
+                out.put(String.valueOf(k), String.valueOf(v));
+            }
+        });
+        return out;
+    }
+
+    private static Map<String, Object> castBody(Map<?, ?> m) {
+        java.util.Map<String, Object> out = new java.util.LinkedHashMap<>();
+        m.forEach((k, v) -> {
+            if (k != null) {
+                out.put(String.valueOf(k), v);
+            }
+        });
+        return out;
     }
 }

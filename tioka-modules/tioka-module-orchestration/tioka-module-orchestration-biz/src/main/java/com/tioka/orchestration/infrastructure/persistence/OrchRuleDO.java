@@ -5,13 +5,12 @@ import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import com.tioka.framework.persistence.WorkspaceAwareDO;
 
-/** V132：规则头；版本内容在 orch_rule_version。 */
+/** V132 后规则头：空间级资源（workspace_id + owner_id）。 */
 @TableName("orch_rule")
 public class OrchRuleDO extends WorkspaceAwareDO {
     @TableId(type = IdType.INPUT)
     private String id;
     private String name;
-    private String ownerId;
     private String stableVersionId;
     private String canaryVersionId;
 
@@ -19,8 +18,6 @@ public class OrchRuleDO extends WorkspaceAwareDO {
     public void setId(String id) { this.id = id; }
     public String getName() { return name; }
     public void setName(String name) { this.name = name; }
-    public String getOwnerId() { return ownerId; }
-    public void setOwnerId(String ownerId) { this.ownerId = ownerId; }
     public String getStableVersionId() { return stableVersionId; }
     public void setStableVersionId(String stableVersionId) { this.stableVersionId = stableVersionId; }
     public String getCanaryVersionId() { return canaryVersionId; }

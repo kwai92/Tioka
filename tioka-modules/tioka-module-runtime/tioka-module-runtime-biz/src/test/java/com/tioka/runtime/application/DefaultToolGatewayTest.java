@@ -7,12 +7,17 @@ import com.tioka.framework.security.PrincipalHolder;
 import com.tioka.framework.security.PrincipalType;
 import com.tioka.framework.security.ResourceGuard;
 import com.tioka.framework.security.VisibilityFilter;
+import com.tioka.runtime.api.approval.ApprovalPolicy;
 import com.tioka.runtime.api.spi.GrantCheck;
 import com.tioka.runtime.api.spi.ToolCallContexts;
 import com.tioka.runtime.api.spi.ToolGateway;
 import com.tioka.runtime.api.spi.ToolProvider;
+import com.tioka.runtime.application.gateway.ChangeSetFactory;
+import com.tioka.runtime.application.gateway.PreparedCallStore;
+import com.tioka.runtime.application.pipeline.ToolPipelineStepRegistry;
 import com.tioka.runtime.application.tool.ToolCallPipeline;
 import com.tioka.runtime.application.tool.ToolRpmLimiter;
+import com.tioka.runtime.kernel.approval.ApprovalPolicyResolver;
 import com.tioka.system.api.audit.AuditApi;
 import com.tioka.system.api.audit.AuditDegradedSink;
 import com.tioka.system.api.spi.EgressGuard;
@@ -30,6 +35,7 @@ import java.util.Set;
 import java.util.function.Supplier;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -76,7 +82,14 @@ class DefaultToolGatewayTest {
         when(audit.getIfAvailable()).thenReturn(null);
         ObjectProvider<AuditDegradedSink> degraded = mock(ObjectProvider.class);
         when(degraded.getIfAvailable()).thenReturn(null);
-        gw = new DefaultToolGateway(registry, pipeline, audit, degraded, new ObjectMapper());
+        PreparedCallStore preparedCalls = mock(PreparedCallStore.class);
+        ChangeSetFactory changeSets = mock(ChangeSetFactory.class);
+        ApprovalPolicyResolver policies = mock(ApprovalPolicyResolver.class);
+        ApprovalPolicy allow = mock(ApprovalPolicy.class);
+        when(allow.evaluate(any())).thenReturn(new ApprovalPolicy.Allow());
+        when(policies.resolve(any(), any())).thenReturn(allow);
+        gw = new DefaultToolGateway(registry, pipeline, audit, degraded, new ObjectMapper(),
+                preparedCalls, changeSets, policies, new ToolPipelineStepRegistry(List.of()));
     }
 
     private ToolGateway.ToolCallContext ctx(String agentVersionId) {

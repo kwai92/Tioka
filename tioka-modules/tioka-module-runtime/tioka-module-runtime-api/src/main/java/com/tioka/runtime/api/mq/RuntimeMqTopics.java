@@ -1,10 +1,11 @@
 package com.tioka.runtime.api.mq;
 
 /**
- * MQ Topic/Tag 常量（禁止在 biz 内硬编码字符串）。
+ * MQ Topic/Tag 与跨域事件名常量（禁止在 biz 内硬编码字符串）。
  *
  * <p>权威 tag：{@code thread.*} / {@code item.*}（47-GL Runtime；ADR-016）。
  * 旧 {@code TAG_SESSION_*} / {@code TAG_PART_*} 仅作编译兼容，已 alias 新字符串。
+ * 跨域事件名见 M2-01 ORC-02 / {@code docs/contracts/events}。
  */
 public final class RuntimeMqTopics {
 
@@ -20,6 +21,12 @@ public final class RuntimeMqTopics {
     public static final String TAG_SUBAGENT_FINISHED = "subagent.finished";
     public static final String TAG_USAGE_REPORTED = "usage.reported";
     public static final String TAG_SANDBOX_DESTROYED = "sandbox.destroyed";
+
+    public static final String TURN_FINISHED = "tioka.runtime.turn_finished.v1";
+    public static final String TURN_WAITING = "tioka.runtime.turn_waiting.v1";
+    public static final String APPROVAL_REQUESTED = "tioka.runtime.approval_requested.v1";
+    public static final String APPROVAL_DECIDED = "tioka.runtime.approval_decided.v1";
+    public static final String CHILD_FINISHED = "tioka.runtime.child_finished.v1";
 
     /** @deprecated 使用 {@link #TAG_THREAD_CREATED} */
     @Deprecated

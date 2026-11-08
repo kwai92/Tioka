@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest'
-import { canSeeAdmin, filterAdminNav, hasAnyPermission, routeAllowed } from './adminNav'
+import {
+  ADMIN_NAV,
+  APP_NAV,
+  CONNECT_ROUTES,
+  canSeeAdmin,
+  filterAdminNav,
+  hasAnyPermission,
+  routeAllowed
+} from './adminNav'
 import { buildRolePermissionPayload, groupPermissionsByResource, togglePermission } from './roleMatrix'
 import { clearApiKeyPlaintext, emptyApiKeyPlaintext, setApiKeyPlaintext } from './apiKeyPlaintext'
 import { isOidcGroupSource, parseScopeList } from './adminApi'
@@ -20,6 +28,26 @@ describe('adminNav', () => {
     expect(routeAllowed(['quota:read'], ['quota:read', 'tenant:admin'])).toBe(true)
     expect(routeAllowed(['chat:use'], ['tenant:admin'])).toBe(false)
     expect(hasAnyPermission(['tenant:admin'], ['tenant:admin'])).toBe(true)
+  })
+
+  it('P3-00c 四分区工作台与管理导航', () => {
+    const paths = APP_NAV.map((n) => n.path)
+    expect(paths).toContain('/console/approvals')
+    expect(paths).toContain('/console/trajectory')
+    expect(paths).toContain('/console/orch/rules')
+    expect(paths).toContain('/console/orch/work-items')
+    expect(paths).toContain('/console/ops/dead-letters')
+    expect(paths).toContain('/console/ops/timers')
+    expect(paths).toContain('/studio/agents')
+    expect(paths).toContain('/console/timeline')
+    expect(paths).toContain('/console/eval')
+    const adminPaths = ADMIN_NAV.map((n) => n.path)
+    expect(adminPaths).toContain('/admin/im/bindings')
+    expect(adminPaths).toContain('/admin/connected-apps')
+    expect(adminPaths).toContain('/admin/models')
+    expect(adminPaths).toContain('/admin/data')
+    expect(adminPaths).toContain('/admin/plugins')
+    expect(CONNECT_ROUTES.map((r) => r.path)).toEqual(['/connect/feishu'])
   })
 })
 

@@ -21,6 +21,29 @@ exports[`HCI-04 ItemRenderer snapshots > card.json / tool-pending 1`] = `
 </div>"
 `;
 
+exports[`HCI-04 ItemRenderer snapshots > change_set.json / basic 1`] = `
+"<div data-v-4170e466="" class="item unknown">
+  <div data-v-4170e466="" class="tag">change_set</div><pre data-v-4170e466="" class="payload">{
+  "note": "fixture for change_set"
+}</pre>
+</div>"
+`;
+
+exports[`HCI-04 ItemRenderer snapshots > change_set.json / edge 1`] = `
+"<div data-v-4170e466="" class="item unknown">
+  <div data-v-4170e466="" class="tag">change_set</div><pre data-v-4170e466="" class="payload">{
+  "data": [
+    1,
+    2,
+    3
+  ],
+  "change_set": {
+    "op": "noop"
+  }
+}</pre>
+</div>"
+`;
+
 exports[`HCI-04 ItemRenderer snapshots > child_thread.json / basic 1`] = `
 "<div data-v-4170e466="" class="item unknown">
   <div data-v-4170e466="" class="tag">child_thread</div><pre data-v-4170e466="" class="payload">{
@@ -231,8 +254,10 @@ exports[`HCI-04 ItemRenderer snapshots > unknown.json / basic 1`] = `
 `;
 
 exports[`HCI-04 ItemRenderer snapshots > unknown.json / future-type 1`] = `
-"<div data-v-4170e466="" class="item unknown">
-  <div data-v-4170e466="" class="tag">data</div><pre data-v-4170e466="" class="payload">{
+"<div data-v-33e79f2a="" class="data-item">
+  <div data-v-33e79f2a="" class="meta"><span data-v-33e79f2a="" class="badge">data</span>
+    <!--v-if-->
+  </div><pre data-v-33e79f2a="" class="json">{
   "rows": []
 }</pre>
 </div>"

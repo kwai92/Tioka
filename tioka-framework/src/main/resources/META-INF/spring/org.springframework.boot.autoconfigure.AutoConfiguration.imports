@@ -1,1 +1,2 @@
 com.tioka.framework.jackson.JacksonConfiguration
+com.tioka.framework.security.CredentialSecurityAutoConfiguration

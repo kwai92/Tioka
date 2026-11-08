@@ -1,0 +1,9 @@
+{
+  "code": 0,
+  "msg": "ok",
+  "data": {
+    "message_id": "om_mock_card_001",
+    "chat_id": "oc_mock_chat",
+    "create_time": "1609296810"
+  }
+}

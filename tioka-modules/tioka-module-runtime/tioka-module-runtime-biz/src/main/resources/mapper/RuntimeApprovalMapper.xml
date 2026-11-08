@@ -31,10 +31,14 @@
         <![CDATA[
             INSERT INTO runtime_approval (
               id, workspace_id, subject_type, subject_id, item_id, kind, tool_name, args_json, card_json,
-              policy, assignee_json, status, expires_at, create_at, update_at, create_by, update_by
+              policy, assignee_json, status, expires_at, request_id, subject,
+              requested_by, title, risk, agent_id,
+              create_at, update_at, create_by, update_by
             ) VALUES (
               #{id}, #{workspaceId}, #{subjectType}, #{subjectId}, #{itemId}, #{kind}, #{toolName},
               #{argsJson}, #{cardJson}, #{policy}, #{assigneeJson}, #{status}, #{expiresAt},
+              #{requestId}, #{subject},
+              #{requestedBy}, #{title}, #{risk}, #{agentId},
               now(), now(), COALESCE(#{createBy}, 'system'), COALESCE(#{updateBy}, 'system')
             )
             
@@ -82,6 +86,7 @@
                    item_id AS itemId, kind, tool_name AS toolName, args_json AS argsJson, card_json AS cardJson,
                    policy, assignee_json AS assigneeJson, status, decided_by AS decidedBy,
                    decided_at AS decidedAt, answer_json AS answerJson, expires_at AS expiresAt,
+                   request_id AS requestId, subject,
                    create_at AS createAt, update_at AS updateAt, create_by AS createBy, update_by AS updateBy
               FROM runtime_approval
              WHERE item_id = #{itemId}

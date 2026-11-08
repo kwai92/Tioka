@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tioka.dev/schema/tioka.eval.run_finished.v1.json",
+  "title": "tioka.eval.run_finished.v1",
+  "description": "EVO-01/02 评测运行结束。",
+  "type": "object",
+  "required": [
+    "runId",
+    "datasetId",
+    "status"
+  ],
+  "properties": {
+    "runId": {
+      "type": "string"
+    },
+    "datasetId": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string"
+    },
+    "evaluatorKey": {
+      "type": "string"
+    },
+    "workspaceId": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": true
+}

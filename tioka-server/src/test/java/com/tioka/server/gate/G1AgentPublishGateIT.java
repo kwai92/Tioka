@@ -79,7 +79,7 @@ class G1AgentPublishGateIT {
                     AgentSpec.SandboxPolicy.defaults(),
                     AgentSpec.ApprovalSettings.empty(),
                     AgentSpec.Limits.defaults(),
-                    null, null, null, null);
+                null, null, null, null, null, null, null, null);
             AgentService.PublishResult p1 = agents.publishSpec(agent.id(), v1Spec);
             String hash1 = snapshots.get(p1.versionId()).contentHash();
 
@@ -97,7 +97,7 @@ class G1AgentPublishGateIT {
                     AgentSpec.SandboxPolicy.defaults(),
                     AgentSpec.ApprovalSettings.empty(),
                     AgentSpec.Limits.defaults(),
-                    null, null, null, null), draft.revision());
+                    null, null, null, null, null, null, null, null), draft.revision());
 
             assertEquals(hash1, snapshots.get(p1.versionId()).contentHash());
             assertEquals("v1", snapshots.get(p1.versionId()).spec().instructions().sections().get(0).text());
@@ -136,7 +136,7 @@ class G1AgentPublishGateIT {
                     AgentSpec.SandboxPolicy.defaults(),
                     AgentSpec.ApprovalSettings.empty(),
                     AgentSpec.Limits.defaults(),
-                    null, null, null, null);
+                null, null, null, null, null, null, null, null);
             agents.saveDraft(agent.id(), spec, agents.getDraft(agent.id()).revision());
             BizException ex = assertThrows(BizException.class,
                     () -> agents.publish(agent.id(), agents.getDraft(agent.id()).revision(), null));

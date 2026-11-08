@@ -2,5 +2,33 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.tioka.orchestration.infrastructure.mapper.OrchRunMapper">
-    <!-- V132：旧 claim SKIP LOCKED 已移除；派工见 ORC-03 -->
+
+    <select id="lockById" resultType="com.tioka.orchestration.infrastructure.persistence.OrchRunDO">
+        SELECT id, workspace_id, work_item_id, event_id, rule_version_id, status, attempt, rewrite_count,
+               input_json, thread_id, current_turn_id, receipt_json, run_as_json,
+               error_code, error_message, request_id AS requestId, subject,
+               create_at, update_at, ended_at
+        FROM orch_run
+        WHERE id = #{id}
+        FOR UPDATE
+    </select>
+
+    <select id="countByWorkItem" resultType="int">
+        SELECT COUNT(*) FROM orch_run WHERE work_item_id = #{workItemId}
+    </select>
+
+    <select id="countNonTerminalBefore" resultType="int">
+        SELECT COUNT(*)
+        FROM orch_run
+        WHERE work_item_id = #{workItemId}
+          AND create_at &lt; #{createAt}
+          AND status NOT IN ('SUCCEEDED', 'FAILED', 'CANCELLED')
+    </select>
+
+    <select id="countDispatchedFacts" resultType="int">
+        SELECT COUNT(*)
+        FROM orch_fact
+        WHERE run_id = #{runId} AND kind = 'dispatched'
+    </select>
+
 </mapper>

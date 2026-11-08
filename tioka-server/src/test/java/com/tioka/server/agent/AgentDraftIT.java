@@ -63,6 +63,10 @@ class AgentDraftIT {
                 base.limits(),
                 base.charter(),
                 base.output(),
+                base.prompt(),
+                base.context(),
+                base.memory(),
+                base.execution(),
                 base.subAgents(),
                 base.dataClearance());
     }

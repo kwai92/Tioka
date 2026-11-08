@@ -95,8 +95,73 @@ tioka:
     trusted-proxies: []
     physical-purge-enabled: false
     degraded-relative-path: audit/audit-degraded.jsonl
+  # FND-12: plugin host（默认关闭）
+  plugin:
+    enabled: false
+    signature-required: true
+    verification-keys: []
+    directory: /opt/tioka/plugins
   knowledge:
     embedding-dim: ${TIOKA_EMBEDDING_DIM:1024}
     reindex-enabled: true
     reindex-interval-ms: 15000
     reindex-batch-size: 5
+  # SCH-01: Schema registry（默认关闭，不改变 M2 行为）
+  ontology:
+    schema:
+      enabled: false
+  # GOV-12: 配置版本框架（默认关闭，不改变 M2 行为）
+  config:
+    version:
+      enabled: false
+      reconcile-interval-ms: 30000
+  # P3-00b：评测模块（默认关闭，不改变 M2 行为）
+  eval:
+    enabled: false
+
+  # —— M2 配置键（PK-00c；实现包只追加自己的子键）——
+  messaging:
+    mode: ${TIOKA_MESSAGING_MODE:in-memory}   # rocketmq | in-memory（IT 默认 in-memory）
+    # IT/local/gate 默认关中继，避免后台线程与 LeaseReaper/Redis 关停串扰；生产见 application-prod.yml
+    relay-enabled: ${TIOKA_MESSAGING_RELAY_ENABLED:false}
+    validate-envelope: true
+    relay:
+      batch: 200
+      idle-wait: 200ms
+      lock-ttl: 15s
+    consumer:
+      max-attempts: 3
+  orch:
+    hops-limit: 8
+    flow-action-enabled: false
+    timer-poll-enabled: true
+    timer-poll-interval-ms: 5000
+  im:
+    feishu:
+      api-base: ${TIOKA_FEISHU_API_BASE:https://open.feishu.cn}
+      app-id: ${TIOKA_FEISHU_APP_ID:}
+      app-secret: ${TIOKA_FEISHU_APP_SECRET:}
+      encrypt-key: ${TIOKA_FEISHU_ENCRYPT_KEY:}
+      verification-token: ${TIOKA_FEISHU_VERIFICATION_TOKEN:}
+  credential:
+    master-key: ${TIOKA_CREDENTIAL_MASTER_KEY:}
+    key-version: ${TIOKA_CREDENTIAL_KEY_VERSION:1}
+    require-external-key: false
+  observability:
+    enabled: ${TIOKA_OTEL_ENABLED:false}
+    service-name: ${OTEL_SERVICE_NAME:tioka}
+    # GOV-08：轨迹 / Observability 页拼 Jaeger 链接；占位符 {traceId}
+    trace-url-template: ${TIOKA_TRACE_URL_TEMPLATE:http://localhost:16686/trace/{traceId}}
+    # OTEL_* 环境变量占位（由 OTel SDK / Java agent 读取，应用不强制绑定）：
+    # OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4317
+    # OTEL_TRACES_SAMPLER=parentbased_traceidratio
+    # OTEL_TRACES_SAMPLER_ARG=1.0
+    # OTEL_TRACES_EXPORTER / OTEL_METRICS_EXPORTER / OTEL_RESOURCE_ATTRIBUTES
+
+# RocketMQ 客户端：producer.group 常驻；name-server 仅环境/闸门注入时才真正建 Producer/Template。
+# （RocketMQAutoConfiguration 要求 name-server + producer.group 齐备才创建 DefaultMQProducer。）
+rocketmq:
+  producer:
+    group: ${TIOKA_MQ_PRODUCER_GROUP:tioka-producer}
+    send-message-timeout: 3000
+  # name-server: ${TIOKA_MQ_NAMESRV:}   # IT/gate 通过 DynamicProperty / GateCluster 注入

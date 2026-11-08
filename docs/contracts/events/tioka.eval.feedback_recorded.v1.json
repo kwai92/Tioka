@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tioka.dev/schema/tioka.eval.feedback_recorded.v1.json",
+  "title": "tioka.eval.feedback_recorded.v1",
+  "description": "EVO-01/08a 用户或法务反馈项落库。",
+  "type": "object",
+  "required": [
+    "feedbackId",
+    "subjectRef",
+    "polarity"
+  ],
+  "properties": {
+    "feedbackId": {
+      "type": "string"
+    },
+    "subjectRef": {
+      "type": "string"
+    },
+    "polarity": {
+      "type": "string"
+    },
+    "reasonCode": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "workspaceId": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": true
+}
