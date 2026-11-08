@@ -105,35 +105,9 @@ public class DefaultToolGateway implements ToolGateway {
                 .setAttribute("tioka.tool", name)
                 .startSpan();
         try (Scope ignored = span.makeCurrent()) {
-            ToolProvider.ToolDescriptor desc = resolveDescriptor(ctx, name);
-            ToolRisk risk = desc == null || desc.risk() == null ? ToolRisk.READ : desc.risk();
-            ToolProvider.ToolResult result;
-            if (risk == ToolRisk.READ) {
-                result = callTracked(ctx, name, args);
-            } else {
-                // 写工具走 prepare/commit；CON-01 鉴权拒绝转为 ToolResult（文案与 call 一致）
-                try {
-                    PreparedCall prepared = prepare(ctx, name, args);
-                    result = switch (prepared.gate()) {
-                        case AUTO_COMMIT -> commit(ctx, prepared.preparedId());
-                        case DENIED -> new ToolProvider.ToolResult(false,
-                                "策略拒绝：" + (prepared.policy() == PolicyOutcome.DENY ? "DENY" : "DENIED"));
-                        case REQUIRE_APPROVAL, SHADOW_ONLY -> new ToolProvider.ToolResult(false,
-                                "写工具需预演审批，preparedId=" + prepared.preparedId());
-                    };
-                } catch (BizException e) {
-                    if (e.getErrorCode() == ErrorCode.RATE_LIMITED) {
-                        throw e;
-                    }
-                    if (e.getErrorCode() == ErrorCode.FORBIDDEN) {
-                        String msg = e.getMessage() == null ? "无权调用工具" : e.getMessage()
-                                .replace("无权预演工具", "无权调用工具");
-                        result = new ToolProvider.ToolResult(false, msg);
-                    } else {
-                        throw e;
-                    }
-                }
-            }
+            // call = CON-01 鉴权执行；TRU-05 预演/提交走 prepare/commit，勿在此短路写工具
+            // （否则审批续跑经 GatewayToolPort.call 无法真正落工具）
+            ToolProvider.ToolResult result = callTracked(ctx, name, args);
             span.setAttribute("tioka.tool.ok", result.ok());
             return result;
         } catch (RuntimeException e) {
@@ -155,7 +129,6 @@ public class DefaultToolGateway implements ToolGateway {
                 auditDenied(ctx, name, safeArgs, reject.reason(), reject.step(), 0);
                 throw new BizException(ErrorCode.RATE_LIMITED, "工具调用过于频繁: " + name);
             }
-            // call() 写工具路径会把「预演」换成「调用」，保持 CON-01 文案一致
             String msg;
             if (reject.step() == 1 && "工具不存在".equals(reject.reason())) {
                 msg = "工具不存在";
