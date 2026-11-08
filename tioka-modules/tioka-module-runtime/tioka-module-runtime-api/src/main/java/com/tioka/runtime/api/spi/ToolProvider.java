@@ -55,10 +55,12 @@ public interface ToolProvider {
     }
 
     /**
-     * 工具描述。用 {@link #builder()} 构造（M1-00 F2）；兼容三参 / 四参构造器。
+     * 工具描述。用 {@link #builder()} 构造（M1-00 F2）；兼容三参 / 四参 / 五参构造器。
+     * TRU-05：追加 {@code reversibility}、{@code policyFields}（PK-24a）。
      */
     record ToolDescriptor(String name, String description, Map<String, Object> inputSchema,
-                          ToolRisk risk, String requiredPermission) {
+                          ToolRisk risk, String requiredPermission,
+                          Reversibility reversibility, List<String> policyFields) {
         public ToolDescriptor {
             if (risk == null) {
                 risk = ToolRisk.READ;
@@ -66,14 +68,34 @@ public interface ToolProvider {
             if (inputSchema == null) {
                 inputSchema = Map.of();
             }
+            if (reversibility == null) {
+                reversibility = defaultReversibility(risk);
+            }
+            if (policyFields == null) {
+                policyFields = List.of();
+            }
         }
 
         public ToolDescriptor(String name, String description, Map<String, Object> inputSchema) {
-            this(name, description, inputSchema, ToolRisk.READ, null);
+            this(name, description, inputSchema, ToolRisk.READ, null, Reversibility.NONE, List.of());
         }
 
         public ToolDescriptor(String name, String description, Map<String, Object> inputSchema, ToolRisk risk) {
-            this(name, description, inputSchema, risk, null);
+            this(name, description, inputSchema, risk, null, defaultReversibility(risk), List.of());
+        }
+
+        /** 兼容 M1 五参调用；可逆性按 risk 默认。 */
+        public ToolDescriptor(String name, String description, Map<String, Object> inputSchema,
+                              ToolRisk risk, String requiredPermission) {
+            this(name, description, inputSchema, risk, requiredPermission,
+                    defaultReversibility(risk), List.of());
+        }
+
+        static Reversibility defaultReversibility(ToolRisk risk) {
+            if (risk == null || risk == ToolRisk.READ) {
+                return Reversibility.NONE;
+            }
+            return Reversibility.IRREVERSIBLE;
         }
 
         public static Builder builder() {
@@ -86,6 +108,8 @@ public interface ToolProvider {
             private Map<String, Object> inputSchema = Map.of();
             private ToolRisk risk = ToolRisk.READ;
             private String requiredPermission;
+            private Reversibility reversibility;
+            private List<String> policyFields = List.of();
 
             public Builder name(String name) {
                 this.name = name;
@@ -112,11 +136,22 @@ public interface ToolProvider {
                 return this;
             }
 
+            public Builder reversibility(Reversibility reversibility) {
+                this.reversibility = reversibility;
+                return this;
+            }
+
+            public Builder policyFields(List<String> policyFields) {
+                this.policyFields = policyFields == null ? List.of() : List.copyOf(policyFields);
+                return this;
+            }
+
             public ToolDescriptor build() {
                 if (name == null || name.isBlank()) {
                     throw new IllegalArgumentException("tool name required");
                 }
-                return new ToolDescriptor(name, description, inputSchema, risk, requiredPermission);
+                Reversibility rev = reversibility != null ? reversibility : defaultReversibility(risk);
+                return new ToolDescriptor(name, description, inputSchema, risk, requiredPermission, rev, policyFields);
             }
         }
     }
