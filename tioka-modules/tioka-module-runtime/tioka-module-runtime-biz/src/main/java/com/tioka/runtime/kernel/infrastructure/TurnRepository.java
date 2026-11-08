@@ -83,8 +83,20 @@ public class TurnRepository {
         return mapper.markWaitingApproval(turnId, leaseVersion);
     }
 
+    public int markWaitingChild(String turnId, long leaseVersion) {
+        return mapper.markWaitingChild(turnId, leaseVersion);
+    }
+
     public int requeueFromWaitingApproval(String turnId) {
         return mapper.requeueFromWaitingApproval(turnId);
+    }
+
+    public int requeueFromWaitingChild(String turnId) {
+        return mapper.requeueFromWaitingChild(turnId);
+    }
+
+    public List<RuntimeTurnDO> findWaitingChild(int limit) {
+        return mapper.findWaitingChild(limit);
     }
 
     public int cancelWaitingApproval(String turnId, String errorCode, String errorMessage) {

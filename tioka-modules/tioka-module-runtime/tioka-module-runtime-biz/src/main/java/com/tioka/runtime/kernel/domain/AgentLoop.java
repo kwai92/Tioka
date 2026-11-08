@@ -5,6 +5,7 @@ import com.tioka.runtime.api.approval.ApprovalPolicy;
 import com.tioka.runtime.api.kernel.ItemType;
 import com.tioka.runtime.kernel.approval.PendingToolCall;
 import com.tioka.runtime.kernel.approval.ToolApprovalCoordinator;
+import com.tioka.runtime.kernel.child.ChildWaitService;
 import com.tioka.runtime.kernel.infrastructure.TurnRepository;
 import com.tioka.runtime.infrastructure.persistence.RuntimeItemDO;
 import com.tioka.runtime.kernel.model.TurnCallScope;
@@ -12,6 +13,7 @@ import io.opentelemetry.api.GlobalOpenTelemetry;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.context.Scope;
 
+import java.time.Instant;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
@@ -20,7 +22,7 @@ import java.util.Map;
 import java.util.function.Function;
 
 /**
- * 多步工具循环（纯编排；依赖端口与仓储）。RT-07：策略审批挂起与续跑。
+ * 多步工具循环（纯编排；依赖端口与仓储）。RT-07 审批挂起；RT-09 WAITING_CHILD / maxDuration。
  */
 public final class AgentLoop {
     private final LoopPorts.ModelPort modelPort;
@@ -31,6 +33,7 @@ public final class AgentLoop {
     private final Function<String, List<RuntimeItemDO>> itemLoader;
     private final ObjectMapper mapper;
     private final ToolApprovalCoordinator approvals;
+    private final ChildWaitService childWait;
 
     public AgentLoop(LoopPorts.ModelPort modelPort,
                      LoopPorts.ToolPort toolPort,
@@ -39,7 +42,7 @@ public final class AgentLoop {
                      TurnRepository turns,
                      Function<String, List<RuntimeItemDO>> itemLoader,
                      ObjectMapper mapper) {
-        this(modelPort, toolPort, sink, contextBuilder, turns, itemLoader, mapper, null);
+        this(modelPort, toolPort, sink, contextBuilder, turns, itemLoader, mapper, null, null);
     }
 
     public AgentLoop(LoopPorts.ModelPort modelPort,
@@ -50,6 +53,18 @@ public final class AgentLoop {
                      Function<String, List<RuntimeItemDO>> itemLoader,
                      ObjectMapper mapper,
                      ToolApprovalCoordinator approvals) {
+        this(modelPort, toolPort, sink, contextBuilder, turns, itemLoader, mapper, approvals, null);
+    }
+
+    public AgentLoop(LoopPorts.ModelPort modelPort,
+                     LoopPorts.ToolPort toolPort,
+                     LoopPorts.ItemSink sink,
+                     ContextBuilder contextBuilder,
+                     TurnRepository turns,
+                     Function<String, List<RuntimeItemDO>> itemLoader,
+                     ObjectMapper mapper,
+                     ToolApprovalCoordinator approvals,
+                     ChildWaitService childWait) {
         this.modelPort = modelPort;
         this.toolPort = toolPort;
         this.sink = sink;
@@ -58,6 +73,7 @@ public final class AgentLoop {
         this.itemLoader = itemLoader;
         this.mapper = mapper;
         this.approvals = approvals;
+        this.childWait = childWait;
     }
 
     public LoopResult run(LoopContext ctx) {
@@ -76,6 +92,11 @@ public final class AgentLoop {
                         .startSpan();
                 try (Scope ignored = stepSpan.makeCurrent()) {
                     ctx.checkpoint();
+                    if (deadlineExceeded(ctx)) {
+                        sink.status(ctx, step, "max_duration_reached");
+                        return LoopResult.failed("TURN_TIMEOUT", "maxDuration reached",
+                                promptTokens, completionTokens);
+                    }
                     applySteers(ctx, step);
                     boolean last = step >= ctx.maxSteps() || ctx.isForceFinalAnswer();
                     List<Map<String, Object>> messages = contextBuilder.build(itemLoader.apply(ctx.threadId()));
@@ -130,6 +151,9 @@ public final class AgentLoop {
                         for (LoopPorts.ToolOutcome o : outs) {
                             sink.toolResult(ctx, step, o);
                         }
+                        if (suspendOnPending(ctx, outs, promptTokens, completionTokens) != null) {
+                            return LoopResult.waitingChild(promptTokens, completionTokens);
+                        }
                         continue;
                     }
                     List<PendingToolCall> classified = approvals.classify(ctx, bindings);
@@ -151,6 +175,9 @@ public final class AgentLoop {
                         for (LoopPorts.ToolOutcome o : outs) {
                             sink.toolResult(ctx, step, o);
                         }
+                        if (suspendOnPending(ctx, outs, promptTokens, completionTokens) != null) {
+                            return LoopResult.waitingChild(promptTokens, completionTokens);
+                        }
                     }
                     if (!require.isEmpty()) {
                         approvals.suspend(ctx, require);
@@ -165,6 +192,26 @@ public final class AgentLoop {
             sink.status(ctx, 0, "cancelled");
             return LoopResult.cancelled(e.reason(), promptTokens, completionTokens);
         }
+    }
+
+    private static boolean deadlineExceeded(LoopContext ctx) {
+        return ctx.deadline() != null && !Instant.now().isBefore(ctx.deadline());
+    }
+
+    /** @return non-null if suspended into WAITING_CHILD */
+    private LoopResult suspendOnPending(LoopContext ctx, List<LoopPorts.ToolOutcome> outs,
+                                        int promptTokens, int completionTokens) {
+        if (childWait == null || outs == null) {
+            return null;
+        }
+        List<LoopPorts.ToolOutcome> pendings = outs.stream()
+                .filter(o -> o != null && o.pending() != null)
+                .toList();
+        if (pendings.isEmpty()) {
+            return null;
+        }
+        childWait.suspend(ctx, pendings);
+        return LoopResult.waitingChild(promptTokens, completionTokens);
     }
 
     private void applySteers(LoopContext ctx, int step) {

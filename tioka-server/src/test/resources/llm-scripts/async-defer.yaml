@@ -1,0 +1,4 @@
+# RT-09：异步工具挂起后续跑
+calls:
+  - tool_calls: [{ name: async.defer, arguments: { timeoutSec: 60, output: "async-ok" } }]
+  - content: "resumed done"

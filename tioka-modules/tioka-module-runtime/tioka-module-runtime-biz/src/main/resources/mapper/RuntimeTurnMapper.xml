@@ -135,6 +135,20 @@ SELECT 1 FROM runtime_thread WHERE id = #{threadId} FOR UPDATE
 ]]>
     </update>
 
+    <update id="markWaitingChild">
+        <![CDATA[
+            UPDATE runtime_turn
+               SET status = 'WAITING_CHILD',
+                   lease_until = NULL,
+                   worker_id = NULL,
+                   update_at = now()
+             WHERE id = #{turnId}
+               AND lease_version = #{leaseVersion}
+               AND status = 'RUNNING'
+            
+]]>
+    </update>
+
     <update id="requeueFromWaitingApproval">
         <![CDATA[
             UPDATE runtime_turn
@@ -146,6 +160,39 @@ SELECT 1 FROM runtime_thread WHERE id = #{threadId} FOR UPDATE
             
 ]]>
     </update>
+
+    <update id="requeueFromWaitingChild">
+        <![CDATA[
+            UPDATE runtime_turn
+               SET status = 'QUEUED',
+                   worker_id = NULL,
+                   lease_until = NULL,
+                   update_at = now()
+             WHERE id = #{turnId} AND status = 'WAITING_CHILD'
+            
+]]>
+    </update>
+
+    <select id="findWaitingChild" resultType="RuntimeTurnDO">
+        <![CDATA[
+            SELECT id, thread_id AS threadId, seq, status, origin,
+                   origin_ref AS originRef, client_msg_id AS clientMsgId,
+                   run_as_json AS runAsJson, options_json AS optionsJson,
+                   step_count AS stepCount, recover_count AS recoverCount,
+                   worker_id AS workerId, lease_version AS leaseVersion,
+                   lease_until AS leaseUntil, error_code AS errorCode,
+                   error_message AS errorMessage,
+                   prompt_tokens AS promptTokens, completion_tokens AS completionTokens,
+                   started_at AS startedAt, ended_at AS endedAt,
+                   request_id AS requestId, subject,
+                   create_at AS createAt, update_at AS updateAt
+              FROM runtime_turn
+             WHERE status = 'WAITING_CHILD'
+             ORDER BY update_at
+             LIMIT #{limit}
+            
+]]>
+    </select>
 
     <update id="cancelWaitingApproval">
         <![CDATA[

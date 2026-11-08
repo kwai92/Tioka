@@ -156,5 +156,15 @@ public interface ToolProvider {
         }
     }
 
-    record ToolResult(boolean ok, String content) {}
+    /**
+     * @param pending 非空表示工具已受理、异步完成（RT-09）；Turn 进入 {@code WAITING_CHILD}
+     */
+    record ToolResult(boolean ok, String content, PendingJob pending) {
+        public ToolResult(boolean ok, String content) {
+            this(ok, content, null);
+        }
+    }
+
+    /** 异步工具占位（RT-09 / ADR-029 第 16 条）。 */
+    record PendingJob(String jobType, String jobId, java.time.Duration timeout) {}
 }

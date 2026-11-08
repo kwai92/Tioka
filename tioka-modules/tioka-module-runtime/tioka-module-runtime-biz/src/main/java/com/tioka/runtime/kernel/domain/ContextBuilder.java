@@ -54,10 +54,14 @@ public final class ContextBuilder {
                     pendingToolCalls.add(item);
                 }
                 case TOOL_RESULT -> {
+                    Map<String, Object> content = readMap(item.getContentJson());
+                    // RT-09：pending 占位不进模型上下文，等 resolves 结果
+                    if (content.containsKey("pending")) {
+                        continue;
+                    }
                     flushToolCalls(out, pendingToolCalls);
                     pendingToolCalls.clear();
                     pendingStep = null;
-                    Map<String, Object> content = readMap(item.getContentJson());
                     out.add(Map.of(
                             "role", "tool",
                             "tool_call_id", String.valueOf(content.getOrDefault("callId", "")),

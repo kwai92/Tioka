@@ -61,8 +61,14 @@ public interface RuntimeApi {
      * @param maxSteps       默认 20
      * @param approvalPolicy 审批策略编码
      * @param toolAllowList  本 Turn 可用工具白名单；null 表示按 Agent 配置
+     * @param maxDuration    时长上限（RT-09）；null 用默认（通常 30 分钟）
      */
-    record TurnOptions(Integer maxSteps, String approvalPolicy, List<String> toolAllowList) {}
+    record TurnOptions(Integer maxSteps, String approvalPolicy, List<String> toolAllowList,
+                       java.time.Duration maxDuration) {
+        public TurnOptions(Integer maxSteps, String approvalPolicy, List<String> toolAllowList) {
+            this(maxSteps, approvalPolicy, toolAllowList, null);
+        }
+    }
 
     /** 输入项；{@code type} 取 message / file_ref。 */
     record InputItem(String type, String text, String fileRef) {
