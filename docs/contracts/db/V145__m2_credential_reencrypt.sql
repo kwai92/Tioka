@@ -1,0 +1,9 @@
+-- FND-08 / PK-14a：把 secret_store.cipher_text 中的遗留 AES/ECB 密文重加密为 CredentialCipher（AES-256-GCM）。
+-- 落地为 Java 迁移 V145__CredentialReencrypt（本文件仅契约说明，不进 server migration）。
+-- 前置：应用已能装配 AesGcmCredentialCipher；旧密文由 tioka.secret.master-key / TIOKA_SECRET_MASTER_KEY 可解。
+-- 步骤：
+-- 1. ALTER TABLE secret_store ADD COLUMN cipher_text_gcm TEXT;
+-- 2. 对 deleted=false 的每一行：ECB 解密 → CredentialCipher.encrypt(secret_key, ns) → 写入 cipher_text_gcm
+-- 3. 条数一致且每行 GCM 解密自检通过后：UPDATE cipher_text = cipher_text_gcm
+-- 4. DROP COLUMN cipher_text_gcm
+-- 失败整体回滚，不留半新半旧密文。
