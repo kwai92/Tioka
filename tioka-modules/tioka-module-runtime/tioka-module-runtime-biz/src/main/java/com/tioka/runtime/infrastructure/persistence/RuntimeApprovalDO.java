@@ -29,6 +29,9 @@ public class RuntimeApprovalDO extends MutableRecordDO {
     private String title;
     private String risk;
     private String agentId;
+    /** OBS-03 / V133：关联上下文（与 Turn 同 request_id）。 */
+    private String requestId;
+    private String subject;
 
     public String getId() { return id; }
     public void setId(String id) { this.id = id; }
@@ -70,4 +73,8 @@ public class RuntimeApprovalDO extends MutableRecordDO {
     public void setRisk(String risk) { this.risk = risk; }
     public String getAgentId() { return agentId; }
     public void setAgentId(String agentId) { this.agentId = agentId; }
+    public String getRequestId() { return requestId; }
+    public void setRequestId(String requestId) { this.requestId = requestId; }
+    public String getSubject() { return subject; }
+    public void setSubject(String subject) { this.subject = subject; }
 }

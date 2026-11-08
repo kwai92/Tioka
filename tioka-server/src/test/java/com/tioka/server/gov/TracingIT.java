@@ -11,19 +11,23 @@ import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.tioka.infra.messaging.IdempotentDeliveryService;
 import com.tioka.infra.messaging.infrastructure.mapper.SysOutboxMapper;
 import com.tioka.infra.messaging.infrastructure.persistence.SysOutboxDO;
+import com.tioka.runtime.api.kernel.RuntimeApi;
 import com.tioka.runtime.api.kernel.TurnStatus;
 import com.tioka.server.gate.support.DualInstance;
 import com.tioka.server.gate.support.GateSeed;
 import com.tioka.server.support.IntegrationTestSupport;
 import io.opentelemetry.api.GlobalOpenTelemetry;
+import io.opentelemetry.api.common.AttributeKey;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.Tracer;
 import io.opentelemetry.context.Scope;
 import io.opentelemetry.sdk.OpenTelemetrySdk;
 import io.opentelemetry.sdk.testing.exporter.InMemorySpanExporter;
 import io.opentelemetry.sdk.trace.SdkTracerProvider;
+import io.opentelemetry.sdk.trace.data.LinkData;
 import io.opentelemetry.sdk.trace.data.SpanData;
 import io.opentelemetry.sdk.trace.export.SimpleSpanProcessor;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -128,6 +132,60 @@ class TracingIT {
         assertTrue(spans.stream().anyMatch(s -> "tool.invoke".equals(s.getName())
                         && traceId.equals(s.getTraceId())),
                 () -> "应有同 trace 的 tool.invoke: " + names(spans));
+    }
+
+    /** OBS-03：审批挂起后续跑，request_id 不变，新 turn.run 有 span link 指回原 span。 */
+    @Test
+    void approvalResumeKeepsRequestIdAndAddsSpanLink() throws Exception {
+        try (DualInstance di = DualInstance.start("write-needs-approval", Map.of(), false)) {
+            GateSeed.Bundle bundle = GateSeed.seedPublishedAgent(di.a(), di.llm().baseUrl(), true);
+            var thr = GateSeed.createThread(di.a(), bundle);
+            var handle = GateSeed.startTurn(di.a(), bundle, thr.threadId(),
+                    "cm-obs03-" + System.nanoTime(), "please update");
+            GateSeed.awaitStatus(di.a(), bundle, handle.turnId(), 30_000, TurnStatus.WAITING_APPROVAL);
+
+            JdbcTemplate jdbc = di.a().getBean(JdbcTemplate.class);
+            String turnReq = jdbc.queryForObject(
+                    "SELECT request_id FROM runtime_turn WHERE id = ?", String.class, handle.turnId());
+            assertNotNull(turnReq);
+            assertFalse(turnReq.isBlank(), "Turn 应落 request_id");
+            String apprReq = jdbc.queryForObject(
+                    "SELECT request_id FROM runtime_approval WHERE subject_id = ? AND status = 'PENDING' LIMIT 1",
+                    String.class, handle.turnId());
+            assertEquals(turnReq, apprReq, "审批行 request_id 应与 Turn 相同");
+
+            String approvalId = jdbc.queryForObject(
+                    "SELECT id FROM runtime_approval WHERE subject_id = ? AND status = 'PENDING' LIMIT 1",
+                    String.class, handle.turnId());
+            PrincipalHolder diPrincipals = di.a().getBean(PrincipalHolder.class);
+            RuntimeApi runtime = di.a().getBean(RuntimeApi.class);
+            diPrincipals.runAs(GateSeed.user(bundle.userId(), bundle.workspaceId()), () -> {
+                runtime.decideApproval(approvalId, new RuntimeApi.ApprovalDecision(true, null, "obs03"));
+                return null;
+            });
+            var done = GateSeed.awaitTerminal(di.a(), bundle, handle.turnId(), 60_000);
+            assertEquals(TurnStatus.COMPLETED, done.status(), () -> done.errorMessage());
+        }
+
+        List<SpanData> spans = exporter.getFinishedSpanItems();
+        List<SpanData> turnRuns = spans.stream()
+                .filter(s -> "turn.run".equals(s.getName()))
+                .toList();
+        assertTrue(turnRuns.size() >= 2, () -> "挂起续跑应有 ≥2 次 turn.run: " + names(spans));
+        SpanData resumed = turnRuns.stream()
+                .filter(s -> !s.getLinks().isEmpty())
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("续跑 turn.run 应有 span link: " + names(spans)));
+        String linkedSpanId = resumed.getLinks().stream()
+                .map(LinkData::getSpanContext)
+                .map(sc -> sc.getSpanId())
+                .findFirst()
+                .orElseThrow();
+        assertTrue(turnRuns.stream().anyMatch(s -> linkedSpanId.equals(s.getSpanId())),
+                "link 应指回某次 turn.run");
+        String attrReq = resumed.getAttributes().get(AttributeKey.stringKey("tioka.request_id"));
+        assertNotNull(attrReq);
+        assertFalse(attrReq.isBlank());
     }
 
     @Test

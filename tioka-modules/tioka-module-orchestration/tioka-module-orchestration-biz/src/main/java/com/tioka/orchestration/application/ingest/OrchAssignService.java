@@ -2,6 +2,8 @@ package com.tioka.orchestration.application.ingest;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.tioka.framework.context.RequestContext;
+import com.tioka.framework.context.RequestContextHolder;
 import com.tioka.framework.id.Ids;
 import com.tioka.framework.messaging.DomainEvent;
 import com.tioka.framework.messaging.EventPublisher;
@@ -147,6 +149,12 @@ public class OrchAssignService {
         runAs.put("workspaceId", workspaceId);
         runAs.put("type", "SERVICE");
 
+        // OBS-03：规则触发新 request_id；触发事件的 request_id 记为 parent
+        RequestContext prev = RequestContextHolder.getCorrelation();
+        String parent = blankToNull(prev.requestId());
+        RequestContext correlation = new RequestContext(Ids.newId("req"), prev.subject(), parent);
+        RequestContextHolder.setCorrelation(correlation);
+
         OrchRunDO run = new OrchRunDO();
         run.setId(runId);
         run.setWorkspaceId(workspaceId);
@@ -159,10 +167,16 @@ public class OrchAssignService {
         run.setInputJson(json(input));
         run.setThreadId(wi.getThreadId());
         run.setRunAsJson(json(runAs));
+        run.setRequestId(correlation.requestId());
+        run.setSubject(correlation.subject());
         run.setCreateAt(now);
         run.setUpdateAt(now);
         repo.insertRun(run);
         return runId;
+    }
+
+    private static String blankToNull(String value) {
+        return value == null || value.isBlank() ? null : value;
     }
 
     private void appendPending(OrchWorkItemDO wi, String eventId, LocalDateTime now) {
