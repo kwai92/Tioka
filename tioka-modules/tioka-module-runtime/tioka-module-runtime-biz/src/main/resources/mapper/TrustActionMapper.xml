@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tioka.runtime.infrastructure.mapper.TrustActionMapper">
+
+    <select id="findById" resultType="com.tioka.runtime.infrastructure.persistence.TrustActionDO">
+        <![CDATA[
+            SELECT id, workspace_id AS workspaceId, agent_id AS agentId, agent_version_id AS agentVersionId,
+                   thread_id AS threadId, turn_id AS turnId, orch_run_id AS orchRunId, item_id AS itemId, seq,
+                   tool_name AS toolName, action_class AS actionClass, risk, reversibility, status, gate,
+                   args_json AS argsJson, change_set_json AS changeSetJson, fingerprint, estimated,
+                   valid_until AS validUntil, records, amount_micros AS amountMicros, approval_id AS approvalId,
+                   receipt_json AS receiptJson, undo_deadline AS undoDeadline, undone_by AS undoneBy,
+                   undo_reason AS undoReason, create_at AS createAt, update_at AS updateAt
+              FROM trust_action WHERE id = #{id}
+        ]]>
+    </select>
+
+    <select id="findForUpdate" resultType="com.tioka.runtime.infrastructure.persistence.TrustActionDO">
+        <![CDATA[
+            SELECT id, workspace_id AS workspaceId, agent_id AS agentId, agent_version_id AS agentVersionId,
+                   thread_id AS threadId, turn_id AS turnId, orch_run_id AS orchRunId, item_id AS itemId, seq,
+                   tool_name AS toolName, action_class AS actionClass, risk, reversibility, status, gate,
+                   args_json AS argsJson, change_set_json AS changeSetJson, fingerprint, estimated,
+                   valid_until AS validUntil, records, amount_micros AS amountMicros, approval_id AS approvalId,
+                   receipt_json AS receiptJson, undo_deadline AS undoDeadline, undone_by AS undoneBy,
+                   undo_reason AS undoReason, create_at AS createAt, update_at AS updateAt
+              FROM trust_action WHERE id = #{id} FOR UPDATE
+        ]]>
+    </select>
+
+    <insert id="insert">
+        <![CDATA[
+            INSERT INTO trust_action (
+              id, workspace_id, agent_id, agent_version_id, thread_id, turn_id, orch_run_id, item_id, seq,
+              tool_name, action_class, risk, reversibility, status, gate,
+              args_json, change_set_json, fingerprint, estimated, valid_until,
+              records, amount_micros, approval_id, receipt_json,
+              create_at, update_at
+            ) VALUES (
+              #{id}, #{workspaceId}, #{agentId}, #{agentVersionId}, #{threadId}, #{turnId}, #{orchRunId}, #{itemId}, #{seq},
+              #{toolName}, #{actionClass}, #{risk}, #{reversibility}, #{status}, #{gate},
+              #{argsJson}, #{changeSetJson}, #{fingerprint}, #{estimated}, #{validUntil},
+              COALESCE(#{records}, 0), #{amountMicros}, #{approvalId}, #{receiptJson},
+              now(), now()
+            )
+        ]]>
+    </insert>
+
+    <update id="markStatus">
+        <![CDATA[
+            UPDATE trust_action
+               SET status = #{toStatus},
+                   receipt_json = COALESCE(#{receiptJson}, receipt_json),
+                   undo_deadline = COALESCE(#{undoDeadline}, undo_deadline),
+                   update_at = now()
+             WHERE id = #{id} AND status = #{fromStatus}
+        ]]>
+    </update>
+
+    <select id="nextSeq" resultType="int">
+        <![CDATA[
+            SELECT COALESCE(MAX(seq), 0) + 1 FROM trust_action WHERE turn_id = #{turnId}
+        ]]>
+    </select>
+</mapper>
