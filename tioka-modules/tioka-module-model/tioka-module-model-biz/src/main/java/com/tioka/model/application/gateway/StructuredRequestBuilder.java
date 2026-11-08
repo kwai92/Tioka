@@ -3,9 +3,11 @@ package com.tioka.model.application.gateway;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.tioka.model.api.constraint.StructuredConstraintRequest;
 import com.tioka.model.api.profile.ModelProfile;
 import com.tioka.model.api.profile.StructuredOutputCapability;
 import com.tioka.model.api.profile.StructuredOutputMode;
+import org.springframework.stereotype.Component;
 
 import java.security.MessageDigest;
 import java.util.ArrayList;
@@ -17,8 +19,9 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * 方言编译器 + 方式选择（ADR-066 §2 / §4.1）。SCH-02 未接线 Runtime / ModelGateway。
+ * 方言编译器 + 方式选择（ADR-066 §2 / §4.1）。SCH-02 未接线 DefaultModelGateway（避免持 K1c）。
  */
+@Component
 public class StructuredRequestBuilder {
 
     private static final List<StructuredOutputMode> SELECTION_ORDER = List.of(
@@ -56,7 +59,7 @@ public class StructuredRequestBuilder {
     /**
      * @param multimodalInput 本次是否含多模态输入；为 true 且能力声明 multimodalDowngrade 时跳过 STRICT_SCHEMA
      */
-    public StructuredChatRequest build(ModelProfile profile, JsonNode authoritativeSchema, boolean multimodalInput) {
+    public StructuredConstraintRequest build(ModelProfile profile, JsonNode authoritativeSchema, boolean multimodalInput) {
         if (profile == null) {
             throw new IllegalArgumentException("profile required");
         }
@@ -94,7 +97,7 @@ public class StructuredRequestBuilder {
         return null;
     }
 
-    private StructuredChatRequest schemaRequest(StructuredOutputMode mode, JsonNode dialect, String hash) {
+    private StructuredConstraintRequest schemaRequest(StructuredOutputMode mode, JsonNode dialect, String hash) {
         Map<String, Object> jsonSchema = new LinkedHashMap<>();
         jsonSchema.put("name", "tioka_output");
         jsonSchema.put("strict", true);
@@ -102,10 +105,10 @@ public class StructuredRequestBuilder {
         Map<String, Object> responseFormat = new LinkedHashMap<>();
         responseFormat.put("type", "json_schema");
         responseFormat.put("json_schema", jsonSchema);
-        return new StructuredChatRequest(mode, responseFormat, null, List.of(), dialect, hash);
+        return new StructuredConstraintRequest(mode, responseFormat, null, List.of(), dialect, hash);
     }
 
-    private StructuredChatRequest jsonRequest(
+    private StructuredConstraintRequest jsonRequest(
             StructuredOutputMode mode, JsonNode dialect, String hash, boolean requireJsonKeyword) {
         Map<String, Object> responseFormat = new LinkedHashMap<>();
         responseFormat.put("type", "json_object");
@@ -122,10 +125,10 @@ public class StructuredRequestBuilder {
             prompt.append("请仅输出符合下列 Schema 的对象。\n");
         }
         prompt.append("Schema:\n").append(schemaText);
-        return new StructuredChatRequest(mode, responseFormat, prompt.toString(), List.of(), dialect, hash);
+        return new StructuredConstraintRequest(mode, responseFormat, prompt.toString(), List.of(), dialect, hash);
     }
 
-    private StructuredChatRequest toolRequest(StructuredOutputMode mode, JsonNode dialect, String hash) {
+    private StructuredConstraintRequest toolRequest(StructuredOutputMode mode, JsonNode dialect, String hash) {
         Map<String, Object> function = new LinkedHashMap<>();
         function.put("name", "emit_output");
         function.put("description", "提交符合契约的结构化输出");
@@ -136,7 +139,7 @@ public class StructuredRequestBuilder {
         Map<String, Object> tool = new LinkedHashMap<>();
         tool.put("type", "function");
         tool.put("function", function);
-        return new StructuredChatRequest(mode, null, null, List.of(tool), dialect, hash);
+        return new StructuredConstraintRequest(mode, null, null, List.of(tool), dialect, hash);
     }
 
     JsonNode compileDialect(JsonNode authoritative, StructuredOutputCapability cap, StructuredOutputMode mode) {
