@@ -231,8 +231,10 @@ exports[`HCI-04 ItemRenderer snapshots > unknown.json / basic 1`] = `
 `;
 
 exports[`HCI-04 ItemRenderer snapshots > unknown.json / future-type 1`] = `
-"<div data-v-4170e466="" class="item unknown">
-  <div data-v-4170e466="" class="tag">data</div><pre data-v-4170e466="" class="payload">{
+"<div data-v-33e79f2a="" class="data-item">
+  <div data-v-33e79f2a="" class="meta"><span data-v-33e79f2a="" class="badge">data</span>
+    <!--v-if-->
+  </div><pre data-v-33e79f2a="" class="json">{
   "rows": []
 }</pre>
 </div>"
