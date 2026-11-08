@@ -15,6 +15,7 @@ import com.tioka.framework.id.Ids;
 import com.tioka.framework.security.CredentialCipher;
 import com.tioka.system.api.spi.EgressGuard;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
@@ -41,6 +42,8 @@ public class DefaultConnectorSdk implements ConnectorSdk {
     private final ConcurrentHashMap<String, ConnectorTokenBucket> buckets = new ConcurrentHashMap<>();
     private final Sleeper sleeper;
 
+    /** 双构造：显式 @Autowired，避免 Spring 回退无参构造。 */
+    @Autowired
     public DefaultConnectorSdk(List<ConnectorTypeHandler> handlers,
                                ConnectorInstanceStore store,
                                ObjectProvider<CredentialCipher> cipher,
