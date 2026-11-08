@@ -16,6 +16,7 @@ public record AuditEventWriteRow(
         String reason,
         String traceId,
         String requestId,
+        String subject,
         String clientIp,
         String detailsJson
 ) {}

@@ -1,0 +1,115 @@
+{
+  "turn": {
+    "turnId": "trn_tools_01",
+    "threadId": "thd_tools_01",
+    "seq": 1,
+    "status": "SUCCEEDED",
+    "origin": "chat",
+    "originRef": null,
+    "stepCount": 3,
+    "requestId": "req_tools_01",
+    "errorCode": null,
+    "errorMessage": null,
+    "promptTokens": 300,
+    "completionTokens": 120,
+    "createdAt": "2026-11-07T03:00:00Z",
+    "startedAt": "2026-11-07T03:00:01Z",
+    "endedAt": "2026-11-07T03:00:10Z"
+  },
+  "steps": [
+    {
+      "step": 1,
+      "modelRef": "gpt-mock@primary",
+      "promptTokens": 100,
+      "completionTokens": 30,
+      "latencyMs": 600,
+      "costMicros": 900,
+      "failover": false,
+      "items": [
+        {
+          "itemId": "itm_msg_plan",
+          "threadId": "thd_tools_01",
+          "turnId": "trn_tools_01",
+          "seq": 1,
+          "step": 1,
+          "type": "message",
+          "role": "assistant",
+          "content": { "text": "我会先查询再汇总。" },
+          "createdAt": "2026-11-07T03:00:02Z",
+          "discarded": false
+        }
+      ]
+    },
+    {
+      "step": 2,
+      "modelRef": "gpt-mock@primary",
+      "promptTokens": 120,
+      "completionTokens": 40,
+      "latencyMs": 1100,
+      "costMicros": 1400,
+      "failover": false,
+      "items": [
+        {
+          "itemId": "itm_tool_call_echo",
+          "threadId": "thd_tools_01",
+          "turnId": "trn_tools_01",
+          "seq": 2,
+          "step": 2,
+          "type": "tool_call",
+          "role": "assistant",
+          "content": { "name": "echo", "args": { "q": "status" } },
+          "createdAt": "2026-11-07T03:00:04Z",
+          "discarded": false
+        },
+        {
+          "itemId": "itm_tool_result_echo",
+          "threadId": "thd_tools_01",
+          "turnId": "trn_tools_01",
+          "seq": 3,
+          "step": 2,
+          "type": "tool_result",
+          "role": "tool",
+          "content": { "ok": true, "output": "OPEN", "latencyMs": 40 },
+          "createdAt": "2026-11-07T03:00:05Z",
+          "discarded": false
+        }
+      ]
+    },
+    {
+      "step": 3,
+      "modelRef": "gpt-mock@primary",
+      "promptTokens": 80,
+      "completionTokens": 50,
+      "latencyMs": 700,
+      "costMicros": 1100,
+      "failover": false,
+      "items": [
+        {
+          "itemId": "itm_msg_done",
+          "threadId": "thd_tools_01",
+          "turnId": "trn_tools_01",
+          "seq": 4,
+          "step": 3,
+          "type": "message",
+          "role": "assistant",
+          "content": { "text": "查询完成，状态为 OPEN。" },
+          "createdAt": "2026-11-07T03:00:08Z",
+          "discarded": false
+        },
+        {
+          "itemId": "itm_child_link",
+          "threadId": "thd_tools_01",
+          "turnId": "trn_tools_01",
+          "seq": 5,
+          "step": 3,
+          "type": "child_thread",
+          "role": "system",
+          "content": { "childThreadId": "thd_child_01", "title": "子会话（预留）" },
+          "createdAt": "2026-11-07T03:00:09Z",
+          "discarded": false
+        }
+      ]
+    }
+  ],
+  "traceUrl": "http://jaeger.local/trace/tools01"
+}

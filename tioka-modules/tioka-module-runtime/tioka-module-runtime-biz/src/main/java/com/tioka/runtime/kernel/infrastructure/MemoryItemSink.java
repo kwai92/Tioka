@@ -155,6 +155,15 @@ public class MemoryItemSink implements LoopPorts.ItemSink {
         if (outcome.approvedBy() != null && !outcome.approvedBy().isBlank()) {
             content.put("approvedBy", outcome.approvedBy());
         }
+        if (outcome.pending() != null) {
+            Map<String, Object> pending = new LinkedHashMap<>();
+            pending.put("jobType", outcome.pending().jobType());
+            pending.put("jobId", outcome.pending().jobId());
+            java.time.Duration timeout = outcome.pending().timeout() == null
+                    ? java.time.Duration.ofSeconds(120) : outcome.pending().timeout();
+            pending.put("timeoutAt", java.time.Instant.now().plus(timeout).toString());
+            content.put("pending", pending);
+        }
         RuntimeItemDO item = items.append(ItemWrite.append(ctx.threadId(), ctx.turnId(), ctx.leaseVersion(), step,
                 ItemType.TOOL_RESULT.wire(), "tool", json(content), null));
         streams.publish(ctx.threadId(), EventId.of(item.getSeq()).toString(),

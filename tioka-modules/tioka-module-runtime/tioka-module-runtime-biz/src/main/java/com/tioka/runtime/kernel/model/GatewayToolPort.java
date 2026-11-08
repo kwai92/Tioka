@@ -13,6 +13,8 @@ import com.tioka.runtime.kernel.application.RuntimeTestHooks;
 import com.tioka.runtime.kernel.domain.LoopContext;
 import com.tioka.runtime.kernel.domain.LoopPorts;
 import com.tioka.runtime.kernel.infrastructure.redis.SignalBus;
+import io.opentelemetry.context.Context;
+import io.opentelemetry.context.Scope;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Component;
 
@@ -70,9 +72,15 @@ public class GatewayToolPort implements LoopPorts.ToolPort {
         }
         ToolGateway.ToolCallContext toolCtx = toolCtx(ctx);
         long timeoutMs = props.getLoop().getToolTimeout().toMillis();
+        // GOV-08：跨 rt-tool 线程池传播 OTel 上下文，使 tool.invoke 挂在 turn.step 下
+        Context otelCtx = Context.current();
         List<CompletableFuture<LoopPorts.ToolOutcome>> futures = new ArrayList<>();
         for (LoopPorts.ToolCall c : calls) {
-            futures.add(CompletableFuture.supplyAsync(() -> invokeOne(toolCtx, c), pool)
+            futures.add(CompletableFuture.supplyAsync(() -> {
+                        try (Scope ignored = otelCtx.makeCurrent()) {
+                            return invokeOne(toolCtx, c);
+                        }
+                    }, pool)
                     .orTimeout(timeoutMs, TimeUnit.MILLISECONDS)
                     .handle((ok, ex) -> {
                         if (ex == null) {
@@ -111,7 +119,7 @@ public class GatewayToolPort implements LoopPorts.ToolPort {
                     c.argumentsJson() == null ? "{}" : c.argumentsJson(), new TypeReference<>() {});
             ToolProvider.ToolResult r = gateway.call(toolCtx, c.name(), args);
             return new LoopPorts.ToolOutcome(c.callId(), c.name(), r.ok(), r.content(),
-                    System.currentTimeMillis() - t0);
+                    System.currentTimeMillis() - t0, null, r.pending());
         } catch (RuntimeTestHooks.CrashFrozenAbort e) {
             throw e;
         } catch (com.fasterxml.jackson.core.JsonProcessingException e) {

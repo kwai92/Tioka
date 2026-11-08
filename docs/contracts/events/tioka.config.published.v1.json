@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tioka.dev/schema/tioka.config.published.v1.json",
+  "title": "tioka.config.published.v1",
+  "description": "GOV-12 / ADR-041 配置版本发布或回滚广播（与 cfg.version_published.v1 语义等同）。",
+  "type": "object",
+  "required": [
+    "objectType",
+    "objectId",
+    "newVersionNo",
+    "action"
+  ],
+  "properties": {
+    "objectType": {
+      "type": "string"
+    },
+    "objectId": {
+      "type": "string"
+    },
+    "newVersionNo": {
+      "type": "integer"
+    },
+    "oldVersionNo": {
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "action": {
+      "type": "string"
+    },
+    "versionId": {
+      "type": "string"
+    },
+    "workspaceId": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": true
+}

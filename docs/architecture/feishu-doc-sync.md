@@ -120,3 +120,11 @@ feishu:
 执行：`POST /admin-api/connector/feishu/sync/now` 或 CI job。
 
 **说明：** 向真实飞书租户推送前，需在开放平台创建应用并完成 Wiki/Doc 授权；未配置时本地 `docs/` 仍为唯一权威源。
+
+---
+
+## 9. ENG-07 仓库文档单源
+
+- 权威：`docs/architecture`
+- 本地飞书镜像：`node scripts/publish-feishu-docs.mjs`（默认输出 `feishu-docs/Tioka/_generated/`，页首「自动生成，勿改」；未配置 `FEISHU_APP_ID/SECRET` 时不推远程）
+- 完成度：`node scripts/gen-progress.mjs` → `implementation/progress.md`

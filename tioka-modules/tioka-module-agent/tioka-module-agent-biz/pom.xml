@@ -45,6 +45,10 @@
         </dependency>
         <dependency>
             <groupId>com.tioka</groupId>
+            <artifactId>tioka-module-ontology-api</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.tioka</groupId>
             <artifactId>tioka-module-flow-api</artifactId>
         </dependency>
         <dependency>

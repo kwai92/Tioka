@@ -64,6 +64,18 @@
             <groupId>com.tioka</groupId>
             <artifactId>tioka-module-skill-api</artifactId>
         </dependency>
+        <dependency>
+            <groupId>com.tioka</groupId>
+            <artifactId>tioka-module-ontology-api</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.tioka</groupId>
+            <artifactId>tioka-module-governance-api</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.tioka</groupId>
+            <artifactId>tioka-module-eval-api</artifactId>
+        </dependency>
 
         <dependency>
             <groupId>com.tioka</groupId>
@@ -103,6 +115,21 @@
         <dependency>
             <groupId>com.tioka</groupId>
             <artifactId>tioka-module-skill-biz</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.tioka</groupId>
+            <artifactId>tioka-module-ontology-biz</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.tioka</groupId>
+            <artifactId>tioka-module-governance-biz</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.tioka</groupId>
+            <artifactId>tioka-module-eval-biz</artifactId>
             <scope>runtime</scope>
         </dependency>
         <dependency>
@@ -147,6 +174,12 @@
             <artifactId>postgresql</artifactId>
             <scope>runtime</scope>
         </dependency>
+        <!-- PK-24b：FakeErp 等测试桩（K3 追加） -->
+        <dependency>
+            <groupId>com.tioka</groupId>
+            <artifactId>tioka-testkit</artifactId>
+            <scope>test</scope>
+        </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
@@ -174,6 +207,25 @@
             <scope>test</scope>
         </dependency>
         <dependency>
+            <groupId>org.apache.rocketmq</groupId>
+            <artifactId>rocketmq-spring-boot-starter</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.opentelemetry</groupId>
+            <artifactId>opentelemetry-api</artifactId>
+        </dependency>
+        <!-- GOV-08 TracingIT：InMemorySpanExporter（越界申请 K3 测试依赖） -->
+        <dependency>
+            <groupId>io.opentelemetry</groupId>
+            <artifactId>opentelemetry-sdk</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.opentelemetry</groupId>
+            <artifactId>opentelemetry-sdk-testing</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
             <groupId>com.tngtech.archunit</groupId>
             <artifactId>archunit-junit5</artifactId>
             <scope>test</scope>
@@ -181,7 +233,6 @@
         <dependency>
             <groupId>com.squareup.okhttp3</groupId>
             <artifactId>mockwebserver</artifactId>
-            <version>4.12.0</version>
             <scope>test</scope>
         </dependency>
         <dependency>

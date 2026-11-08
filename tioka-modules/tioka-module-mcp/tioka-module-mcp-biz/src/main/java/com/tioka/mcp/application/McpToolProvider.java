@@ -4,6 +4,7 @@ import com.tioka.framework.error.BizException;
 import com.tioka.framework.error.ErrorCode;
 import com.tioka.mcp.domain.McpStore;
 import com.tioka.runtime.api.approval.ToolRisk;
+import com.tioka.runtime.api.spi.Reversibility;
 import com.tioka.runtime.api.spi.ToolProvider;
 import org.springframework.stereotype.Component;
 
@@ -16,6 +17,7 @@ import java.util.Optional;
 /**
  * 将 Agent 快照内的 MCP 工具暴露给 Runtime ToolRegistry。
  * ENG-06：只读 {@code agentToolConfig.mcp}（McpBinding），不再依赖 agent-api。
+ * TRU-05 / PK-24c：按 risk / 管理端覆盖设置 {@link Reversibility}。
  */
 @Component
 public class McpToolProvider implements ToolProvider {
@@ -41,15 +43,26 @@ public class McpToolProvider implements ToolProvider {
         if (bindings.isEmpty()) {
             return List.of();
         }
-        List<McpStore.Tool> tools = mcpAdminService.toolsForMcpBindings(bindings);
         List<ToolDescriptor> out = new ArrayList<>();
-        for (McpStore.Tool t : tools) {
-            out.add(ToolDescriptor.builder()
-                    .name(t.name())
-                    .description(t.description())
-                    .inputSchema(t.inputSchema())
-                    .risk(parseRisk(t.risk()))
-                    .build());
+        for (McpAdminService.McpBinding b : bindings) {
+            if (b == null || b.serverId() == null) {
+                continue;
+            }
+            for (McpStore.Tool t : store.tools(b.serverId())) {
+                if (b.allowlist() != null && !b.allowlist().isEmpty()
+                        && !b.allowlist().contains(t.name())) {
+                    continue;
+                }
+                ToolRisk risk = parseRisk(t.risk());
+                Reversibility rev = store.reversibilityOf(b.serverId(), t.name(), risk);
+                out.add(ToolDescriptor.builder()
+                        .name(t.name())
+                        .description(t.description())
+                        .inputSchema(t.inputSchema())
+                        .risk(risk)
+                        .reversibility(rev)
+                        .build());
+            }
         }
         return out;
     }

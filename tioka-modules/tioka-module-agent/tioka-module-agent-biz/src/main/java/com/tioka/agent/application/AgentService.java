@@ -343,7 +343,7 @@ public class AgentService implements AgentCatalogApi {
                 AgentSpec.SandboxPolicy.defaults(),
                 AgentSpec.ApprovalSettings.empty(),
                 AgentSpec.Limits.defaults(),
-                null, null, null, null);
+                null, null, null, null, null, null, null, null);
     }
 
     private AgentVersionDO requireOwnedVersion(String agentId, String versionId) {

@@ -17,6 +17,7 @@ public final class FlowMqTopics {
     /** FlowPublication 通道变更（≠ AgentVersion）。 */
     public static final String TAG_PUBLICATION_CHANGED = "publication.changed";
 
+    public static final String RUN_STARTED = "tioka.flow.run_started.v1";
     public static final String RUN_FINISHED = "tioka.flow.run_finished.v1";
 
     private FlowMqTopics() {

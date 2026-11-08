@@ -136,7 +136,7 @@ class AgentPublishIT {
                 AgentSpec.SandboxPolicy.defaults(),
                 new AgentSpec.ApprovalSettings(policies, null),
                 AgentSpec.Limits.defaults(),
-                null, null, null, null);
+                null, null, null, null, null, null, null, null);
     }
 
     private static Principal admin(String ws) {

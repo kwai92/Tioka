@@ -7,10 +7,10 @@
         <![CDATA[
             INSERT INTO audit_event
               (id, ts, workspace_id, actor_type, actor_id, action,
-               resource_type, resource_id, outcome, reason, trace_id, request_id, client_ip, details_json, forwarded)
+               resource_type, resource_id, outcome, reason, trace_id, request_id, subject, client_ip, details_json, forwarded)
             VALUES
               (#{id}, #{ts}, #{workspaceId}, #{actorType}, #{actorId}, #{action},
-               #{resourceType}, #{resourceId}, #{outcome}, #{reason}, #{traceId}, #{requestId}, #{clientIp}, #{detailsJson}, FALSE)
+               #{resourceType}, #{resourceId}, #{outcome}, #{reason}, #{traceId}, #{requestId}, #{subject}, #{clientIp}, #{detailsJson}, FALSE)
             
 ]]>
     </insert>

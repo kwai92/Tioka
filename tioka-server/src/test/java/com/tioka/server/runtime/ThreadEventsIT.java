@@ -80,7 +80,7 @@ class ThreadEventsIT {
         streams.publish(threadId, "5", RuntimeEventType.ITEM_COMPLETED.wire(),
                 events.itemCompleted(threadId, completed));
 
-        List<String> ids = collectEventIds(login.accessToken(), threadId, "5.3", 1200);
+        List<String> ids = collectEventIds(login.accessToken(), threadId, "5.3", 2, 1200);
         assertFalse(ids.stream().anyMatch(id -> id.equals("5.0") || id.equals("5.1") || id.equals("5.2") || id.equals("5.3")));
         assertTrue(ids.contains("5.4"), "应收到 5.4: " + ids);
         assertTrue(ids.contains("5"), "应收到 completed 5: " + ids);
@@ -100,7 +100,8 @@ class ThreadEventsIT {
             }
         });
 
-        List<String> ids = collectEventIds(login.accessToken(), threadId, "0", 1200);
+        // 期望 1/2/3 三个 id；原先固定等 size<2 会在收到 2 后 cancel，漏掉 3（CI flake）
+        List<String> ids = collectEventIds(login.accessToken(), threadId, "0", 3, 2000);
         assertTrue(ids.contains("1"), ids.toString());
         assertTrue(ids.contains("2"), ids.toString());
         assertTrue(ids.contains("3"), ids.toString());
@@ -125,8 +126,8 @@ class ThreadEventsIT {
         return new Principal(uid, "ws_default", PrincipalType.USER, Set.of("member"), Set.of("*"), "test");
     }
 
-    private List<String> collectEventIds(String token, String threadId, String lastEventId, long waitMs)
-            throws Exception {
+    private List<String> collectEventIds(String token, String threadId, String lastEventId,
+                                         int expectAtLeast, long waitMs) throws Exception {
         List<String> ids = new CopyOnWriteArrayList<>();
         AtomicBoolean done = new AtomicBoolean(false);
         HttpClient client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(3)).build();
@@ -153,7 +154,7 @@ class ThreadEventsIT {
             @Override public void onComplete() { done.set(true); }
         }));
         long deadline = System.currentTimeMillis() + waitMs;
-        while (System.currentTimeMillis() < deadline && ids.size() < 2) {
+        while (System.currentTimeMillis() < deadline && ids.size() < expectAtLeast) {
             Thread.sleep(50);
         }
         future.cancel(true);

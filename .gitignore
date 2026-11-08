@@ -20,3 +20,4 @@ data/objects/
 # Diagram export temp files (scripts/export-diagram-pngs.mjs)
 .tmp-mmd/
 .worktrees/
+.workbuddy/

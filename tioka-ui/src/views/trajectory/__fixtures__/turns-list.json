@@ -1,0 +1,38 @@
+[
+  {
+    "turnId": "trn_tools_01",
+    "seq": 1,
+    "status": "SUCCEEDED",
+    "origin": "chat",
+    "stepCount": 3,
+    "promptTokens": 300,
+    "completionTokens": 120,
+    "costMicros": 3400,
+    "startedAt": "2026-11-07T03:00:01Z",
+    "endedAt": "2026-11-07T03:00:10Z"
+  },
+  {
+    "turnId": "trn_failover_01",
+    "seq": 2,
+    "status": "SUCCEEDED",
+    "origin": "chat",
+    "stepCount": 2,
+    "promptTokens": 260,
+    "completionTokens": 110,
+    "costMicros": 2400,
+    "startedAt": "2026-11-07T04:00:01Z",
+    "endedAt": "2026-11-07T04:00:15Z"
+  },
+  {
+    "turnId": "trn_approval_01",
+    "seq": 3,
+    "status": "SUCCEEDED",
+    "origin": "chat",
+    "stepCount": 2,
+    "promptTokens": 180,
+    "completionTokens": 70,
+    "costMicros": 1800,
+    "startedAt": "2026-11-07T05:00:01Z",
+    "endedAt": "2026-11-07T05:01:20Z"
+  }
+]

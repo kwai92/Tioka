@@ -12,6 +12,7 @@ import com.tioka.system.api.audit.AuditOutcome;
 import com.tioka.system.api.event.MemberRemovedEvent;
 import com.tioka.system.application.auth.PrincipalLoader;
 import com.tioka.system.application.lifecycle.AfterCommitEvents;
+import com.tioka.system.application.lifecycle.IdentityOutboxBridge;
 import com.tioka.system.infrastructure.AuthUserRepository;
 import com.tioka.system.infrastructure.SysMemberRepository;
 import com.tioka.system.infrastructure.SysRoleRepository;
@@ -41,6 +42,7 @@ public class WorkspaceMemberService {
     private final PrincipalHolder principals;
     private final ApplicationEventPublisher events;
     private final AuditApi audit;
+    private final IdentityOutboxBridge identityOutbox;
 
     public WorkspaceMemberService(WorkspaceService workspaces,
                                   SysMemberRepository members,
@@ -49,7 +51,8 @@ public class WorkspaceMemberService {
                                   PrincipalLoader principalCache,
                                   PrincipalHolder principals,
                                   ApplicationEventPublisher events,
-                                  AuditApi audit) {
+                                  AuditApi audit,
+                                  IdentityOutboxBridge identityOutbox) {
         this.workspaces = workspaces;
         this.members = members;
         this.roles = roles;
@@ -58,6 +61,7 @@ public class WorkspaceMemberService {
         this.principals = principals;
         this.events = events;
         this.audit = audit;
+        this.identityOutbox = identityOutbox;
     }
 
     public Page<MemberView> list(String workspaceId, int page, int size) {
@@ -119,6 +123,7 @@ public class WorkspaceMemberService {
                 workspaceId + ":" + userId,
                 AuditOutcome.SUCCESS, null, null, null, null,
                 Map.of("userId", userId, "source", MemberRemovedEvent.SOURCE_MANUAL)));
+        identityOutbox.publishMemberRemoved(workspaceId, userId, MemberRemovedEvent.SOURCE_MANUAL);
         AfterCommitEvents.publish(events,
                 new MemberRemovedEvent(workspaceId, userId, MemberRemovedEvent.SOURCE_MANUAL));
     }
