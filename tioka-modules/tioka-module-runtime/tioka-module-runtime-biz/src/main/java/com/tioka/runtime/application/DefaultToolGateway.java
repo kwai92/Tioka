@@ -111,15 +111,28 @@ public class DefaultToolGateway implements ToolGateway {
             if (risk == ToolRisk.READ) {
                 result = callTracked(ctx, name, args);
             } else {
-                // 兼容 Allow 写工具：prepare + AUTO_COMMIT 时立即 commit；否则提示走审批
-                PreparedCall prepared = prepare(ctx, name, args);
-                result = switch (prepared.gate()) {
-                    case AUTO_COMMIT -> commit(ctx, prepared.preparedId());
-                    case DENIED -> new ToolProvider.ToolResult(false,
-                            "策略拒绝：" + (prepared.policy() == PolicyOutcome.DENY ? "DENY" : "DENIED"));
-                    case REQUIRE_APPROVAL, SHADOW_ONLY -> new ToolProvider.ToolResult(false,
-                            "写工具需预演审批，preparedId=" + prepared.preparedId());
-                };
+                // 写工具走 prepare/commit；CON-01 鉴权拒绝转为 ToolResult（文案与 call 一致）
+                try {
+                    PreparedCall prepared = prepare(ctx, name, args);
+                    result = switch (prepared.gate()) {
+                        case AUTO_COMMIT -> commit(ctx, prepared.preparedId());
+                        case DENIED -> new ToolProvider.ToolResult(false,
+                                "策略拒绝：" + (prepared.policy() == PolicyOutcome.DENY ? "DENY" : "DENIED"));
+                        case REQUIRE_APPROVAL, SHADOW_ONLY -> new ToolProvider.ToolResult(false,
+                                "写工具需预演审批，preparedId=" + prepared.preparedId());
+                    };
+                } catch (BizException e) {
+                    if (e.getErrorCode() == ErrorCode.RATE_LIMITED) {
+                        throw e;
+                    }
+                    if (e.getErrorCode() == ErrorCode.FORBIDDEN) {
+                        String msg = e.getMessage() == null ? "无权调用工具" : e.getMessage()
+                                .replace("无权预演工具", "无权调用工具");
+                        result = new ToolProvider.ToolResult(false, msg);
+                    } else {
+                        throw e;
+                    }
+                }
             }
             span.setAttribute("tioka.tool.ok", result.ok());
             return result;
@@ -139,9 +152,20 @@ public class DefaultToolGateway implements ToolGateway {
         AuthorizeResult authz = pipeline.authorize(ctx, name, safeArgs);
         if (authz instanceof AuthorizeResult.Reject reject) {
             if (reject.rateLimited()) {
+                auditDenied(ctx, name, safeArgs, reject.reason(), reject.step(), 0);
                 throw new BizException(ErrorCode.RATE_LIMITED, "工具调用过于频繁: " + name);
             }
-            throw new BizException(ErrorCode.FORBIDDEN, "无权预演工具 " + name + "：" + reject.reason());
+            // call() 写工具路径会把「预演」换成「调用」，保持 CON-01 文案一致
+            String msg;
+            if (reject.step() == 1 && "工具不存在".equals(reject.reason())) {
+                msg = "工具不存在";
+            } else if (reject.step() == 6) {
+                msg = reject.reason();
+            } else {
+                msg = "无权预演工具 " + name + "：" + reject.reason();
+            }
+            auditDenied(ctx, name, safeArgs, reject.reason(), reject.step(), 0);
+            throw new BizException(ErrorCode.FORBIDDEN, msg);
         }
         AuthorizedCall ac = ((AuthorizeResult.Ok) authz).call();
         ToolProvider.ToolDescriptor desc = ac.descriptor();
