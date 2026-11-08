@@ -1,16 +1,20 @@
 package com.tioka.server.ops;
 
-import com.tioka.agent.application.AgentShareService;
-import com.tioka.connector.application.FeishuDocSyncService;
+import com.tioka.system.api.audit.Audited;
+
+import com.tioka.agent.api.AgentShareApi;
+import com.tioka.connector.api.FeishuDocSyncApi;
 import com.tioka.framework.error.ApiResponse;
 import com.tioka.framework.error.NotImplemented;
-import com.tioka.knowledge.application.DataSourceService;
-import com.tioka.knowledge.application.WikiService;
+import com.tioka.framework.security.Permissions;
+import com.tioka.framework.security.RequirePermission;
+import com.tioka.knowledge.api.DataSourceApi;
+import com.tioka.knowledge.api.WikiApi;
+import com.tioka.system.api.EgressQueryApi;
+import com.tioka.system.api.ScimSyncApi;
+import com.tioka.system.api.spi.AuditSink;
 import com.tioka.system.api.spi.BizSystemAdapter;
 import com.tioka.system.api.spi.ImChannelAdapter;
-import com.tioka.system.config.EgressProperties;
-import com.tioka.system.application.ScimSyncService;
-import com.tioka.system.infrastructure.spi.FileAuditSink;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.*;
 
@@ -21,49 +25,57 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/ops")
+@RequirePermission(Permissions.TENANT_ADMIN)
 public class OpsFacadeController {
-    private final DataSourceService dataSourceService;
-    private final FeishuDocSyncService feishuDocSyncService;
-    private final WikiService wikiService;
-    private final EgressProperties egressProperties;
-    private final ScimSyncService scimSyncService;
-    private final AgentShareService agentShareService;
-    private final FileAuditSink auditSink;
+    private final DataSourceApi dataSourceApi;
+    private final FeishuDocSyncApi feishuDocSyncApi;
+    private final WikiApi wikiApi;
+    private final EgressQueryApi egressQueryApi;
+    private final ScimSyncApi scimSyncApi;
+    private final AgentShareApi agentShareApi;
+    private final AuditSink auditSink;
     private final List<ImChannelAdapter> imAdapters;
     private final List<BizSystemAdapter> bizAdapters;
     private final String envName;
+    private final String traceUrlTemplate;
 
-    public OpsFacadeController(DataSourceService dataSourceService, FeishuDocSyncService feishuDocSyncService,
-                               WikiService wikiService, EgressProperties egressProperties,
-                               ScimSyncService scimSyncService,
-                               AgentShareService agentShareService, FileAuditSink auditSink,
+    public OpsFacadeController(DataSourceApi dataSourceApi, FeishuDocSyncApi feishuDocSyncApi,
+                               WikiApi wikiApi, EgressQueryApi egressQueryApi,
+                               ScimSyncApi scimSyncApi,
+                               AgentShareApi agentShareApi, AuditSink auditSink,
                                List<ImChannelAdapter> imAdapters, List<BizSystemAdapter> bizAdapters,
-                               @Value("${tioka.env.name:${spring.profiles.active:local}}") String envName) {
-        this.dataSourceService = dataSourceService;
-        this.feishuDocSyncService = feishuDocSyncService;
-        this.wikiService = wikiService;
-        this.egressProperties = egressProperties;
-        this.scimSyncService = scimSyncService;
-        this.agentShareService = agentShareService;
+                               @Value("${tioka.env.name:${spring.profiles.active:local}}") String envName,
+                               @Value("${tioka.observability.trace-url-template:http://localhost:16686/trace/{traceId}}")
+                               String traceUrlTemplate) {
+        this.dataSourceApi = dataSourceApi;
+        this.feishuDocSyncApi = feishuDocSyncApi;
+        this.wikiApi = wikiApi;
+        this.egressQueryApi = egressQueryApi;
+        this.scimSyncApi = scimSyncApi;
+        this.agentShareApi = agentShareApi;
         this.auditSink = auditSink;
         this.imAdapters = imAdapters;
         this.bizAdapters = bizAdapters;
         this.envName = envName;
+        this.traceUrlTemplate = traceUrlTemplate;
     }
 
     @PostMapping("/datasources")
+    @Audited(action = "ops.datasource.bind", resourceType = "kb_datasource")
     public ApiResponse<?> ds(@RequestBody Map<String, String> body) {
-        return ApiResponse.ok(dataSourceService.bind(body.get("kbId"), body.get("type"), body.get("uri")));
+        return ApiResponse.ok(dataSourceApi.bind(body.get("kbId"), body.get("type"), body.get("uri")));
     }
 
     @PostMapping("/feishu/map")
+    @Audited(action = "ops.feishu.map", resourceType = "feishu_doc")
     public ApiResponse<?> map(@RequestBody Map<String, String> body) {
-        return ApiResponse.ok(feishuDocSyncService.map(body.get("localDocId"), body.get("feishuDocToken")));
+        return ApiResponse.ok(feishuDocSyncApi.map(body.get("localDocId"), body.get("feishuDocToken")));
     }
 
     @PostMapping("/wiki")
+    @Audited(action = "ops.wiki.upsert", resourceType = "wiki")
     public ApiResponse<?> wiki(@RequestBody Map<String, String> body) {
-        return ApiResponse.ok(wikiService.upsert(body.get("kbId"), body.get("title"), body.get("body")));
+        return ApiResponse.ok(wikiApi.upsert(body.get("kbId"), body.get("title"), body.get("body")));
     }
 
     @GetMapping("/graph")
@@ -74,11 +86,14 @@ public class OpsFacadeController {
     @GetMapping("/airgap")
     public ApiResponse<?> airgap() {
         return ApiResponse.ok(Map.of(
-                "enabled", egressProperties.getMode() != EgressProperties.Mode.OPEN));
+                "enabled", egressQueryApi.isRestricted()));
     }
 
     @PostMapping("/scim/sync")
-    public ApiResponse<?> scim(@RequestBody List<Map<String, String>> delta) { return ApiResponse.ok(scimSyncService.sync(delta)); }
+    @Audited(action = "ops.scim.sync", resourceType = "scim")
+    public ApiResponse<?> scim(@RequestBody List<Map<String, String>> delta) {
+        return ApiResponse.ok(scimSyncApi.sync(delta));
+    }
 
     @PostMapping("/interpreter")
     public ApiResponse<?> interp(@RequestBody Map<String, String> body) {
@@ -96,8 +111,9 @@ public class OpsFacadeController {
     }
 
     @PostMapping("/agents/{id}/share")
+    @Audited(action = "ops.agent.share", resourceType = "agent", resourceIdArg = "#id")
     public ApiResponse<?> share(@PathVariable String id, @RequestBody Map<String, String> body) {
-        return ApiResponse.ok(agentShareService.share(id, body.get("mode")));
+        return ApiResponse.ok(agentShareApi.share(id, body.get("mode")));
     }
 
     @GetMapping("/audit/recent")
@@ -107,7 +123,13 @@ public class OpsFacadeController {
 
     @GetMapping("/env")
     public ApiResponse<?> env() {
-        return ApiResponse.ok(Map.of("name", envName));
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("name", envName);
+        // GOV-08：Observability 页链接 Jaeger
+        out.put("traceUrlTemplate", traceUrlTemplate);
+        out.put("jaegerUi", traceUrlTemplate == null ? null
+                : traceUrlTemplate.replace("/trace/{traceId}", "").replace("{traceId}", ""));
+        return ApiResponse.ok(out);
     }
 
     @GetMapping("/adapters")

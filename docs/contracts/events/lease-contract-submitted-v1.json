@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tioka.local/contracts/events/lease-contract-submitted-v1.json",
+  "title": "lease.contract.submitted data",
+  "type": "object",
+  "required": ["contractKey", "storeCode", "kind", "files", "assignee", "requestedBy"],
+  "properties": {
+    "contractKey": { "type": "string" },
+    "storeCode": { "type": "string" },
+    "kind": { "type": "string", "enum": ["MASTER", "SUPPLEMENT", "OTHER"] },
+    "files": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["fileId", "sha256", "mime"],
+        "properties": {
+          "fileId": { "type": "string" },
+          "sha256": { "type": "string" },
+          "mime": { "type": "string" }
+        }
+      }
+    },
+    "assignee": { "type": "string" },
+    "priorKeys": { "type": "array", "items": { "type": "string" } },
+    "requestedBy": { "type": "string" }
+  },
+  "additionalProperties": false
+}

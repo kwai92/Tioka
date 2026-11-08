@@ -1,0 +1,8 @@
+# MH-02：主 + 备用均 503；每 binding 含 MH-03 重试 2 次（各 3 次尝试）后链耗尽
+calls:
+  - fail: { status: 503, after_chars: 0 }
+  - fail: { status: 503, after_chars: 0 }
+  - fail: { status: 503, after_chars: 0 }
+  - fail: { status: 503, after_chars: 0 }
+  - fail: { status: 503, after_chars: 0 }
+  - fail: { status: 503, after_chars: 0 }

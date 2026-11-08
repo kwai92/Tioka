@@ -5,14 +5,14 @@ import com.tioka.framework.id.Ids;
 import com.tioka.connector.api.spi.FeishuDocContentSpi;
 import com.tioka.framework.error.BizException;
 import com.tioka.framework.error.ErrorCode;
+import com.tioka.knowledge.api.DataSourceApi;
 import com.tioka.knowledge.infrastructure.KnowledgeRepository;
 import com.tioka.knowledge.infrastructure.persistence.KbDatasourceDO;
-import com.tioka.system.api.spi.EgressGuard;
+import com.tioka.system.api.spi.EgressClient;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
 
 import java.net.URI;
-import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
@@ -20,26 +20,26 @@ import java.util.List;
 import java.util.Map;
 
 @Service
-public class DataSourceService {
+public class DataSourceService implements DataSourceApi {
     private final KnowledgeService knowledgeService;
     private final KnowledgeRepository repo;
-    private final ObjectProvider<EgressGuard> egressGuard;
+    private final EgressClient egress;
     private final ObjectProvider<FeishuDocContentSpi> feishuContent;
-    private final HttpClient http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(3)).build();
 
     public DataSourceService(KnowledgeService knowledgeService, KnowledgeRepository repo,
-                             ObjectProvider<EgressGuard> egressGuard,
+                             EgressClient egress,
                              ObjectProvider<FeishuDocContentSpi> feishuContent) {
         this.knowledgeService = knowledgeService;
         this.repo = repo;
-        this.egressGuard = egressGuard;
+        this.egress = egress;
         this.feishuContent = feishuContent;
     }
 
-    public DataSource bind(String kbId, String type, String uri) {
+    @Override
+    public DataSourceView bind(String kbId, String type, String uri) {
         String id = Ids.newId("ds");
         String t = type == null || type.isBlank() ? "upload" : type;
-        DataSource ds = new DataSource(id, kbId, t, uri, "BOUND");
+        DataSourceView ds = new DataSourceView(id, kbId, t, uri, "BOUND");
         KbDatasourceDO row = new KbDatasourceDO();
         row.setId(ds.id());
         row.setKbId(ds.kbId());
@@ -50,9 +50,9 @@ public class DataSourceService {
         return ds;
     }
 
-    public List<DataSource> list(String kbId) {
+    public List<DataSourceView> list(String kbId) {
         return repo.listDatasources(kbId).stream()
-                .map(r -> new DataSource(r.getId(), r.getKbId(), r.getType(), r.getUri(), r.getStatus()))
+                .map(r -> new DataSourceView(r.getId(), r.getKbId(), r.getType(), r.getUri(), r.getStatus()))
                 .toList();
     }
 
@@ -72,7 +72,7 @@ public class DataSourceService {
     public String sync(String dsId, Map<String, String> body) {
         KbDatasourceDO row = repo.findDatasource(dsId);
         if (row == null) throw new BizException(ErrorCode.NOT_FOUND, "数据源不存在");
-        DataSource ds = new DataSource(row.getId(), row.getKbId(), row.getType(), row.getUri(), row.getStatus());
+        DataSourceView ds = new DataSourceView(row.getId(), row.getKbId(), row.getType(), row.getUri(), row.getStatus());
         String title = body == null ? "sync" : body.getOrDefault("title", "sync");
         String type = ds.type() == null ? "upload" : ds.type().toLowerCase();
         String content = switch (type) {
@@ -88,17 +88,13 @@ public class DataSourceService {
         if (url == null || url.isBlank()) {
             throw new BizException(ErrorCode.BAD_REQUEST, "web 数据源缺少 url");
         }
-        EgressGuard guard = egressGuard.getIfAvailable();
-        if (guard != null) {
-            guard.assertAllowed(url);
-        }
         try {
             HttpRequest req = HttpRequest.newBuilder()
                     .uri(URI.create(url))
                     .timeout(Duration.ofSeconds(5))
                     .GET()
                     .build();
-            HttpResponse<String> resp = http.send(req, HttpResponse.BodyHandlers.ofString());
+            HttpResponse<String> resp = egress.send(req);
             if (resp.statusCode() >= 300) {
                 throw new BizException(ErrorCode.BAD_REQUEST, "web sync HTTP " + resp.statusCode());
             }
@@ -120,5 +116,4 @@ public class DataSourceService {
         return body == null ? "" : body.getOrDefault("content", "");
     }
 
-    public record DataSource(String id, String kbId, String type, String uri, String status) {}
 }

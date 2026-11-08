@@ -106,3 +106,7 @@ CREATE TABLE flow_publication (
 ## 修订（2026-11-05）
 
 Agent 工具形态的 Flow Run 携带调用方的委派授予（`flow_run.grant_id`），发布时计算 `requiredCapabilities`，见 [ADR-029](ADR-029-design-rulings.md) 第 47 条与 [ADR-039](ADR-039-delegation-grant.md)。
+
+## 修订（2026-11-06）
+
+Flow 的 DSL、节点目录、引擎细则（超时、取消、错误路由、UNCERTAIN、大载荷、事件流）、版本、发布（新增 INTERNAL 形态）、权限、调试、观测已在 [ADR-043](ADR-043-flow-orchestration-detail.md) 细化，冲突处以 ADR-043 为准；其中 `continueOnError` 改为 `onError`（`FAIL_RUN` / `CONTINUE` / `ROUTE`）。见 [ADR-029](ADR-029-design-rulings.md) 第 64 条。

@@ -1,103 +1,37 @@
 package com.tioka.runtime.infrastructure.mapper;
 
-import com.tioka.runtime.kernel.infrastructure.persistence.RuntimeTurnDO;
-import org.apache.ibatis.annotations.*;
+import com.tioka.runtime.infrastructure.persistence.RuntimeTurnDO;
+import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
 
-import java.time.OffsetDateTime;
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Mapper
 public interface RuntimeTurnMapper {
 
-    @Select("""
-            SELECT id, session_id AS sessionId, seq, status, origin, origin_ref AS originRef,
-                   client_msg_id AS clientMsgId, run_as_json AS runAsJson, options_json AS optionsJson,
-                   step_count AS stepCount, worker_id AS workerId, lease_version AS leaseVersion,
-                   lease_until AS leaseUntil, error_code AS errorCode, error_message AS errorMessage,
-                   prompt_tokens AS promptTokens, completion_tokens AS completionTokens,
-                   started_at AS startedAt, ended_at AS endedAt, create_at AS createAt, update_at AS updateAt
-            FROM runtime_turn WHERE id = #{id}
-            """)
-    RuntimeTurnDO findById(String id);
+        RuntimeTurnDO findById(String id);
 
-    @Select("""
-            SELECT id, session_id AS sessionId, seq, status, origin, origin_ref AS originRef,
-                   client_msg_id AS clientMsgId, run_as_json AS runAsJson, options_json AS optionsJson,
-                   step_count AS stepCount, worker_id AS workerId, lease_version AS leaseVersion,
-                   lease_until AS leaseUntil, error_code AS errorCode, error_message AS errorMessage,
-                   prompt_tokens AS promptTokens, completion_tokens AS completionTokens,
-                   started_at AS startedAt, ended_at AS endedAt, create_at AS createAt, update_at AS updateAt
-            FROM runtime_turn
-            WHERE session_id = #{sessionId} AND client_msg_id = #{clientMsgId}
-            """)
-    RuntimeTurnDO findBySessionAndClientMsgId(@Param("sessionId") String sessionId,
+        RuntimeTurnDO findByThreadAndClientMsgId(@Param("threadId") String threadId,
                                               @Param("clientMsgId") String clientMsgId);
 
-    @Select("""
-            SELECT COUNT(*) FROM runtime_turn
-            WHERE session_id = #{sessionId} AND status IN ('QUEUED', 'RUNNING')
-            """)
-    int countActive(String sessionId);
+        int countActive(String threadId);
 
-    @Select("""
-            SELECT COALESCE(MAX(seq), 0) + 1 FROM runtime_turn WHERE session_id = #{sessionId}
-            """)
-    int nextSeq(String sessionId);
+        int nextSeq(String threadId);
 
-    @Select("SELECT 1 FROM runtime_session WHERE id = #{sessionId} FOR UPDATE")
-    Integer lockSession(String sessionId);
+        Integer lockThread(String threadId);
 
-    @Insert("""
-            INSERT INTO runtime_turn (
-              id, session_id, seq, status, origin, origin_ref, client_msg_id, run_as_json, options_json,
-              step_count, lease_version, create_at, update_at, create_by, update_by
-            ) VALUES (
-              #{id}, #{sessionId}, #{seq}, #{status}, #{origin}, #{originRef}, #{clientMsgId},
-              #{runAsJson}, #{optionsJson}, COALESCE(#{stepCount}, 0), COALESCE(#{leaseVersion}, 0),
-              now(), now(), 'system', 'system'
-            )
-            """)
-    void insert(RuntimeTurnDO t);
+        void insert(RuntimeTurnDO t);
 
-    @Select("""
-            UPDATE runtime_turn
-               SET status = 'RUNNING',
-                   worker_id = #{workerId},
-                   lease_version = lease_version + 1,
-                   lease_until = #{leaseUntil},
-                   started_at = COALESCE(started_at, now()),
-                   update_at = now()
-             WHERE id = #{turnId} AND status = 'QUEUED'
-         RETURNING lease_version
-            """)
-    Long acquire(@Param("turnId") String turnId,
+        Long acquire(@Param("turnId") String turnId,
                  @Param("workerId") String workerId,
-                 @Param("leaseUntil") OffsetDateTime leaseUntil);
+                 @Param("leaseUntil") LocalDateTime leaseUntil);
 
-    @Update("""
-            UPDATE runtime_turn
-               SET lease_until = #{leaseUntil}, update_at = now()
-             WHERE id = #{turnId} AND lease_version = #{leaseVersion} AND status = 'RUNNING'
-            """)
-    int renew(@Param("turnId") String turnId,
+        int renew(@Param("turnId") String turnId,
               @Param("leaseVersion") long leaseVersion,
-              @Param("leaseUntil") OffsetDateTime leaseUntil);
+              @Param("leaseUntil") LocalDateTime leaseUntil);
 
-    @Update("""
-            UPDATE runtime_turn
-               SET status = #{status},
-                   error_code = #{errorCode},
-                   error_message = #{errorMessage},
-                   prompt_tokens = COALESCE(#{promptTokens}, prompt_tokens),
-                   completion_tokens = COALESCE(#{completionTokens}, completion_tokens),
-                   ended_at = now(),
-                   lease_until = NULL,
-                   update_at = now()
-             WHERE id = #{turnId}
-               AND lease_version = #{leaseVersion}
-               AND status = 'RUNNING'
-            """)
-    int finish(@Param("turnId") String turnId,
+        int finish(@Param("turnId") String turnId,
                @Param("leaseVersion") long leaseVersion,
                @Param("status") String status,
                @Param("errorCode") String errorCode,
@@ -105,54 +39,67 @@ public interface RuntimeTurnMapper {
                @Param("promptTokens") Integer promptTokens,
                @Param("completionTokens") Integer completionTokens);
 
-    @Update("""
-            UPDATE runtime_turn
-               SET step_count = step_count + 1, update_at = now()
-             WHERE id = #{turnId} AND lease_version = #{leaseVersion} AND status = 'RUNNING'
-            """)
-    int incrementStep(@Param("turnId") String turnId, @Param("leaseVersion") long leaseVersion);
+        int incrementStep(@Param("turnId") String turnId, @Param("leaseVersion") long leaseVersion);
 
-    @Update("""
-            UPDATE runtime_turn
-               SET status = 'CANCELLED', ended_at = now(), update_at = now()
-             WHERE id = #{turnId} AND status = 'QUEUED'
-            """)
-    int cancelQueued(String turnId);
+    /** RT-07：RUNNING → WAITING_APPROVAL，释放租约。 */
+        int markWaitingApproval(@Param("turnId") String turnId, @Param("leaseVersion") long leaseVersion);
 
-    @Select("""
-            SELECT id FROM runtime_turn
-             WHERE status = 'RUNNING' AND lease_until < #{now}
-             ORDER BY lease_until
-             LIMIT #{limit}
-            """)
-    List<String> findExpired(@Param("now") OffsetDateTime now, @Param("limit") int limit);
+    /** RT-09：RUNNING → WAITING_CHILD，释放租约。 */
+        int markWaitingChild(@Param("turnId") String turnId, @Param("leaseVersion") long leaseVersion);
 
-    @Select("""
-            SELECT id, session_id AS sessionId, seq, status, origin, origin_ref AS originRef,
-                   client_msg_id AS clientMsgId, run_as_json AS runAsJson, options_json AS optionsJson,
-                   step_count AS stepCount, worker_id AS workerId, lease_version AS leaseVersion,
-                   lease_until AS leaseUntil, error_code AS errorCode, error_message AS errorMessage,
-                   prompt_tokens AS promptTokens, completion_tokens AS completionTokens,
-                   started_at AS startedAt, ended_at AS endedAt, create_at AS createAt, update_at AS updateAt
-            FROM runtime_turn
-            WHERE session_id = #{sessionId} AND status = 'QUEUED'
-            ORDER BY seq
-            LIMIT 1
-            """)
-    RuntimeTurnDO nextQueued(String sessionId);
+    /** RT-07：WAITING_APPROVAL → QUEUED（无 PENDING 审批后续跑）。 */
+        int requeueFromWaitingApproval(String turnId);
 
-    @Select("""
-            SELECT id, session_id AS sessionId, seq, status, origin, origin_ref AS originRef,
-                   client_msg_id AS clientMsgId, run_as_json AS runAsJson, options_json AS optionsJson,
-                   step_count AS stepCount, worker_id AS workerId, lease_version AS leaseVersion,
-                   lease_until AS leaseUntil, error_code AS errorCode, error_message AS errorMessage,
-                   prompt_tokens AS promptTokens, completion_tokens AS completionTokens,
-                   started_at AS startedAt, ended_at AS endedAt, create_at AS createAt, update_at AS updateAt
-            FROM runtime_turn
-            WHERE session_id = #{sessionId}
-              AND status IN ('RUNNING', 'WAITING_APPROVAL', 'WAITING_CHILD', 'QUEUED')
-            ORDER BY seq DESC
-            LIMIT 1
-            """)
-    RuntimeTurnDO findActive(String sessionId);
+    /** RT-09：WAITING_CHILD → QUEUED（子任务完成 / 超时后续跑）。 */
+        int requeueFromWaitingChild(String turnId);
+
+    /** RT-09：扫描等待子任务的 Turn（超时清扫）。 */
+        List<RuntimeTurnDO> findWaitingChild(@Param("limit") int limit);
+
+    /** RT-07：WAITING_APPROVAL → CANCELLED（interrupt）。 */
+        int cancelWaitingApproval(@Param("turnId") String turnId,
+                              @Param("errorCode") String errorCode,
+                              @Param("errorMessage") String errorMessage);
+
+        int cancelQueued(@Param("turnId") String turnId,
+                     @Param("errorCode") String errorCode,
+                     @Param("errorMessage") String errorMessage);
+
+    /**
+     * FND-04e：按 run_as.userId（及可选空间）查找未终态 Turn。
+     */
+        List<RuntimeTurnDO> findActiveByPrincipal(@Param("userId") String userId,
+                                              @Param("workspaceId") String workspaceId);
+
+        List<String> findExpired(@Param("now") LocalDateTime now, @Param("limit") int limit);
+
+        int markInterrupted(String turnId);
+
+        int failInterrupted(@Param("turnId") String turnId,
+                         @Param("errorCode") String errorCode,
+                         @Param("errorMessage") String errorMessage);
+
+    /**
+     * RT-06：INTERRUPTED → QUEUED 续跑；{@code lease_version + 1} 使假死复活的原执行者写不进去。
+     */
+        int requeueInterrupted(String turnId);
+
+        RuntimeTurnDO nextQueued(String threadId);
+
+        RuntimeTurnDO findActive(String threadId);
+
+    /** RT-06 QueuedSweeper：陈旧 QUEUED 且同 thread 无 RUNNING、且为本 thread 最小 seq。 */
+        List<RuntimeTurnDO> findStaleQueuedForDispatch();
+
+        boolean tryAdvisoryLockQueuedSweeper();
+
+        boolean unlockAdvisoryLockQueuedSweeper();
+
+    /** HCI-07b：按 thread 分页列出 Turn（seq 升序）。 */
+        List<RuntimeTurnDO> listByThread(@Param("threadId") String threadId,
+                                     @Param("offset") int offset,
+                                     @Param("limit") int limit);
+
+    /** GOV-08：写入 W3C traceparent（跨实例恢复）。 */
+    int saveTraceparent(@Param("turnId") String turnId, @Param("traceparent") String traceparent);
 }

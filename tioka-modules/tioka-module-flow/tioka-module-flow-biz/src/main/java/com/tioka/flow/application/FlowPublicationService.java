@@ -1,9 +1,10 @@
 package com.tioka.flow.application;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.tioka.flow.api.FlowInvokeApi;
 import com.tioka.flow.infrastructure.FlowRepository;
 import com.tioka.flow.infrastructure.FlowSecretBridge;
-import com.tioka.flow.infrastructure.persistence.FlowToolPubDO;
+import com.tioka.flow.infrastructure.persistence.FlowPublicationDO;
 import com.tioka.framework.error.BizException;
 import com.tioka.framework.error.ErrorCode;
 import com.tioka.runtime.api.spi.ToolProvider;
@@ -20,7 +21,7 @@ import java.util.List;
 import java.util.Map;
 
 @Service
-public class FlowPublicationService implements ToolProvider {
+public class FlowPublicationService implements ToolProvider, FlowInvokeApi {
     private final FlowService flowService;
     private final FlowRepository repo;
     private final ObjectProvider<FlowSecretBridge> secretBridge;
@@ -50,9 +51,19 @@ public class FlowPublicationService implements ToolProvider {
         return name;
     }
 
+    @Override
     public Map<String, Object> invokeInternalApi(String versionId, Map<String, Object> input) {
         var run = flowService.run(versionId, input == null ? Map.of() : input);
         return toRunPayload(run);
+    }
+
+    /** FND-06 webhook：由 version 解析 draft（资源 ACL 主体）。 */
+    public String requireDraftId(String versionId) {
+        var ver = repo.findVersion(versionId);
+        if (ver == null || !Boolean.TRUE.equals(ver.getPublished())) {
+            throw new BizException(ErrorCode.NOT_FOUND, "Flow 未发布");
+        }
+        return ver.getDraftId();
     }
 
     public void verifyWebhook(String signature, String payload) {
@@ -128,7 +139,7 @@ public class FlowPublicationService implements ToolProvider {
 
     @Override
     public ToolResult invoke(String toolName, Map<String, Object> arguments) {
-        FlowToolPubDO pub = repo.findToolPub(toolName);
+        FlowPublicationDO pub = repo.findToolPub(toolName);
         if (pub == null && toolName != null && toolName.startsWith("flow.run:")) {
             // 允许直接按规范名查找
             pub = repo.findToolPub(toolName);

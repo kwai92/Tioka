@@ -3,9 +3,10 @@ package com.tioka.runtime.api.kernel;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 /**
- * Runtime 内核唯一对外入口（ADR-016）。替代 {@code RuntimeSessionApi}。
+ * Runtime 内核唯一对外入口（ADR-016）。
  *
  * <p>调用方身份取自 {@code PrincipalHolder}；startTurn 写入 run_as 后立即返回，
  * 执行在 worker 上异步进行，结果通过 SSE {@code GET /api/runtime/threads/{id}/events} 推送。
@@ -29,6 +30,12 @@ public interface RuntimeApi {
     void decideApproval(String approvalId, ApprovalDecision decision);
 
     TurnView getTurn(String turnId);
+
+    /**
+     * 当前 thread 上最新的非终态 Turn（QUEUED / RUNNING / WAITING_*）；无则 empty。
+     * Chat {@code /stop} 等入口据此转调 {@link #interrupt(String)}。
+     */
+    Optional<TurnView> findActiveTurn(String threadId);
 
     /** 按 seq 升序返回 {@code afterSeq} 之后的 item；SSE 断线补偿也走这里。 */
     List<ItemView> listItems(String threadId, long afterSeq, int limit);
@@ -54,8 +61,14 @@ public interface RuntimeApi {
      * @param maxSteps       默认 20
      * @param approvalPolicy 审批策略编码
      * @param toolAllowList  本 Turn 可用工具白名单；null 表示按 Agent 配置
+     * @param maxDuration    时长上限（RT-09）；null 用默认（通常 30 分钟）
      */
-    record TurnOptions(Integer maxSteps, String approvalPolicy, List<String> toolAllowList) {}
+    record TurnOptions(Integer maxSteps, String approvalPolicy, List<String> toolAllowList,
+                       java.time.Duration maxDuration) {
+        public TurnOptions(Integer maxSteps, String approvalPolicy, List<String> toolAllowList) {
+            this(maxSteps, approvalPolicy, toolAllowList, null);
+        }
+    }
 
     /** 输入项；{@code type} 取 message / file_ref。 */
     record InputItem(String type, String text, String fileRef) {

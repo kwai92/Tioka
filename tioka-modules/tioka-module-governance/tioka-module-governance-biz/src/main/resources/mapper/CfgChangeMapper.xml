@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tioka.governance.infrastructure.mapper.CfgChangeMapper">
+
+    <insert id="insert">
+        <![CDATA[
+            INSERT INTO cfg_change(object_type, target_key, before_json, after_json, actor_id, reason, trace_id)
+            VALUES (#{objectType}, #{targetKey},
+                    CAST(#{beforeJson} AS jsonb), CAST(#{afterJson} AS jsonb),
+                    #{actorId}, #{reason}, #{traceId})
+        ]]>
+    </insert>
+</mapper>

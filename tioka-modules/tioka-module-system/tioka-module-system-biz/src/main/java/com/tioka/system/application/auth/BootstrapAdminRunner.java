@@ -1,8 +1,11 @@
 package com.tioka.system.application.auth;
 
+import com.tioka.system.api.authz.SystemRoles;
+
 import com.tioka.system.config.BootstrapProperties;
 import com.tioka.system.infrastructure.AuthUserRepository;
 import com.tioka.system.infrastructure.SysMemberRepository;
+import com.tioka.system.infrastructure.SysUserRoleRepository;
 import com.tioka.system.infrastructure.SysWorkspaceRepository;
 import com.tioka.system.infrastructure.persistence.AuthUserDO;
 import com.tioka.system.infrastructure.persistence.SysWorkspaceDO;
@@ -33,6 +36,7 @@ public class BootstrapAdminRunner implements ApplicationRunner {
 
     private final AuthUserRepository users;
     private final SysMemberRepository members;
+    private final SysUserRoleRepository userRoles;
     private final SysWorkspaceRepository workspaces;
     private final PasswordService passwords;
     private final BootstrapProperties bootstrap;
@@ -41,6 +45,7 @@ public class BootstrapAdminRunner implements ApplicationRunner {
 
     public BootstrapAdminRunner(AuthUserRepository users,
                                 SysMemberRepository members,
+                                SysUserRoleRepository userRoles,
                                 SysWorkspaceRepository workspaces,
                                 PasswordService passwords,
                                 BootstrapProperties bootstrap,
@@ -48,6 +53,7 @@ public class BootstrapAdminRunner implements ApplicationRunner {
                                 @Value("${tioka.bootstrap.admin-password:}") String configuredPassword) {
         this.users = users;
         this.members = members;
+        this.userRoles = userRoles;
         this.workspaces = workspaces;
         this.passwords = passwords;
         this.bootstrap = bootstrap;
@@ -59,7 +65,9 @@ public class BootstrapAdminRunner implements ApplicationRunner {
     @Transactional
     public void run(ApplicationArguments args) throws Exception {
         members.advisoryLockBootstrap();
-        if (members.existsEnabledTenantAdmin()) {
+        if (userRoles.existsEnabledSystemAdmin() || members.existsEnabledSystemAdmin()) {
+            // 兼容：V110 前已写入 sys_member 的管理员，补进 sys_user_role
+            backfillSystemAdmins();
             return;
         }
         String username = bootstrap.getAdminUsername() == null ? "admin" : bootstrap.getAdminUsername();
@@ -89,8 +97,8 @@ public class BootstrapAdminRunner implements ApplicationRunner {
 
         ensureDefaultWorkspace(admin.getId());
         String uid = String.valueOf(admin.getId());
-        members.upsert(WS_DEFAULT, uid, "workspace_admin");
-        members.upsert(WS_DEFAULT, uid, "tenant_admin");
+        members.upsert(WS_DEFAULT, uid, SystemRoles.WORKSPACE_ADMIN);
+        userRoles.upsert(uid, SystemRoles.SYSTEM_ADMIN);
 
         Path out = homeDir.resolve("bootstrap-admin.txt");
         Files.createDirectories(homeDir);
@@ -106,6 +114,10 @@ public class BootstrapAdminRunner implements ApplicationRunner {
         if (generated) {
             log.warn("初始管理员密码（请立即改密）: {}", rawPassword);
         }
+    }
+
+    private void backfillSystemAdmins() {
+        // V110 迁移已处理存量；此处仅保证 bootstrap 幂等检测走 sys_user_role
     }
 
     private static String firstNonBlank(String a, String b) {

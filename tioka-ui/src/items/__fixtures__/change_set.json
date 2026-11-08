@@ -1,0 +1,33 @@
+[
+  {
+    "name": "basic",
+    "item": {
+      "itemId": "fix_change_set_basic",
+      "seq": 1,
+      "itemType": "change_set",
+      "role": "assistant",
+      "content": {
+        "note": "fixture for change_set"
+      }
+    }
+  },
+  {
+    "name": "edge",
+    "item": {
+      "itemId": "fix_change_set_edge",
+      "seq": 1,
+      "itemType": "change_set",
+      "role": "assistant",
+      "content": {
+        "data": [
+          1,
+          2,
+          3
+        ],
+        "change_set": {
+          "op": "noop"
+        }
+      }
+    }
+  }
+]

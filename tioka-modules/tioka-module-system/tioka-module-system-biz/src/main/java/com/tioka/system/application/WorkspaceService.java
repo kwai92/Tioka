@@ -1,12 +1,14 @@
 package com.tioka.system.application;
 
+import com.tioka.system.api.authz.SystemRoles;
+
 import com.tioka.framework.error.BizException;
 import com.tioka.framework.error.ErrorCode;
 import com.tioka.framework.id.Ids;
 import com.tioka.framework.security.PrincipalHolder;
 import com.tioka.system.infrastructure.SysMemberRepository;
 import com.tioka.system.infrastructure.SysWorkspaceRepository;
-import com.tioka.system.infrastructure.dataobject.SysMemberDO;
+import com.tioka.system.infrastructure.persistence.SysMemberDO;
 import com.tioka.system.infrastructure.persistence.SysWorkspaceDO;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -30,7 +32,7 @@ public class WorkspaceService {
 
     @Transactional
     public Workspace create(String name) {
-        requireTenantAdmin();
+        requireSystemAdmin();
         long ownerId = Long.parseLong(principals.current().userId());
         String id = Ids.newId("ws");
         SysWorkspaceDO row = new SysWorkspaceDO();
@@ -38,13 +40,13 @@ public class WorkspaceService {
         row.setName(name);
         row.setOwnerUserId(ownerId);
         workspaces.insert(row);
-        members.upsert(id, String.valueOf(ownerId), "workspace_admin");
+        members.upsert(id, String.valueOf(ownerId), SystemRoles.WORKSPACE_ADMIN);
         return new Workspace(id, name, ownerId);
     }
 
-    private void requireTenantAdmin() {
+    private void requireSystemAdmin() {
         if (!principals.current().hasPermission("*")
-                && !principals.current().roles().contains("tenant_admin")) {
+                && !principals.current().roles().contains(SystemRoles.SYSTEM_ADMIN)) {
             throw new BizException(ErrorCode.FORBIDDEN);
         }
     }
@@ -58,7 +60,7 @@ public class WorkspaceService {
         row.setName(name);
         row.setOwnerUserId(ownerUserId);
         workspaces.insert(row);
-        members.upsert(id, String.valueOf(ownerUserId), "workspace_admin");
+        members.upsert(id, String.valueOf(ownerUserId), SystemRoles.WORKSPACE_ADMIN);
         return new Workspace(id, name, ownerUserId);
     }
 
@@ -68,11 +70,35 @@ public class WorkspaceService {
         return new Workspace(row.getId(), row.getName(), row.getOwnerUserId());
     }
 
+    /** GET /workspaces/{id}：仅本空间成员或 system_admin 可读。 */
+    public Workspace requireAccessible(String id) {
+        Workspace ws = require(id);
+        var p = principals.current();
+        if (p.hasPermission("*") || p.roles().contains(SystemRoles.SYSTEM_ADMIN)) {
+            return ws;
+        }
+        if (id.equals(p.workspaceId())) {
+            return ws;
+        }
+        assertMember(id, p.userId() == null ? null : Long.parseLong(p.userId()));
+        return ws;
+    }
+
     public void assertMember(String workspaceId, Long userId) {
         require(workspaceId);
         if (userId == null || !members.isMember(workspaceId, String.valueOf(userId))) {
             throw new BizException(ErrorCode.WORKSPACE_FORBIDDEN, "不是该空间成员");
         }
+    }
+
+    /** HCI-03：租户管理员列出全部空间。 */
+    public List<Workspace> listAll() {
+        requireSystemAdmin();
+        List<Workspace> out = new ArrayList<>();
+        for (SysWorkspaceDO row : workspaces.listAll()) {
+            out.add(new Workspace(row.getId(), row.getName(), row.getOwnerUserId()));
+        }
+        return out;
     }
 
     public List<MineWorkspace> mine() {

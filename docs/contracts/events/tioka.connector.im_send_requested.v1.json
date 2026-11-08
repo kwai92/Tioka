@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tioka.dev/schema/tioka.connector.im_send_requested.v1.json",
+  "title": "tioka.connector.im_send_requested.v1",
+  "description": "Request Connector to send an IM notification/card (replaces im_outbox; M2-01/M2-03).",
+  "type": "object",
+  "required": ["bindingId", "channel"],
+  "properties": {
+    "bindingId": { "type": "string" },
+    "channel": { "type": "string", "description": "feishu | dingtalk | wecom" },
+    "target": { "type": "object", "additionalProperties": true },
+    "message": { "type": "object", "additionalProperties": true },
+    "purpose": { "type": "string" },
+    "refType": { "type": "string" },
+    "refId": { "type": "string" },
+    "workspaceId": { "type": "string" }
+  },
+  "additionalProperties": true
+}

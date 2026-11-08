@@ -1,0 +1,26 @@
+[
+  {
+    "name": "basic",
+    "item": {
+      "itemId": "fix_reasoning_basic",
+      "seq": 1,
+      "itemType": "reasoning",
+      "role": "assistant",
+      "content": {
+        "reasoning": "先检索再回答"
+      }
+    }
+  },
+  {
+    "name": "empty",
+    "item": {
+      "itemId": "fix_reasoning_empty",
+      "seq": 1,
+      "itemType": "reasoning",
+      "role": "assistant",
+      "content": {
+        "reasoning": ""
+      }
+    }
+  }
+]

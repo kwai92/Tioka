@@ -1,0 +1,6 @@
+# RT-07：写工具需审批
+calls:
+  - tool_calls: [{ name: erp.update, arguments: { q: "raise-po" } }]
+    usage: { prompt: 10, completion: 6 }
+  - content: "approved and done"
+    usage: { prompt: 12, completion: 16 }

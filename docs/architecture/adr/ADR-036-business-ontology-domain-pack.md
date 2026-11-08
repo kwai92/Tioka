@@ -235,3 +235,16 @@ public interface FoldingEngine {
 | ONT-07 | 折叠调度、`ont_state`、去重 | M3 | P1 | 3 | ONT-02、ONT-05 | 乱序到达的确认事件得到相同状态 |
 | ONT-08 | 确认界面 Vue 组件（可嵌入业务系统） | M3 | P0 | 6 | ONT-02 | 只显示差异、空白、低置信度与必备要点依赖的取值 |
 | ONT-09 | 模型层评测：对象 / 属性 / 陈述的准确率与召回率、主题覆盖率、证据绑定率 | M4 | P1 | 4 | EVO-02 | 每次领域包发布自动出报告 |
+
+## 修订：文档解析与 OCR（2026-11-06）
+
+见 [ADR-060](ADR-060-document-parsing-service.md)〜[ADR-062](ADR-062-parse-quality-special-elements-security.md) 与 ADR-029 第 71 条：
+
+- 文档层不再自行解析，`doc_page`、`doc_unit`、`doc_clause` 由解析契约 `tioka.parse/v1` 映射而来（ADR-060 第 6 节）。M3 时实现仍在 `ontology-biz`，但按契约核心子集输出（PRS-00）；M4 迁入解析服务（PRS-01），表结构不变，`doc_unit.kind` 增加 SEAL 与 CHECKBOX。
+- Word 解析必须渲染自动编号、按单元格输出表格、采纳修订并分离批注（ADR-060 第 2.1 节），否则条款树建不出来。
+- 「OCR 是 Model Hub 的一种能力」改为：OCR 是文档解析服务的一个阶段，由解析方案选择引擎；VLM 类识别器仍经 Model Hub 调用，外购产品与自部署服务按 ADR-061 接入。
+- 合并规则在 M3-03 的 IoU 规则之外，增加文字层与页图一致性抽检、第二意见与来源冲突标记；取值「待复核」的条件扩充为低置信、来源冲突、手写金额日期、印章遮挡（ADR-062 第 5 节）。
+
+## 修订：文档结构树与证照抽取（2026-11-07）
+
+见 [ADR-063](ADR-063-docast-layers-element-processing.md)、[ADR-064](ADR-064-certificate-structured-extraction.md) 与 ADR-029 第 72 条：M4 起 `doc_clause` 由解析契约的章节树 `tree` 生成，`clause_path` 取节点 `path`，M3 的正则建树由结构重建器取代、口径一致；@model.build 第 0 步解析之后，对合同附带的证照段（营业执照、身份证、不动产权证书、授权委托书、发票）自动调用 `@doc.extract`，结果作为对象属性的证据来源，证据绑定照常校验；印章块的类型属性可作为「是否加盖公章或合同专用章」等要点的证据。

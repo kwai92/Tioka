@@ -1,5 +1,6 @@
 package com.tioka.system.application.auth;
 
+import com.tioka.framework.security.RolePermissionExpander;
 import com.tioka.system.infrastructure.SysRolePermissionRepository;
 import org.springframework.stereotype.Service;
 
@@ -19,10 +20,10 @@ public class RolePermissionService {
         if (roles == null || roles.isEmpty()) {
             return Set.of();
         }
-        Set<String> out = new HashSet<>();
+        Set<String> raw = new HashSet<>();
         for (String role : roles) {
-            out.addAll(repository.permissionsOfRole(role));
+            raw.addAll(repository.permissionsOfRole(role));
         }
-        return out;
+        return RolePermissionExpander.expand(raw);
     }
 }

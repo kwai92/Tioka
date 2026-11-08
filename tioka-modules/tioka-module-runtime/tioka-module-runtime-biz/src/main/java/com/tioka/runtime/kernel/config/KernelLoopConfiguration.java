@@ -3,8 +3,11 @@ package com.tioka.runtime.kernel.config;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tioka.framework.security.TiokaExecutors;
 import com.tioka.runtime.config.KernelProperties;
+import com.tioka.runtime.kernel.approval.ToolApprovalCoordinator;
+import com.tioka.runtime.kernel.child.ChildWaitService;
 import com.tioka.runtime.kernel.domain.AgentLoop;
 import com.tioka.runtime.kernel.domain.ContextBuilder;
+import com.tioka.runtime.kernel.domain.ContextSegmentRegistry;
 import com.tioka.runtime.kernel.domain.LoopPorts;
 import com.tioka.runtime.kernel.infrastructure.ItemRepository;
 import com.tioka.runtime.kernel.infrastructure.TurnRepository;
@@ -47,8 +50,8 @@ public class KernelLoopConfiguration {
     }
 
     @Bean
-    ContextBuilder contextBuilder(ObjectMapper mapper) {
-        return new ContextBuilder(mapper);
+    ContextBuilder contextBuilder(ObjectMapper mapper, ContextSegmentRegistry segments) {
+        return new ContextBuilder(mapper, segments);
     }
 
     @Bean
@@ -58,8 +61,10 @@ public class KernelLoopConfiguration {
                         ContextBuilder contextBuilder,
                         TurnRepository turns,
                         ItemRepository items,
-                        ObjectMapper mapper) {
+                        ObjectMapper mapper,
+                        ToolApprovalCoordinator approvals,
+                        ChildWaitService childWait) {
         return new AgentLoop(modelPort, toolPort, sink, contextBuilder, turns,
-                items::listBySession, mapper);
+                items::listByThread, mapper, approvals, childWait);
     }
 }

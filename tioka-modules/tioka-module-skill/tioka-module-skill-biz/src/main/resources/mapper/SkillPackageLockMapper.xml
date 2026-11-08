@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tioka.skill.infrastructure.mapper.SkillPackageLockMapper">
+
+    <select id="selectForShare" resultType="SkillPackageDO">
+        <![CDATA[
+            SELECT id, name, published, skill_md AS skillMd,
+                   workspace_id AS workspaceId, owner_id AS ownerId,
+                   create_at AS createAt, update_at AS updateAt, create_by AS createBy,
+                   update_by AS updateBy, deleted
+            FROM skill_package
+            WHERE id = #{id} AND deleted = FALSE
+            FOR SHARE
+            
+]]>
+    </select>
+
+</mapper>

@@ -1,0 +1,4 @@
+# G1-E2E 第 5 步：调用 erp.slow 后由 /stop 取消
+calls:
+  - tool_calls: [{ name: erp.slow, arguments: { q: "cancel-me" } }]
+    usage: { prompt: 10, completion: 5 }

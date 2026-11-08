@@ -1,0 +1,7 @@
+# KNW-02：知识库检索工具
+calls:
+  - tool_calls: [{ name: kb.search, arguments: { query: "policy" } }]
+    usage: { prompt: 10, completion: 6 }
+  - content: "answer from kb"
+    stream_chunk_chars: 5
+    usage: { prompt: 14, completion: 16 }

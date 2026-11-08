@@ -35,8 +35,8 @@ public class PublicApiRegistry {
             return new String[]{
                     "/api/system/auth/login",
                     "/api/system/auth/refresh",
-                    "/api/system/auth/oidc/start",
-                    "/api/system/auth/oidc/callback"
+                    "/api/system/auth/oidc/*/authorize",
+                    "/api/system/auth/oidc/*/callback"
             };
         }
         return paths.toArray(String[]::new);

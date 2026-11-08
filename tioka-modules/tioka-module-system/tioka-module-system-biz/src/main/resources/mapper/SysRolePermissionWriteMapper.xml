@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tioka.system.infrastructure.mapper.SysRolePermissionWriteMapper">
+
+    <insert id="insertRole">
+        <![CDATA[
+            INSERT INTO sys_role (code, name, scope, builtin, create_at, update_at, create_by, update_by, deleted)
+            VALUES (#{code}, #{name}, #{scope}, #{builtin}, now(), now(), 'system', 'system', FALSE)
+            
+]]>
+    </insert>
+
+    <update id="updateRoleName">
+        <![CDATA[
+            UPDATE sys_role SET name = #{name}, update_at = now()
+            WHERE code = #{code} AND deleted = FALSE
+            
+]]>
+    </update>
+
+    <update id="softDeleteRole">
+        <![CDATA[
+            UPDATE sys_role SET deleted = TRUE, update_at = now()
+            WHERE code = #{code}
+            
+]]>
+    </update>
+
+    <delete id="deletePermissions">
+        <![CDATA[
+DELETE FROM sys_role_permission WHERE role_code = #{roleCode}
+]]>
+    </delete>
+
+    <insert id="insertPermission">
+        <![CDATA[
+            INSERT INTO sys_role_permission (role_code, permission, create_at, create_by)
+            VALUES (#{roleCode}, #{permission}, now(), 'system')
+            ON CONFLICT DO NOTHING
+            
+]]>
+    </insert>
+
+    <select id="countMembersWithRole">
+        <![CDATA[
+            SELECT COUNT(*) FROM sys_member
+            WHERE role_code = #{roleCode} AND deleted = FALSE
+            
+]]>
+    </select>
+
+</mapper>

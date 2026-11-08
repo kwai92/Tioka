@@ -26,6 +26,23 @@ services:
       timeout: 3s
       retries: 10
 
+  keycloak:
+    image: quay.io/keycloak/keycloak:24.0
+    command: ["start-dev", "--import-realm"]
+    environment:
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
+      KC_HTTP_PORT: 8180
+    ports:
+      - "8180:8180"
+    volumes:
+      - ../tioka-server/src/test/resources/keycloak/tioka-realm.json:/opt/keycloak/data/import/tioka-realm.json:ro
+    healthcheck:
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/8180"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
   rocketmq-namesrv:
     image: apache/rocketmq:5.3.1
     command: sh mqnamesrv
@@ -41,6 +58,15 @@ services:
     command: sh mqbroker -n rocketmq-namesrv:9876
     ports:
       - "10911:10911"
+
+  # GOV-08：本地链路后端（UI 16686 / OTLP gRPC 4317）
+  jaeger:
+    image: jaegertracing/all-in-one:1.57
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+    ports:
+      - "16686:16686"
+      - "4317:4317"
 
 volumes:
   tioka_pg:

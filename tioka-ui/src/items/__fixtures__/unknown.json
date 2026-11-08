@@ -1,0 +1,26 @@
+[
+  {
+    "name": "basic",
+    "item": {
+      "itemId": "fix_totally_unknown_basic",
+      "seq": 1,
+      "itemType": "totally_unknown",
+      "role": "assistant",
+      "content": {
+        "x": 1
+      }
+    }
+  },
+  {
+    "name": "future-type",
+    "item": {
+      "itemId": "fix_data_future-type",
+      "seq": 1,
+      "itemType": "data",
+      "role": "assistant",
+      "content": {
+        "rows": []
+      }
+    }
+  }
+]

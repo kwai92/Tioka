@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tioka.system.infrastructure.mapper.SysMemberMapper">
+
+    <select id="existsEnabledSystemAdmin">
+        <![CDATA[
+            SELECT EXISTS(
+              SELECT 1 FROM sys_member m
+              JOIN auth_user u ON u.id::text = m.user_id
+              WHERE m.role_code = 'system_admin'
+                AND m.deleted = FALSE
+                AND u.enabled = TRUE
+                AND u.deleted = FALSE
+            )
+            
+]]>
+    </select>
+
+    <select id="advisoryLockBootstrap" resultType="Object">
+        <![CDATA[
+SELECT pg_advisory_xact_lock(hashtext('tioka.bootstrap'))
+]]>
+    </select>
+
+    <insert id="upsertMember">
+        <![CDATA[
+            INSERT INTO sys_member (workspace_id, user_id, role_code, source, create_at, update_at, create_by, update_by, deleted)
+            VALUES (#{workspaceId}, #{userId}, #{roleCode}, 'manual', now(), now(), 'system', 'system', FALSE)
+            ON CONFLICT (workspace_id, user_id, role_code) DO UPDATE
+              SET deleted = FALSE, update_at = now()
+            
+]]>
+    </insert>
+
+    <insert id="upsertMemberWithSource">
+        <![CDATA[
+            INSERT INTO sys_member (workspace_id, user_id, role_code, source, create_at, update_at, create_by, update_by, deleted)
+            VALUES (#{workspaceId}, #{userId}, #{roleCode}, #{source}, now(), now(), 'system', 'system', FALSE)
+            ON CONFLICT (workspace_id, user_id, role_code) DO UPDATE
+              SET deleted = FALSE, source = EXCLUDED.source, update_at = now(), update_by = 'system'
+            
+]]>
+    </insert>
+
+    <select id="listByUserId" resultType="SysMemberDO">
+        <![CDATA[
+            SELECT workspace_id AS workspaceId, user_id AS userId, role_code AS roleCode,
+                   source AS source, deleted AS deleted
+            FROM sys_member
+            WHERE user_id = #{userId} AND deleted = FALSE
+            
+]]>
+    </select>
+
+    <select id="listByUserIdAndSource" resultType="SysMemberDO">
+        <![CDATA[
+            SELECT workspace_id AS workspaceId, user_id AS userId, role_code AS roleCode,
+                   source AS source, deleted AS deleted
+            FROM sys_member
+            WHERE user_id = #{userId} AND source = #{source} AND deleted = FALSE
+            
+]]>
+    </select>
+
+    <select id="isMember">
+        <![CDATA[
+            SELECT EXISTS(
+              SELECT 1 FROM sys_member
+              WHERE workspace_id = #{workspaceId} AND user_id = #{userId} AND deleted = FALSE
+            )
+            
+]]>
+    </select>
+
+    <select id="listByWorkspace" resultType="SysMemberDO">
+        <![CDATA[
+            SELECT workspace_id AS workspaceId, user_id AS userId, role_code AS roleCode,
+                   source AS source, deleted AS deleted
+            FROM sys_member
+            WHERE workspace_id = #{workspaceId} AND deleted = FALSE
+              AND role_code <> 'system_admin'
+            ORDER BY user_id, role_code
+            LIMIT #{limit} OFFSET #{offset}
+            
+]]>
+    </select>
+
+    <select id="countByWorkspace">
+        <![CDATA[
+            SELECT COUNT(*) FROM sys_member
+            WHERE workspace_id = #{workspaceId} AND deleted = FALSE
+              AND role_code <> 'system_admin'
+            
+]]>
+    </select>
+
+    <select id="countWorkspaceAdmins">
+        <![CDATA[
+            SELECT COUNT(*) FROM sys_member
+            WHERE workspace_id = #{workspaceId} AND role_code = 'workspace_admin' AND deleted = FALSE
+            
+]]>
+    </select>
+
+    <update id="softDeleteUser">
+        <![CDATA[
+            UPDATE sys_member SET deleted = TRUE, update_at = now()
+            WHERE workspace_id = #{workspaceId} AND user_id = #{userId} AND deleted = FALSE
+            
+]]>
+    </update>
+
+    <update id="softDeleteWorkspaceRoles">
+        <![CDATA[
+            UPDATE sys_member SET deleted = TRUE, update_at = now()
+            WHERE workspace_id = #{workspaceId} AND user_id = #{userId}
+              AND role_code <> 'system_admin' AND deleted = FALSE
+            
+]]>
+    </update>
+
+    <update id="softDeleteOne">
+        <![CDATA[
+            UPDATE sys_member SET deleted = TRUE, update_at = now(), update_by = 'system'
+            WHERE workspace_id = #{workspaceId} AND user_id = #{userId}
+              AND role_code = #{roleCode} AND deleted = FALSE
+            
+]]>
+    </update>
+
+</mapper>

@@ -3,28 +3,25 @@ package com.tioka.chat.infrastructure;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.tioka.chat.infrastructure.mapper.ChatConversationMapper;
 import com.tioka.chat.infrastructure.mapper.ChatMemoryMapper;
-import com.tioka.chat.infrastructure.mapper.ChatMessageMapper;
 import com.tioka.chat.infrastructure.persistence.ChatConversationDO;
 import com.tioka.chat.infrastructure.persistence.ChatMemoryDO;
-import com.tioka.chat.infrastructure.persistence.ChatMessageDO;
 import com.tioka.framework.security.Principal;
 import com.tioka.framework.security.PrincipalHolder;
 import com.tioka.framework.security.PrincipalType;
 import org.springframework.stereotype.Repository;
 
+import java.time.OffsetDateTime;
 import java.util.List;
 
 @Repository
 public class ChatRepository {
     private final ChatConversationMapper conversations;
-    private final ChatMessageMapper messages;
     private final ChatMemoryMapper memories;
     private final PrincipalHolder principals;
 
-    public ChatRepository(ChatConversationMapper conversations, ChatMessageMapper messages,
+    public ChatRepository(ChatConversationMapper conversations,
                           ChatMemoryMapper memories, PrincipalHolder principals) {
         this.conversations = conversations;
-        this.messages = messages;
         this.memories = memories;
         this.principals = principals;
     }
@@ -54,15 +51,41 @@ public class ChatRepository {
         if (findConversation(id) == null) {
             return;
         }
+        // @TableLogic：逻辑删（禁止物理 DELETE）
         conversations.deleteById(id);
     }
 
-    public void insertMessage(ChatMessageDO row) { messages.insert(row); }
+    public void touchActivity(String conversationId, String newTitleOrNull, OffsetDateTime lastActiveAt) {
+        ChatConversationDO row = findConversation(conversationId);
+        if (row == null) {
+            return;
+        }
+        row.setLastActiveAt(lastActiveAt);
+        if (newTitleOrNull != null && !newTitleOrNull.isBlank()) {
+            row.setTitle(newTitleOrNull);
+        }
+        conversations.updateById(row);
+    }
 
-    public List<ChatMessageDO> listMessages(String conversationId) {
-        return messages.selectList(Wrappers.<ChatMessageDO>lambdaQuery()
-                .eq(ChatMessageDO::getConversationId, conversationId)
-                .orderByAsc(ChatMessageDO::getCreatedOrd));
+    /** 按主键更新预览，不走归属过滤（Turn 派发线程可能无 Principal）。 */
+    public void updateLastPreview(String conversationId, String preview) {
+        ChatConversationDO row = conversations.selectById(conversationId);
+        if (row == null) {
+            return;
+        }
+        row.setLastPreview(preview);
+        conversations.updateById(row);
+    }
+
+    /** 按 thread（runtime_thread_id）反查会话 ID；派发线程无 originRef 时兜底。 */
+    public String findConversationIdByThreadId(String threadId) {
+        if (threadId == null || threadId.isBlank()) {
+            return null;
+        }
+        ChatConversationDO row = conversations.selectOne(Wrappers.<ChatConversationDO>lambdaQuery()
+                .eq(ChatConversationDO::getRuntimeThreadId, threadId)
+                .last("LIMIT 1"));
+        return row == null ? null : row.getId();
     }
 
     public void upsertMemory(ChatMemoryDO row) {

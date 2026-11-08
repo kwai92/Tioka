@@ -3,19 +3,29 @@ package com.tioka.mcp.domain;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tioka.mcp.infrastructure.McpRepository;
-import com.tioka.mcp.infrastructure.persistence.McpGrantDO;
 import com.tioka.mcp.infrastructure.persistence.McpServerDO;
 import com.tioka.mcp.infrastructure.persistence.McpToolDO;
 import org.springframework.stereotype.Repository;
 
+import com.tioka.framework.error.BizException;
+import com.tioka.framework.error.ErrorCode;
+import com.tioka.runtime.api.approval.ToolRisk;
+import com.tioka.runtime.api.spi.Reversibility;
+
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Repository
 public class McpStore {
     private final McpRepository repo;
     private final ObjectMapper mapper;
+    /**
+     * 管理端可逆性覆盖（PK-24c）。持久化列随 PK-24b V144 落入 {@code mcp_tool.reversibility}。
+     */
+    private final ConcurrentHashMap<String, Reversibility> reversibilityOverrides = new ConcurrentHashMap<>();
 
     public McpStore(McpRepository repo, ObjectMapper mapper) {
         this.mapper = mapper;
@@ -44,7 +54,16 @@ public class McpStore {
                 .toList();
     }
 
+    /**
+     * 全量替换工具列表。同名工具保留已配置 {@code risk}；新工具默认 WRITE（FE-01）。
+     */
     public void replaceTools(String serverId, List<Tool> tools) {
+        Map<String, String> existingRisk = new HashMap<>();
+        for (McpToolDO old : repo.listTools(serverId)) {
+            if (old.getRisk() != null && !old.getRisk().isBlank()) {
+                existingRisk.put(old.getName(), old.getRisk());
+            }
+        }
         List<McpToolDO> rows = tools.stream().map(t -> {
             McpToolDO row = new McpToolDO();
             row.setId(serverId + ":" + t.name());
@@ -52,36 +71,71 @@ public class McpStore {
             row.setName(t.name());
             row.setDescription(t.description());
             row.setInputSchema(toJson(t.inputSchema()));
+            String preserved = existingRisk.get(t.name());
+            if (preserved != null) {
+                row.setRisk(preserved);
+            } else {
+                row.setRisk(t.risk() == null || t.risk().isBlank() ? "WRITE" : t.risk());
+            }
             return row;
         }).toList();
         repo.replaceTools(serverId, rows);
     }
 
+    public Optional<Tool> findTool(String serverId, String toolName) {
+        McpToolDO row = repo.findTool(serverId, toolName);
+        if (row == null) return Optional.empty();
+        return Optional.of(new Tool(row.getName(), row.getDescription(), fromMap(row.getInputSchema()),
+                row.getRisk() == null || row.getRisk().isBlank() ? "WRITE" : row.getRisk()));
+    }
+
+    public Tool updateToolRisk(String serverId, String toolName, String risk) {
+        McpToolDO row = repo.findTool(serverId, toolName);
+        if (row == null) {
+            throw new BizException(ErrorCode.NOT_FOUND, "mcp tool 不存在");
+        }
+        if (!repo.updateToolRisk(serverId, toolName, risk)) {
+            throw new BizException(ErrorCode.NOT_FOUND, "mcp tool 不存在");
+        }
+        return new Tool(row.getName(), row.getDescription(), fromMap(row.getInputSchema()), risk);
+    }
+
+    /** ADR-033：管理端覆盖可逆性；COMPENSABLE 须已配置补偿工具（本阶段仅校验枚举）。 */
+    public Reversibility updateToolReversibility(String serverId, String toolName, String raw) {
+        if (repo.findTool(serverId, toolName) == null) {
+            throw new BizException(ErrorCode.NOT_FOUND, "mcp tool 不存在");
+        }
+        if (raw == null || raw.isBlank()) {
+            throw new BizException(ErrorCode.BAD_REQUEST, "reversibility 不能为空");
+        }
+        Reversibility rev;
+        try {
+            rev = Reversibility.valueOf(raw.trim());
+        } catch (IllegalArgumentException e) {
+            throw new BizException(ErrorCode.BAD_REQUEST,
+                    "reversibility 须为 NONE|REVERSIBLE|COMPENSABLE|IRREVERSIBLE");
+        }
+        reversibilityOverrides.put(key(serverId, toolName), rev);
+        return rev;
+    }
+
+    public Reversibility reversibilityOf(String serverId, String toolName, ToolRisk risk) {
+        Reversibility override = reversibilityOverrides.get(key(serverId, toolName));
+        if (override != null) {
+            return override;
+        }
+        return risk == ToolRisk.READ ? Reversibility.NONE : Reversibility.IRREVERSIBLE;
+    }
+
+    private static String key(String serverId, String toolName) {
+        return serverId + ":" + toolName;
+    }
+
     public List<Tool> tools(String serverId) {
         return repo.listTools(serverId).stream()
-                .map(r -> new Tool(r.getName(), r.getDescription(), fromMap(r.getInputSchema())))
+                .map(r -> new Tool(r.getName(), r.getDescription(), fromMap(r.getInputSchema()),
+                        r.getRisk() == null || r.getRisk().isBlank() ? "WRITE" : r.getRisk()))
                 .toList();
-    }
-
-    public void putGrant(Grant g) {
-        McpGrantDO row = new McpGrantDO();
-        row.setId(g.id());
-        row.setAgentId(g.agentId());
-        row.setServerId(g.serverId());
-        row.setAllowlist(toJsonList(g.allowlist()));
-        repo.upsertGrant(row);
-    }
-
-    public List<Grant> grants() {
-        return repo.listGrants().stream()
-                .map(r -> new Grant(r.getId(), r.getAgentId(), r.getServerId(), fromList(r.getAllowlist())))
-                .toList();
-    }
-
-    public Optional<Grant> getGrant(String id) {
-        McpGrantDO row = repo.findGrant(id);
-        return row == null ? Optional.empty()
-                : Optional.of(new Grant(row.getId(), row.getAgentId(), row.getServerId(), fromList(row.getAllowlist())));
     }
 
     private String toJson(Map<String, Object> map) {
@@ -119,6 +173,12 @@ public class McpStore {
     }
 
     public record McpServer(String id, String name, String baseUrl, String headerSecretRef, String status) {}
-    public record Tool(String name, String description, Map<String, Object> inputSchema) {}
-    public record Grant(String id, String agentId, String serverId, List<String> allowlist) {}
+
+    /** {@code risk} 对应 mcp_tool.risk（V114），缺省 WRITE。 */
+    public record Tool(String name, String description, Map<String, Object> inputSchema, String risk) {
+        public Tool(String name, String description, Map<String, Object> inputSchema) {
+            this(name, description, inputSchema, "WRITE");
+        }
+    }
+
 }

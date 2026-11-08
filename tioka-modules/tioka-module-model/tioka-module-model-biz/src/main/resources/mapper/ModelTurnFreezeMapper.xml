@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tioka.model.infrastructure.mapper.ModelTurnFreezeMapper">
+
+    <insert id="insertIfAbsent">
+        <![CDATA[
+            INSERT INTO model_turn_freeze
+                (thread_id, turn_id, binding_id, reason, failover_count, create_by, update_by)
+            VALUES
+                (#{threadId}, #{turnId}, #{bindingId}, #{reason}, 0, 'system', 'system')
+            ON CONFLICT (thread_id, turn_id) DO NOTHING
+            
+]]>
+    </insert>
+
+    <select id="listByThread" resultType="com.tioka.model.infrastructure.persistence.ModelTurnFreezeDO">
+        <![CDATA[
+            SELECT thread_id AS threadId, turn_id AS turnId, binding_id AS bindingId,
+                   reason, failover_count AS failoverCount
+            FROM model_turn_freeze
+            WHERE thread_id = #{threadId}
+            ORDER BY create_at
+            
+]]>
+    </select>
+
+    <update id="recordFailover">
+        <![CDATA[
+            UPDATE model_turn_freeze
+            SET binding_id = #{bindingId},
+                reason = #{reason},
+                failover_count = COALESCE(failover_count, 0) + 1,
+                update_by = 'system',
+                update_at = now()
+            WHERE thread_id = #{threadId} AND turn_id = #{turnId}
+            
+]]>
+    </update>
+
+</mapper>

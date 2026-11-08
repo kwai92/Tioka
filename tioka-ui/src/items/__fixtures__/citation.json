@@ -1,0 +1,29 @@
+[
+  {
+    "name": "basic",
+    "item": {
+      "itemId": "fix_citation_basic",
+      "seq": 1,
+      "itemType": "citation",
+      "role": "assistant",
+      "content": {
+        "citationId": "cit_1",
+        "title": "手册",
+        "snippet": "引用片段"
+      }
+    }
+  },
+  {
+    "name": "no-id",
+    "item": {
+      "itemId": "fix_citation_no-id",
+      "seq": 1,
+      "itemType": "citation",
+      "role": "assistant",
+      "content": {
+        "title": "无 id",
+        "snippet": "…"
+      }
+    }
+  }
+]

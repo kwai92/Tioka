@@ -1,0 +1,6 @@
+# RT-07：拒绝后模型收到结果并最终回答
+calls:
+  - tool_calls: [{ name: erp.update, arguments: { q: "raise-po" } }]
+    usage: { prompt: 10, completion: 6 }
+  - content: "understood, will not update"
+    usage: { prompt: 12, completion: 16 }

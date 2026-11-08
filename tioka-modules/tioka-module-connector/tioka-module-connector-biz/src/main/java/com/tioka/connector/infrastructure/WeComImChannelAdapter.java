@@ -2,6 +2,7 @@ package com.tioka.connector.infrastructure;
 
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.tioka.system.api.spi.EgressClient;
 import com.tioka.system.api.spi.ImChannelAdapter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -9,7 +10,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.net.URI;
-import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
@@ -23,14 +23,16 @@ public class WeComImChannelAdapter implements ImChannelAdapter {
     private static final Logger log = LoggerFactory.getLogger(WeComImChannelAdapter.class);
     private final ImOutboxRepository outbox;
     private final ObjectMapper mapper;
-    private final HttpClient http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build();
+    private final EgressClient egress;
     private final String webhookUrl;
 
     public WeComImChannelAdapter(ImOutboxRepository outbox,
+                                 EgressClient egress,
                                  @Value("${tioka.wecom.webhook-url:}") String webhookUrl,
                                   ObjectMapper mapper) {
         this.mapper = mapper;
         this.outbox = outbox;
+        this.egress = egress;
         this.webhookUrl = webhookUrl == null ? "" : webhookUrl.trim();
     }
 
@@ -63,12 +65,12 @@ public class WeComImChannelAdapter implements ImChannelAdapter {
                         "msgtype", "text",
                         "text", Map.of("content", String.valueOf(msg.getOrDefault("text", msg)))
                 ));
-                HttpResponse<String> resp = http.send(HttpRequest.newBuilder()
+                HttpResponse<String> resp = egress.send(HttpRequest.newBuilder()
                         .uri(URI.create(webhookUrl))
                         .timeout(Duration.ofSeconds(10))
                         .header("Content-Type", "application/json")
                         .POST(HttpRequest.BodyPublishers.ofString(body))
-                        .build(), HttpResponse.BodyHandlers.ofString());
+                        .build());
                 log.info("[wecom] webhook status={}", resp.statusCode());
             }
         } catch (Exception e) {

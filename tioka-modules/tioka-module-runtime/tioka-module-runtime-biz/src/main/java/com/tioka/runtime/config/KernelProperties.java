@@ -14,8 +14,23 @@ public class KernelProperties {
     private int maxQueuedPerThread = 5;
     private Loop loop = new Loop();
     private Events events = new Events();
-    /** LegacySessionAdapter.append 等待 Turn 终态超时。 */
-    private Duration legacyAppendTimeout = Duration.ofSeconds(120);
+    /**
+     * 关闭上下文时是否释放 ThreadLock / 让 Turn 收尾。
+     * 闸门模拟崩溃时置 false，租约留给 LeaseReaper（ENG-04b）。
+     */
+    private boolean releaseOnShutdown = true;
+    /**
+     * 是否启动 {@code TurnDispatcher} 消费 {@code rt:turns}。
+     * 普通 {@code @SpringBootTest} IT 与 GateCluster 共享 Redis 时关闭，避免抢消费。
+     */
+    private boolean dispatcherEnabled = true;
+    /** 是否启用 QueuedSweeper（与 dispatcher 同理，普通 IT 关闭以免污染共享 Redis）。 */
+    private boolean queuedSweeperEnabled = true;
+    /**
+     * 崩溃续跑上限：{@code recover_count >= maxRecover} 时标 FAILED(LEASE_LOST)。
+     * 配置键 {@code tioka.runtime.max-recover}，默认 2（即最多续跑 2 次，第 3 次中断放弃）。
+     */
+    private int maxRecover = 2;
 
     public String getInstanceId() { return instanceId; }
     public void setInstanceId(String instanceId) { this.instanceId = instanceId; }
@@ -23,6 +38,16 @@ public class KernelProperties {
     public void setLeaseTtl(Duration leaseTtl) { this.leaseTtl = leaseTtl; }
     public Duration getLeaseRenewInterval() { return leaseRenewInterval; }
     public void setLeaseRenewInterval(Duration leaseRenewInterval) { this.leaseRenewInterval = leaseRenewInterval; }
+    public boolean isReleaseOnShutdown() { return releaseOnShutdown; }
+    public void setReleaseOnShutdown(boolean releaseOnShutdown) { this.releaseOnShutdown = releaseOnShutdown; }
+    public boolean isDispatcherEnabled() { return dispatcherEnabled; }
+    public void setDispatcherEnabled(boolean dispatcherEnabled) { this.dispatcherEnabled = dispatcherEnabled; }
+    public boolean isQueuedSweeperEnabled() { return queuedSweeperEnabled; }
+    public void setQueuedSweeperEnabled(boolean queuedSweeperEnabled) {
+        this.queuedSweeperEnabled = queuedSweeperEnabled;
+    }
+    public int getMaxRecover() { return maxRecover; }
+    public void setMaxRecover(int maxRecover) { this.maxRecover = maxRecover; }
     public Executor getExecutor() { return executor; }
     public void setExecutor(Executor executor) { this.executor = executor; }
     public int getMaxQueuedPerThread() { return maxQueuedPerThread; }
@@ -31,10 +56,6 @@ public class KernelProperties {
     public void setLoop(Loop loop) { this.loop = loop; }
     public Events getEvents() { return events; }
     public void setEvents(Events events) { this.events = events; }
-    public Duration getLegacyAppendTimeout() { return legacyAppendTimeout; }
-    public void setLegacyAppendTimeout(Duration legacyAppendTimeout) {
-        this.legacyAppendTimeout = legacyAppendTimeout;
-    }
 
     public static class Executor {
         private int maxConcurrentTurns = 64;

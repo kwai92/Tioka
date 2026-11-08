@@ -7,7 +7,7 @@ spring:
   profiles:
     active: local
   datasource:
-    url: jdbc:postgresql://${TIOKA_DB_HOST:localhost}:${TIOKA_DB_PORT:5432}/${TIOKA_DB_NAME:tioka}
+    url: jdbc:postgresql://${TIOKA_DB_HOST:localhost}:${TIOKA_DB_PORT:5432}/${TIOKA_DB_NAME:tioka}?options=-c%20TimeZone%3DUTC
     username: ${TIOKA_DB_USER:tioka}
     password: ${TIOKA_DB_PASSWORD:tioka}
     driver-class-name: org.postgresql.Driver
@@ -15,10 +15,25 @@ spring:
     enabled: true
     locations: classpath:db/migration
     baseline-on-migrate: false
+    # ADR-029 第 33 条修订：迁移随工作项合入，合入顺序可能与版本号不同
+    out-of-order: true
+    placeholders:
+      embeddingDim: ${TIOKA_EMBEDDING_DIM:1024}
   data:
     redis:
       host: ${TIOKA_REDIS_HOST:localhost}
       port: ${TIOKA_REDIS_PORT:6379}
+
+mybatis-plus:
+  mapper-locations: classpath*:/mapper/**/*.xml
+  type-aliases-package: com.tioka
+  global-config:
+    db-config:
+      logic-delete-field: deleted
+      logic-delete-value: true
+      logic-not-delete-value: false
+  configuration:
+    map-underscore-to-camel-case: true
 
 management:
   endpoints:
@@ -37,16 +52,7 @@ tioka:
     name: local
   home: ${TIOKA_HOME:${user.home}/.tioka}
   persistence:
-    workspace-scoped-tables:
-      - agent_agent
-      - kb_base
-      - flow_draft
-      - mcp_server
-      - skill_package
-      - orch_run
-      - chat_conversation
-      - runtime_session
-      - runtime_approval
+    # workspace-scope-exempt-tables：默认值见 PersistenceProperties（deny-by-default）
   auth:
     local-enabled: true
     access-ttl: 8h
@@ -58,6 +64,21 @@ tioka:
   model:
     # local/slice 默认 mock；保真请叠加 profile=fidelity（见 application-fidelity.yml）
     mock: true
+    failover-max: 2
+    # MH-03：同 binding 重试 / 冷却 / 限流排队
+    retry:
+      max-attempts: 2
+      base-delay: 500ms
+      budget: 20s
+    cooldown:
+      failures: 5
+      window: 60s
+      duration: 60s
+    rate-limit-max-wait: 10s
+    timeouts:
+      connect: 10s
+      first-byte: 60s
+      stream-idle: 60s
   mcp:
     # local/slice 默认 mock；fidelity profile 关闭
     mock: true
@@ -65,3 +86,82 @@ tioka:
     # 优先环境变量 TIOKA_SECRET_MASTER_KEY；local 缺省用开发密钥并 WARN
     master-key: ${TIOKA_SECRET_MASTER_KEY:}
     require-external-key: false
+  audit:
+    sink: file
+    retention-days: 365
+    forward-batch-size: 100
+    forward-delay-ms: 5000
+    file-relative-path: audit/audit.jsonl
+    trusted-proxies: []
+    physical-purge-enabled: false
+    degraded-relative-path: audit/audit-degraded.jsonl
+  # FND-12: plugin host（默认关闭）
+  plugin:
+    enabled: false
+    signature-required: true
+    verification-keys: []
+    directory: /opt/tioka/plugins
+  knowledge:
+    embedding-dim: ${TIOKA_EMBEDDING_DIM:1024}
+    reindex-enabled: true
+    reindex-interval-ms: 15000
+    reindex-batch-size: 5
+  # SCH-01: Schema registry（默认关闭，不改变 M2 行为）
+  ontology:
+    schema:
+      enabled: false
+  # GOV-12: 配置版本框架（默认关闭，不改变 M2 行为）
+  config:
+    version:
+      enabled: false
+      reconcile-interval-ms: 30000
+  # P3-00b：评测模块（默认关闭，不改变 M2 行为）
+  eval:
+    enabled: false
+
+  # —— M2 配置键（PK-00c；实现包只追加自己的子键）——
+  messaging:
+    mode: ${TIOKA_MESSAGING_MODE:in-memory}   # rocketmq | in-memory（IT 默认 in-memory）
+    # IT/local/gate 默认关中继，避免后台线程与 LeaseReaper/Redis 关停串扰；生产见 application-prod.yml
+    relay-enabled: ${TIOKA_MESSAGING_RELAY_ENABLED:false}
+    validate-envelope: true
+    relay:
+      batch: 200
+      idle-wait: 200ms
+      lock-ttl: 15s
+    consumer:
+      max-attempts: 3
+  orch:
+    hops-limit: 8
+    flow-action-enabled: false
+    timer-poll-enabled: true
+    timer-poll-interval-ms: 5000
+  im:
+    feishu:
+      api-base: ${TIOKA_FEISHU_API_BASE:https://open.feishu.cn}
+      app-id: ${TIOKA_FEISHU_APP_ID:}
+      app-secret: ${TIOKA_FEISHU_APP_SECRET:}
+      encrypt-key: ${TIOKA_FEISHU_ENCRYPT_KEY:}
+      verification-token: ${TIOKA_FEISHU_VERIFICATION_TOKEN:}
+  credential:
+    master-key: ${TIOKA_CREDENTIAL_MASTER_KEY:}
+    key-version: ${TIOKA_CREDENTIAL_KEY_VERSION:1}
+    require-external-key: false
+  observability:
+    enabled: ${TIOKA_OTEL_ENABLED:false}
+    service-name: ${OTEL_SERVICE_NAME:tioka}
+    # GOV-08：轨迹 / Observability 页拼 Jaeger 链接；占位符 {traceId}
+    trace-url-template: ${TIOKA_TRACE_URL_TEMPLATE:http://localhost:16686/trace/{traceId}}
+    # OTEL_* 环境变量占位（由 OTel SDK / Java agent 读取，应用不强制绑定）：
+    # OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4317
+    # OTEL_TRACES_SAMPLER=parentbased_traceidratio
+    # OTEL_TRACES_SAMPLER_ARG=1.0
+    # OTEL_TRACES_EXPORTER / OTEL_METRICS_EXPORTER / OTEL_RESOURCE_ATTRIBUTES
+
+# RocketMQ 客户端：producer.group 常驻；name-server 仅环境/闸门注入时才真正建 Producer/Template。
+# （RocketMQAutoConfiguration 要求 name-server + producer.group 齐备才创建 DefaultMQProducer。）
+rocketmq:
+  producer:
+    group: ${TIOKA_MQ_PRODUCER_GROUP:tioka-producer}
+    send-message-timeout: 3000
+  # name-server: ${TIOKA_MQ_NAMESRV:}   # IT/gate 通过 DynamicProperty / GateCluster 注入

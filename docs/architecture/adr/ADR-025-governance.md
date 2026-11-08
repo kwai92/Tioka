@@ -72,3 +72,28 @@ ALTER TABLE sys_workspace ADD COLUMN promotes_to VARCHAR(64);
 - GOV-11 多环境延后到 M4 之后（ADR-029 第 42 条）。
 - Cedar context 增加委派链 `chain`、`depth`、`onBehalfOf`（[ADR-039](ADR-039-delegation-grant.md)，ADR-029 第 46 条）；行列级数据权限用 CEL，在连接器执行（[ADR-040](ADR-040-dataset-policy-data-label.md)，第 48 条）。
 - GOV-10 的内置正则 PII 脱敏提前到 M3，供数据标签的对外去向许可使用（ADR-029 第 49 条）。
+
+## 修订：管理面版本化与可观测（2026-11-06）
+
+见 [ADR-041](ADR-041-config-versioning-observability.md) 与 ADR-029 第 62 条：
+
+- GOV-06 的资产类型增加供应商、binding、别名、Prompt 模板。
+- GOV-08 的模型与配额指标以 ADR-041 第 5.2 节为准（含基数规则）；不依赖 Prometheus 的内置运行状态见 MH-10。
+- 新增 GOV-12（统一配置版本框架）与 GOV-13（告警规则与通知）。
+
+## 修订：安全护栏（2026-11-07）
+
+见 [ADR-065](ADR-065-guardrail-pipeline-input-safety.md)〜[ADR-067](ADR-067-output-safety-guardrail-eval.md) 与 ADR-029 第 73 条：
+
+- `ContentSafetyHook` 的三个挂点并入 [ADR-065](ADR-065-guardrail-pipeline-input-safety.md) 的护栏管线（`IN`、`OUT`、`TOOL` / `SINK`），动作「放行 / 脱敏 / 拦截」对应 `ALLOW` / `REWRITE` / `BLOCK`，另增 `FLAG`、`ESCALATE`。
+- `gov_safety_policy` 由版本化配置 `guardrail_policy` 取代（ADR-041 资产类型），迁移按 `(workspace_id, hook_point)` 映射。
+- GOV-10 的内置正则仍随 DAT-02 在 M3 交付；M4 的 GRD-04 替换为带校验位的识别器，并增加可逆假名化（缺省关闭）与密钥检测。
+- 输出渲染安全、生成内容标识与护栏评测见 [ADR-067](ADR-067-output-safety-guardrail-eval.md)。
+
+## 修订：审计、关联与时间线（2026-11-07）
+
+见 [ADR-072](ADR-072-audit-event-model-coverage.md)〜[ADR-075](ADR-075-unified-timeline-evidence.md) 与 ADR-029 第 75 条：
+
+- GOV-08：`audit_event`、`model_usage` 之外的记录表也带关联键；除 `trace_id` 外增加 `request_id`、`subject`；采样改为 Collector 尾部采样，日志聚合缺省 Loki（[ADR-073](ADR-073-correlation-trace-propagation.md)）。
+- GOV-09：提前到 M4 前段、P1；链覆盖审计、外部交互台账、运行清单；应用账号对这些表只有 INSERT 与 SELECT；外部锚点增加对象存储；保留与归档按 ADR-072 第 7 节。
+- 跨系统往来统一记入外部交互台账（[ADR-074](ADR-074-external-interaction-ledger.md)）；按请求与业务主体的时间线见 [ADR-075](ADR-075-unified-timeline-evidence.md)。

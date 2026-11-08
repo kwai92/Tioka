@@ -1,0 +1,62 @@
+[
+  {
+    "name": "tool-pending",
+    "item": {
+      "itemId": "fix_card_tool-pending",
+      "seq": 1,
+      "itemType": "card",
+      "role": "system",
+      "content": {
+        "kind": "tool",
+        "approvalId": "apv_1",
+        "toolName": "fs.write",
+        "risk": "WRITE",
+        "reason": "写入需审批",
+        "args": {
+          "path": "/tmp/a",
+          "body": "x"
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string"
+            },
+            "body": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "path",
+            "body"
+          ],
+          "additionalProperties": false
+        }
+      }
+    }
+  },
+  {
+    "name": "tool-decided",
+    "item": {
+      "itemId": "fix_card_tool-decided",
+      "seq": 1,
+      "itemType": "card",
+      "role": "system",
+      "content": {
+        "kind": "tool",
+        "approvalId": "apv_2",
+        "toolName": "fs.write",
+        "risk": "DESTRUCTIVE",
+        "reason": "已处理",
+        "args": {
+          "path": "/tmp/b"
+        }
+      }
+    },
+    "approval": {
+      "approvalId": "apv_2",
+      "status": "APPROVED",
+      "decidedBy": "user_alice"
+    }
+  }
+]

@@ -162,3 +162,7 @@ ID 前缀：`grt` 授予。新增错误码：`GRANT_NOT_NARROWER`（签发失败
 | DAT-04 | Flow 透传授予与 `requiredCapabilities` | M3 | P1 | 3 | FLW-06、MAS-01 | 超授予的 Flow 启动即拒 |
 | DAT-05 | 权限回答页 | M4 | P2 | 3 | MAS-01 | — |
 | DAT-06 | Token Exchange 缩权令牌（`act` 声明） | M4 | P2 | 3 | CON-05 | — |
+
+## 修订：审计字段归入统一模型（2026-11-07）
+
+见 [ADR-072](ADR-072-audit-event-model-coverage.md) 与 ADR-029 第 75 条：本 ADR「审计」一节新增的 `audit_event` 列并入统一审计事件模型的「主体」组，由写入端自动补齐；列在 M2 的 OBS-05 迁移中提前建好，MAS-01 在 M3 只负责填值。运行开始时的授予与链同时写入运行清单（[ADR-075](ADR-075-unified-timeline-evidence.md)）。

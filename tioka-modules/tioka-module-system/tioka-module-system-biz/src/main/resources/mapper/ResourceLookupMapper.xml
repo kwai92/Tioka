@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tioka.system.infrastructure.mapper.ResourceLookupMapper">
+
+    <select id="findAgent" resultType="java.util.HashMap">
+        <![CDATA[
+            SELECT id, workspace_id AS workspaceId, owner_id AS ownerId, visibility
+            FROM agent_agent
+            WHERE id = #{id} AND deleted = FALSE
+            
+]]>
+    </select>
+
+    <select id="findKb" resultType="java.util.HashMap">
+        <![CDATA[
+            SELECT id, workspace_id AS workspaceId, owner_id AS ownerId, visibility
+            FROM kb_base
+            WHERE id = #{id} AND deleted = FALSE
+            
+]]>
+    </select>
+
+    <select id="findFlow" resultType="java.util.HashMap">
+        <![CDATA[
+            SELECT id, workspace_id AS workspaceId, owner_id AS ownerId, visibility
+            FROM flow_draft
+            WHERE id = #{id} AND deleted = FALSE
+            
+]]>
+    </select>
+
+    <select id="findMcp" resultType="java.util.HashMap">
+        <![CDATA[
+            SELECT id, workspace_id AS workspaceId, owner_id AS ownerId, visibility
+            FROM mcp_server
+            WHERE id = #{id} AND deleted = FALSE
+            
+]]>
+    </select>
+
+    <select id="findSkill" resultType="java.util.HashMap">
+        <![CDATA[
+            SELECT id, workspace_id AS workspaceId, owner_id AS ownerId, visibility
+            FROM skill_package
+            WHERE id = #{id} AND deleted = FALSE
+            
+]]>
+    </select>
+
+    <select id="listAgentIds" resultType="String">
+        <![CDATA[
+            SELECT id FROM agent_agent
+            WHERE workspace_id = #{workspaceId} AND deleted = FALSE
+            
+]]>
+    </select>
+
+    <select id="listKbIds" resultType="String">
+        <![CDATA[
+            SELECT id FROM kb_base
+            WHERE workspace_id = #{workspaceId} AND deleted = FALSE
+            
+]]>
+    </select>
+
+    <select id="listFlowIds" resultType="String">
+        <![CDATA[
+            SELECT id FROM flow_draft
+            WHERE workspace_id = #{workspaceId} AND deleted = FALSE
+            
+]]>
+    </select>
+
+    <select id="listMcpIds" resultType="String">
+        <![CDATA[
+            SELECT id FROM mcp_server
+            WHERE workspace_id = #{workspaceId} AND deleted = FALSE
+            
+]]>
+    </select>
+
+    <select id="listSkillIds" resultType="String">
+        <![CDATA[
+            SELECT id FROM skill_package
+            WHERE workspace_id = #{workspaceId} AND deleted = FALSE
+            
+]]>
+    </select>
+
+    <select id="filterAgentIds" resultType="String">
+        <![CDATA[
+            SELECT id FROM agent_agent
+            WHERE workspace_id = #{workspaceId} AND deleted = FALSE
+              AND (${filterSql})
+            
+]]>
+    </select>
+
+    <select id="filterKbIds" resultType="String">
+        <![CDATA[
+            SELECT id FROM kb_base
+            WHERE workspace_id = #{workspaceId} AND deleted = FALSE
+              AND (${filterSql})
+            
+]]>
+    </select>
+
+</mapper>

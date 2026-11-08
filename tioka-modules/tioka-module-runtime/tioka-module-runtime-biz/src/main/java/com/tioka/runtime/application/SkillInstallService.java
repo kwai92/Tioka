@@ -19,12 +19,12 @@ public class SkillInstallService {
         this.workspaceFs = workspaceFs;
     }
 
-    public void install(String workspaceId, String sessionId, List<SkillSnapshot> skills) {
+    public void install(String workspaceId, String threadId, List<SkillSnapshot> skills) {
         if (skills == null || skills.isEmpty()) return;
         for (SkillSnapshot sk : skills) {
             if (sk == null || sk.name() == null || sk.name().isBlank()) continue;
             String path = "skills/" + sk.name() + "/SKILL.md";
-            workspaceFs.writeBytes(workspaceId, sessionId, path,
+            workspaceFs.writeBytes(workspaceId, threadId, path,
                     sk.skillMd() == null ? new byte[0] : sk.skillMd().getBytes(StandardCharsets.UTF_8));
         }
     }

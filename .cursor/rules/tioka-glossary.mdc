@@ -1,0 +1,19 @@
+---
+description: Tioka 统一名词硬约束（指向 47-GL）
+alwaysApply: true
+---
+
+# 统一名词
+
+权威表：`docs/architecture/enterprise/47-GL-统一名词释义.md`
+
+## 硬禁用 → 权威
+
+- 产品实体 **Tenant / 租户** → **Workspace（空间）**
+- 角色码 **`tenant_admin`** → **`system_admin`**
+- DO/API/新迁移 **`tenantId` / `tenant_id`** → **`workspaceId` / `workspace_id`**
+- OIDC **`tenant-role` / `tenantRole`** → **`system-role` / `systemRole`**
+
+## 遗留（本阶段勿「顺手重命名」）
+
+- `com.tioka.framework.tenant.TenantContext`（Depth P0 X-04 冻结）

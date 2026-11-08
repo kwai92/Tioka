@@ -11,8 +11,10 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 public class RestExceptionAdvice {
 
     @ExceptionHandler(BizException.class)
-    public ResponseEntity<ApiResponse<Void>> handleBiz(BizException ex) {
+    @SuppressWarnings("unchecked")
+    public ResponseEntity<ApiResponse<Object>> handleBiz(BizException ex) {
         HttpStatus status = HttpStatus.valueOf(ex.getErrorCode().getHttpStatus());
-        return ResponseEntity.status(status).body(ApiResponse.fail(ex.getErrorCode(), ex.getMessage()));
+        return ResponseEntity.status(status)
+                .body(ApiResponse.fail(ex.getErrorCode(), ex.getMessage(), ex.getData()));
     }
 }

@@ -85,3 +85,51 @@ CREATE TABLE model_usage_daily (day DATE, workspace_id VARCHAR(64), agent_id VAR
   calls INT, prompt_tokens BIGINT, completion_tokens BIGINT, cost_micros BIGINT,
   PRIMARY KEY (day, workspace_id, agent_id, binding_id));
 ```
+
+## 修订：管理面版本化与可观测（2026-11-06）
+
+见 [ADR-041](ADR-041-config-versioning-observability.md) 与 ADR-029 第 62 条：
+
+- LogicalModel 改名扩展为 ModelAlias（稳定名称 → 路由计划或单个 binding）；`model_default_plan` 迁移为 `sys.*` 系统别名。推荐 Agent、Flow、知识库引用别名，原来直接引用计划 ID 的方式保留。
+- 供应商、binding、别名、路由计划都是发布型对象。上文的 `model_routing_plan_version` 不再单独建表，并入通用的 `cfg_version`。
+- MH-07「成本与路由看板」并入 MH-11（统计与版本对比）；`model_usage_daily` 的维度按 ADR-041 第 6 节扩展。
+- 供给侧配额（供应商、binding、别名）在选模的候选过滤阶段生效，命中时跳过该候选，并写一条路由事件。
+- （2026-11-06，ADR-042）路由组可以带模型参数覆盖；路由事件记录最终参数与 binding 默认值的差异。凭证选用在选定 binding 之后进行，不随 Turn 冻结。
+
+## 修订：Agent 架构调研落地（2026-11-06）
+
+来由：[调研 01](../research/01-Agent与多Agent架构调研.md)、[调研 02](../research/02-Agent执行策略与执行器插件调研.md)；负责人同意按调研建议设计，见 ADR-029 第 67 条。
+
+- **向量匹配决策器（RTE-02，M4）**：内置决策器增加「向量匹配」：各类别配示例话术，按相似度给出类别与置信度，毫秒级，适合 BRANCH 模式；低于阈值时回落到配置的下一个决策器或兜底组。该决策器与入口意图路由（[ADR-044](ADR-044-entry-intent-routing.md)）共用实现。
+- **沿用上一模型的理由**：`preferPreviousInGroup` 除了保持回答风格一致，还直接影响提示缓存命中与成本，实现时不得默认关闭。
+- **规划与执行分组**：ADR-046 的 `PLAN_EXECUTE` 可为规划与执行指定不同路由组；两次选模各写一条路由事件，「只在 Turn 开始时决策」的规则对这两个组分别适用。
+- **模型多样性约束**：ADR-038 团队的 `verify` 节点可声明「与被复核任务使用不同的供应商或模型族」，选模时把被复核任务实际使用的模型族从候选中排除；无可用候选时节点失败并说明原因。
+
+## 修订：记忆与上下文工程调研落地（2026-11-06）
+
+来由：[调研 03](../research/03-Agent记忆与上下文工程调研.md)；按负责人「有选项时按推荐方案直接写设计」的要求落地，见 ADR-029 第 68 条。
+
+- `preferPreviousInGroup` 在同一 thread 内强制生效；同一 thread 内只在压缩之后、用户显式切换、或当前模型不可用时换模型（[ADR-049](ADR-049-prompt-caching.md) 规则 C5）。
+- binding 增加缓存能力字段与缓存写入、读取单价；网关按缓存模式落地组装器的断点提示（ADR-049 第 2 节，CCH-02）。
+
+## 修订：文档解析与 OCR（2026-11-06）
+
+见 [ADR-061](ADR-061-parse-engine-spi-external-ocr.md) 与 ADR-029 第 71 条：Model Hub 的 `ocr` 用途只用于 VLM 类模型（如百炼 `qwen-vl-ocr`），由文档解析服务的「模型引擎」适配器经 ModelGateway 调用，继续受配额、审计与数据标签路由约束。按页或按次计费的 OCR 与文档解析产品（阿里云文档解析、百度、腾讯、TextIn 等）和自部署解析服务不是模型绑定，按 ADR-061 的解析引擎 SPI 接入，不进路由组。
+
+## 修订：结构化输出能力记录（2026-11-07）
+
+见 [ADR-065](ADR-065-guardrail-pipeline-input-safety.md)〜[ADR-067](ADR-067-output-safety-guardrail-eval.md) 与 ADR-029 第 73 条：
+
+- 模型档案的 `structuredOutput`（ADR-037：`SCHEMA / JSON / TOOL`）改为能力记录：生成方式集合、接受的关键字、规模上限、思考模式兼容、多模态降级、是否要求提示含「json」、`max_tokens` 建议、`GA` / `BETA`、拒答与截断信号、最近一致性测试结果（[ADR-066](ADR-066-structured-output-reliability.md) 第 4 节）。能力以一致性测试为准，`BETA` 方式缺省不选用。
+- 结构化产出的 `SWITCH_MODEL` 降级沿用别名的故障接力列表，只选能力可编译且满足数据标签与配额的模型。
+- 新增用途 `guardrail`：护栏分类器（缺省 Qwen3Guard-Gen 0.6B，私有化部署）经 Model Hub 绑定调用（ADR-065 第 5 节）。
+
+
+## 修订：评测与持续改进（2026-11-07）
+
+见 [ADR-069](ADR-069-launch-gates-rollout.md)、[ADR-070](ADR-070-model-selection-eval.md) 与 ADR-029 第 74 条：
+
+- binding 必须指向供应商的固定快照名；指向「最新版」类滚动名称的 binding 显示警告，R3 Agent 引用的路由计划不得包含（发布校验拒绝）。binding 增加 `retireAt`（供应商下线日期），到期前 30 / 7 天提醒并创建选型复评任务。
+- 路由组的候选（含接力备选）应来自选型实验（ADR-070），路由计划版本说明中链接选型报告；未达场景硬门槛的候选不能作为接力备选。
+- binding 单价变化 ≥ 20% 时，按最近一次选型的实测 token 量重算每业务单位成本（ADR-070 第 5 节）。
+- 胜任度打分（MH-07 / `model_competence`）属于模型裁判，用于路由决策或评测门禁前须按 [ADR-068](ADR-068-eval-methodology.md) 第 4 节校准。

@@ -15,6 +15,7 @@
         <module>tioka-dependencies</module>
         <module>tioka-framework</module>
         <module>tioka-modules</module>
+        <module>tioka-testkit</module>
         <module>tioka-server</module>
     </modules>
 
@@ -57,7 +58,7 @@
                     <version>3.5.2</version>
                     <configuration>
                         <!-- Java 24：Mockito inline / Byte Buddy 需 experimental -->
-                        <argLine>-Dnet.bytebuddy.experimental=true</argLine>
+                        <argLine>-Dnet.bytebuddy.experimental=true -Duser.timezone=UTC</argLine>
                         <excludedGroups>gate</excludedGroups>
                         <runOrder>random</runOrder>
                         <excludes>
@@ -70,7 +71,7 @@
                     <artifactId>maven-failsafe-plugin</artifactId>
                     <version>3.5.2</version>
                     <configuration>
-                        <argLine>-Dnet.bytebuddy.experimental=true</argLine>
+                        <argLine>-Dnet.bytebuddy.experimental=true -Duser.timezone=UTC</argLine>
                         <excludedGroups>gate</excludedGroups>
                         <runOrder>random</runOrder>
                     </configuration>
@@ -85,9 +86,35 @@
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-enforcer-plugin</artifactId>
+                <version>3.5.0</version>
+                <dependencies>
+                    <dependency>
+                        <groupId>org.codehaus.mojo</groupId>
+                        <artifactId>extra-enforcer-rules</artifactId>
+                        <version>1.8.0</version>
+                    </dependency>
+                </dependencies>
+                <executions>
+                    <execution>
+                        <id>ban-circular-dependencies</id>
+                        <goals>
+                            <goal>enforce</goal>
+                        </goals>
+                        <configuration>
+                            <rules>
+                                <!-- ENG-06：禁止 Maven 模块循环依赖 -->
+                                <banCircularDependencies/>
+                            </rules>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
                 <configuration>
-                    <argLine>-Dnet.bytebuddy.experimental=true</argLine>
+                    <argLine>-Dnet.bytebuddy.experimental=true -Duser.timezone=UTC</argLine>
                     <excludedGroups>gate</excludedGroups>
                     <runOrder>random</runOrder>
                     <excludes>
@@ -133,7 +160,7 @@
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-surefire-plugin</artifactId>
                         <configuration>
-                            <argLine>-Dnet.bytebuddy.experimental=true -Dgate=true</argLine>
+                            <argLine>-Dnet.bytebuddy.experimental=true -Duser.timezone=UTC -Dgate=true</argLine>
                             <groups>gate</groups>
                             <excludedGroups combine.self="override"/>
                             <includes>
@@ -146,9 +173,8 @@
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-failsafe-plugin</artifactId>
                         <configuration>
-                            <argLine>-Dnet.bytebuddy.experimental=true -Dgate=true</argLine>
-                            <groups>gate</groups>
-                            <excludedGroups combine.self="override"/>
+                            <!-- gate 用例已由 surefire（-Pgate 含 *IT）执行；避免 failsafe 双跑导致时长/抖动 -->
+                            <skipITs>true</skipITs>
                         </configuration>
                     </plugin>
                 </plugins>

@@ -3,12 +3,11 @@ package com.tioka.flow.application.exec;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tioka.flow.application.CredentialPolicy;
 import com.tioka.flow.infrastructure.FlowSecretBridge;
-import com.tioka.system.api.spi.EgressGuard;
+import com.tioka.system.api.spi.EgressClient;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Component;
 
 import java.net.URI;
-import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
@@ -18,15 +17,14 @@ import java.util.Map;
 @Component
 public class HttpNodeExecutor implements NodeExecutor {
     private final ObjectProvider<FlowSecretBridge> secrets;
-    private final ObjectProvider<EgressGuard> egressGuard;
+    private final EgressClient egress;
     private final ObjectMapper mapper;
-    private final HttpClient http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build();
 
     public HttpNodeExecutor(ObjectProvider<FlowSecretBridge> secrets,
-                            ObjectProvider<EgressGuard> egressGuard,
+                            EgressClient egress,
                             ObjectMapper mapper) {
         this.secrets = secrets;
-        this.egressGuard = egressGuard;
+        this.egress = egress;
         this.mapper = mapper;
     }
 
@@ -48,9 +46,6 @@ public class HttpNodeExecutor implements NodeExecutor {
             CredentialPolicy.assertSecretRef("apiKeyRef", apiKeyRef);
         }
 
-        EgressGuard guard = egressGuard.getIfAvailable();
-        if (guard != null) guard.assertAllowed(url);
-
         HttpRequest.Builder b = HttpRequest.newBuilder()
                 .uri(URI.create(url))
                 .timeout(Duration.ofSeconds(15));
@@ -67,7 +62,7 @@ public class HttpNodeExecutor implements NodeExecutor {
         } else {
             b.GET();
         }
-        HttpResponse<String> resp = http.send(b.build(), HttpResponse.BodyHandlers.ofString());
+        HttpResponse<String> resp = egress.send(b.build());
         Map<String, Object> out = new LinkedHashMap<>();
         out.put("status", resp.statusCode());
         out.put("body", resp.body());

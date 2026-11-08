@@ -4,7 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tioka.runtime.api.kernel.ItemType;
 import com.tioka.runtime.api.kernel.TurnStatus;
 import com.tioka.runtime.kernel.infrastructure.TurnRepository;
-import com.tioka.runtime.kernel.infrastructure.persistence.RuntimeItemDO;
+import com.tioka.runtime.infrastructure.persistence.RuntimeItemDO;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -97,6 +97,39 @@ class AgentLoopTest {
         assertEquals(TurnStatus.COMPLETED, r.status());
         assertFalse(sink.toolResults.get(0).ok());
         assertEquals("survived", sink.messages.get(0));
+    }
+
+    @Test
+    void pendingToolSuspendsWaitingChild() {
+        TurnRepository turns = mock(TurnRepository.class);
+        when(turns.incrementStep(anyString(), anyLong())).thenReturn(1);
+        com.tioka.runtime.kernel.child.ChildWaitService childWait =
+                mock(com.tioka.runtime.kernel.child.ChildWaitService.class);
+        LoopPorts.ToolPort pendingPort = new LoopPorts.ToolPort() {
+            @Override
+            public List<Map<String, Object>> describe(LoopContext ctx) {
+                return List.of(Map.of("type", "function",
+                        "function", Map.of("name", "async.defer")));
+            }
+
+            @Override
+            public List<LoopPorts.ToolOutcome> invokeAll(LoopContext ctx, List<LoopPorts.ToolCall> calls) {
+                return calls.stream()
+                        .map(c -> new LoopPorts.ToolOutcome(c.callId(), c.name(), true, "accepted", 1L, null,
+                                new com.tioka.runtime.api.spi.ToolProvider.PendingJob(
+                                        "async.defer", "job_1", java.time.Duration.ofSeconds(30))))
+                        .toList();
+            }
+        };
+        AgentLoop withChild = new AgentLoop(model, pendingPort, sink,
+                new ContextBuilder(mapper), turns, tid -> List.copyOf(items), mapper, null, childWait);
+        model.script(tools("async.defer", "{}"), text("should-not"));
+        LoopResult r = withChild.run(ctx(20, 3));
+        assertEquals(TurnStatus.WAITING_CHILD, r.status());
+        assertEquals(1, sink.toolResults.size());
+        assertNotNull(sink.toolResults.get(0).pending());
+        org.mockito.Mockito.verify(childWait).suspend(org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.anyList());
     }
 
     @Test
@@ -253,10 +286,11 @@ class AgentLoopTest {
         }
 
         @Override
-        public void toolCall(LoopContext ctx, int step, LoopPorts.ToolCall call) {
+        public String toolCall(LoopContext ctx, int step, LoopPorts.ToolCall call) {
             toolCalls.add(call);
-            appendItem(ctx, step, ItemType.TOOL_CALL.wire(), "assistant",
+            RuntimeItemDO item = appendItem(ctx, step, ItemType.TOOL_CALL.wire(), "assistant",
                     Map.of("callId", call.callId(), "name", call.name(), "arguments", call.argumentsJson()));
+            return item.getId();
         }
 
         @Override
@@ -273,9 +307,10 @@ class AgentLoopTest {
             appendItem(ctx, step, ItemType.STATUS.wire(), "system", Map.of("kind", kind));
         }
 
-        private void appendItem(LoopContext ctx, int step, String type, String role, Object content) {
+        private RuntimeItemDO appendItem(LoopContext ctx, int step, String type, String role, Object content) {
             RuntimeItemDO item = new RuntimeItemDO();
-            item.setSessionId(ctx.threadId());
+            item.setId("itm_" + (items.size() + 1));
+            item.setThreadId(ctx.threadId());
             item.setTurnId(ctx.turnId());
             item.setStep(step);
             item.setType(type);
@@ -288,6 +323,7 @@ class AgentLoopTest {
             }
             item.setDiscarded(false);
             items.add(item);
+            return item;
         }
     }
 }

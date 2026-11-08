@@ -10,9 +10,12 @@ public class KbBaseDO extends WorkspaceAwareDO {
     @TableId(type = IdType.INPUT)
     private String id;
     private String name;
+    private String embeddingBindingId;
 
     public String getId() { return id; }
     public void setId(String id) { this.id = id; }
     public String getName() { return name; }
     public void setName(String name) { this.name = name; }
+    public String getEmbeddingBindingId() { return embeddingBindingId; }
+    public void setEmbeddingBindingId(String embeddingBindingId) { this.embeddingBindingId = embeddingBindingId; }
 }

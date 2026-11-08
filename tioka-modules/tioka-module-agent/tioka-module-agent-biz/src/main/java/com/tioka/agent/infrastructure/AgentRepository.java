@@ -1,5 +1,6 @@
 package com.tioka.agent.infrastructure;
 
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.tioka.agent.infrastructure.mapper.AgentMapper;
 import com.tioka.agent.infrastructure.mapper.AgentVersionMapper;
 import com.tioka.agent.infrastructure.persistence.AgentDO;
@@ -38,21 +39,44 @@ public class AgentRepository {
         }
     }
 
-    public AgentDO findAgent(String id) { return agents.selectById(id); }
-
-    public List<AgentDO> listAgents() { return agents.selectList(null); }
-
-    public void upsertVersion(AgentVersionDO row) {
-        AgentVersionDO existing = versions.selectById(row.getId());
-        if (existing == null) {
-            versions.insert(row);
-            return;
-        }
-        if (Boolean.TRUE.equals(existing.getPublished())) {
-            throw new BizException(ErrorCode.CONFLICT, "已发布版本不可变: " + row.getId());
-        }
-        versions.updateById(row);
+    public AgentDO findAgent(String id) {
+        return agents.selectById(id);
     }
 
-    public AgentVersionDO findVersion(String id) { return versions.selectById(id); }
+    public List<AgentDO> listAgents() {
+        return agents.selectList(null);
+    }
+
+    /** 仅插入；已发布版本不可变，不提供 update。 */
+    public void insertVersion(AgentVersionDO row) {
+        versions.insert(row);
+    }
+
+    public AgentVersionDO findVersion(String id) {
+        return versions.selectById(id);
+    }
+
+    public List<AgentVersionDO> listVersions(String agentId) {
+        return versions.selectList(new QueryWrapper<AgentVersionDO>()
+                .eq("agent_id", agentId)
+                .orderByAsc("version_no"));
+    }
+
+    public int maxVersionNo(String agentId) {
+        AgentVersionDO row = versions.selectOne(new QueryWrapper<AgentVersionDO>()
+                .eq("agent_id", agentId)
+                .orderByDesc("version_no")
+                .last("LIMIT 1"));
+        return row == null || row.getVersionNo() == null ? 0 : row.getVersionNo();
+    }
+
+    /** 仅允许 RETIRED 状态更新（ArchUnit agentVersionImmutable 例外）。 */
+    public void retire(String versionId) {
+        AgentVersionDO existing = versions.selectById(versionId);
+        if (existing == null) {
+            throw new BizException(ErrorCode.NOT_FOUND, "version 不存在");
+        }
+        existing.setStatus("RETIRED");
+        versions.updateById(existing);
+    }
 }

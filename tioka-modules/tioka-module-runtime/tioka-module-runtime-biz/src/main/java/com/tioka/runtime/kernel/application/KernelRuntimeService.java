@@ -1,7 +1,9 @@
 package com.tioka.runtime.kernel.application;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.tioka.agent.api.AgentQueryApi;
+import com.tioka.agent.api.AgentSnapshotApi;
+import com.tioka.framework.context.RequestContext;
+import com.tioka.framework.context.RequestContextHolder;
 import com.tioka.framework.error.BizException;
 import com.tioka.framework.error.ErrorCode;
 import com.tioka.framework.error.NotImplemented;
@@ -13,14 +15,17 @@ import com.tioka.runtime.api.kernel.RuntimeApi;
 import com.tioka.runtime.api.kernel.RuntimeEventType;
 import com.tioka.runtime.api.kernel.TurnStatus;
 import com.tioka.runtime.config.KernelProperties;
-import com.tioka.runtime.infrastructure.RuntimeSessionRepository;
-import com.tioka.runtime.infrastructure.persistence.RuntimeSessionDO;
+import com.tioka.runtime.infrastructure.RuntimeThreadRepository;
+import com.tioka.runtime.infrastructure.persistence.RuntimeThreadDO;
+import com.tioka.runtime.kernel.approval.ApprovalDecideService;
 import com.tioka.runtime.kernel.events.EventStream;
 import com.tioka.runtime.kernel.events.RuntimeEventFactory;
 import com.tioka.runtime.kernel.infrastructure.ItemRepository;
+import com.tioka.runtime.kernel.infrastructure.ItemWrite;
 import com.tioka.runtime.kernel.infrastructure.TurnRepository;
-import com.tioka.runtime.kernel.infrastructure.persistence.RuntimeItemDO;
-import com.tioka.runtime.kernel.infrastructure.persistence.RuntimeTurnDO;
+import com.tioka.runtime.infrastructure.persistence.RuntimeItemDO;
+import com.tioka.runtime.infrastructure.persistence.RuntimeTurnDO;
+import com.tioka.runtime.kernel.infrastructure.redis.TurnDispatchQueue;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,41 +33,44 @@ import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.Instant;
-import java.time.OffsetDateTime;
+import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 @Service
 public class KernelRuntimeService implements RuntimeApi {
-    private final RuntimeSessionRepository sessions;
+    private final RuntimeThreadRepository threads;
     private final TurnRepository turns;
     private final ItemRepository items;
-    private final TurnScheduler scheduler;
+    private final TurnDispatchQueue dispatchQueue;
     private final TurnSignalService signals;
     private final PrincipalHolder principals;
     private final KernelProperties props;
     private final EventStream streams;
     private final RuntimeEventFactory events;
     private final ObjectMapper mapper;
-    private final AgentQueryApi agents;
+    private final AgentSnapshotApi agents;
+    private final ApprovalDecideService approvalDecide;
 
-    public KernelRuntimeService(RuntimeSessionRepository sessions,
+    public KernelRuntimeService(RuntimeThreadRepository threads,
                                 TurnRepository turns,
                                 ItemRepository items,
-                                TurnScheduler scheduler,
+                                TurnDispatchQueue dispatchQueue,
                                 TurnSignalService signals,
                                 PrincipalHolder principals,
                                 KernelProperties props,
                                 EventStream streams,
                                 RuntimeEventFactory events,
                                 ObjectMapper mapper,
-                                AgentQueryApi agents) {
-        this.sessions = sessions;
+                                AgentSnapshotApi agents,
+                                ApprovalDecideService approvalDecide) {
+        this.threads = threads;
         this.turns = turns;
         this.items = items;
-        this.scheduler = scheduler;
+        this.dispatchQueue = dispatchQueue;
         this.signals = signals;
         this.principals = principals;
         this.props = props;
@@ -70,23 +78,28 @@ public class KernelRuntimeService implements RuntimeApi {
         this.events = events;
         this.mapper = mapper;
         this.agents = agents;
+        this.approvalDecide = approvalDecide;
     }
 
     @Override
     @Transactional
     public ThreadView createThread(CreateThreadCmd cmd) {
+        if (cmd == null) {
+            throw new BizException(ErrorCode.BAD_REQUEST, "CreateThreadCmd 必填");
+        }
+        requireText(cmd.agentVersionId(), "agentVersionId");
         Principal p = principals.current();
-        AgentQueryApi.AgentVersionView ver = agents.requirePublished(cmd.agentVersionId());
+        AgentSnapshotApi.AgentSnapshot ver = agents.get(cmd.agentVersionId());
         String id = Ids.newId("thr");
-        RuntimeSessionDO row = new RuntimeSessionDO();
+        RuntimeThreadDO row = new RuntimeThreadDO();
         row.setId(id);
         row.setStatus("OPEN");
-        row.setAgentVersionId(ver.id());
-        row.setRoutingPlanId(ver.routingPlanId());
+        row.setAgentVersionId(ver.versionId());
+        row.setRoutingPlanId(ver.spec().model().routingPlanId());
         row.setWorkspaceId(p.workspaceId());
         row.setOwnerId(p.userId());
         row.setLastItemSeq(0L);
-        row.setOrigin(cmd.origin() == null ? "chat" : cmd.origin());
+        row.setOrigin(blankToNull(cmd.origin()) == null ? "chat" : cmd.origin());
         row.setOriginRef(cmd.originRef());
         row.setDepth(0);
         if (cmd.metadata() != null && !cmd.metadata().isEmpty()) {
@@ -96,42 +109,48 @@ public class KernelRuntimeService implements RuntimeApi {
                 throw new BizException(ErrorCode.BAD_REQUEST, "metadata 无法序列化");
             }
         }
-        sessions.upsert(row);
+        threads.upsert(row);
         return toThreadView(row);
     }
 
     @Override
     @Transactional
     public TurnHandle startTurn(String threadId, StartTurnCmd cmd) {
+        requireText(threadId, "threadId");
+        if (cmd == null) {
+            throw new BizException(ErrorCode.BAD_REQUEST, "StartTurnCmd 必填");
+        }
+        requireText(cmd.clientMsgId(), "clientMsgId");
         requireThread(threadId);
-        if (cmd.clientMsgId() != null) {
-            var existing = turns.findBySessionAndClientMsgId(threadId, cmd.clientMsgId());
-            if (existing.isPresent()) {
-                RuntimeTurnDO t = existing.get();
-                return new TurnHandle(t.getId(), TurnStatus.valueOf(t.getStatus()), eventsUrl(threadId));
-            }
+        var existing = turns.findByThreadAndClientMsgId(threadId, cmd.clientMsgId());
+        if (existing.isPresent()) {
+            RuntimeTurnDO t = existing.get();
+            return new TurnHandle(t.getId(), TurnStatus.valueOf(t.getStatus()), eventsUrl(threadId));
         }
         int active = turns.countActive(threadId);
         if (active >= props.getMaxQueuedPerThread()) {
             throw new BizException(ErrorCode.RATE_LIMITED, "同 thread 排队超过上限");
         }
         String turnId = Ids.newId("turn");
+        RequestContext correlation = ensureCorrelation();
         RuntimeTurnDO t = new RuntimeTurnDO();
         t.setId(turnId);
-        t.setSessionId(threadId);
+        t.setThreadId(threadId);
         t.setSeq(turns.nextSeq(threadId));
         t.setStatus(TurnStatus.QUEUED.name());
-        t.setOrigin(cmd.origin() == null ? "chat" : cmd.origin());
+        t.setOrigin(blankToNull(cmd.origin()) == null ? "chat" : cmd.origin());
         t.setOriginRef(cmd.originRef());
         t.setClientMsgId(cmd.clientMsgId());
         t.setRunAsJson(runAsJson());
         t.setOptionsJson(optionsJson(cmd.options()));
         t.setStepCount(0);
         t.setLeaseVersion(0L);
+        t.setRequestId(correlation.requestId());
+        t.setSubject(correlation.subject());
         try {
             turns.insert(t);
         } catch (DuplicateKeyException e) {
-            RuntimeTurnDO again = turns.findBySessionAndClientMsgId(threadId, cmd.clientMsgId()).orElseThrow();
+            RuntimeTurnDO again = turns.findByThreadAndClientMsgId(threadId, cmd.clientMsgId()).orElseThrow();
             return new TurnHandle(again.getId(), TurnStatus.valueOf(again.getStatus()), eventsUrl(threadId));
         }
         if (cmd.input() != null) {
@@ -140,68 +159,97 @@ public class KernelRuntimeService implements RuntimeApi {
                     continue;
                 }
                 String type = in.type() == null ? ItemType.MESSAGE.wire() : in.type();
-                items.appendWithoutLease(threadId, turnId, 0, type, "user",
-                        json(Map.of("text", in.text())));
+                items.appendWithoutLease(ItemWrite.withoutLease(threadId, turnId, 0, type, "user",
+                        json(Map.of("text", in.text()))));
             }
         }
         streams.publish(threadId, null, RuntimeEventType.TURN_STARTED.wire(),
                 events.turnStatus(RuntimeEventType.TURN_STARTED, threadId, turnId, TurnStatus.QUEUED.name()));
-        // 必须在事务提交后再调度，否则 worker 可能读不到刚 insert 的 Turn（永久 QUEUED）
-        submitAfterCommit(turnId);
+        // 必须在事务提交后再 XADD，否则 worker 可能读不到刚 insert 的 Turn（永久 QUEUED）
+        offerAfterCommit(turnId, threadId);
         return new TurnHandle(turnId, TurnStatus.QUEUED, eventsUrl(threadId));
     }
 
-    private void submitAfterCommit(String turnId) {
+    private void offerAfterCommit(String turnId, String threadId) {
         if (TransactionSynchronizationManager.isSynchronizationActive()) {
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
                 @Override
                 public void afterCommit() {
-                    scheduler.submit(turnId);
+                    dispatchQueue.offer(turnId, threadId);
                 }
             });
         } else {
-            scheduler.submit(turnId);
+            dispatchQueue.offer(turnId, threadId);
         }
     }
 
     @Override
     public void interrupt(String turnId) {
+        requireText(turnId, "turnId");
+        RuntimeTurnDO t = turns.findById(turnId)
+                .orElseThrow(() -> new BizException(ErrorCode.NOT_FOUND, "turn 不存在"));
+        requireThread(t.getThreadId());
         signals.interrupt(turnId);
     }
 
     @Override
     public void steer(String turnId, String text) {
+        requireText(turnId, "turnId");
+        RuntimeTurnDO t = turns.findById(turnId)
+                .orElseThrow(() -> new BizException(ErrorCode.NOT_FOUND, "turn 不存在"));
+        requireThread(t.getThreadId());
         signals.steer(turnId, text);
     }
 
     @Override
     public void decideApproval(String approvalId, ApprovalDecision decision) {
-        throw NotImplemented.of("runtime-approval", "RT-07");
+        requireText(approvalId, "approvalId");
+        if (decision == null) {
+            throw new BizException(ErrorCode.BAD_REQUEST, "ApprovalDecision 必填");
+        }
+        approvalDecide.decide(approvalId, decision);
     }
 
     @Override
     public TurnView getTurn(String turnId) {
+        requireText(turnId, "turnId");
         RuntimeTurnDO t = turns.findById(turnId)
                 .orElseThrow(() -> new BizException(ErrorCode.NOT_FOUND, "turn 不存在"));
-        requireThread(t.getSessionId());
+        requireThread(t.getThreadId());
         return toTurnView(t);
     }
 
     @Override
-    public List<ItemView> listItems(String threadId, long afterSeq, int limit) {
+    public Optional<TurnView> findActiveTurn(String threadId) {
+        requireText(threadId, "threadId");
         requireThread(threadId);
-        return items.listAfterSeq(threadId, afterSeq, limit).stream()
+        return turns.findActive(threadId).map(this::toTurnView);
+    }
+
+    @Override
+    public List<ItemView> listItems(String threadId, long afterSeq, int limit) {
+        requireText(threadId, "threadId");
+        if (afterSeq < 0) {
+            throw new BizException(ErrorCode.BAD_REQUEST, "afterSeq 不能为负");
+        }
+        requireThread(threadId);
+        int capped = Math.min(Math.max(limit, 1), 500);
+        return items.listAfterSeq(threadId, afterSeq, capped).stream()
                 .map(this::toItemView)
                 .toList();
     }
 
     @Override
     public ThreadView fork(String threadId, long atSeq) {
+        requireText(threadId, "threadId");
+        if (atSeq < 0) {
+            throw new BizException(ErrorCode.BAD_REQUEST, "atSeq 不能为负");
+        }
         throw NotImplemented.of("runtime-fork", "M3");
     }
 
-    private RuntimeSessionDO requireThread(String threadId) {
-        RuntimeSessionDO s = sessions.find(threadId);
+    private RuntimeThreadDO requireThread(String threadId) {
+        RuntimeThreadDO s = threads.find(threadId);
         if (s == null) {
             throw new BizException(ErrorCode.NOT_FOUND, "thread 不存在");
         }
@@ -228,17 +276,21 @@ public class KernelRuntimeService implements RuntimeApi {
             return null;
         }
         int max = options.maxSteps() == null ? props.getLoop().getMaxSteps() : Math.min(50, options.maxSteps());
-        return json(Map.of(
-                "maxSteps", max,
-                "approvalPolicy", options.approvalPolicy() == null ? "" : options.approvalPolicy(),
-                "toolAllowList", options.toolAllowList() == null ? List.of() : options.toolAllowList()));
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("maxSteps", max);
+        m.put("approvalPolicy", options.approvalPolicy() == null ? "" : options.approvalPolicy());
+        m.put("toolAllowList", options.toolAllowList() == null ? List.of() : options.toolAllowList());
+        if (options.maxDuration() != null) {
+            m.put("maxDuration", options.maxDuration().toString());
+        }
+        return json(m);
     }
 
     private String eventsUrl(String threadId) {
         return "/api/runtime/threads/" + threadId + "/events";
     }
 
-    private ThreadView toThreadView(RuntimeSessionDO s) {
+    private ThreadView toThreadView(RuntimeThreadDO s) {
         Instant created = s.getCreateAt() == null ? Instant.EPOCH
                 : s.getCreateAt().atZone(ZoneOffset.UTC).toInstant();
         return new ThreadView(s.getId(), s.getAgentVersionId(), s.getOrigin(), s.getOriginRef(),
@@ -248,7 +300,7 @@ public class KernelRuntimeService implements RuntimeApi {
 
     private TurnView toTurnView(RuntimeTurnDO t) {
         return new TurnView(
-                t.getId(), t.getSessionId(), t.getSeq() == null ? 0 : t.getSeq(),
+                t.getId(), t.getThreadId(), t.getSeq() == null ? 0 : t.getSeq(),
                 TurnStatus.valueOf(t.getStatus()), t.getOrigin(), t.getOriginRef(),
                 t.getStepCount() == null ? 0 : t.getStepCount(),
                 t.getErrorCode(), t.getErrorMessage(),
@@ -267,7 +319,7 @@ public class KernelRuntimeService implements RuntimeApi {
             content = Map.of();
         }
         return new ItemView(
-                item.getId(), item.getSessionId(), item.getTurnId(),
+                item.getId(), item.getThreadId(), item.getTurnId(),
                 item.getSeq() == null ? 0L : item.getSeq(),
                 item.getStep() == null ? 0 : item.getStep(),
                 ItemType.fromWire(item.getType()),
@@ -276,8 +328,8 @@ public class KernelRuntimeService implements RuntimeApi {
                         : item.getCreateAt().atZone(ZoneOffset.UTC).toInstant());
     }
 
-    private static Instant toInstant(OffsetDateTime t) {
-        return t == null ? null : t.toInstant();
+    private static Instant toInstant(LocalDateTime t) {
+        return t == null ? null : t.toInstant(ZoneOffset.UTC);
     }
 
     private String json(Object o) {
@@ -286,5 +338,25 @@ public class KernelRuntimeService implements RuntimeApi {
         } catch (Exception e) {
             throw new BizException(ErrorCode.INTERNAL, "JSON 序列化失败");
         }
+    }
+
+    private static void requireText(String value, String name) {
+        if (value == null || value.isBlank()) {
+            throw new BizException(ErrorCode.BAD_REQUEST, name + " 必填");
+        }
+    }
+
+    private static String blankToNull(String value) {
+        return value == null || value.isBlank() ? null : value;
+    }
+
+    /** OBS-03：入口缺 request_id 时生成并写入关联上下文。 */
+    private static RequestContext ensureCorrelation() {
+        RequestContext ctx = RequestContextHolder.getCorrelation();
+        if (ctx.requestId() == null || ctx.requestId().isBlank()) {
+            ctx = ctx.withRequestId(Ids.newId("req"));
+            RequestContextHolder.setCorrelation(ctx);
+        }
+        return ctx;
     }
 }

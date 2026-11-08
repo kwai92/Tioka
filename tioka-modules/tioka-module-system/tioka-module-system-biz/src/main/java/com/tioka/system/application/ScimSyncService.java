@@ -1,6 +1,7 @@
 package com.tioka.system.application;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.tioka.system.api.ScimSyncApi;
 import com.tioka.system.infrastructure.ScimUserRepository;
 import com.tioka.system.infrastructure.persistence.ScimUserDO;
 import org.springframework.stereotype.Service;
@@ -10,7 +11,7 @@ import java.util.List;
 import java.util.Map;
 
 @Service
-public class ScimSyncService {
+public class ScimSyncService implements ScimSyncApi {
     private final ScimUserRepository users;
     private final ObjectMapper mapper;
 
@@ -19,6 +20,7 @@ public class ScimSyncService {
         this.users = users;
     }
 
+    @Override
     public Map<String, Object> sync(List<Map<String, String>> delta) {
         int upsert = 0;
         int removed = 0;

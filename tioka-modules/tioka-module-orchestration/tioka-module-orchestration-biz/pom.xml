@@ -28,6 +28,18 @@
             <artifactId>tioka-module-runtime-api</artifactId>
         </dependency>
         <dependency>
+            <groupId>com.tioka</groupId>
+            <artifactId>tioka-module-agent-api</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.tioka</groupId>
+            <artifactId>tioka-module-connector-api</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.networknt</groupId>
+            <artifactId>json-schema-validator</artifactId>
+        </dependency>
+        <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
         </dependency>
@@ -42,6 +54,10 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>dev.cel</groupId>
+            <artifactId>cel</artifactId>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>

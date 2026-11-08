@@ -8,10 +8,11 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 class FoundationSpiPackageTest {
     @Test
     void spiTypesPresent() {
-        assertNotNull(IdPAdapter.class);
+        // IdPAdapter 已迁入 system-biz OidcProviderRegistry 内部（FND-05）
         assertNotNull(ImChannelAdapter.class);
         assertNotNull(BizSystemAdapter.class);
         assertNotNull(AuditSink.class);
         assertNotNull(SecretStore.class);
+        assertNotNull(PrincipalLoaderApi.class);
     }
 }

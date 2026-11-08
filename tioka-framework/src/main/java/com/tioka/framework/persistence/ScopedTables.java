@@ -8,22 +8,32 @@ import java.util.stream.Collectors;
 
 @Component
 public class ScopedTables {
-    private final Set<String> workspaceScoped;
+    private final Set<String> exempt;
 
     public ScopedTables(PersistenceProperties props) {
-        this.workspaceScoped = props.getWorkspaceScopedTables().stream()
+        this.exempt = props.getWorkspaceScopeExemptTables().stream()
                 .map(t -> t.toLowerCase(Locale.ROOT))
                 .collect(Collectors.toUnmodifiableSet());
     }
 
-    public boolean workspaceScoped(String tableName) {
+    /** 表是否旁路 ScopeLine（deny-by-default 下的 exempt）。 */
+    public boolean isExempt(String tableName) {
         if (tableName == null) {
             return false;
         }
-        return workspaceScoped.contains(tableName.toLowerCase(Locale.ROOT));
+        return exempt.contains(tableName.toLowerCase(Locale.ROOT));
     }
 
-    public Set<String> workspaceScoped() {
-        return workspaceScoped;
+    /**
+     * 表是否应加 workspace 过滤（非 exempt）。
+     * @deprecated 语义保留给测试；生产请用 {@link #isExempt(String)} 反转判断。
+     */
+    @Deprecated
+    public boolean workspaceScoped(String tableName) {
+        return !isExempt(tableName);
+    }
+
+    public Set<String> exemptTables() {
+        return exempt;
     }
 }

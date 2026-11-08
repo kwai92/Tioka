@@ -17,6 +17,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -162,13 +163,16 @@ public class StreamPump {
         }
         EventId eventId = eid.isBlank() ? null : EventId.parse(eid);
         for (Subscription sub : list) {
-            if (eventId != null && eventId.compareTo(sub.sent) <= 0 && !type.startsWith("turn.")) {
-                continue;
-            }
-            if (eventId != null) {
-                sub.sent = eventId;
-            }
-            sendPool.execute(() -> send(sub.emitter, eid, type, data));
+            // 每条连接串行发送，避免同连接多事件乱序
+            sub.enqueue(() -> {
+                if (eventId != null && eventId.compareTo(sub.sent) <= 0 && !type.startsWith("turn.")) {
+                    return;
+                }
+                send(sub.emitter, eid, type, data);
+                if (eventId != null) {
+                    sub.sent = eventId;
+                }
+            });
         }
     }
 
@@ -217,13 +221,39 @@ public class StreamPump {
         return o == null ? "" : String.valueOf(o);
     }
 
-    static final class Subscription {
+    final class Subscription {
         final SseEmitter emitter;
         volatile EventId sent;
+        private final ConcurrentLinkedQueue<Runnable> queue = new ConcurrentLinkedQueue<>();
+        private final AtomicBoolean draining = new AtomicBoolean();
 
         Subscription(SseEmitter emitter, EventId sent) {
             this.emitter = emitter;
             this.sent = sent == null ? EventId.parse("") : sent;
+        }
+
+        void enqueue(Runnable task) {
+            queue.add(task);
+            drain();
+        }
+
+        private void drain() {
+            if (!draining.compareAndSet(false, true)) {
+                return;
+            }
+            sendPool.execute(() -> {
+                try {
+                    Runnable next;
+                    while ((next = queue.poll()) != null) {
+                        next.run();
+                    }
+                } finally {
+                    draining.set(false);
+                    if (!queue.isEmpty()) {
+                        drain();
+                    }
+                }
+            });
         }
     }
 }

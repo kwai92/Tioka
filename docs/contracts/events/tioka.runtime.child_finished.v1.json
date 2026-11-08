@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tioka.dev/schema/tioka.runtime.child_finished.v1.json",
+  "title": "tioka.runtime.child_finished.v1",
+  "description": "Async child job finished; runtime-child-router writes tool_result and requeues Turn (M2-02 RT-09).",
+  "type": "object",
+  "required": ["turnId", "callId", "ok"],
+  "properties": {
+    "turnId": { "type": "string" },
+    "callId": { "type": "string" },
+    "ok": { "type": "boolean" },
+    "output": {},
+    "errorCode": { "type": ["string", "null"] }
+  },
+  "additionalProperties": true
+}

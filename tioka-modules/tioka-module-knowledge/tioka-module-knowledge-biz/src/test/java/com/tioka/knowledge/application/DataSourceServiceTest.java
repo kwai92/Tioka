@@ -2,12 +2,17 @@ package com.tioka.knowledge.application;
 
 import com.tioka.connector.api.spi.FeishuDocContentSpi;
 import com.tioka.knowledge.infrastructure.KnowledgeRepository;
-import com.tioka.system.api.spi.EgressGuard;
+import com.tioka.system.api.spi.EgressClient;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.ObjectProvider;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -29,9 +34,7 @@ class DataSourceServiceTest {
             KnowledgeService knowledge = KnowledgeInMemorySupport.service(repo);
             var kb = knowledge.createBase("ws", "ds");
 
-            @SuppressWarnings("unchecked")
-            ObjectProvider<EgressGuard> egress = mock(ObjectProvider.class);
-            when(egress.getIfAvailable()).thenReturn(u -> {});
+            EgressClient egress = new DirectEgress();
 
             @SuppressWarnings("unchecked")
             ObjectProvider<FeishuDocContentSpi> feishu = mock(ObjectProvider.class);
@@ -47,6 +50,21 @@ class DataSourceServiceTest {
 
             var hits = knowledge.search(kb.id(), "Tioka sync", 3);
             assertTrue(hits.stream().anyMatch(h -> h.text().contains("web datasource")));
+        }
+    }
+
+    /** 单测直发，绕过生产 EgressGuard。 */
+    private static final class DirectEgress implements EgressClient {
+        private final HttpClient http = HttpClient.newHttpClient();
+
+        @Override
+        public HttpResponse<String> send(HttpRequest request) throws IOException, InterruptedException {
+            return http.send(request, HttpResponse.BodyHandlers.ofString());
+        }
+
+        @Override
+        public HttpResponse<InputStream> sendStreaming(HttpRequest request) throws IOException, InterruptedException {
+            return http.send(request, HttpResponse.BodyHandlers.ofInputStream());
         }
     }
 }

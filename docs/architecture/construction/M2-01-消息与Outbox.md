@@ -6,6 +6,8 @@
 - 前置：M1 完成
 - 迁移编号段：M2 使用 V130〜V149，本文件用 V130〜V131
 
+> 2026-11-06 补充（[M2-00](M2-00-M2实施计划.md)、ADR-029 第 65 条）：排期、人天与负责人以 M2-00 为准。ORC-02 第一周先合事件契约 PR：补齐全部事件 payload schema，信封 `mq-envelope-v1.json` 去掉 `tenantId`，加可选字段 `replayOf`、`traceparent`；身份生命周期事件桥接（ID-BR）由 BE-A 做。本文建表片段中的 `tenant_id` 与伪代码中的租户维度已按第 60 条废止，以 `docs/contracts/db` 中的契约为准。
+
 ---
 
 ## ORC-02 RocketMQ、事务 Outbox、消费幂等（P0，8 人天）
@@ -223,3 +225,11 @@ OTEL_TRACES_SAMPLER_ARG: "1.0"
 - 至少一次投递、重复消息不重复执行；死信可查、可重放。
 - 事件环被熔断并告警；连续失败的规则自动暂停。
 - 一次 Turn 在 Jaeger 中完整可见。
+
+## 修订：关联上下文与外部交互台账（2026-11-07，ADR-029 第 75 条）
+
+- 信封除 `traceparent`、`replayOf` 外增加 `requestId`、`subject`；消费者恢复关联上下文；重放保留原 `requestId`（[ADR-073](../adr/ADR-073-correlation-trace-propagation.md)，OBS-03，3 人天，BE-A 随 GOV-08 在 W16）。
+- GOV-08 的 span 属性增加 `tioka.request_id`、`tioka.subject`、`tioka.origin`；`TracingIT` 增加用例：审批挂起后续跑，新 trace 有 span link 指回原 trace，且两段记录 `request_id` 相同。
+- 外部交互台账 OBS-04a（4 人天，BE-B，W19–W20，紧接 BE-A 的 CON-02 飞书入站之后接入；BE-B 负载 40 → 44）：飞书回调与发送、Webhook、`EgressClient` 写 `ext_interaction`（[ADR-074](../adr/ADR-074-external-interaction-ledger.md)）。
+- OBS-05（1.5 人天，W22）：动作目录契约、审计转发进度表、定时任务数据库锁。**2026-11-07 改由 BE-C 负责**（BE-A 的 W17〜W21 是飞书主链，放不下；BE-C 熟悉 outbox 与调度），见 M2-00 第 4.1 节。
+- 以上 8.5 人天进入 M2 余量（2026-11-07 重排后 BE-A 41 → 44，BE-B 40 → 46（含 M0 遗留 2 人天），BE-C 42 → 43.5，每人容量 50），不改 M2 周数。

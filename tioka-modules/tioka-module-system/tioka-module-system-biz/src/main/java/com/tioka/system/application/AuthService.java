@@ -3,14 +3,18 @@ package com.tioka.system.application;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.tioka.framework.error.BizException;
 import com.tioka.framework.error.ErrorCode;
-import com.tioka.system.api.spi.IdPAdapter;
+import com.tioka.system.api.audit.AuditApi;
+import com.tioka.system.api.audit.AuditEvent;
+import com.tioka.system.api.audit.AuditOutcome;
 import com.tioka.system.application.auth.PasswordService;
 import com.tioka.system.application.auth.TokenService;
 import com.tioka.system.config.AuthProperties;
+import com.tioka.system.application.auth.RolePermissionService;
 import com.tioka.system.infrastructure.AuthUserRepository;
 import com.tioka.system.infrastructure.SysMemberRepository;
+import com.tioka.system.infrastructure.SysUserRoleRepository;
 import com.tioka.system.infrastructure.SysWorkspaceRepository;
-import com.tioka.system.infrastructure.dataobject.SysMemberDO;
+import com.tioka.system.infrastructure.persistence.SysMemberDO;
 import com.tioka.system.infrastructure.persistence.AuthUserDO;
 import com.tioka.system.infrastructure.persistence.SysWorkspaceDO;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -20,8 +24,10 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.UUID;
+import java.util.Map;
+import java.util.Set;
 
 @Service
 public class AuthService {
@@ -32,23 +38,32 @@ public class AuthService {
     private final TokenService tokens;
     private final SysMemberRepository members;
     private final SysWorkspaceRepository workspaces;
+    private final SysUserRoleRepository userRoles;
+    private final RolePermissionService rolePermissions;
     private final StringRedisTemplate redis;
     private final AuthProperties props;
+    private final AuditApi audit;
 
     public AuthService(AuthUserRepository users,
                        PasswordService passwords,
                        TokenService tokens,
                        SysMemberRepository members,
                        SysWorkspaceRepository workspaces,
+                       SysUserRoleRepository userRoles,
+                       RolePermissionService rolePermissions,
                        StringRedisTemplate redis,
-                       AuthProperties props) {
+                       AuthProperties props,
+                       AuditApi audit) {
         this.users = users;
         this.passwords = passwords;
         this.tokens = tokens;
         this.members = members;
         this.workspaces = workspaces;
+        this.userRoles = userRoles;
+        this.rolePermissions = rolePermissions;
         this.redis = redis;
         this.props = props;
+        this.audit = audit;
     }
 
     public LoginResult login(String username, String password, String clientIp) {
@@ -57,12 +72,22 @@ public class AuthService {
         if (row == null || !Boolean.TRUE.equals(row.getEnabled())) {
             recordFailure(clientIp, username);
             if (row != null && !Boolean.TRUE.equals(row.getEnabled())) {
+                auditAuth("auth.login", null, username, clientIp, AuditOutcome.DENIED, "账号已禁用");
                 throw new BizException(ErrorCode.FORBIDDEN, "账号已禁用");
             }
+            auditAuth("auth.login", null, username, clientIp, AuditOutcome.DENIED, "用户名或密码错误");
             throw new BizException(ErrorCode.UNAUTHORIZED, "用户名或密码错误");
+        }
+        if ("SERVICE".equalsIgnoreCase(row.getType())) {
+            recordFailure(clientIp, username);
+            auditAuth("auth.login", String.valueOf(row.getId()), username, clientIp,
+                    AuditOutcome.DENIED, "服务账号不能登录");
+            throw new BizException(ErrorCode.UNAUTHORIZED, "服务账号不能登录");
         }
         if (!passwords.matches(password, row.getPasswordHash())) {
             recordFailure(clientIp, username);
+            auditAuth("auth.login", String.valueOf(row.getId()), username, clientIp,
+                    AuditOutcome.DENIED, "用户名或密码错误");
             throw new BizException(ErrorCode.UNAUTHORIZED, "用户名或密码错误");
         }
         clearFailures(clientIp, username);
@@ -70,52 +95,57 @@ public class AuthService {
             row.setPasswordHash(passwords.hash(password));
             users.update(row);
         }
-        return issueLogin(row);
-    }
-
-    public LoginResult loginFederated(IdPAdapter.FederatedIdentity identity) {
-        if (identity == null || identity.subject() == null || identity.subject().isBlank()) {
-            throw new BizException(ErrorCode.UNAUTHORIZED, "联邦身份无效");
-        }
-        String username = identity.email() == null || identity.email().isBlank()
-                ? "oidc:" + identity.subject()
-                : identity.email();
-        AuthUserDO row = users.findByUsername(username);
-        if (row == null) {
-            AuthUserDO created = new AuthUserDO();
-            created.setId(users.nextId());
-            created.setUsername(username);
-            created.setPasswordHash(passwords.hash(UUID.randomUUID().toString()));
-            created.setDisplayName(identity.displayName() == null ? username : identity.displayName());
-            created.setEnabled(true);
-            created.setIdp("oidc");
-            created.setExternalSubject(identity.subject());
-            created.setMustChangePassword(false);
-            created.setDefaultWorkspaceId("ws_default");
-            users.insert(created);
-            row = users.findByUsername(username);
-        }
-        if (!Boolean.TRUE.equals(row.getEnabled())) {
-            throw new BizException(ErrorCode.FORBIDDEN, "账号已禁用");
-        }
-        return issueLogin(row);
+        LoginResult result = issueLogin(row);
+        auditAuth("auth.login", result.user().id(), username, clientIp, AuditOutcome.SUCCESS, null);
+        return result;
     }
 
     public LoginResult refresh(String refreshToken) {
-        TokenService.TokenPair pair = tokens.refresh(refreshToken);
-        long userId = tokens.verifyAccess(pair.accessToken())
-                .map(TokenService.TokenClaims::userId)
-                .orElseThrow(() -> new BizException(ErrorCode.UNAUTHORIZED, "刷新失败"));
-        AuthUserDO row = users.findById(userId);
-        if (row == null || !Boolean.TRUE.equals(row.getEnabled())) {
-            tokens.revokeAll(userId);
-            throw new BizException(ErrorCode.UNAUTHORIZED, "用户无效");
+        try {
+            TokenService.TokenPair pair = tokens.refresh(refreshToken);
+            long userId = tokens.verifyAccess(pair.accessToken())
+                    .map(TokenService.TokenClaims::userId)
+                    .orElseThrow(() -> new BizException(ErrorCode.UNAUTHORIZED, "刷新失败"));
+            AuthUserDO row = users.findById(userId);
+            if (row == null || !Boolean.TRUE.equals(row.getEnabled())) {
+                tokens.revokeAll(userId);
+                throw new BizException(ErrorCode.UNAUTHORIZED, "用户无效");
+            }
+            LoginResult result = toLoginResult(row, pair);
+            auditAuth("auth.refresh", result.user().id(), row.getUsername(), null,
+                    AuditOutcome.SUCCESS, null);
+            return result;
+        } catch (BizException ex) {
+            auditAuth("auth.refresh", null, null, null,
+                    ex.isDenied() ? AuditOutcome.DENIED : AuditOutcome.ERROR, ex.getMessage());
+            throw ex;
         }
-        return toLoginResult(row, pair);
     }
 
     public void logout(String accessToken) {
+        Long uid = resolveUserId(accessToken);
         tokens.revoke(accessToken);
+        auditAuth("auth.logout", uid == null ? null : String.valueOf(uid), null, null,
+                AuditOutcome.SUCCESS, null);
+    }
+
+    private void auditAuth(String action, String actorId, String username, String clientIp,
+                           AuditOutcome outcome, String reason) {
+        try {
+            audit.recordIndependent(AuditEvent.builder()
+                    .ts(Instant.now())
+                    .actorType("user")
+                    .actorId(actorId == null ? (username == null ? "unknown" : username) : actorId)
+                    .action(action)
+                    .resourceType("auth")
+                    .outcome(outcome)
+                    .reason(reason)
+                    .clientIp(clientIp)
+                    .details(username == null ? Map.of() : Map.of("username", username))
+                    .build());
+        } catch (RuntimeException ignored) {
+            // 审计失败不影响认证主路径
+        }
     }
 
     @Transactional
@@ -146,11 +176,20 @@ public class AuthService {
             throw new BizException(ErrorCode.UNAUTHORIZED, "未登录");
         }
         List<WorkspaceView> ws = workspacesOf(row);
+        Set<String> roles = new LinkedHashSet<>(userRoles.rolesOfUser(String.valueOf(userId)));
+        for (WorkspaceView w : ws) {
+            if (w.role() != null && !w.role().isBlank()) {
+                roles.add(w.role());
+            }
+        }
+        List<String> roleList = List.copyOf(roles);
+        List<String> permissions = List.copyOf(rolePermissions.expand(roles));
         return new MeResult(
                 userView(row),
                 ws,
                 row.getDefaultWorkspaceId(),
-                List.of()
+                permissions,
+                roleList
         );
     }
 
@@ -233,5 +272,6 @@ public class AuthService {
 
     public record UserView(String id, String username, String displayName, boolean mustChangePassword) {}
     public record WorkspaceView(String id, String name, String role) {}
-    public record MeResult(UserView user, List<WorkspaceView> workspaces, String currentWorkspaceId, List<String> permissions) {}
+    public record MeResult(UserView user, List<WorkspaceView> workspaces, String currentWorkspaceId,
+                           List<String> permissions, List<String> roles) {}
 }

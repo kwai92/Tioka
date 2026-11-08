@@ -1,8 +1,11 @@
 package com.tioka.chat.api;
 
+import com.tioka.system.api.audit.Audited;
+
 import com.tioka.chat.application.CardPartService;
 import com.tioka.chat.domain.ChatStore;
 import com.tioka.framework.error.ApiResponse;
+import com.tioka.framework.security.Permissions;
 import com.tioka.framework.security.RequirePermission;
 import org.springframework.web.bind.annotation.*;
 
@@ -10,7 +13,7 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/chat/cards")
-@RequirePermission("chat:use")
+@RequirePermission(Permissions.CHAT_USE)
 public class CardController {
     private final CardPartService cards;
 
@@ -19,17 +22,20 @@ public class CardController {
     }
 
     @PostMapping("/continue")
-    public ApiResponse<ChatStore.Message> continueCard(@RequestBody Map<String, String> body) {
+    @Audited(action = "chat.card.continue", resourceType = "card")
+    public ApiResponse<ChatStore.CardMessage> continueCard(@RequestBody Map<String, String> body) {
         return ApiResponse.ok(cards.emitContinueCard(body.get("conversationId"), body.get("prompt")));
     }
 
     @PostMapping("/approval")
-    public ApiResponse<ChatStore.Message> approval(@RequestBody Map<String, String> body) {
+    @Audited(action = "chat.card.approval", resourceType = "card")
+    public ApiResponse<ChatStore.CardMessage> approval(@RequestBody Map<String, String> body) {
         return ApiResponse.ok(cards.emitApprovalCard(body.get("conversationId"), body.get("runId"), body.get("title")));
     }
 
     @PostMapping("/continue/submit")
-    public ApiResponse<ChatStore.Message> submitContinue(@RequestBody Map<String, String> body) {
+    @Audited(action = "chat.card.continue.submit", resourceType = "card")
+    public ApiResponse<ChatStore.CardMessage> submitContinue(@RequestBody Map<String, String> body) {
         return ApiResponse.ok(cards.submitContinue(
                 body.get("conversationId"),
                 body.get("messageIdOrPartHint"),
@@ -37,7 +43,8 @@ public class CardController {
     }
 
     @PostMapping("/approval/submit")
-    public ApiResponse<ChatStore.Message> submitApproval(@RequestBody Map<String, Object> body) {
+    @Audited(action = "chat.card.approval.submit", resourceType = "card")
+    public ApiResponse<ChatStore.CardMessage> submitApproval(@RequestBody Map<String, Object> body) {
         String conversationId = body.get("conversationId") == null ? null : String.valueOf(body.get("conversationId"));
         String attentionId = body.get("attentionId") == null ? null : String.valueOf(body.get("attentionId"));
         boolean approved = Boolean.TRUE.equals(body.get("approved"))

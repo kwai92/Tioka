@@ -1,0 +1,11 @@
+{
+  "code": 0,
+  "msg": "ok",
+  "data": {
+    "document": {
+      "document_id": "doccn_mock_001",
+      "revision_id": 1,
+      "title": "Tioka Sync"
+    }
+  }
+}

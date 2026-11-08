@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tioka.orchestration.infrastructure.mapper.OrchWorkItemMapper">
+
+    <select id="findByRuleAndSubject" resultType="com.tioka.orchestration.infrastructure.persistence.OrchWorkItemDO">
+        SELECT id, workspace_id, rule_id, subject_key, status, active_run_id, thread_id,
+               pending_events_json, last_event_at, create_at, update_at
+        FROM orch_work_item
+        WHERE rule_id = #{ruleId} AND subject_key = #{subjectKey}
+    </select>
+
+    <select id="lockByRuleAndSubject" resultType="com.tioka.orchestration.infrastructure.persistence.OrchWorkItemDO">
+        SELECT id, workspace_id, rule_id, subject_key, status, active_run_id, thread_id,
+               pending_events_json, last_event_at, create_at, update_at
+        FROM orch_work_item
+        WHERE rule_id = #{ruleId} AND subject_key = #{subjectKey}
+        FOR UPDATE
+    </select>
+
+    <update id="updateLocked">
+        UPDATE orch_work_item
+        SET active_run_id = #{activeRunId},
+            pending_events_json = #{pendingEventsJson},
+            thread_id = #{threadId},
+            last_event_at = #{lastEventAt},
+            status = #{status},
+            update_at = #{updateAt}
+        WHERE id = #{id}
+    </update>
+
+</mapper>

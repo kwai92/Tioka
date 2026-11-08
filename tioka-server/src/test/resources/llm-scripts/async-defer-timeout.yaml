@@ -1,0 +1,4 @@
+# RT-09：子任务超时
+calls:
+  - tool_calls: [{ name: async.defer, arguments: { timeoutSec: 1 } }]
+  - content: "after timeout"

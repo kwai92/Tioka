@@ -3,6 +3,7 @@ package com.tioka.connector.infrastructure;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.tioka.system.api.spi.EgressClient;
 import com.tioka.system.api.spi.ImChannelAdapter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -10,7 +11,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.net.URI;
-import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
@@ -28,9 +28,11 @@ import java.util.concurrent.atomic.AtomicReference;
 @Component
 public class FeishuImChannelAdapter implements ImChannelAdapter {
     private static final Logger log = LoggerFactory.getLogger(FeishuImChannelAdapter.class);
+    /** token 提前刷新余量（毫秒）。 */
+    private static final long TOKEN_REFRESH_SKEW_MS = 60_000L;
     private final ImOutboxRepository outboxRepo;
     private final ObjectMapper mapper;
-    private final HttpClient http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build();
+    private final EgressClient egress;
     private final String webhookUrl;
     private final String appId;
     private final String appSecret;
@@ -39,6 +41,7 @@ public class FeishuImChannelAdapter implements ImChannelAdapter {
     private final AtomicReference<CachedToken> tokenCache = new AtomicReference<>();
 
     public FeishuImChannelAdapter(ImOutboxRepository outboxRepo,
+                                  EgressClient egress,
                                   @Value("${tioka.feishu.webhook-url:}") String webhookUrl,
                                   @Value("${tioka.feishu.app-id:}") String appId,
                                   @Value("${tioka.feishu.app-secret:}") String appSecret,
@@ -47,6 +50,7 @@ public class FeishuImChannelAdapter implements ImChannelAdapter {
                                   ObjectMapper mapper) {
         this.mapper = mapper;
         this.outboxRepo = outboxRepo;
+        this.egress = egress;
         this.webhookUrl = webhookUrl == null ? "" : webhookUrl.trim();
         this.appId = appId == null ? "" : appId.trim();
         this.appSecret = appSecret == null ? "" : appSecret.trim();
@@ -123,7 +127,7 @@ public class FeishuImChannelAdapter implements ImChannelAdapter {
                 .header("Content-Type", "application/json; charset=utf-8")
                 .POST(HttpRequest.BodyPublishers.ofString(body))
                 .build();
-        HttpResponse<String> resp = http.send(req, HttpResponse.BodyHandlers.ofString());
+        HttpResponse<String> resp = egress.send(req);
         log.info("[feishu] openapi status={} body={}", resp.statusCode(), resp.body());
         JsonNode root = mapper.readTree(resp.body() == null ? "{}" : resp.body());
         if (root.path("code").asInt(-1) != 0) {
@@ -134,7 +138,7 @@ public class FeishuImChannelAdapter implements ImChannelAdapter {
     private String tenantAccessToken() throws Exception {
         CachedToken cached = tokenCache.get();
         long now = System.currentTimeMillis();
-        if (cached != null && cached.expireAtMs() > now + 60_000) {
+        if (cached != null && cached.expireAtMs() > now + TOKEN_REFRESH_SKEW_MS) {
             return cached.token();
         }
         String body = mapper.writeValueAsString(Map.of("app_id", appId, "app_secret", appSecret));
@@ -144,7 +148,7 @@ public class FeishuImChannelAdapter implements ImChannelAdapter {
                 .header("Content-Type", "application/json; charset=utf-8")
                 .POST(HttpRequest.BodyPublishers.ofString(body))
                 .build();
-        HttpResponse<String> resp = http.send(req, HttpResponse.BodyHandlers.ofString());
+        HttpResponse<String> resp = egress.send(req);
         JsonNode root = mapper.readTree(resp.body() == null ? "{}" : resp.body());
         if (root.path("code").asInt(-1) != 0) {
             throw new IllegalStateException("feishu token failed: " + resp.body());
@@ -175,7 +179,7 @@ public class FeishuImChannelAdapter implements ImChannelAdapter {
                 .header("Content-Type", "application/json")
                 .POST(HttpRequest.BodyPublishers.ofString(body))
                 .build();
-        HttpResponse<String> resp = http.send(req, HttpResponse.BodyHandlers.ofString());
+        HttpResponse<String> resp = egress.send(req);
         log.info("[feishu] webhook status={} body={}", resp.statusCode(), resp.body());
         if (resp.statusCode() < 200 || resp.statusCode() >= 300) {
             throw new IllegalStateException("feishu webhook HTTP " + resp.statusCode());

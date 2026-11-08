@@ -15,6 +15,7 @@ public class AgentDO extends WorkspaceAwareDO {
     private String publishedVersionId;
     @Version
     private Integer version;
+    private String visibility;
 
     public String getId() { return id; }
     public void setId(String id) { this.id = id; }
@@ -26,4 +27,6 @@ public class AgentDO extends WorkspaceAwareDO {
     public void setPublishedVersionId(String publishedVersionId) { this.publishedVersionId = publishedVersionId; }
     public Integer getVersion() { return version; }
     public void setVersion(Integer version) { this.version = version; }
+    public String getVisibility() { return visibility; }
+    public void setVisibility(String visibility) { this.visibility = visibility; }
 }

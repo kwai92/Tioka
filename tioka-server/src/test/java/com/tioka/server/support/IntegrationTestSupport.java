@@ -19,5 +19,12 @@ public final class IntegrationTestSupport {
         // 多 Spring 上下文会各自建池；限制池大小避免打满 Testcontainers PG
         registry.add("spring.datasource.hikari.maximum-pool-size", () -> "4");
         registry.add("spring.datasource.hikari.minimum-idle", () -> "1");
+        // 与 GateCluster / DualInstance 共享 Testcontainers Redis 时，禁止本上下文抢 rt:turns
+        registry.add("tioka.runtime.dispatcher-enabled", () -> "false");
+        registry.add("tioka.runtime.queued-sweeper-enabled", () -> "false");
+        // KNW-01：IT 用 32 维，与 ProviderClient mock / LlmStub 默认一致
+        registry.add("spring.flyway.placeholders.embeddingDim", () -> "32");
+        registry.add("tioka.knowledge.embedding-dim", () -> "32");
+        registry.add("tioka.knowledge.reindex-enabled", () -> "false");
     }
 }

@@ -1,14 +1,14 @@
 package com.tioka.server.gov;
 
+import com.tioka.agent.api.spec.AgentSpec;
 import com.tioka.agent.application.AgentService;
 import com.tioka.agent.domain.AgentStore;
 import com.tioka.agent.infrastructure.AgentRepository;
-import com.tioka.agent.infrastructure.persistence.AgentVersionDO;
 import com.tioka.framework.id.Ids;
 import com.tioka.framework.security.Principal;
 import com.tioka.framework.security.PrincipalHolder;
 import com.tioka.framework.security.PrincipalType;
-import com.tioka.model.api.dto.ProviderDtos.CreateBindingRequest;
+import com.tioka.model.api.dto.ProviderDtos.CreateModelBindingRequest;
 import com.tioka.model.api.dto.ProviderDtos.CreateLogicalModelRequest;
 import com.tioka.model.api.dto.ProviderDtos.CreateProviderRequest;
 import com.tioka.model.api.dto.ProviderDtos.CreateRoutingPlanRequest;
@@ -50,20 +50,30 @@ class AgentPublishTxIT {
         principals.runAs(user("1", ws), () -> {
             var provider = models.createProvider(new CreateProviderRequest("p", "mock://x", "k"));
             String lm = models.createLogicalModel(new CreateLogicalModelRequest("m", "tool"));
-            String binding = models.createBinding(new CreateBindingRequest(lm, provider.id(), "gpt"));
+            String binding = models.createModelBinding(new CreateModelBindingRequest(lm, provider.id(), "gpt"));
             String planId = models.createPlan(new CreateRoutingPlanRequest("r", "FIXED", binding)).id();
             models.publish(planId);
 
             var agent = agents.create("tx-agent", ws);
-            var draft = agents.draft(agent.id(), "hi", planId, List.of());
+            AgentSpec spec = new AgentSpec(
+                    1,
+                    new AgentSpec.Profile(agent.name(), null, null, List.of(), "CHAT"),
+                    new AgentSpec.Instructions(List.of(new AgentSpec.Instructions.Section("main", "hi"))),
+                    new AgentSpec.ModelPolicy(planId, false),
+                    AgentSpec.ToolSet.empty(),
+                    List.of(),
+                    AgentSpec.KnowledgeBinding.empty(),
+                    AgentSpec.SandboxPolicy.defaults(),
+                    AgentSpec.ApprovalSettings.empty(),
+                    AgentSpec.Limits.defaults(),
+                null, null, null, null, null, null, null, null);
+            AgentService.DraftView draft = agents.saveDraft(agent.id(), spec, agents.getDraft(agent.id()).revision());
 
             doThrow(new RuntimeException("boom-second-step")).when(store).putAgent(any());
 
-            assertThrows(RuntimeException.class, () -> agents.publish(draft.id()));
+            assertThrows(RuntimeException.class, () -> agents.publish(agent.id(), draft.revision(), null));
 
-            AgentVersionDO row = agentRepo.findVersion(draft.id());
-            assertNotNull(row);
-            assertFalse(Boolean.TRUE.equals(row.getPublished()), "第二步失败后版本发布标记应回滚");
+            assertTrue(agentRepo.listVersions(agent.id()).isEmpty(), "第二步失败后不应留下已发布版本");
             assertNull(agentRepo.findAgent(agent.id()).getPublishedVersionId());
         });
     }

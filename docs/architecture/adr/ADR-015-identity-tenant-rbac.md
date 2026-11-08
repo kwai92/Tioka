@@ -7,6 +7,8 @@
 - 阅读版：[Tioka 推进规划与详细设计](https://claude.ai/artifact/V3wtabWCVSwAC3ewNerFNi)
 - 约束：与 [ADR-029](ADR-029-design-rulings.md) 定案冲突时以定案为准；修改本 ADR 走 [ADR-030](ADR-030-anti-drift-process.md) 的变更流程。
 
+> **术语取代注（2026-11-07）**：标题中的「租户」及正文里的 `tenant_id` / `tenant_admin` / `Principal.tenantId` 等表述，已被 [ADR-029 第 60 条](ADR-029-design-rulings.md) 与 [47-GL](../enterprise/47-GL-统一名词释义.md) 取代。权威隔离边界为 **Workspace**；平台管理员角色码为 **`system_admin`**；新建 DO/API 禁止 `tenantId`。下文保留历史设计叙述，实施与对账勿再按旧码落地。
+
 覆盖 FND-01〜05、FND-07、GOV-01、CHT-01。核心决定是：**每个请求和每个后台任务都携带一个不可变的 `Principal`**，数据隔离在持久层自动生效，资源权限在应用层显式校验。
 
 **请求链路**
@@ -92,3 +94,13 @@ ALTER TABLE auth_user ADD COLUMN external_subject VARCHAR(255);
 ## 修订（2026-11-05）
 
 见 [ADR-029](ADR-029-design-rulings.md) 第 22 条：多租户不是硬需求，每家企业独立部署，`tenant_id` 固定为 `default`，不做租户开通与租户管理界面。
+
+## 修订：记忆与上下文工程调研落地（2026-11-06）
+
+来由：[调研 03](../research/03-Agent记忆与上下文工程调研.md)；按负责人「有选项时按推荐方案直接写设计」的要求落地，见 ADR-029 第 68 条。
+
+- 新增权限点 `memory:space:read`（默认空间成员）、`memory:space:write`、`memory:space:review`（默认空间管理员）、`memory:admin`（默认系统管理员）。用户管理自己的个人记忆不需要权限点；系统管理员不能浏览他人个人记忆正文，调取须走四眼审批（[ADR-050](ADR-050-memory-system.md) 第 6.1 节）。
+
+## 修订：Foundation 基础平台（2026-11-06）
+
+见 [ADR-051](ADR-051-foundation-platform.md)〜[ADR-054](ADR-054-engineering-base-subsystem-microfrontend.md) 与 ADR-029 第 69 条：M4 之后的 F 阶段，系统级角色、用户与组迁出到独立的 Foundation 平台，`PrincipalLoader` 改读授权快照；空间成员、资源 ACL、API Key 仍在 Tioka。M1 按本 ADR 照做，不返工。

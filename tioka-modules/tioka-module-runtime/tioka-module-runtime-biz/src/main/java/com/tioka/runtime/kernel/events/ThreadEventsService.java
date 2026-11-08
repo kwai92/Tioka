@@ -8,12 +8,12 @@ import com.tioka.framework.security.PrincipalType;
 import com.tioka.runtime.api.kernel.RuntimeEventType;
 import com.tioka.runtime.api.kernel.TurnStatus;
 import com.tioka.runtime.config.KernelProperties;
-import com.tioka.runtime.infrastructure.RuntimeSessionRepository;
-import com.tioka.runtime.infrastructure.mapper.RuntimeTurnMapper;
-import com.tioka.runtime.infrastructure.persistence.RuntimeSessionDO;
+import com.tioka.runtime.infrastructure.RuntimeThreadRepository;
+import com.tioka.runtime.infrastructure.persistence.RuntimeItemDO;
+import com.tioka.runtime.infrastructure.persistence.RuntimeThreadDO;
+import com.tioka.runtime.infrastructure.persistence.RuntimeTurnDO;
 import com.tioka.runtime.kernel.infrastructure.ItemRepository;
-import com.tioka.runtime.kernel.infrastructure.persistence.RuntimeItemDO;
-import com.tioka.runtime.kernel.infrastructure.persistence.RuntimeTurnDO;
+import com.tioka.runtime.kernel.infrastructure.TurnRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
@@ -21,24 +21,24 @@ import java.util.List;
 
 @Service
 public class ThreadEventsService {
-    private final RuntimeSessionRepository sessions;
+    private final RuntimeThreadRepository threads;
     private final ItemRepository items;
-    private final RuntimeTurnMapper turns;
+    private final TurnRepository turns;
     private final EventStream streams;
     private final StreamPump pump;
     private final RuntimeEventFactory events;
     private final PrincipalHolder principals;
     private final KernelProperties props;
 
-    public ThreadEventsService(RuntimeSessionRepository sessions,
+    public ThreadEventsService(RuntimeThreadRepository threads,
                                ItemRepository items,
-                               RuntimeTurnMapper turns,
+                               TurnRepository turns,
                                EventStream streams,
                                StreamPump pump,
                                RuntimeEventFactory events,
                                PrincipalHolder principals,
                                KernelProperties props) {
-        this.sessions = sessions;
+        this.threads = threads;
         this.items = items;
         this.turns = turns;
         this.streams = streams;
@@ -56,9 +56,10 @@ public class ThreadEventsService {
         String L = streams.latestEntryId(threadId);
         SseEmitter emitter = new SseEmitter(props.getEvents().getSseTimeout().toMillis());
         EventId sent = EventId.parse(lastEventId);
+        boolean subscribed = false;
         try {
             // 1. 补发活动 Turn 状态
-            RuntimeTurnDO active = turns.findActive(threadId);
+            RuntimeTurnDO active = turns.findActive(threadId).orElse(null);
             if (active != null) {
                 RuntimeEventType type = switch (TurnStatus.valueOf(active.getStatus())) {
                     case RUNNING -> RuntimeEventType.TURN_STARTED;
@@ -72,17 +73,26 @@ public class ThreadEventsService {
                         events.turnStatus(type, threadId, active.getId(), active.getStatus()));
             }
 
-            // 2. DB 补齐 item.completed
+            // 2. DB 补齐 item.completed（分页直到追上）
             long afterSeq = sent.hasDelta() ? Math.max(0, sent.seq() - 1) : sent.seq();
-            List<RuntimeItemDO> backlog = items.listAfterSeq(threadId, afterSeq, 500);
-            for (RuntimeItemDO item : backlog) {
-                EventId eid = EventId.of(item.getSeq());
-                if (eid.compareTo(sent) <= 0) {
-                    continue;
+            for (;;) {
+                List<RuntimeItemDO> backlog = items.listAfterSeq(threadId, afterSeq, 500);
+                if (backlog.isEmpty()) {
+                    break;
                 }
-                pump.send(emitter, eid.toString(), RuntimeEventType.ITEM_COMPLETED.wire(),
-                        events.itemCompleted(threadId, item));
-                sent = eid;
+                for (RuntimeItemDO item : backlog) {
+                    EventId eid = EventId.of(item.getSeq());
+                    if (eid.compareTo(sent) <= 0) {
+                        continue;
+                    }
+                    pump.send(emitter, eid.toString(), RuntimeEventType.ITEM_COMPLETED.wire(),
+                            events.itemCompleted(threadId, item));
+                    sent = eid;
+                }
+                afterSeq = backlog.get(backlog.size() - 1).getSeq();
+                if (backlog.size() < 500) {
+                    break;
+                }
             }
 
             // 3. 当前流式中的 delta（rt:cur → L）
@@ -101,18 +111,26 @@ public class ThreadEventsService {
                     sent = eid;
                 }
             }
+
+            // 4. 先挂上 StreamPump，再发 connected 注释提交响应。
+            // 否则闸门客户端 subscribe() 返回时可能尚未入泵；MH-02 在 rt:cur 清除后，
+            // 晚到的连接无法从 DB 补到 item.discarded（仅 Redis 流式事件）。
+            pump.subscribe(threadId, L, sent, emitter);
+            subscribed = true;
+            emitter.send(SseEmitter.event().comment("connected"));
         } catch (Exception e) {
-            pump.releaseConnection();
+            if (!subscribed) {
+                pump.releaseConnection();
+            }
             emitter.completeWithError(e);
             return emitter;
         }
 
-        pump.subscribe(threadId, L, sent, emitter);
         return emitter;
     }
 
     private void requireVisible(String threadId) {
-        RuntimeSessionDO row = sessions.find(threadId);
+        RuntimeThreadDO row = threads.find(threadId);
         if (row == null) {
             throw new BizException(ErrorCode.NOT_FOUND, "会话不存在");
         }

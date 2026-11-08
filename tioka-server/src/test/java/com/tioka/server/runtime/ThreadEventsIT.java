@@ -6,11 +6,12 @@ import com.tioka.framework.security.PrincipalHolder;
 import com.tioka.framework.security.PrincipalType;
 import com.tioka.runtime.api.kernel.ItemType;
 import com.tioka.runtime.api.kernel.RuntimeEventType;
-import com.tioka.runtime.infrastructure.RuntimeSessionRepository;
-import com.tioka.runtime.infrastructure.persistence.RuntimeSessionDO;
+import com.tioka.runtime.infrastructure.RuntimeThreadRepository;
+import com.tioka.runtime.infrastructure.persistence.RuntimeThreadDO;
 import com.tioka.runtime.kernel.events.EventStream;
 import com.tioka.runtime.kernel.events.RuntimeEventFactory;
 import com.tioka.runtime.kernel.infrastructure.ItemRepository;
+import com.tioka.runtime.kernel.infrastructure.ItemWrite;
 import com.tioka.server.support.IntegrationTestSupport;
 import com.tioka.system.application.AuthService;
 import org.junit.jupiter.api.Tag;
@@ -48,7 +49,7 @@ class ThreadEventsIT {
     @Autowired EventStream streams;
     @Autowired RuntimeEventFactory events;
     @Autowired ItemRepository items;
-    @Autowired RuntimeSessionRepository sessions;
+    @Autowired RuntimeThreadRepository sessions;
     @Autowired AuthService auth;
     @Autowired PrincipalHolder principals;
 
@@ -67,9 +68,9 @@ class ThreadEventsIT {
             streams.publish(threadId, "5." + i, RuntimeEventType.ITEM_DELTA.wire(),
                     events.itemDelta(threadId, "turn_x", itemId, i, "d" + i, null));
         }
-        var completed = new com.tioka.runtime.kernel.infrastructure.persistence.RuntimeItemDO();
+        var completed = new com.tioka.runtime.infrastructure.persistence.RuntimeItemDO();
         completed.setId(itemId);
-        completed.setSessionId(threadId);
+        completed.setThreadId(threadId);
         completed.setTurnId("turn_x");
         completed.setSeq(5L);
         completed.setStep(0);
@@ -79,7 +80,7 @@ class ThreadEventsIT {
         streams.publish(threadId, "5", RuntimeEventType.ITEM_COMPLETED.wire(),
                 events.itemCompleted(threadId, completed));
 
-        List<String> ids = collectEventIds(login.accessToken(), threadId, "5.3", 1200);
+        List<String> ids = collectEventIds(login.accessToken(), threadId, "5.3", 2, 1200);
         assertFalse(ids.stream().anyMatch(id -> id.equals("5.0") || id.equals("5.1") || id.equals("5.2") || id.equals("5.3")));
         assertTrue(ids.contains("5.4"), "应收到 5.4: " + ids);
         assertTrue(ids.contains("5"), "应收到 completed 5: " + ids);
@@ -93,16 +94,14 @@ class ThreadEventsIT {
         seedSession(threadId, login.user().id());
 
         principals.runAs(user(login.user().id()), () -> {
-            for (long seq = 1; seq <= 3; seq++) {
-                items.insertReserved(seq, threadId, "turn_done", 0,
-                        ItemType.MESSAGE.wire(), "assistant", "{\"text\":\"m" + seq + "\"}", null);
+            for (int i = 1; i <= 3; i++) {
+                items.appendWithoutLease(ItemWrite.withoutLease(threadId, "turn_done", 0,
+                        ItemType.MESSAGE.wire(), "assistant", "{\"text\":\"m" + i + "\"}"));
             }
-            RuntimeSessionDO s = sessions.find(threadId);
-            s.setLastItemSeq(3L);
-            sessions.upsert(s);
         });
 
-        List<String> ids = collectEventIds(login.accessToken(), threadId, "0", 1200);
+        // 期望 1/2/3 三个 id；原先固定等 size<2 会在收到 2 后 cancel，漏掉 3（CI flake）
+        List<String> ids = collectEventIds(login.accessToken(), threadId, "0", 3, 2000);
         assertTrue(ids.contains("1"), ids.toString());
         assertTrue(ids.contains("2"), ids.toString());
         assertTrue(ids.contains("3"), ids.toString());
@@ -110,7 +109,7 @@ class ThreadEventsIT {
 
     private void seedSession(String threadId, String ownerId) {
         principals.runAs(user(ownerId), () -> {
-            RuntimeSessionDO row = new RuntimeSessionDO();
+            RuntimeThreadDO row = new RuntimeThreadDO();
             row.setId(threadId);
             row.setStatus("ACTIVE");
             row.setAgentVersionId("av_x");
@@ -127,8 +126,8 @@ class ThreadEventsIT {
         return new Principal(uid, "ws_default", PrincipalType.USER, Set.of("member"), Set.of("*"), "test");
     }
 
-    private List<String> collectEventIds(String token, String threadId, String lastEventId, long waitMs)
-            throws Exception {
+    private List<String> collectEventIds(String token, String threadId, String lastEventId,
+                                         int expectAtLeast, long waitMs) throws Exception {
         List<String> ids = new CopyOnWriteArrayList<>();
         AtomicBoolean done = new AtomicBoolean(false);
         HttpClient client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(3)).build();
@@ -155,7 +154,7 @@ class ThreadEventsIT {
             @Override public void onComplete() { done.set(true); }
         }));
         long deadline = System.currentTimeMillis() + waitMs;
-        while (System.currentTimeMillis() < deadline && ids.size() < 2) {
+        while (System.currentTimeMillis() < deadline && ids.size() < expectAtLeast) {
             Thread.sleep(50);
         }
         future.cancel(true);

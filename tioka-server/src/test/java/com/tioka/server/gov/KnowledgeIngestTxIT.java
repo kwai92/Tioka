@@ -7,9 +7,10 @@ import com.tioka.framework.security.PrincipalHolder;
 import com.tioka.framework.security.PrincipalType;
 import com.tioka.knowledge.application.KnowledgeService;
 import com.tioka.knowledge.infrastructure.KnowledgeRepository;
-import com.tioka.knowledge.infrastructure.embedding.EmbeddingClient;
 import com.tioka.knowledge.infrastructure.mapper.KbDocumentMapper;
 import com.tioka.knowledge.infrastructure.persistence.KbDocumentDO;
+import com.tioka.model.api.gateway.ModelCallContext;
+import com.tioka.model.api.gateway.ModelGateway;
 import com.tioka.server.support.IntegrationTestSupport;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -23,7 +24,7 @@ import java.util.List;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
 @SpringBootTest
@@ -39,12 +40,13 @@ class KnowledgeIngestTxIT {
     @Autowired KnowledgeRepository repo;
     @Autowired KbDocumentMapper documents;
     @Autowired PrincipalHolder principals;
-    @MockBean EmbeddingClient embeddingClient;
+    @MockBean ModelGateway modelGateway;
 
     @Test
     void embeddingFailureMarksFailed() {
         String ws = Ids.newId("ws");
-        when(embeddingClient.embed(anyString())).thenThrow(new RuntimeException("embed-down"));
+        when(modelGateway.embed(any(ModelCallContext.class), any(ModelGateway.EmbeddingRequest.class)))
+                .thenThrow(new RuntimeException("embed-down"));
 
         principals.runAs(user("1", ws), () -> {
             var kb = knowledge.createBase(ws, "kb-tx");

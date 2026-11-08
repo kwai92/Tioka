@@ -29,7 +29,7 @@ class BackfillRuntimeItemsIT {
     @Test
     void legacyColumnsDroppedAndItemTableReady() {
         Integer parts = jdbc.queryForObject(
-                "SELECT COUNT(*) FROM information_schema.columns WHERE table_name='runtime_session' AND column_name='parts_json'",
+                "SELECT COUNT(*) FROM information_schema.columns WHERE table_name='runtime_thread' AND column_name='parts_json'",
                 Integer.class);
         assertTrue(parts != null && parts == 0);
         Integer items = jdbc.queryForObject(

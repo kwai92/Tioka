@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tioka.dev/schema/tioka.ontology.state_folded.v1.json",
+  "title": "tioka.ontology.state_folded.v1",
+  "description": "ONT-07 折叠写回完成。",
+  "type": "object",
+  "required": [
+    "instanceId",
+    "stateVersion"
+  ],
+  "properties": {
+    "instanceId": {
+      "type": "string"
+    },
+    "stateVersion": {
+      "type": "string"
+    },
+    "writtenBack": {
+      "type": "boolean"
+    },
+    "workspaceId": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": true
+}

@@ -1,11 +1,14 @@
 package com.tioka.system.application;
 
 import com.tioka.framework.error.BizException;
+import com.tioka.system.api.audit.AuditApi;
 import com.tioka.system.application.auth.PasswordService;
+import com.tioka.system.application.auth.RolePermissionService;
 import com.tioka.system.application.auth.TokenService;
 import com.tioka.system.config.AuthProperties;
 import com.tioka.system.infrastructure.AuthUserRepository;
 import com.tioka.system.infrastructure.SysMemberRepository;
+import com.tioka.system.infrastructure.SysUserRoleRepository;
 import com.tioka.system.infrastructure.SysWorkspaceRepository;
 import com.tioka.system.infrastructure.persistence.AuthUserDO;
 import org.junit.jupiter.api.BeforeEach;
@@ -16,6 +19,7 @@ import org.springframework.data.redis.core.ValueOperations;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -46,6 +50,13 @@ class AuthServiceTest {
             }
 
             @Override
+            public AuthUserDO findByIdpAndSubject(String idp, String externalSubject) {
+                return byId.values().stream()
+                        .filter(u -> idp.equals(u.getIdp()) && externalSubject.equals(u.getExternalSubject()))
+                        .findFirst().orElse(null);
+            }
+
+            @Override
             public void insert(AuthUserDO user) {
                 byId.put(user.getId(), user);
                 byName.put(user.getUsername(), user);
@@ -60,6 +71,16 @@ class AuthServiceTest {
             @Override
             public long nextId() {
                 return seq.incrementAndGet();
+            }
+
+            @Override
+            public java.util.List<AuthUserDO> search(String q, int offset, int limit) {
+                return byId.values().stream().skip(offset).limit(limit).toList();
+            }
+
+            @Override
+            public long countSearch(String q) {
+                return byId.size();
             }
         };
         passwords = new PasswordService();
@@ -79,6 +100,10 @@ class AuthServiceTest {
         SysMemberRepository members = mock(SysMemberRepository.class);
         when(members.findByUserId(anyString())).thenReturn(List.of());
         SysWorkspaceRepository workspaces = mock(SysWorkspaceRepository.class);
+        SysUserRoleRepository userRoles = mock(SysUserRoleRepository.class);
+        when(userRoles.rolesOfUser(anyString())).thenReturn(List.of());
+        RolePermissionService rolePermissions = mock(RolePermissionService.class);
+        when(rolePermissions.expand(anyCollection())).thenReturn(Set.of());
 
         StringRedisTemplate redis = mock(StringRedisTemplate.class);
         ValueOperations<String, String> ops = mock(ValueOperations.class);
@@ -87,7 +112,9 @@ class AuthServiceTest {
         when(ops.increment(anyString())).thenReturn(1L);
 
         AuthProperties props = new AuthProperties();
-        svc = new AuthService(users, passwords, tokens, members, workspaces, redis, props);
+        AuditApi audit = mock(AuditApi.class);
+        svc = new AuthService(users, passwords, tokens, members, workspaces,
+                userRoles, rolePermissions, redis, props, audit);
     }
 
     @Test

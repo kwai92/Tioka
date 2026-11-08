@@ -4,16 +4,17 @@ import com.tioka.framework.id.Ids;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.tioka.connector.api.FeishuDocSyncApi;
 import com.tioka.connector.api.spi.FeishuDocContentSpi;
 import com.tioka.connector.infrastructure.FeishuDocRepository;
 import com.tioka.connector.infrastructure.persistence.FeishuDocMapDO;
+import com.tioka.system.api.spi.EgressClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.net.URI;
-import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
@@ -27,31 +28,36 @@ import java.util.concurrent.atomic.AtomicReference;
  * - push → 本地镜像 +（可选）POST 创建空文档占位（官方 create 不支持正文）
  */
 @Service
-public class FeishuDocSyncService implements FeishuDocContentSpi {
+public class FeishuDocSyncService implements FeishuDocContentSpi, FeishuDocSyncApi {
     private static final Logger log = LoggerFactory.getLogger(FeishuDocSyncService.class);
+    /** token 提前刷新余量（毫秒）。 */
+    private static final long TOKEN_REFRESH_SKEW_MS = 60_000L;
     private final FeishuDocRepository docs;
     private final ObjectMapper mapper;
-    private final HttpClient http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build();
+    private final EgressClient egress;
     private final String appId;
     private final String appSecret;
     private final String apiBase;
     private final AtomicReference<CachedToken> tokenCache = new AtomicReference<>();
 
     public FeishuDocSyncService(FeishuDocRepository docs,
+                                EgressClient egress,
                                 @Value("${tioka.feishu.app-id:}") String appId,
                                 @Value("${tioka.feishu.app-secret:}") String appSecret,
                                 @Value("${tioka.feishu.api-base:https://open.feishu.cn}") String apiBase,
                                   ObjectMapper mapper) {
         this.mapper = mapper;
         this.docs = docs;
+        this.egress = egress;
         this.appId = appId == null ? "" : appId.trim();
         this.appSecret = appSecret == null ? "" : appSecret.trim();
         this.apiBase = apiBase == null || apiBase.isBlank() ? "https://open.feishu.cn" : apiBase.replaceAll("/$", "");
     }
 
-    public Mapping map(String localDocId, String feishuDocToken) {
+    @Override
+    public MappingView map(String localDocId, String feishuDocToken) {
         String id = Ids.newId("map");
-        Mapping m = new Mapping(id, localDocId, feishuDocToken);
+        MappingView m = new MappingView(id, localDocId, feishuDocToken);
         FeishuDocMapDO row = new FeishuDocMapDO();
         row.setId(m.id());
         row.setLocalDocId(m.localDocId());
@@ -61,7 +67,7 @@ public class FeishuDocSyncService implements FeishuDocContentSpi {
     }
 
     public String push(String mappingId, String content) {
-        Mapping m = require(mappingId);
+        MappingView m = require(mappingId);
         String remote = "feishu://" + m.feishuDocToken();
         upsertPush(remote, content == null ? "" : content);
         if (live()) {
@@ -77,7 +83,7 @@ public class FeishuDocSyncService implements FeishuDocContentSpi {
     }
 
     public String pull(String mappingId) {
-        Mapping m = require(mappingId);
+        MappingView m = require(mappingId);
         return pullByToken(m.feishuDocToken());
     }
 
@@ -120,7 +126,7 @@ public class FeishuDocSyncService implements FeishuDocContentSpi {
                 .header("Content-Type", "application/json; charset=utf-8")
                 .POST(HttpRequest.BodyPublishers.ofString(body))
                 .build();
-        HttpResponse<String> resp = http.send(req, HttpResponse.BodyHandlers.ofString());
+        HttpResponse<String> resp = egress.send(req);
         JsonNode root = mapper.readTree(resp.body() == null ? "{}" : resp.body());
         if (root.path("code").asInt(-1) != 0) {
             throw new IllegalStateException(resp.body());
@@ -134,7 +140,7 @@ public class FeishuDocSyncService implements FeishuDocContentSpi {
                 .header("Authorization", "Bearer " + tenantAccessToken())
                 .GET()
                 .build();
-        HttpResponse<String> resp = http.send(req, HttpResponse.BodyHandlers.ofString());
+        HttpResponse<String> resp = egress.send(req);
         JsonNode root = mapper.readTree(resp.body() == null ? "{}" : resp.body());
         if (root.path("code").asInt(-1) != 0) {
             throw new IllegalStateException(resp.body());
@@ -145,7 +151,7 @@ public class FeishuDocSyncService implements FeishuDocContentSpi {
     private String tenantAccessToken() throws Exception {
         CachedToken cached = tokenCache.get();
         long now = System.currentTimeMillis();
-        if (cached != null && cached.expireAtMs() > now + 60_000) {
+        if (cached != null && cached.expireAtMs() > now + TOKEN_REFRESH_SKEW_MS) {
             return cached.token();
         }
         String body = mapper.writeValueAsString(Map.of("app_id", appId, "app_secret", appSecret));
@@ -155,7 +161,7 @@ public class FeishuDocSyncService implements FeishuDocContentSpi {
                 .header("Content-Type", "application/json; charset=utf-8")
                 .POST(HttpRequest.BodyPublishers.ofString(body))
                 .build();
-        HttpResponse<String> resp = http.send(req, HttpResponse.BodyHandlers.ofString());
+        HttpResponse<String> resp = egress.send(req);
         JsonNode root = mapper.readTree(resp.body() == null ? "{}" : resp.body());
         if (root.path("code").asInt(-1) != 0) {
             throw new IllegalStateException("feishu token failed: " + resp.body());
@@ -166,9 +172,9 @@ public class FeishuDocSyncService implements FeishuDocContentSpi {
         return token;
     }
 
-    private Mapping require(String mappingId) {
+    private MappingView require(String mappingId) {
         FeishuDocMapDO row = docs.findMap(mappingId);
-        return new Mapping(row.getId(), row.getLocalDocId(), row.getFeishuDocToken());
+        return new MappingView(row.getId(), row.getLocalDocId(), row.getFeishuDocToken());
     }
 
     private static String firstLine(String content) {
@@ -179,5 +185,4 @@ public class FeishuDocSyncService implements FeishuDocContentSpi {
     }
 
     private record CachedToken(String token, long expireAtMs) {}
-    public record Mapping(String id, String localDocId, String feishuDocToken) {}
 }

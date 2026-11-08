@@ -1,6 +1,6 @@
 package com.tioka.system.infrastructure;
 
-import com.tioka.system.infrastructure.dataobject.SysMemberDO;
+import com.tioka.system.infrastructure.persistence.SysMemberDO;
 import com.tioka.system.infrastructure.mapper.SysMemberMapper;
 import org.springframework.stereotype.Repository;
 
@@ -14,8 +14,8 @@ public class SysMemberRepository {
         this.mapper = mapper;
     }
 
-    public boolean existsEnabledTenantAdmin() {
-        return mapper.existsEnabledTenantAdmin();
+    public boolean existsEnabledSystemAdmin() {
+        return mapper.existsEnabledSystemAdmin();
     }
 
     public void advisoryLockBootstrap() {
@@ -26,8 +26,20 @@ public class SysMemberRepository {
         mapper.upsertMember(workspaceId, userId, roleCode);
     }
 
+    public void upsertWithSource(String workspaceId, String userId, String roleCode, String source) {
+        mapper.upsertMemberWithSource(workspaceId, userId, roleCode, source);
+    }
+
     public List<SysMemberDO> findByUserId(String userId) {
         return mapper.listByUserId(userId);
+    }
+
+    public List<SysMemberDO> findByUserIdAndSource(String userId, String source) {
+        return mapper.listByUserIdAndSource(userId, source);
+    }
+
+    public void softDeleteOne(String workspaceId, String userId, String roleCode) {
+        mapper.softDeleteOne(workspaceId, userId, roleCode);
     }
 
     public boolean isMember(String workspaceId, String userId) {

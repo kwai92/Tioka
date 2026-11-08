@@ -9,12 +9,12 @@ import com.tioka.framework.error.ErrorCode;
 import com.tioka.mcp.api.McpToolCallApi;
 import com.tioka.mcp.domain.McpStore;
 import com.tioka.mcp.domain.McpStore.*;
+import com.tioka.system.api.spi.EgressClient;
 import com.tioka.system.api.spi.SecretStore;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.net.URI;
-import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
@@ -25,15 +25,17 @@ public class McpAdminService implements McpToolCallApi {
     private final SecretStore secretStore;
     private final McpStore store;
     private final ObjectMapper mapper;
-    private final HttpClient http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build();
+    private final EgressClient egress;
     private final boolean mockDiscovery;
 
     public McpAdminService(SecretStore secretStore, McpStore store,
+                           EgressClient egress,
                            @Value("${tioka.mcp.mock:true}") boolean mockDiscovery,
                                   ObjectMapper mapper) {
         this.mapper = mapper;
         this.secretStore = secretStore;
         this.store = store;
+        this.egress = egress;
         this.mockDiscovery = mockDiscovery;
     }
 
@@ -52,12 +54,45 @@ public class McpAdminService implements McpToolCallApi {
         return store.servers();
     }
 
-    public List<Grant> listGrants() {
-        return store.grants();
-    }
-
     public List<Tool> toolsOf(String serverId) {
         return store.tools(serverId);
+    }
+
+    /** FE-01：更新已登记工具的风险等级（V114 四态）。 */
+    public Tool updateToolRisk(String serverId, String toolName, String risk) {
+        if (store.getServer(serverId).isEmpty()) {
+            throw new BizException(ErrorCode.NOT_FOUND, "mcp server 不存在");
+        }
+        if (toolName == null || toolName.isBlank()) {
+            throw new BizException(ErrorCode.BAD_REQUEST, "toolName 不能为空");
+        }
+        String normalized = normalizeRisk(risk);
+        return store.updateToolRisk(serverId, toolName, normalized);
+    }
+
+    /** TRU-05 / PK-24c：管理端覆盖可逆性。 */
+    public com.tioka.runtime.api.spi.Reversibility updateToolReversibility(
+            String serverId, String toolName, String reversibility) {
+        if (store.getServer(serverId).isEmpty()) {
+            throw new BizException(ErrorCode.NOT_FOUND, "mcp server 不存在");
+        }
+        if (toolName == null || toolName.isBlank()) {
+            throw new BizException(ErrorCode.BAD_REQUEST, "toolName 不能为空");
+        }
+        return store.updateToolReversibility(serverId, toolName, reversibility);
+    }
+
+    static String normalizeRisk(String risk) {
+        if (risk == null || risk.isBlank()) {
+            throw new BizException(ErrorCode.BAD_REQUEST, "risk 不能为空");
+        }
+        String trimmed = risk.trim();
+        try {
+            return com.tioka.runtime.api.approval.ToolRisk.valueOf(trimmed).name();
+        } catch (IllegalArgumentException e) {
+            throw new BizException(ErrorCode.BAD_REQUEST,
+                    "risk 须为 READ|WRITE|DESTRUCTIVE|EXTERNAL_SEND");
+        }
     }
 
     public List<Tool> refreshTools(String serverId) {
@@ -75,7 +110,8 @@ public class McpAdminService implements McpToolCallApi {
         }
         store.replaceTools(serverId, tools);
         store.putServer(new McpServer(server.id(), server.name(), server.baseUrl(), server.headerSecretRef(), "READY"));
-        return tools;
+        // 返回库中行（含 FE-01 保留的 risk），勿直接回传发现结果
+        return store.tools(serverId);
     }
 
     private List<Tool> discoverHttp(McpServer server) {
@@ -83,10 +119,13 @@ public class McpAdminService implements McpToolCallApi {
             JsonNode root = postRpc(server, "tools/list", Map.of());
             List<Tool> tools = new ArrayList<>();
             for (JsonNode t : root.path("result").path("tools")) {
+                // ADR-033：annotations.readOnlyHint=true → 默认可逆性 NONE（经 risk=READ）
+                boolean readOnly = t.path("annotations").path("readOnlyHint").asBoolean(false);
                 tools.add(new Tool(
                         t.path("name").asText(),
                         t.path("description").asText(""),
-                        mapper.convertValue(t.path("inputSchema"), Map.class)
+                        mapper.convertValue(t.path("inputSchema"), Map.class),
+                        readOnly ? "READ" : "WRITE"
                 ));
             }
             return tools;
@@ -137,14 +176,13 @@ public class McpAdminService implements McpToolCallApi {
         }
     }
 
-    /** 按工具名在全部 Grant 中解析（Flow 等无 version 作用域场景）；mock=false 时禁止无 Grant 的 echo 兜底。 */
+    /** 按工具名在已登记 MCP 服务器中解析；mock 时允许 mcp_echo 兜底。 */
     @Override
     public McpToolCallApi.CallResult callToolByName(String toolName, Map<String, Object> arguments) {
-        for (Grant g : store.grants()) {
-            if (!g.allowlist().isEmpty() && !g.allowlist().contains(toolName)) continue;
-            for (Tool t : store.tools(g.serverId())) {
+        for (McpServer server : store.servers()) {
+            for (Tool t : store.tools(server.id())) {
                 if (Objects.equals(t.name(), toolName)) {
-                    return callTool(g.serverId(), toolName, arguments);
+                    return callTool(server.id(), toolName, arguments);
                 }
             }
         }
@@ -155,40 +193,42 @@ public class McpAdminService implements McpToolCallApi {
         return new McpToolCallApi.CallResult(false, "unknown tool: " + toolName);
     }
 
-    /** 仅解析指定 Grant 快照内的工具（AgentVersion.mcpGrantIds）。 */
-    public List<Tool> toolsForGrantIds(List<String> grantIds) {
-        if (grantIds == null || grantIds.isEmpty()) return List.of();
+    /** 按 AgentSpec.tools.mcp 快照解析工具。 */
+    public List<Tool> toolsForMcpBindings(List<McpBinding> bindings) {
+        if (bindings == null || bindings.isEmpty()) return List.of();
         List<Tool> out = new ArrayList<>();
         Set<String> seen = new HashSet<>();
-        for (String grantId : grantIds) {
-            Optional<Grant> g = store.getGrant(grantId);
-            if (g.isEmpty()) continue;
-            for (Tool t : store.tools(g.get().serverId())) {
-                if (!g.get().allowlist().isEmpty() && !g.get().allowlist().contains(t.name())) continue;
+        for (McpBinding b : bindings) {
+            if (b == null || b.serverId() == null) continue;
+            for (Tool t : store.tools(b.serverId())) {
+                if (b.allowlist() != null && !b.allowlist().isEmpty()
+                        && !b.allowlist().contains(t.name())) continue;
                 if (seen.add(t.name())) out.add(t);
             }
         }
         return out;
     }
 
-    public McpToolCallApi.CallResult callToolWithGrantIds(List<String> grantIds, String toolName,
-                                                         Map<String, Object> arguments) {
-        if (grantIds == null || grantIds.isEmpty()) {
+    public McpToolCallApi.CallResult callToolWithMcpBindings(List<McpBinding> bindings, String toolName,
+                                                            Map<String, Object> arguments) {
+        if (bindings == null || bindings.isEmpty()) {
             throw new BizException(ErrorCode.FORBIDDEN, "工具未授权: " + toolName);
         }
-        for (String grantId : grantIds) {
-            Optional<Grant> opt = store.getGrant(grantId);
-            if (opt.isEmpty()) continue;
-            Grant g = opt.get();
-            if (!g.allowlist().isEmpty() && !g.allowlist().contains(toolName)) continue;
-            for (Tool t : store.tools(g.serverId())) {
+        for (McpBinding b : bindings) {
+            if (b == null || b.serverId() == null) continue;
+            if (b.allowlist() != null && !b.allowlist().isEmpty() && !b.allowlist().contains(toolName)) {
+                continue;
+            }
+            for (Tool t : store.tools(b.serverId())) {
                 if (Objects.equals(t.name(), toolName)) {
-                    return callTool(g.serverId(), toolName, arguments);
+                    return callTool(b.serverId(), toolName, arguments);
                 }
             }
         }
         throw new BizException(ErrorCode.FORBIDDEN, "工具未授权: " + toolName);
     }
+
+    public record McpBinding(String serverId, List<String> allowlist) {}
 
     private JsonNode postRpc(McpServer server, String method, Map<String, Object> params) throws Exception {
         Map<String, Object> rpc = new LinkedHashMap<>();
@@ -208,7 +248,7 @@ public class McpAdminService implements McpToolCallApi {
             String token = secretStore.get(parts[0], parts[1]);
             if (token != null) b.header("Authorization", "Bearer " + token);
         }
-        HttpResponse<String> resp = http.send(b.build(), HttpResponse.BodyHandlers.ofString());
+        HttpResponse<String> resp = egress.send(b.build());
         String raw = resp.body() == null ? "" : resp.body();
         String json = extractJsonRpc(raw);
         return mapper.readTree(json);
@@ -226,26 +266,5 @@ public class McpAdminService implements McpToolCallApi {
             }
         }
         return t;
-    }
-
-    public Grant grant(String agentId, String serverId, List<String> allowlist) {
-        if (store.getServer(serverId).isEmpty()) throw new BizException(ErrorCode.NOT_FOUND, "server 不存在");
-        String id = Ids.newId("gr");
-        Grant g = new Grant(id, agentId, serverId, allowlist == null ? List.of() : allowlist);
-        store.putGrant(g);
-        return g;
-    }
-
-    public List<Tool> toolsForAgent(String agentId) {
-        List<Tool> out = new ArrayList<>();
-        for (Grant g : store.grants()) {
-            if (!Objects.equals(g.agentId(), agentId)) continue;
-            for (Tool t : store.tools(g.serverId())) {
-                if (g.allowlist().isEmpty() || g.allowlist().contains(t.name())) {
-                    out.add(t);
-                }
-            }
-        }
-        return out;
     }
 }

@@ -13,6 +13,8 @@ public class McpToolDO extends BaseDO {
     private String name;
     private String description;
     private String inputSchema;
+    /** V114：READ / WRITE / DESTRUCTIVE / EXTERNAL_SEND，默认 WRITE。 */
+    private String risk;
 
     public String getId() { return id; }
     public void setId(String id) { this.id = id; }
@@ -24,4 +26,6 @@ public class McpToolDO extends BaseDO {
     public void setDescription(String description) { this.description = description; }
     public String getInputSchema() { return inputSchema; }
     public void setInputSchema(String inputSchema) { this.inputSchema = inputSchema; }
+    public String getRisk() { return risk; }
+    public void setRisk(String risk) { this.risk = risk; }
 }

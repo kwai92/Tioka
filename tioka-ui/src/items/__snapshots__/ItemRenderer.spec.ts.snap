@@ -1,0 +1,264 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`HCI-04 ItemRenderer snapshots > card.json / tool-decided 1`] = `
+"<div data-v-03aefe46="" class="item card tool">
+  <div data-v-03aefe46="" class="card-head"><span data-v-03aefe46="" class="tag">审批 · fs.write</span><span data-v-03aefe46="" class="el-tag-stub" size="small" type="danger" effect="dark">DESTRUCTIVE</span><span data-v-03aefe46="" class="reason">已处理</span></div>
+  <div data-v-03aefe46="" class="decided"><span data-v-03aefe46="" class="el-tag-stub" size="small" type="success">APPROVED</span><span data-v-03aefe46="" class="by">审批人 user_alice</span></div><pre data-v-03aefe46="" class="payload">{
+  "path": "/tmp/b"
+}</pre>
+  <!--v-if-->
+</div>"
+`;
+
+exports[`HCI-04 ItemRenderer snapshots > card.json / tool-pending 1`] = `
+"<div data-v-03aefe46="" class="item card tool">
+  <div data-v-03aefe46="" class="card-head"><span data-v-03aefe46="" class="tag">审批 · fs.write</span><span data-v-03aefe46="" class="el-tag-stub" size="small" type="warning" effect="dark">WRITE</span><span data-v-03aefe46="" class="reason">写入需审批</span></div><label data-v-03aefe46="" class="lbl">参数（可编辑）</label><textarea data-v-03aefe46="" class="el-input-stub args-editor" type="textarea" rows="6" value="{
+  &quot;path&quot;: &quot;/tmp/a&quot;,
+  &quot;body&quot;: &quot;x&quot;
+}"></textarea><textarea data-v-03aefe46="" class="el-input-stub" type="textarea" rows="2" placeholder="备注（可选）" value=""></textarea>
+  <div data-v-03aefe46="" class="actions"><button data-v-03aefe46="" class="el-button-stub" type="success" size="small" loading="false"> 批准 </button><button data-v-03aefe46="" class="el-button-stub" type="danger" size="small" plain="" loading="false"> 拒绝 </button></div>
+  <!--v-if-->
+</div>"
+`;
+
+exports[`HCI-04 ItemRenderer snapshots > change_set.json / basic 1`] = `
+"<div data-v-4170e466="" class="item unknown">
+  <div data-v-4170e466="" class="tag">change_set</div><pre data-v-4170e466="" class="payload">{
+  "note": "fixture for change_set"
+}</pre>
+</div>"
+`;
+
+exports[`HCI-04 ItemRenderer snapshots > change_set.json / edge 1`] = `
+"<div data-v-4170e466="" class="item unknown">
+  <div data-v-4170e466="" class="tag">change_set</div><pre data-v-4170e466="" class="payload">{
+  "data": [
+    1,
+    2,
+    3
+  ],
+  "change_set": {
+    "op": "noop"
+  }
+}</pre>
+</div>"
+`;
+
+exports[`HCI-04 ItemRenderer snapshots > child_thread.json / basic 1`] = `
+"<div data-v-4170e466="" class="item unknown">
+  <div data-v-4170e466="" class="tag">child_thread</div><pre data-v-4170e466="" class="payload">{
+  "ref": "child_thread-1"
+}</pre>
+</div>"
+`;
+
+exports[`HCI-04 ItemRenderer snapshots > child_thread.json / edge 1`] = `
+"<div data-v-4170e466="" class="item unknown">
+  <div data-v-4170e466="" class="tag">child_thread</div><pre data-v-4170e466="" class="payload">{
+  "note": "unknown-renderer-ok",
+  "payload": {
+    "nested": true
+  }
+}</pre>
+</div>"
+`;
+
+exports[`HCI-04 ItemRenderer snapshots > citation.json / basic 1`] = `
+"<div data-v-19ee58c6="" class="item citation"><button data-v-19ee58c6="" type="button" class="cite-chip"><span data-v-19ee58c6="" class="tag">citation</span><strong data-v-19ee58c6="" class="cite-title">手册</strong><span data-v-19ee58c6="" class="cite-snippet">引用片段</span><span data-v-19ee58c6="" class="cite-id">cit_1</span></button>
+  <div data-v-19ee58c6="" class="el-drawer-stub" modelvalue="false" title="引用原文" direction="rtl" size="420px" append-to-body="true">
+    <div data-v-19ee58c6="" class="cite-panel">
+      <!--v-if-->
+    </div>
+  </div>
+</div>"
+`;
+
+exports[`HCI-04 ItemRenderer snapshots > citation.json / no-id 1`] = `
+"<div data-v-19ee58c6="" class="item citation"><button data-v-19ee58c6="" type="button" class="cite-chip" disabled=""><span data-v-19ee58c6="" class="tag">citation</span><strong data-v-19ee58c6="" class="cite-title">无 id</strong><span data-v-19ee58c6="" class="cite-snippet">…</span>
+    <!--v-if-->
+  </button>
+  <div data-v-19ee58c6="" class="el-drawer-stub" modelvalue="false" title="引用原文" direction="rtl" size="420px" append-to-body="true">
+    <div data-v-19ee58c6="" class="cite-panel">
+      <!--v-if-->
+    </div>
+  </div>
+</div>"
+`;
+
+exports[`HCI-04 ItemRenderer snapshots > compaction.json / basic 1`] = `
+"<div data-v-4170e466="" class="item unknown">
+  <div data-v-4170e466="" class="tag">compaction</div><pre data-v-4170e466="" class="payload">{
+  "ref": "compaction-1"
+}</pre>
+</div>"
+`;
+
+exports[`HCI-04 ItemRenderer snapshots > compaction.json / edge 1`] = `
+"<div data-v-4170e466="" class="item unknown">
+  <div data-v-4170e466="" class="tag">compaction</div><pre data-v-4170e466="" class="payload">{
+  "note": "unknown-renderer-ok",
+  "payload": {
+    "nested": true
+  }
+}</pre>
+</div>"
+`;
+
+exports[`HCI-04 ItemRenderer snapshots > error.json / basic 1`] = `
+"<div data-v-54b54e4d="" class="item error"><span data-v-54b54e4d="" class="tag">error</span><pre data-v-54b54e4d="" class="text">模型超时</pre>
+</div>"
+`;
+
+exports[`HCI-04 ItemRenderer snapshots > error.json / code 1`] = `
+"<div data-v-54b54e4d="" class="item error"><span data-v-54b54e4d="" class="tag">error</span><pre data-v-54b54e4d="" class="text">限流</pre>
+</div>"
+`;
+
+exports[`HCI-04 ItemRenderer snapshots > file_ref.json / basic 1`] = `
+"<div data-v-4170e466="" class="item unknown">
+  <div data-v-4170e466="" class="tag">file_ref</div><pre data-v-4170e466="" class="payload">{
+  "ref": "file_ref-1"
+}</pre>
+</div>"
+`;
+
+exports[`HCI-04 ItemRenderer snapshots > file_ref.json / edge 1`] = `
+"<div data-v-4170e466="" class="item unknown">
+  <div data-v-4170e466="" class="tag">file_ref</div><pre data-v-4170e466="" class="payload">{
+  "note": "unknown-renderer-ok",
+  "payload": {
+    "nested": true
+  }
+}</pre>
+</div>"
+`;
+
+exports[`HCI-04 ItemRenderer snapshots > message.json / basic 1`] = `
+"<div data-v-ef09dd6a="" class="item message"><pre data-v-ef09dd6a="" class="text">你好，Tioka</pre>
+</div>"
+`;
+
+exports[`HCI-04 ItemRenderer snapshots > message.json / long-text 1`] = `
+"<div data-v-ef09dd6a="" class="item message"><pre data-v-ef09dd6a="" class="text">超长文本
+超长文本
+超长文本
+超长文本
+超长文本
+超长文本
+超长文本
+超长文本
+超长文本
+超长文本
+超长文本
+超长文本
+超长文本
+超长文本
+超长文本
+超长文本
+超长文本
+超长文本
+超长文本
+超长文本
+超长文本
+超长文本
+超长文本
+超长文本
+超长文本
+超长文本
+超长文本
+超长文本
+超长文本
+超长文本
+超长文本
+超长文本
+超长文本
+超长文本
+超长文本
+超长文本
+超长文本
+超长文本
+超长文本
+超长文本
+END</pre>
+</div>"
+`;
+
+exports[`HCI-04 ItemRenderer snapshots > reasoning.json / basic 1`] = `
+"<details data-v-6151de45="" class="item reasoning">
+  <summary data-v-6151de45="">思考过程</summary><pre data-v-6151de45="" class="text">先检索再回答</pre>
+</details>"
+`;
+
+exports[`HCI-04 ItemRenderer snapshots > reasoning.json / empty 1`] = `
+"<details data-v-6151de45="" class="item reasoning">
+  <summary data-v-6151de45="">思考过程</summary><pre data-v-6151de45="" class="text"></pre>
+</details>"
+`;
+
+exports[`HCI-04 ItemRenderer snapshots > status.json / failover 1`] = `"<div data-v-78610224="" class="item status"><span data-v-78610224="" class="tag">status</span><span data-v-78610224="">model_failover</span></div>"`;
+
+exports[`HCI-04 ItemRenderer snapshots > status.json / generic 1`] = `"<div data-v-78610224="" class="item status"><span data-v-78610224="" class="tag">status</span><span data-v-78610224="">info</span></div>"`;
+
+exports[`HCI-04 ItemRenderer snapshots > tool_call.json / basic 1`] = `
+"<details data-v-0335fa62="" class="item tool-pair" open="">
+  <summary data-v-0335fa62=""><span data-v-0335fa62="" class="tag">tool</span><strong data-v-0335fa62="">echo</strong><span data-v-0335fa62="" class="ok">完成</span></summary>
+  <div data-v-c60d6bb8="" data-v-0335fa62="" class="item tool-call">
+    <div data-v-c60d6bb8="" class="tag">tool_call · echo</div><pre data-v-c60d6bb8="" class="payload">{
+  "callId": "c1",
+  "name": "echo",
+  "arguments": {
+    "text": "hi"
+  }
+}</pre>
+  </div>
+  <div data-v-21ce4ea7="" data-v-0335fa62="" class="item tool-result">
+    <div data-v-21ce4ea7="" class="tag">tool_result · echo</div><pre data-v-21ce4ea7="" class="payload">hi</pre>
+  </div>
+</details>"
+`;
+
+exports[`HCI-04 ItemRenderer snapshots > tool_call.json / pending 1`] = `
+"<details data-v-0335fa62="" class="item tool-pair" open="">
+  <summary data-v-0335fa62=""><span data-v-0335fa62="" class="tag">tool</span><strong data-v-0335fa62="">kb.search</strong><span data-v-0335fa62="" class="muted">调用中</span></summary>
+  <div data-v-c60d6bb8="" data-v-0335fa62="" class="item tool-call">
+    <div data-v-c60d6bb8="" class="tag">tool_call · kb.search</div><pre data-v-c60d6bb8="" class="payload">{
+  "callId": "c2",
+  "name": "kb.search",
+  "arguments": {
+    "q": "x"
+  }
+}</pre>
+  </div>
+  <!--v-if-->
+</details>"
+`;
+
+exports[`HCI-04 ItemRenderer snapshots > tool_result.json / ok 1`] = `
+"<div data-v-21ce4ea7="" class="item tool-result">
+  <div data-v-21ce4ea7="" class="tag">tool_result · echo</div><pre data-v-21ce4ea7="" class="payload">ok</pre>
+</div>"
+`;
+
+exports[`HCI-04 ItemRenderer snapshots > tool_result.json / truncated 1`] = `
+"<div data-v-21ce4ea7="" class="item tool-result">
+  <div data-v-21ce4ea7="" class="tag">tool_result · kb.search</div><pre data-v-21ce4ea7="" class="payload">TRUNCATED:xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx</pre>
+</div>"
+`;
+
+exports[`HCI-04 ItemRenderer snapshots > unknown.json / basic 1`] = `
+"<div data-v-4170e466="" class="item unknown">
+  <div data-v-4170e466="" class="tag">totally_unknown</div><pre data-v-4170e466="" class="payload">{
+  "x": 1
+}</pre>
+</div>"
+`;
+
+exports[`HCI-04 ItemRenderer snapshots > unknown.json / future-type 1`] = `
+"<div data-v-33e79f2a="" class="data-item">
+  <div data-v-33e79f2a="" class="meta"><span data-v-33e79f2a="" class="badge">data</span>
+    <!--v-if-->
+  </div><pre data-v-33e79f2a="" class="json">{
+  "rows": []
+}</pre>
+</div>"
+`;
