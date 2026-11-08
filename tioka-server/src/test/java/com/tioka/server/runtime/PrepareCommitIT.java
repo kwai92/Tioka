@@ -8,7 +8,6 @@ import com.tioka.runtime.api.spi.ToolCallContexts;
 import com.tioka.runtime.api.spi.ToolGateway;
 import com.tioka.runtime.api.spi.ToolProvider;
 import com.tioka.runtime.application.gateway.PreparedCallStore;
-import com.tioka.runtime.infrastructure.persistence.TrustActionDO;
 import com.tioka.server.support.IntegrationTestSupport;
 import com.tioka.server.support.TestFixtures;
 import com.tioka.testkit.FakeErp;
