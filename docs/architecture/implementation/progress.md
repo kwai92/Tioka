@@ -2,7 +2,7 @@
 
 # 实施完成度（自动生成）
 
-> 生成时间：2026-11-07T12:32:46.503Z
+> 生成时间：2026-11-08T11:23:17.952Z
 >
 > 数据来源：仓库内 Surefire 报告（`**/surefire-reports/*.xml`）与 34 号计划工作项表。
 > 禁止手工编辑本文件；本地可运行 `node scripts/gen-progress.mjs` 刷新。
@@ -11,12 +11,12 @@
 
 | 指标 | 值 |
 | --- | --- |
-| Surefire 报告文件 | 7 |
-| 用例总数 | 19 |
+| Surefire 报告文件 | 85 |
+| 用例总数 | 330 |
 | 失败 | 0 |
 | 错误 | 0 |
-| 跳过 | 0 |
-| Gate 套件通过 | 0 |
+| 跳过 | 1 |
+| Gate 套件通过 | 1 |
 | Gate 套件失败 | 0 |
 
 ## 34 号计划工作项（登记）
@@ -229,4 +229,6 @@
 
 ## Gate 相关套件
 
-_本次未发现名称含 GateIT 的 Surefire 套件（可能尚未执行 -Pgate）。_
+| 套件 | tests | failures | errors | skipped |
+| --- | ---: | ---: | ---: | ---: |
+| com.tioka.server.gate.support.M3GateStubsTest | 5 | 0 | 0 | 0 |
