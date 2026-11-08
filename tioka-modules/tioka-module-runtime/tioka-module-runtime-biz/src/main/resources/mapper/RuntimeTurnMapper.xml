@@ -12,7 +12,7 @@
                    lease_until AS leaseUntil, error_code AS errorCode, error_message AS errorMessage,
                    prompt_tokens AS promptTokens, completion_tokens AS completionTokens,
                    started_at AS startedAt, ended_at AS endedAt, create_at AS createAt, update_at AS updateAt,
-                   traceparent
+                   traceparent, request_id AS requestId, subject
             FROM runtime_turn WHERE id = #{id}
             
 ]]>
@@ -27,7 +27,7 @@
                    lease_until AS leaseUntil, error_code AS errorCode, error_message AS errorMessage,
                    prompt_tokens AS promptTokens, completion_tokens AS completionTokens,
                    started_at AS startedAt, ended_at AS endedAt, create_at AS createAt, update_at AS updateAt,
-                   traceparent
+                   traceparent, request_id AS requestId, subject
             FROM runtime_turn
             WHERE thread_id = #{threadId} AND client_msg_id = #{clientMsgId}
             
@@ -59,10 +59,11 @@ SELECT 1 FROM runtime_thread WHERE id = #{threadId} FOR UPDATE
         <![CDATA[
             INSERT INTO runtime_turn (
               id, thread_id, seq, status, origin, origin_ref, client_msg_id, run_as_json, options_json,
-              step_count, lease_version, create_at, update_at, create_by, update_by
+              step_count, lease_version, request_id, subject, create_at, update_at, create_by, update_by
             ) VALUES (
               #{id}, #{threadId}, #{seq}, #{status}, #{origin}, #{originRef}, #{clientMsgId},
               #{runAsJson}, #{optionsJson}, COALESCE(#{stepCount}, 0), COALESCE(#{leaseVersion}, 0),
+              #{requestId}, #{subject},
               now(), now(), 'system', 'system'
             )
             
@@ -318,7 +319,7 @@ SELECT pg_advisory_unlock(hashtext('tioka.runtime.queued-sweeper'))
                    lease_until AS leaseUntil, error_code AS errorCode, error_message AS errorMessage,
                    prompt_tokens AS promptTokens, completion_tokens AS completionTokens,
                    started_at AS startedAt, ended_at AS endedAt, create_at AS createAt, update_at AS updateAt,
-                   traceparent
+                   traceparent, request_id AS requestId, subject
             FROM runtime_turn
             WHERE thread_id = #{threadId}
             ORDER BY seq

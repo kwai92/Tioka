@@ -29,6 +29,9 @@ public class OrchRunDO extends TechnicalRecordDO {
     private String runAsJson;
     private String errorCode;
     private String errorMessage;
+    /** OBS-03 / V133：关联上下文。 */
+    private String requestId;
+    private String subject;
     private LocalDateTime createAt;
     private LocalDateTime updateAt;
     private LocalDateTime endedAt;
@@ -63,6 +66,10 @@ public class OrchRunDO extends TechnicalRecordDO {
     public void setErrorCode(String errorCode) { this.errorCode = errorCode; }
     public String getErrorMessage() { return errorMessage; }
     public void setErrorMessage(String errorMessage) { this.errorMessage = errorMessage; }
+    public String getRequestId() { return requestId; }
+    public void setRequestId(String requestId) { this.requestId = requestId; }
+    public String getSubject() { return subject; }
+    public void setSubject(String subject) { this.subject = subject; }
     public LocalDateTime getCreateAt() { return createAt; }
     public void setCreateAt(LocalDateTime createAt) { this.createAt = createAt; }
     public LocalDateTime getUpdateAt() { return updateAt; }

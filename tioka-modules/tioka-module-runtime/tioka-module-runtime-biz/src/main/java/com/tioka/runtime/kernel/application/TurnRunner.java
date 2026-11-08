@@ -4,6 +4,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tioka.agent.api.AgentSnapshotApi;
 import com.tioka.agent.api.spec.AgentSpec;
+import com.tioka.framework.context.RequestContext;
+import com.tioka.framework.context.RequestContextHolder;
 import com.tioka.framework.error.BizException;
 import com.tioka.framework.error.ErrorCode;
 import com.tioka.framework.security.Principal;
@@ -33,7 +35,10 @@ import com.tioka.system.api.spi.PrincipalLoaderApi;
 import com.tioka.system.api.spi.QuotaGuard;
 import io.opentelemetry.api.GlobalOpenTelemetry;
 import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.api.trace.SpanBuilder;
 import io.opentelemetry.api.trace.SpanContext;
+import io.opentelemetry.api.trace.TraceFlags;
+import io.opentelemetry.api.trace.TraceState;
 import io.opentelemetry.context.Scope;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -114,21 +119,45 @@ public class TurnRunner {
     }
 
     public void run(String turnId) {
-        Span span = GlobalOpenTelemetry.getTracer("tioka").spanBuilder("turn.run")
-                .setAttribute("tioka.turn_id", turnId == null ? "" : turnId)
-                .startSpan();
-        try (Scope ignored = span.makeCurrent()) {
-            runTracked(turnId, span);
+        RuntimeTurnDO peek = turnId == null ? null : turns.findById(turnId).orElse(null);
+        SpanBuilder builder = GlobalOpenTelemetry.getTracer("tioka").spanBuilder("turn.run")
+                .setAttribute("tioka.turn_id", turnId == null ? "" : turnId);
+        // OBS-03 / ADR-073：审批挂起后续跑新开 trace，用 span link 指回原 turn.run
+        SpanContext prior = peek == null ? SpanContext.getInvalid() : parseTraceparent(peek.getTraceparent());
+        if (prior.isValid()) {
+            builder.addLink(prior);
+        }
+        if (peek != null && peek.getRequestId() != null && !peek.getRequestId().isBlank()) {
+            builder.setAttribute("tioka.request_id", peek.getRequestId());
+        }
+        if (peek != null && peek.getSubject() != null && !peek.getSubject().isBlank()) {
+            builder.setAttribute("tioka.subject", peek.getSubject());
+        }
+        Span span = builder.startSpan();
+        RequestContext previous = RequestContextHolder.getCorrelation();
+        boolean restored = false;
+        try {
+            if (peek != null && peek.getRequestId() != null && !peek.getRequestId().isBlank()) {
+                RequestContextHolder.setCorrelation(
+                        new RequestContext(peek.getRequestId(), peek.getSubject(), null));
+                restored = true;
+            }
+            try (Scope ignored = span.makeCurrent()) {
+                runTracked(turnId, span, peek);
+            }
         } catch (RuntimeException e) {
             span.recordException(e);
             throw e;
         } finally {
+            if (restored) {
+                RequestContextHolder.setCorrelation(previous);
+            }
             span.end();
         }
     }
 
-    private void runTracked(String turnId, Span span) {
-        RuntimeTurnDO turn = turns.findById(turnId).orElse(null);
+    private void runTracked(String turnId, Span span, RuntimeTurnDO preloaded) {
+        RuntimeTurnDO turn = preloaded != null ? preloaded : turns.findById(turnId).orElse(null);
         if (turn == null) {
             return;
         }
@@ -295,6 +324,23 @@ public class TurnRunner {
         }
         return "00-" + ctx.getTraceId() + "-" + ctx.getSpanId() + "-"
                 + (ctx.getTraceFlags().isSampled() ? "01" : "00");
+    }
+
+    /** 解析 runtime_turn.traceparent；非法则返回 invalid。 */
+    private static SpanContext parseTraceparent(String traceparent) {
+        if (traceparent == null || traceparent.isBlank()) {
+            return SpanContext.getInvalid();
+        }
+        String[] parts = traceparent.trim().split("-");
+        if (parts.length < 4) {
+            return SpanContext.getInvalid();
+        }
+        try {
+            TraceFlags flags = "01".equals(parts[3]) ? TraceFlags.getSampled() : TraceFlags.getDefault();
+            return SpanContext.create(parts[1], parts[2], flags, TraceState.getDefault());
+        } catch (RuntimeException e) {
+            return SpanContext.getInvalid();
+        }
     }
 
     /** LeaseReaper / 外部在终态后触发同 thread 下一条。 */
