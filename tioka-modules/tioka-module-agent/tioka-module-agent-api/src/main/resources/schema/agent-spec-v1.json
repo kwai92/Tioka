@@ -37,10 +37,84 @@
         { "$ref": "#/$defs/OutputContract" }
       ]
     },
+    "prompt": {
+      "oneOf": [
+        { "type": "null" },
+        { "$ref": "#/$defs/PromptRef" }
+      ]
+    },
+    "context": {
+      "oneOf": [
+        { "type": "null" },
+        { "$ref": "#/$defs/ContextSettings" }
+      ]
+    },
+    "memory": {
+      "oneOf": [
+        { "type": "null" },
+        { "$ref": "#/$defs/MemorySettings" }
+      ]
+    },
+    "execution": {
+      "oneOf": [
+        { "type": "null" },
+        { "$ref": "#/$defs/ExecutionSettings" }
+      ]
+    },
     "subAgents": { "type": ["object", "null"] },
     "dataClearance": { "type": ["string", "null"] }
   },
   "$defs": {
+    "PromptRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["templateId"],
+      "properties": {
+        "templateId": { "type": "string", "minLength": 1 },
+        "pinnedVersion": { "type": ["integer", "null"], "minimum": 1 }
+      }
+    },
+    "ContextSettings": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "budgetTokens": { "type": ["integer", "null"], "minimum": 1 },
+        "cleanupThresholdPercent": { "type": ["integer", "null"], "minimum": 1, "maximum": 100 },
+        "keepRecentTurns": { "type": ["integer", "null"], "minimum": 0 },
+        "neverCleanupTools": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "summaryHint": { "type": ["string", "null"] },
+        "childPassMode": { "type": ["string", "null"], "enum": ["ISOLATED", "WITH_SUMMARY"] },
+        "childReturnTokenLimit": { "type": ["integer", "null"], "minimum": 1 }
+      }
+    },
+    "MemorySettings": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "readScope": {
+          "type": ["string", "null"],
+          "enum": ["NONE", "USER", "SPACE", "USER_AND_SPACE"]
+        },
+        "writeMode": {
+          "type": ["string", "null"],
+          "enum": ["NONE", "EXPLICIT_ONLY", "AUTO"]
+        },
+        "defaultAgentAffinity": { "type": ["boolean", "null"] }
+      }
+    },
+    "ExecutionSettings": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "strategy": { "type": ["string", "null"] },
+        "strategyParams": { "type": ["object", "null"] },
+        "executor": { "type": ["string", "null"] },
+        "allowRuntimeOverride": { "type": ["boolean", "null"] }
+      }
+    },
     "OutputContract": {
       "type": "object",
       "additionalProperties": false,

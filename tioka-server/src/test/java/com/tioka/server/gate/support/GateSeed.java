@@ -93,7 +93,7 @@ public final class GateSeed {
                     AgentSpec.SandboxPolicy.defaults(),
                     AgentSpec.ApprovalSettings.empty(),
                     AgentSpec.Limits.defaults(),
-                    null, null, null, null);
+                null, null, null, null, null, null, null, null);
             AgentService.PublishResult published = agents.publishSpec(agent.id(), spec);
             return new Bundle(userId, ws, login.accessToken(), published.versionId(), planId);
         });

@@ -7,7 +7,9 @@ import java.util.Map;
 
 /**
  * Agent 配置快照（schemaVersion=1）。
- * charter / subAgents / dataClearance 仍为预留（须 null）；output 自 SCH-02 起为 {@link OutputContract}（可空）。
+ * M3（P3-00b / K9）：一次加齐可空段 {@code output}、{@code charter}、{@code prompt}、
+ * {@code context}、{@code memory}、{@code execution}；缺省 null = 行为等于现状。
+ * {@code subAgents} / {@code dataClearance} 仍为预留（须 null，直至对应工作项解冻）。
  */
 public record AgentSpec(
         int schemaVersion,
@@ -22,6 +24,10 @@ public record AgentSpec(
         Limits limits,
         JsonNode charter,
         OutputContract output,
+        PromptRef prompt,
+        ContextSettings context,
+        MemorySettings memory,
+        ExecutionSettings execution,
         JsonNode subAgents,
         String dataClearance
 ) {

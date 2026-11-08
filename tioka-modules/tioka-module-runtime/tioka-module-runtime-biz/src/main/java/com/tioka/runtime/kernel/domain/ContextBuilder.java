@@ -12,15 +12,32 @@ import java.util.Map;
 
 /**
  * item → OpenAI messages。status/error/reasoning 不进上下文。
+ * P3-00b / K1a：可注入 {@link ContextSegmentRegistry}；空注册表时组装路径与原先一致。
  */
 public final class ContextBuilder {
     private final ObjectMapper mapper;
+    private final ContextSegmentRegistry segments;
 
     public ContextBuilder(ObjectMapper mapper) {
+        this(mapper, new ContextSegmentRegistry(List.of()));
+    }
+
+    public ContextBuilder(ObjectMapper mapper, ContextSegmentRegistry segments) {
         this.mapper = mapper;
+        this.segments = segments == null ? new ContextSegmentRegistry(List.of()) : segments;
+    }
+
+    /** 段提供者注册表（RT-10 / CTX-01 消费；P3-00b 仅挂接，不改现有 item 组装）。 */
+    public ContextSegmentRegistry segments() {
+        return segments;
     }
 
     public List<Map<String, Object>> build(List<RuntimeItemDO> items) {
+        // 空注册表：不插入额外段，行为 = M2 现状
+        if (!segments.isEmpty()) {
+            // 占位：后续 RT-10 按 zone/order 调提供者；当前无实现 bean，不会进入
+            segments.providers();
+        }
         List<Map<String, Object>> out = new ArrayList<>();
         List<RuntimeItemDO> pendingToolCalls = new ArrayList<>();
         Integer pendingStep = null;

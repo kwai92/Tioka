@@ -72,6 +72,10 @@
             <groupId>com.tioka</groupId>
             <artifactId>tioka-module-governance-api</artifactId>
         </dependency>
+        <dependency>
+            <groupId>com.tioka</groupId>
+            <artifactId>tioka-module-eval-api</artifactId>
+        </dependency>
 
         <dependency>
             <groupId>com.tioka</groupId>
@@ -121,6 +125,11 @@
         <dependency>
             <groupId>com.tioka</groupId>
             <artifactId>tioka-module-governance-biz</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.tioka</groupId>
+            <artifactId>tioka-module-eval-biz</artifactId>
             <scope>runtime</scope>
         </dependency>
         <dependency>

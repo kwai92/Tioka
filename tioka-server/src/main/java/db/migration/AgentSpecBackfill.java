@@ -180,6 +180,10 @@ public final class AgentSpecBackfill {
         limits.put("maxSteps", 20);
         root.putNull("charter");
         root.putNull("output");
+        root.putNull("prompt");
+        root.putNull("context");
+        root.putNull("memory");
+        root.putNull("execution");
         root.putNull("subAgents");
         root.putNull("dataClearance");
         return MAPPER.writeValueAsString(root);

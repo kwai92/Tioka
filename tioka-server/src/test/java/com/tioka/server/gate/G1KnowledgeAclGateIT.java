@@ -177,7 +177,7 @@ class G1KnowledgeAclGateIT {
                     AgentSpec.SandboxPolicy.defaults(),
                     AgentSpec.ApprovalSettings.empty(),
                     AgentSpec.Limits.defaults(),
-                    null, null, null, null);
+                null, null, null, null, null, null, null, null);
             AgentService.PublishResult published = agents.publishSpec(agent.id(), spec);
             return new GateSeed.Bundle(userId, ws, login.accessToken(), published.versionId(), planId);
         });
