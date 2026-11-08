@@ -3,7 +3,7 @@
 -- 前置：应用已能装配 AesGcmCredentialCipher；旧密文由 tioka.secret.master-key / TIOKA_SECRET_MASTER_KEY 可解。
 -- 步骤：
 -- 1. ALTER TABLE secret_store ADD COLUMN cipher_text_gcm TEXT;
--- 2. 对 deleted=false 的每一行：ECB 解密 → CredentialCipher.encrypt(secret_key, ns) → 写入 cipher_text_gcm
--- 3. 条数一致且每行 GCM 解密自检通过后：UPDATE cipher_text = cipher_text_gcm
+-- 2. 仅处理仍为 ECB（无 v{n}: 前缀）的行：ECB 解密 → CredentialCipher.encrypt → cipher_text_gcm；已是 GCM 的跳过
+-- 3. 转换条数与自检通过后：UPDATE cipher_text = cipher_text_gcm WHERE cipher_text_gcm IS NOT NULL
 -- 4. DROP COLUMN cipher_text_gcm
 -- 失败整体回滚，不留半新半旧密文。

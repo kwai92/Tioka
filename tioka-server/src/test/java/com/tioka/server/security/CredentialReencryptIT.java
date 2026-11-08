@@ -49,10 +49,19 @@ class CredentialReencryptIT {
     @Test
     void legacyRowsReencryptToGcmAndRemainReadable() throws Exception {
         String ns = "model-provider";
-        String key = "prv_reenc_it";
+        String key = "prv_reenc_it_" + System.nanoTime();
         String plain = "sk-reencrypt-plain";
+        // 旁路行：已是 GCM（其它测试可能写入）；迁移应跳过、不被清掉
+        String keepNs = "model-provider";
+        String keepKey = "prv_keep_gcm_" + System.nanoTime();
+        String keepPlain = "already-gcm";
+        String keepWire = cipher.encrypt(keepPlain, keepKey, keepNs);
+        SecretStoreDO keep = new SecretStoreDO();
+        keep.setNs(keepNs);
+        keep.setSecretKey(keepKey);
+        keep.setCipherText(keepWire);
+        secretRepo.upsert(keep);
 
-        // 模拟迁移前的 ECB 行（绕过 LocalSecretStore 的 GCM 写入）
         SecretStoreDO row = new SecretStoreDO();
         row.setNs(ns);
         row.setSecretKey(key);
@@ -85,6 +94,7 @@ class CredentialReencryptIT {
         assertTrue(wire.startsWith("v1:"), wire);
         assertEquals(plain, cipher.decrypt(wire, key, ns));
         assertEquals(plain, secrets.get(ns, key));
+        assertEquals(keepPlain, secrets.get(keepNs, keepKey), "已是 GCM 的行不得被迁移破坏");
 
         Integer gcmCol = jdbc.queryForObject(
                 "SELECT COUNT(*) FROM information_schema.columns WHERE table_name='secret_store' AND column_name='cipher_text_gcm'",
