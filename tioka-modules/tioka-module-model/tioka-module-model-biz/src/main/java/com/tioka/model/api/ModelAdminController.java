@@ -27,8 +27,8 @@ public class ModelAdminController {
     }
 
     @GetMapping("/bindings")
-    public ApiResponse<List<BindingView>> listBindings() {
-        return ApiResponse.ok(service.listBindings());
+    public ApiResponse<List<ModelBindingView>> listModelBindings() {
+        return ApiResponse.ok(service.listModelBindings());
     }
 
     @GetMapping("/routing-plans")
@@ -55,15 +55,15 @@ public class ModelAdminController {
 
     @PostMapping("/bindings")
     @Audited(action = "model.binding.create", resourceType = "model_binding")
-    public ApiResponse<String> createBinding(@RequestBody CreateBindingRequest req) {
-        return ApiResponse.ok(service.createBinding(req));
+    public ApiResponse<String> createModelBinding(@RequestBody CreateModelBindingRequest req) {
+        return ApiResponse.ok(service.createModelBinding(req));
     }
 
     @PatchMapping("/bindings/{id}")
     @Audited(action = "model.binding.update", resourceType = "model_binding", resourceIdArg = "#id")
-    public ApiResponse<BindingView> updateBinding(@PathVariable String id,
-                                                  @RequestBody UpdateBindingRequest req) {
-        return ApiResponse.ok(service.updateBinding(id, req));
+    public ApiResponse<ModelBindingView> updateModelBinding(@PathVariable String id,
+                                                  @RequestBody UpdateModelBindingRequest req) {
+        return ApiResponse.ok(service.updateModelBinding(id, req));
     }
 
     @PostMapping("/routing-plans")

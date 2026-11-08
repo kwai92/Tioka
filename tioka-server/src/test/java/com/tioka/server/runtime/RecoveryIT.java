@@ -6,14 +6,15 @@ import com.tioka.framework.security.PrincipalHolder;
 import com.tioka.framework.security.PrincipalType;
 import com.tioka.runtime.api.kernel.ItemType;
 import com.tioka.runtime.api.kernel.TurnStatus;
-import com.tioka.runtime.infrastructure.RuntimeSessionRepository;
-import com.tioka.runtime.infrastructure.persistence.RuntimeSessionDO;
+import com.tioka.runtime.infrastructure.RuntimeThreadRepository;
+import com.tioka.runtime.infrastructure.persistence.RuntimeThreadDO;
 import com.tioka.runtime.kernel.application.LeaseReaper;
 import com.tioka.runtime.kernel.events.EventStream;
 import com.tioka.runtime.kernel.infrastructure.ItemRepository;
+import com.tioka.runtime.kernel.infrastructure.ItemWrite;
 import com.tioka.runtime.kernel.infrastructure.TurnRepository;
-import com.tioka.runtime.kernel.infrastructure.persistence.RuntimeItemDO;
-import com.tioka.runtime.kernel.infrastructure.persistence.RuntimeTurnDO;
+import com.tioka.runtime.infrastructure.persistence.RuntimeItemDO;
+import com.tioka.runtime.infrastructure.persistence.RuntimeTurnDO;
 import com.tioka.server.support.IntegrationTestSupport;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -44,7 +45,7 @@ class RecoveryIT {
     @Autowired LeaseReaper reaper;
     @Autowired TurnRepository turns;
     @Autowired ItemRepository items;
-    @Autowired RuntimeSessionRepository sessions;
+    @Autowired RuntimeThreadRepository sessions;
     @Autowired PrincipalHolder principals;
     @Autowired EventStream streams;
     @Autowired JdbcTemplate jdbc;
@@ -76,8 +77,8 @@ class RecoveryIT {
         String turnId = plantRunning(threadId, 0);
 
         principals.runAs(user("10", "ws_rec"), () -> {
-            items.appendWithoutLease(threadId, turnId, 0, ItemType.TOOL_CALL.wire(), "assistant",
-                    "{\"callId\":\"c1\",\"name\":\"echo\",\"arguments\":{\"text\":\"x\"}}");
+            items.appendWithoutLease(ItemWrite.withoutLease(threadId, turnId, 0, ItemType.TOOL_CALL.wire(), "assistant",
+                    "{\"callId\":\"c1\",\"name\":\"echo\",\"arguments\":{\"text\":\"x\"}}"));
         });
 
         String entry = streams.publish(threadId, "99.0", "item.created",
@@ -95,7 +96,7 @@ class RecoveryIT {
         assertEquals(1, after.getRecoverCount());
         assertNull(streams.currentEntry(threadId));
 
-        List<RuntimeItemDO> results = items.listBySession(threadId).stream()
+        List<RuntimeItemDO> results = items.listByThread(threadId).stream()
                 .filter(i -> ItemType.TOOL_RESULT.wire().equals(i.getType()))
                 .toList();
         assertEquals(1, results.size());
@@ -111,7 +112,7 @@ class RecoveryIT {
     private String plantRunning(String threadId, int recoverCount) {
         String turnId = Ids.newId("turn");
         principals.runAs(user("10", "ws_rec"), () -> {
-            RuntimeSessionDO s = new RuntimeSessionDO();
+            RuntimeThreadDO s = new RuntimeThreadDO();
             s.setId(threadId);
             s.setStatus("OPEN");
             s.setAgentVersionId("av_rec");
@@ -124,7 +125,7 @@ class RecoveryIT {
 
             RuntimeTurnDO t = new RuntimeTurnDO();
             t.setId(turnId);
-            t.setSessionId(threadId);
+            t.setThreadId(threadId);
             t.setSeq(1);
             t.setStatus(TurnStatus.RUNNING.name());
             t.setOrigin("chat");

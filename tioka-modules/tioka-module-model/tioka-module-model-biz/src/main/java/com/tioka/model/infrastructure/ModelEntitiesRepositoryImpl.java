@@ -63,7 +63,7 @@ public class ModelEntitiesRepositoryImpl implements ModelEntitiesRepository {
     }
 
     @Override
-    public Optional<ModelBindingDO> getBinding(String id) {
+    public Optional<ModelBindingDO> getModelBinding(String id) {
         return Optional.ofNullable(bindings.selectById(id));
     }
 
@@ -99,53 +99,53 @@ public class ModelEntitiesRepositoryImpl implements ModelEntitiesRepository {
     }
 
     @Override
-    public Optional<String> getFreeze(String sessionId, String turnId) {
+    public Optional<String> getFreeze(String threadId, String turnId) {
         // 只选 binding_id：TIMESTAMPTZ → LocalDateTime 在续跑二次选模时会炸（P1 时区债）
         ModelTurnFreezeDO row = freezes.selectOne(new LambdaQueryWrapper<ModelTurnFreezeDO>()
                 .select(ModelTurnFreezeDO::getBindingId)
-                .eq(ModelTurnFreezeDO::getSessionId, sessionId)
+                .eq(ModelTurnFreezeDO::getThreadId, threadId)
                 .eq(ModelTurnFreezeDO::getTurnId, turnId)
                 .last("LIMIT 1"));
         return row == null ? Optional.empty() : Optional.ofNullable(row.getBindingId());
     }
 
     @Override
-    public String insertFreezeIfAbsent(String sessionId, String turnId, String bindingId, String reason) {
-        freezes.insertIfAbsent(sessionId, turnId, bindingId, reason);
-        return getFreeze(sessionId, turnId)
+    public String insertFreezeIfAbsent(String threadId, String turnId, String bindingId, String reason) {
+        freezes.insertIfAbsent(threadId, turnId, bindingId, reason);
+        return getFreeze(threadId, turnId)
                 .orElseThrow(() -> new IllegalStateException(
-                        "冻结写入后读不到: " + sessionId + "/" + turnId));
+                        "冻结写入后读不到: " + threadId + "/" + turnId));
     }
 
     @Override
-    public void putFreeze(String sessionId, String turnId, String bindingId) {
+    public void putFreeze(String threadId, String turnId, String bindingId) {
         ModelTurnFreezeDO existing = freezes.selectOne(new LambdaQueryWrapper<ModelTurnFreezeDO>()
-                .select(ModelTurnFreezeDO::getBindingId, ModelTurnFreezeDO::getSessionId, ModelTurnFreezeDO::getTurnId)
-                .eq(ModelTurnFreezeDO::getSessionId, sessionId)
+                .select(ModelTurnFreezeDO::getBindingId, ModelTurnFreezeDO::getThreadId, ModelTurnFreezeDO::getTurnId)
+                .eq(ModelTurnFreezeDO::getThreadId, threadId)
                 .eq(ModelTurnFreezeDO::getTurnId, turnId)
                 .last("LIMIT 1"));
         if (existing == null) {
-            freezes.insertIfAbsent(sessionId, turnId, bindingId, null);
+            freezes.insertIfAbsent(threadId, turnId, bindingId, null);
         } else {
             existing.setBindingId(bindingId);
             existing.setUpdateBy("system");
             freezes.update(existing, new LambdaQueryWrapper<ModelTurnFreezeDO>()
-                    .eq(ModelTurnFreezeDO::getSessionId, sessionId)
+                    .eq(ModelTurnFreezeDO::getThreadId, threadId)
                     .eq(ModelTurnFreezeDO::getTurnId, turnId));
         }
     }
 
     @Override
-    public void recordFailover(String sessionId, String turnId, String bindingId, String reason) {
-        int n = freezes.recordFailover(sessionId, turnId, bindingId, reason);
+    public void recordFailover(String threadId, String turnId, String bindingId, String reason) {
+        int n = freezes.recordFailover(threadId, turnId, bindingId, reason);
         if (n == 0) {
-            freezes.insertIfAbsent(sessionId, turnId, bindingId, reason);
-            freezes.recordFailover(sessionId, turnId, bindingId, reason);
+            freezes.insertIfAbsent(threadId, turnId, bindingId, reason);
+            freezes.recordFailover(threadId, turnId, bindingId, reason);
         }
     }
 
     @Override
-    public List<ModelTurnFreezeDO> listFreezes(String sessionId) {
-        return freezes.listBySession(sessionId);
+    public List<ModelTurnFreezeDO> listFreezes(String threadId) {
+        return freezes.listByThread(threadId);
     }
 }

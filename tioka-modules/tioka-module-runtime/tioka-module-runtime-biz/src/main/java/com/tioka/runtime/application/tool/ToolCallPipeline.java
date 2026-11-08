@@ -231,7 +231,7 @@ public class ToolCallPipeline {
         if (agentToolConfig == null || agentToolConfig.isEmpty()) {
             return false;
         }
-        Object raw = agentToolConfig.get("mcpGrants");
+        Object raw = agentToolConfig.get("mcp");
         if (!(raw instanceof List<?> list) || list.isEmpty()) {
             return false;
         }

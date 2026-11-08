@@ -1,40 +1,43 @@
 package com.tioka.knowledge.infrastructure.mapper;
 
-import org.apache.ibatis.annotations.Select;
 import org.junit.jupiter.api.Test;
 
-import java.lang.reflect.Method;
-import java.util.Map;
+import java.nio.file.Files;
+import java.nio.file.Path;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-/** H2 跳过 pgvector SQL 执行；断言 Mapper 近邻 SQL 字符串契约。 */
+/** H2 跳过 pgvector SQL 执行；断言 Mapper XML 近邻 SQL 契约。 */
 class KbChunkMapperSqlTest {
 
     @Test
     void searchNearestSqlUsesPgvectorOperator() throws Exception {
-        Method m = KbChunkMapper.class.getMethod("searchNearest", String.class, String.class, int.class);
-        Select select = m.getAnnotation(Select.class);
-        String sql = String.join("\n", select.value());
-        assertTrue(sql.contains("embedding_vec"));
-        assertTrue(sql.contains("<=>"));
-        assertTrue(sql.contains("CAST(#{vectorLiteral} AS vector)"));
-        assertTrue(sql.contains("LIMIT #{k}"));
+        String xml = mapperXml();
+        assertTrue(xml.contains("id=\"searchNearest\""));
+        assertTrue(xml.contains("embedding_vec"));
+        assertTrue(xml.contains("<=>"));
+        assertTrue(xml.contains("CAST(#{vectorLiteral} AS vector)"));
+        assertTrue(xml.contains("LIMIT #{k}"));
     }
 
     @Test
-    void searchVisibleSqlPushesAclAndWorkspace() {
-        String sql = new KbChunkSqlProvider().searchVisible(Map.of(
-                "kbIds", java.util.List.of("kb1", "kb2"),
-                "vfAll", false,
-                "vfSql", "b.id IN (SELECT resource_id FROM sys_resource_acl WHERE 1=1)",
-                "workspaceId", "ws",
-                "vectorLiteral", "[0,1]",
-                "k", 5));
-        assertTrue(sql.contains("JOIN kb_base b"));
-        assertTrue(sql.contains("c.workspace_id = #{workspaceId}"));
-        assertTrue(sql.contains("<=>"));
-        assertTrue(sql.contains("sys_resource_acl"));
-        assertTrue(sql.contains("LIMIT #{k}"));
+    void searchVisibleSqlPushesAclAndWorkspace() throws Exception {
+        String xml = mapperXml();
+        assertTrue(xml.contains("id=\"searchVisible\""));
+        assertTrue(xml.contains("JOIN kb_base b"));
+        assertTrue(xml.contains("c.workspace_id = #{workspaceId}"));
+        assertTrue(xml.contains("<=>"));
+        assertTrue(xml.contains("${vfSql}"));
+        assertTrue(xml.contains("LIMIT #{k}"));
+        assertFalse(xml.contains("SelectProvider"), "禁止注解 SQL Provider");
+    }
+
+    private static String mapperXml() throws Exception {
+        Path path = Path.of("src/main/resources/mapper/KbChunkMapper.xml");
+        if (!Files.isRegularFile(path)) {
+            path = Path.of("tioka-modules/tioka-module-knowledge/tioka-module-knowledge-biz/src/main/resources/mapper/KbChunkMapper.xml");
+        }
+        return Files.readString(path);
     }
 }

@@ -1,0 +1,135 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tioka.model.infrastructure.mapper.ModelUsageMapper">
+
+    <select id="summaryByWorkspace" resultType="java.util.HashMap">
+        <![CDATA[
+            SELECT u.workspace_id AS key,
+                   COALESCE(w.name, u.workspace_id, '') AS name,
+                   COALESCE(SUM(u.prompt_tokens), 0) AS "promptTokens",
+                   COALESCE(SUM(u.completion_tokens), 0) AS "completionTokens",
+                   COALESCE(SUM(u.cost_micros), 0) AS "costMicros",
+                   COUNT(*) AS calls
+            FROM model_usage u
+            LEFT JOIN sys_workspace w ON w.id = u.workspace_id
+            WHERE (#{workspaceId}::varchar IS NULL OR u.workspace_id = #{workspaceId})
+              AND u.create_at >= #{from}
+              AND u.create_at <= #{to}
+              AND u.workspace_id IS NOT NULL
+            GROUP BY u.workspace_id, w.name
+            ORDER BY "costMicros" DESC
+            
+]]>
+    </select>
+
+    <select id="summaryByAgent" resultType="java.util.HashMap">
+        <![CDATA[
+            SELECT u.agent_id AS key,
+                   COALESCE(a.name, u.agent_id, '') AS name,
+                   COALESCE(SUM(u.prompt_tokens), 0) AS "promptTokens",
+                   COALESCE(SUM(u.completion_tokens), 0) AS "completionTokens",
+                   COALESCE(SUM(u.cost_micros), 0) AS "costMicros",
+                   COUNT(*) AS calls
+            FROM model_usage u
+            LEFT JOIN agent_agent a ON a.id = u.agent_id
+            WHERE (#{workspaceId}::varchar IS NULL OR u.workspace_id = #{workspaceId})
+              AND u.create_at >= #{from}
+              AND u.create_at <= #{to}
+              AND u.agent_id IS NOT NULL
+            GROUP BY u.agent_id, a.name
+            ORDER BY "costMicros" DESC
+            
+]]>
+    </select>
+
+    <select id="summaryByUser" resultType="java.util.HashMap">
+        <![CDATA[
+            SELECT u.user_id AS key,
+                   COALESCE(au.display_name, u.user_id, '') AS name,
+                   COALESCE(SUM(u.prompt_tokens), 0) AS "promptTokens",
+                   COALESCE(SUM(u.completion_tokens), 0) AS "completionTokens",
+                   COALESCE(SUM(u.cost_micros), 0) AS "costMicros",
+                   COUNT(*) AS calls
+            FROM model_usage u
+            LEFT JOIN auth_user au ON au.id::text = u.user_id
+            WHERE (#{workspaceId}::varchar IS NULL OR u.workspace_id = #{workspaceId})
+              AND u.create_at >= #{from}
+              AND u.create_at <= #{to}
+              AND u.user_id IS NOT NULL
+            GROUP BY u.user_id, au.display_name
+            ORDER BY "costMicros" DESC
+            
+]]>
+    </select>
+
+    <select id="summaryByModel" resultType="java.util.HashMap">
+        <![CDATA[
+            SELECT COALESCE(NULLIF(u.binding_id, ''), u.model_ref) AS key,
+                   COALESCE(NULLIF(u.model_ref, ''), u.binding_id, '') AS name,
+                   COALESCE(SUM(u.prompt_tokens), 0) AS "promptTokens",
+                   COALESCE(SUM(u.completion_tokens), 0) AS "completionTokens",
+                   COALESCE(SUM(u.cost_micros), 0) AS "costMicros",
+                   COUNT(*) AS calls
+            FROM model_usage u
+            WHERE (#{workspaceId}::varchar IS NULL OR u.workspace_id = #{workspaceId})
+              AND u.create_at >= #{from}
+              AND u.create_at <= #{to}
+              AND COALESCE(NULLIF(u.binding_id, ''), u.model_ref) IS NOT NULL
+            GROUP BY COALESCE(NULLIF(u.binding_id, ''), u.model_ref),
+                     COALESCE(NULLIF(u.model_ref, ''), u.binding_id, '')
+            ORDER BY "costMicros" DESC
+            
+]]>
+    </select>
+
+    <select id="trendByDay" resultType="java.util.HashMap">
+        <![CDATA[
+            SELECT to_char(date_trunc('day', u.create_at), 'YYYY-MM-DD') AS day,
+                   COALESCE(SUM(u.prompt_tokens), 0) AS "promptTokens",
+                   COALESCE(SUM(u.completion_tokens), 0) AS "completionTokens",
+                   COALESCE(SUM(u.cost_micros), 0) AS "costMicros",
+                   COUNT(*) AS calls
+            FROM model_usage u
+            WHERE (#{workspaceId}::varchar IS NULL OR u.workspace_id = #{workspaceId})
+              AND u.create_at >= #{from}
+              AND u.create_at <= #{to}
+              AND (
+                    (#{scopeType} = 'workspace' AND u.workspace_id = #{scopeId})
+                 OR (#{scopeType} = 'agent' AND u.agent_id = #{scopeId})
+                 OR (#{scopeType} = 'user' AND u.user_id = #{scopeId})
+                 OR (#{scopeType} = 'model' AND COALESCE(NULLIF(u.binding_id, ''), u.model_ref) = #{scopeId})
+              )
+            GROUP BY 1
+            ORDER BY 1
+            
+]]>
+    </select>
+
+    <select id="sessionAggregate" resultType="java.util.HashMap">
+        <![CDATA[
+            SELECT COALESCE(SUM(prompt_tokens), 0) AS "promptTokens",
+                   COALESCE(SUM(completion_tokens), 0) AS "completionTokens",
+                   COALESCE(SUM(cost_micros), 0) AS "costMicros",
+                   COUNT(*) AS calls
+            FROM model_usage
+            WHERE thread_id = #{threadId}
+            
+]]>
+    </select>
+
+    <select id="sumTokensByScope">
+        <![CDATA[
+            SELECT COALESCE(SUM(prompt_tokens), 0) + COALESCE(SUM(completion_tokens), 0)
+            FROM model_usage
+            WHERE create_at >= #{from} AND create_at < #{to}
+              AND (
+                   (#{scopeType} = 'workspace' AND workspace_id = #{scopeId})
+                OR (#{scopeType} = 'user' AND user_id = #{scopeId})
+                OR (#{scopeType} = 'agent' AND agent_id = #{scopeId})
+              )
+            
+]]>
+    </select>
+
+</mapper>

@@ -9,7 +9,7 @@ import java.util.Map;
  */
 public interface OrchApi {
 
-    /** 按 {@code (tenant, idempotencyKey)} 幂等。 */
+    /** 按 {@code (workspaceId, idempotencyKey)} 幂等（库表唯一键见 {@code orch_event.idempotency_key}）。 */
     EventAck ingest(EventEnvelope event);
 
     RunView getRun(String runId);
@@ -42,7 +42,19 @@ public interface OrchApi {
         }
     }
 
-    record EventAck(String eventId, Disposition disposition) {}
+    record EventAck(String eventId, Disposition disposition) {
+        public static EventAck stored(String eventId) {
+            return new EventAck(eventId, Disposition.STORED);
+        }
+
+        public static EventAck duplicate(String eventId) {
+            return new EventAck(eventId, Disposition.DUPLICATE);
+        }
+
+        public static EventAck filtered(String eventId) {
+            return new EventAck(eventId, Disposition.FILTERED);
+        }
+    }
 
     record RunView(String runId, String workItemId, String ruleId, String ruleVersionId, RunStatus status,
                    int attempt, String threadId, String currentTurnId, Map<String, Object> receipt,

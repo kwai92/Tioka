@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tioka.local/contracts/events/cfg-version-published-v1.json",
+  "title": "cfg.version_published.v1",
+  "description": "GOV-12 配置版本发布/回滚广播（ADR-041 §2；等同 tioka.config.published.v1）",
+  "type": "object",
+  "required": ["objectType", "objectId", "newVersionNo", "oldVersionNo", "action"],
+  "properties": {
+    "objectType": { "type": "string", "minLength": 1 },
+    "objectId": { "type": "string", "minLength": 1 },
+    "newVersionNo": { "type": "integer", "minimum": 0 },
+    "oldVersionNo": { "type": ["integer", "null"], "minimum": 0 },
+    "action": { "type": "string", "enum": ["publish", "rollback"] },
+    "versionId": { "type": "string" },
+    "workspaceId": { "type": "string" }
+  },
+  "additionalProperties": false
+}

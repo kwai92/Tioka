@@ -8,7 +8,7 @@ import com.tioka.framework.security.Principal;
 import com.tioka.framework.security.PrincipalHolder;
 import com.tioka.framework.security.PrincipalType;
 import com.tioka.knowledge.application.KnowledgeService;
-import com.tioka.model.api.dto.ProviderDtos.CreateBindingRequest;
+import com.tioka.model.api.dto.ProviderDtos.CreateModelBindingRequest;
 import com.tioka.model.api.dto.ProviderDtos.CreateLogicalModelRequest;
 import com.tioka.model.api.dto.ProviderDtos.CreateProviderRequest;
 import com.tioka.model.api.dto.ProviderDtos.CreateRoutingPlanRequest;
@@ -17,7 +17,7 @@ import com.tioka.model.application.gateway.UsageRecorder;
 import com.tioka.runtime.api.kernel.ItemType;
 import com.tioka.runtime.api.kernel.TurnStatus;
 import com.tioka.runtime.kernel.infrastructure.ItemRepository;
-import com.tioka.runtime.kernel.infrastructure.persistence.RuntimeItemDO;
+import com.tioka.runtime.infrastructure.persistence.RuntimeItemDO;
 import com.tioka.server.gate.support.DualInstance;
 import com.tioka.server.gate.support.GateSeed;
 import com.tioka.server.gate.support.LlmStubServer;
@@ -91,7 +91,7 @@ class G1KnowledgeAclGateIT {
             var done = GateSeed.awaitTerminal(ctx, memberBundle, handle.turnId(), 90_000);
             assertEquals(TurnStatus.COMPLETED, done.status(), () -> done.errorMessage());
 
-            List<RuntimeItemDO> toolResults = items.listBySession(thr.threadId()).stream()
+            List<RuntimeItemDO> toolResults = items.listByThread(thr.threadId()).stream()
                     .filter(i -> ItemType.TOOL_RESULT.wire().equals(i.getType()))
                     .toList();
             assertFalse(toolResults.isEmpty(), "Turn 应有 tool_result");
@@ -160,7 +160,7 @@ class G1KnowledgeAclGateIT {
             String tag = Ids.newId("g1kb");
             var provider = models.createProvider(new CreateProviderRequest(tag + "-llm", llmBaseUrl, "sk"));
             String lm = models.createLogicalModel(new CreateLogicalModelRequest(tag + "-m", "tool"));
-            String binding = models.createBinding(new CreateBindingRequest(lm, provider.id(), "gpt-stub"));
+            String binding = models.createModelBinding(new CreateModelBindingRequest(lm, provider.id(), "gpt-stub"));
             String planId = models.createPlan(new CreateRoutingPlanRequest(tag + "-rp", "FIXED", binding)).id();
             models.publish(planId);
 
@@ -177,7 +177,7 @@ class G1KnowledgeAclGateIT {
                     AgentSpec.SandboxPolicy.defaults(),
                     AgentSpec.ApprovalSettings.empty(),
                     AgentSpec.Limits.defaults(),
-                    null, null, null, null);
+                null, null, null, null, null, null, null, null);
             AgentService.PublishResult published = agents.publishSpec(agent.id(), spec);
             return new GateSeed.Bundle(userId, ws, login.accessToken(), published.versionId(), planId);
         });
@@ -187,7 +187,7 @@ class G1KnowledgeAclGateIT {
         String id = Ids.newId("emb");
         var provider = models.createProvider(new CreateProviderRequest(id + "-p", llmBaseUrl, "k"));
         String lm = models.createLogicalModel(new CreateLogicalModelRequest(id + "-m", "embed"));
-        return models.createBinding(new CreateBindingRequest(lm, provider.id(), "text-embedding", "embedding", 32));
+        return models.createModelBinding(new CreateModelBindingRequest(lm, provider.id(), "text-embedding", "embedding", 32));
     }
 
     private static void injectKbSearchScript(LlmStubServer llm, String allowedKbId, String deniedKbId) {
@@ -227,7 +227,7 @@ class G1KnowledgeAclGateIT {
         String password = "LimitedPass!23456";
         UserAdminService.CreatedUser created = principals.runAs(
                 new Principal(admin.userId(), admin.workspaceId(), PrincipalType.USER,
-                        Set.of("tenant_admin"), Set.of("*"), "password"),
+                        Set.of("system_admin"), Set.of("*"), "password"),
                 () -> users.create(username, "g1-kb-member", password));
         members.upsert(admin.workspaceId(), created.id(), "member");
         var login = auth.login(username, password, "127.0.0.1");

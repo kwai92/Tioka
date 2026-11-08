@@ -63,12 +63,16 @@ class AgentDraftIT {
                 base.limits(),
                 base.charter(),
                 base.output(),
+                base.prompt(),
+                base.context(),
+                base.memory(),
+                base.execution(),
                 base.subAgents(),
                 base.dataClearance());
     }
 
     private static Principal user(String uid, String ws) {
         return new Principal(uid, ws, PrincipalType.USER,
-                Set.of("tenant_admin", "builder"), Set.of("*"), "test");
+                Set.of("system_admin", "builder"), Set.of("*"), "test");
     }
 }

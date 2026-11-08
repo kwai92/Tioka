@@ -23,13 +23,16 @@ public interface CostQueryApi {
                           String interval, String workspaceFilter);
 
     /** 按 runtime session / thread 汇总单会话成本。 */
-    CostBucket sessionCost(String sessionId);
+    CostBucket sessionCost(String threadId);
 
     /**
      * MH-05：会话用量时间线（替代 {@code cost_event}）。
-     * {@code step} 列在 V143 才加入，M1 恒为 null。
+     * {@code step} 列在 V143 加入；历史行可空。
      */
-    List<UsageEntry> sessionTimeline(String sessionId);
+    List<UsageEntry> sessionTimeline(String threadId);
+
+    /** HCI-07b：按 Turn 取用量，供轨迹按步对齐。 */
+    List<UsageEntry> turnUsage(String turnId);
 
     record UsageEntry(
             String turnId,

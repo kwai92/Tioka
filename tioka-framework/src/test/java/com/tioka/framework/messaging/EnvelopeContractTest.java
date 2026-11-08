@@ -87,6 +87,30 @@ class EnvelopeContractTest {
         assertTrue(envelope.path("properties").has("replayOf"), "信封须有可选 replayOf");
         assertTrue(envelope.path("properties").has("traceparent"), "信封须有可选 traceparent");
         assertTrue(envelope.path("properties").has("workspaceId"), "信封须保留可选 workspaceId");
+        assertTrue(envelope.path("properties").has("requestId"), "信封须有可选 requestId（ADR-073 / M2-01 修订）");
+        assertTrue(envelope.path("properties").has("subject"), "信封须有可选 subject（ADR-073 / M2-01 修订）");
+    }
+
+    @Test
+    void domainEventCarriesOptionalRequestIdAndSubject() {
+        DomainEvent event = new DomainEvent(
+                "tioka.orch.run_created.v1",
+                "tioka-orch",
+                "run_x",
+                java.util.Map.of("runId", "run_x"),
+                0,
+                "req_abc",
+                "lease.contract:HT-1");
+        assertEquals("req_abc", event.requestId());
+        assertEquals("lease.contract:HT-1", event.subject());
+        DomainEvent legacy = new DomainEvent(
+                "tioka.orch.run_created.v1",
+                "tioka-orch",
+                null,
+                java.util.Map.of(),
+                null);
+        assertNull(legacy.requestId());
+        assertNull(legacy.subject());
     }
 
     @Test

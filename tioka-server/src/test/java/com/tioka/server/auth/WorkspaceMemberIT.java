@@ -147,7 +147,7 @@ class WorkspaceMemberIT {
 
         UserAdminService.CreatedUser created = principals.runAs(
                 new Principal(admin.userId(), admin.workspaceId(), PrincipalType.USER,
-                        Set.of("tenant_admin", "workspace_admin"), Set.of("*"), "password"),
+                        Set.of("system_admin", "workspace_admin"), Set.of("*"), "password"),
                 () -> userAdmin.create(username, "Plain", password));
         members.upsert(admin.workspaceId(), created.id(), "member");
 
@@ -169,15 +169,15 @@ class WorkspaceMemberIT {
 
     @Test
     void crossWorkspaceAdminCannotManageOrReadOtherWorkspace() throws Exception {
-        // 两个独立空间；用户仅是 A 的 workspace_admin（无 tenant_admin）
-        TestFixtures.Actor seed = fixtures.newActor("tenant_admin");
+        // 两个独立空间；用户仅是 A 的 workspace_admin（无 system_admin）
+        TestFixtures.Actor seed = fixtures.newActor("system_admin");
         String suffix = UUID.randomUUID().toString().substring(0, 8);
         String username = "wsadmin-" + suffix;
         String password = "WsAdminPass!23456";
 
         UserAdminService.CreatedUser created = principals.runAs(
                 new Principal(seed.userId(), seed.workspaceId(), PrincipalType.USER,
-                        Set.of("tenant_admin"), Set.of("*"), "password"),
+                        Set.of("system_admin"), Set.of("*"), "password"),
                 () -> userAdmin.create(username, "WsAdmin", password));
 
         TestFixtures.Actor other = fixtures.newActor("workspace_admin");

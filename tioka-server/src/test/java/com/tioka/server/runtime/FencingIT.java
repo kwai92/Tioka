@@ -4,11 +4,12 @@ import com.tioka.framework.error.BizException;
 import com.tioka.framework.error.ErrorCode;
 import com.tioka.framework.id.Ids;
 import com.tioka.runtime.api.kernel.TurnStatus;
-import com.tioka.runtime.infrastructure.RuntimeSessionRepository;
-import com.tioka.runtime.infrastructure.persistence.RuntimeSessionDO;
+import com.tioka.runtime.infrastructure.RuntimeThreadRepository;
+import com.tioka.runtime.infrastructure.persistence.RuntimeThreadDO;
 import com.tioka.runtime.kernel.infrastructure.ItemRepository;
+import com.tioka.runtime.kernel.infrastructure.ItemWrite;
 import com.tioka.runtime.kernel.infrastructure.TurnRepository;
-import com.tioka.runtime.kernel.infrastructure.persistence.RuntimeTurnDO;
+import com.tioka.runtime.infrastructure.persistence.RuntimeTurnDO;
 import com.tioka.framework.security.SystemPrincipals;
 import com.tioka.framework.security.TiokaAuthentication;
 import com.tioka.server.support.IntegrationTestSupport;
@@ -38,7 +39,7 @@ class FencingIT {
 
     @Autowired ItemRepository items;
     @Autowired TurnRepository turns;
-    @Autowired RuntimeSessionRepository sessions;
+    @Autowired RuntimeThreadRepository sessions;
     @Autowired JdbcTemplate jdbc;
 
     @BeforeEach
@@ -53,10 +54,10 @@ class FencingIT {
 
     @Test
     void staleWorkerWritesFail() {
-        String sessionId = Ids.newId("thr");
+        String threadId = Ids.newId("thr");
         String turnId = Ids.newId("turn");
-        RuntimeSessionDO s = new RuntimeSessionDO();
-        s.setId(sessionId);
+        RuntimeThreadDO s = new RuntimeThreadDO();
+        s.setId(threadId);
         s.setStatus("OPEN");
         s.setAgentVersionId("agent_v1");
         s.setWorkspaceId("ws_default");
@@ -68,7 +69,7 @@ class FencingIT {
 
         RuntimeTurnDO t = new RuntimeTurnDO();
         t.setId(turnId);
-        t.setSessionId(sessionId);
+        t.setThreadId(threadId);
         t.setSeq(1);
         t.setStatus("QUEUED");
         t.setOrigin("chat");
@@ -84,8 +85,8 @@ class FencingIT {
                 "worker-new", turnId);
 
         BizException ex = assertThrows(BizException.class,
-                () -> items.append(sessionId, turnId, staleLv, 0, "message", "assistant",
-                        "{\"text\":\"stale\"}", null));
+                () -> items.append(ItemWrite.append(threadId, turnId, staleLv, 0, "message", "assistant",
+                        "{\"text\":\"stale\"}", null)));
         assertEquals(ErrorCode.LEASE_LOST, ex.getErrorCode());
 
         int finished = turns.finish(turnId, staleLv, TurnStatus.COMPLETED, null, null, null, null);

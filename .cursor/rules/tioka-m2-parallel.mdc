@@ -1,0 +1,28 @@
+---
+description: M2 并行开发热点锁与越界/迁移约束（M2-06）
+alwaysApply: true
+---
+
+# M2 并行约束
+
+权威：`docs/architecture/construction/M2-06-并行开发任务包.md` 第 3.3、9.1 节。
+
+## 热点锁（同一把锁同一时间只有一个未合入 PR 持有）
+
+| 锁 | 范围 | 轮转顺序（M2 内） |
+| --- | --- | --- |
+| K1 Runtime 执行内核 | `runtime-biz` 的 `kernel/application/TurnRunner`、`TurnDispatcher`，执行循环所在类，`application/DefaultToolGateway`；`model-biz` 的 `DefaultModelGateway` | PK-06 GOV-08 → PK-07 OBS-03 → PK-10 RT-09 → PK-24b TRU-05 |
+| K2 Runtime 审批 | `runtime-biz` 的 `kernel/approval/**`、`kernel/api/ApprovalController` | PK-03 事件迁移 → PK-05 审批查询（只加查询，不改决定逻辑）→ 其余包只通过 PK-00c 建的审批主体注册接口接入，不再改 K2 |
+| K3 构建与配置 | `tioka-dependencies/pom.xml`、各模块 `pom.xml` 的依赖段、`tioka-server/src/main/resources/application*.yml` | PK-00c 一次加齐；之后只允许在自己模块的配置块内**追加**，冲突按追加合并 |
+| K4 闸门基座 | `tioka-server/src/test/.../support/TestContainers.java`、`gate/support/**` | 只有 PK-01 改；其他包要新能力在 PK-01 PR 里提 |
+| K5 静态闸门 | `tioka-server/src/test/.../arch/**` | PK-00c 建 M2 的 5 条规则与冻结库；各包只能从冻结库里**删**自己的条目 |
+| K6 事件与主题 | `docs/contracts/events/**`、各 `-api` 的 `*MqTopics` | PK-00b 之后只经 `[CONTRACT]` PR 改 |
+| K7 前端公共文件 | `tioka-ui/src/router/index.ts`、`admin/adminNav.ts`、`api/schema.d.ts`、`items/ItemRenderer.vue` | PK-00d 预先登记；`schema.d.ts` 只在 main 上由后端 OpenAPI 合入后统一重新生成 |
+| K8 迁移号 | `tioka-server/src/main/resources/db/migration/` | 只用 M2-06 第 6 节登记的号，内容从 `docs/contracts/db` 原样复制 |
+
+持有者在 PR 描述写「持有 Kx」，合入即释放。没轮到的包要改这些文件，先用接口或扩展点绕开，绕不开就等。
+
+## 越界与迁移（通用前言第 3、4 条）
+
+3. **只改「可改范围」里的路径。** 如果必须改范围外的文件，停下，在 PR 描述的「越界申请」里写明文件与原因，不要自己改。不要改别的任务包负责的类，不要顺手重构。
+4. **数据库迁移只用本任务包登记的版本号**，从 `docs/contracts/db` 原样复制，不改内容，不新建其他版本号。

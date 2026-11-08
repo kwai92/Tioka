@@ -29,7 +29,7 @@ public class UploadController {
         return ApiResponse.ok(uploads.presign(
                 body.getOrDefault("filename", "file.bin"),
                 body.getOrDefault("contentType", "application/octet-stream"),
-                body.get("sessionId")));
+                body.get("threadId")));
     }
 
     @PutMapping("/{uploadId}/content")
@@ -43,13 +43,13 @@ public class UploadController {
     @Audited(action = "upload.confirm", resourceType = "upload", resourceIdArg = "#uploadId")
     public ApiResponse<UploadService.ConfirmResult> confirm(@PathVariable String uploadId,
                                                             @RequestBody Map<String, String> body) {
-        return ApiResponse.ok(uploads.confirm(uploadId, body.get("sessionId")));
+        return ApiResponse.ok(uploads.confirm(uploadId, body.get("threadId")));
     }
 
-    @PostMapping("/sessions/{sessionId}/publish")
-    @Audited(action = "upload.session.publish", resourceType = "upload_session", resourceIdArg = "#sessionId")
-    public ApiResponse<?> publish(@PathVariable String sessionId, @RequestBody Map<String, String> body) {
-        return ApiResponse.ok(uploads.publish(sessionId, body.get("logicalPath"), body.get("contentType")));
+    @PostMapping("/sessions/{threadId}/publish")
+    @Audited(action = "upload.session.publish", resourceType = "upload_session", resourceIdArg = "#threadId")
+    public ApiResponse<?> publish(@PathVariable String threadId, @RequestBody Map<String, String> body) {
+        return ApiResponse.ok(uploads.publish(threadId, body.get("logicalPath"), body.get("contentType")));
     }
 
     @GetMapping("/tickets/{ticket}")

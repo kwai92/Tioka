@@ -9,12 +9,12 @@ import com.tioka.framework.error.ErrorCode;
 import com.tioka.mcp.api.McpToolCallApi;
 import com.tioka.mcp.domain.McpStore;
 import com.tioka.mcp.domain.McpStore.*;
+import com.tioka.system.api.spi.EgressClient;
 import com.tioka.system.api.spi.SecretStore;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.net.URI;
-import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
@@ -25,15 +25,17 @@ public class McpAdminService implements McpToolCallApi {
     private final SecretStore secretStore;
     private final McpStore store;
     private final ObjectMapper mapper;
-    private final HttpClient http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build();
+    private final EgressClient egress;
     private final boolean mockDiscovery;
 
     public McpAdminService(SecretStore secretStore, McpStore store,
+                           EgressClient egress,
                            @Value("${tioka.mcp.mock:true}") boolean mockDiscovery,
                                   ObjectMapper mapper) {
         this.mapper = mapper;
         this.secretStore = secretStore;
         this.store = store;
+        this.egress = egress;
         this.mockDiscovery = mockDiscovery;
     }
 
@@ -52,10 +54,6 @@ public class McpAdminService implements McpToolCallApi {
         return store.servers();
     }
 
-    public List<Grant> listGrants() {
-        return store.grants();
-    }
-
     public List<Tool> toolsOf(String serverId) {
         return store.tools(serverId);
     }
@@ -70,6 +68,18 @@ public class McpAdminService implements McpToolCallApi {
         }
         String normalized = normalizeRisk(risk);
         return store.updateToolRisk(serverId, toolName, normalized);
+    }
+
+    /** TRU-05 / PK-24c：管理端覆盖可逆性。 */
+    public com.tioka.runtime.api.spi.Reversibility updateToolReversibility(
+            String serverId, String toolName, String reversibility) {
+        if (store.getServer(serverId).isEmpty()) {
+            throw new BizException(ErrorCode.NOT_FOUND, "mcp server 不存在");
+        }
+        if (toolName == null || toolName.isBlank()) {
+            throw new BizException(ErrorCode.BAD_REQUEST, "toolName 不能为空");
+        }
+        return store.updateToolReversibility(serverId, toolName, reversibility);
     }
 
     static String normalizeRisk(String risk) {
@@ -109,10 +119,13 @@ public class McpAdminService implements McpToolCallApi {
             JsonNode root = postRpc(server, "tools/list", Map.of());
             List<Tool> tools = new ArrayList<>();
             for (JsonNode t : root.path("result").path("tools")) {
+                // ADR-033：annotations.readOnlyHint=true → 默认可逆性 NONE（经 risk=READ）
+                boolean readOnly = t.path("annotations").path("readOnlyHint").asBoolean(false);
                 tools.add(new Tool(
                         t.path("name").asText(),
                         t.path("description").asText(""),
-                        mapper.convertValue(t.path("inputSchema"), Map.class)
+                        mapper.convertValue(t.path("inputSchema"), Map.class),
+                        readOnly ? "READ" : "WRITE"
                 ));
             }
             return tools;
@@ -163,14 +176,13 @@ public class McpAdminService implements McpToolCallApi {
         }
     }
 
-    /** 按工具名在全部 Grant 中解析（Flow 等无 version 作用域场景）；mock=false 时禁止无 Grant 的 echo 兜底。 */
+    /** 按工具名在已登记 MCP 服务器中解析；mock 时允许 mcp_echo 兜底。 */
     @Override
     public McpToolCallApi.CallResult callToolByName(String toolName, Map<String, Object> arguments) {
-        for (Grant g : store.grants()) {
-            if (!g.allowlist().isEmpty() && !g.allowlist().contains(toolName)) continue;
-            for (Tool t : store.tools(g.serverId())) {
+        for (McpServer server : store.servers()) {
+            for (Tool t : store.tools(server.id())) {
                 if (Objects.equals(t.name(), toolName)) {
-                    return callTool(g.serverId(), toolName, arguments);
+                    return callTool(server.id(), toolName, arguments);
                 }
             }
         }
@@ -179,18 +191,6 @@ public class McpAdminService implements McpToolCallApi {
             return new McpToolCallApi.CallResult(true, "mcp:" + String.valueOf(args.getOrDefault("text", "")));
         }
         return new McpToolCallApi.CallResult(false, "unknown tool: " + toolName);
-    }
-
-    /** @deprecated AST-01 起优先 {@link #toolsForMcpBindings}。 */
-    @Deprecated
-    public List<Tool> toolsForGrantIds(List<String> grantIds) {
-        if (grantIds == null || grantIds.isEmpty()) return List.of();
-        List<McpBinding> bindings = new ArrayList<>();
-        for (String grantId : grantIds) {
-            store.getGrant(grantId).ifPresent(g ->
-                    bindings.add(new McpBinding(g.serverId(), g.allowlist())));
-        }
-        return toolsForMcpBindings(bindings);
     }
 
     /** 按 AgentSpec.tools.mcp 快照解析工具。 */
@@ -207,21 +207,6 @@ public class McpAdminService implements McpToolCallApi {
             }
         }
         return out;
-    }
-
-    /** @deprecated AST-01 起优先 {@link #callToolWithMcpBindings}。 */
-    @Deprecated
-    public McpToolCallApi.CallResult callToolWithGrantIds(List<String> grantIds, String toolName,
-                                                         Map<String, Object> arguments) {
-        if (grantIds == null || grantIds.isEmpty()) {
-            throw new BizException(ErrorCode.FORBIDDEN, "工具未授权: " + toolName);
-        }
-        List<McpBinding> bindings = new ArrayList<>();
-        for (String grantId : grantIds) {
-            store.getGrant(grantId).ifPresent(g ->
-                    bindings.add(new McpBinding(g.serverId(), g.allowlist())));
-        }
-        return callToolWithMcpBindings(bindings, toolName, arguments);
     }
 
     public McpToolCallApi.CallResult callToolWithMcpBindings(List<McpBinding> bindings, String toolName,
@@ -263,7 +248,7 @@ public class McpAdminService implements McpToolCallApi {
             String token = secretStore.get(parts[0], parts[1]);
             if (token != null) b.header("Authorization", "Bearer " + token);
         }
-        HttpResponse<String> resp = http.send(b.build(), HttpResponse.BodyHandlers.ofString());
+        HttpResponse<String> resp = egress.send(b.build());
         String raw = resp.body() == null ? "" : resp.body();
         String json = extractJsonRpc(raw);
         return mapper.readTree(json);
@@ -281,26 +266,5 @@ public class McpAdminService implements McpToolCallApi {
             }
         }
         return t;
-    }
-
-    public Grant grant(String agentId, String serverId, List<String> allowlist) {
-        if (store.getServer(serverId).isEmpty()) throw new BizException(ErrorCode.NOT_FOUND, "server 不存在");
-        String id = Ids.newId("gr");
-        Grant g = new Grant(id, agentId, serverId, allowlist == null ? List.of() : allowlist);
-        store.putGrant(g);
-        return g;
-    }
-
-    public List<Tool> toolsForAgent(String agentId) {
-        List<Tool> out = new ArrayList<>();
-        for (Grant g : store.grants()) {
-            if (!Objects.equals(g.agentId(), agentId)) continue;
-            for (Tool t : store.tools(g.serverId())) {
-                if (g.allowlist().isEmpty() || g.allowlist().contains(t.name())) {
-                    out.add(t);
-                }
-            }
-        }
-        return out;
     }
 }

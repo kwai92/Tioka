@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tioka.agent.api.publish.PublishCheck;
 import com.tioka.agent.api.spec.AgentSpec;
 import com.tioka.agent.api.spec.AgentSpecJson;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
@@ -16,9 +17,12 @@ import java.util.List;
 @Order(10)
 public class SchemaPublishCheck implements PublishCheck {
     private final ObjectMapper mapper;
+    private final boolean charterEnabled;
 
-    public SchemaPublishCheck(ObjectMapper mapper) {
+    public SchemaPublishCheck(ObjectMapper mapper,
+                              @Value("${tioka.trust.charter.enabled:false}") boolean charterEnabled) {
         this.mapper = mapper;
+        this.charterEnabled = charterEnabled;
     }
 
     @Override
@@ -30,13 +34,11 @@ public class SchemaPublishCheck implements PublishCheck {
         for (String msg : AgentSpecJson.validateSchema(mapper, spec)) {
             errors.add(new PublishError("$", "SCHEMA_INVALID", msg));
         }
-        // Jackson 常把 JSON null 反序列化为 NullNode，与 Java null 同等视为「未设置」
-        if (isSet(spec.charter())) {
+        // TRU-01：特性开启后由 CharterPublishCheck 校验；关闭时仍视为 M1 预留（不改变 M2 行为）
+        if (!charterEnabled && isSet(spec.charter())) {
             errors.add(new PublishError("/charter", "RESERVED_FIELD", "M1 预留字段 charter 必须为 null"));
         }
-        if (isSet(spec.output())) {
-            errors.add(new PublishError("/output", "RESERVED_FIELD", "M1 预留字段 output 必须为 null"));
-        }
+        // SCH-02：output 已解冻为 OutputContract；schemaRef 由 OutputContractPublishCheck 校验
         if (isSet(spec.subAgents())) {
             errors.add(new PublishError("/subAgents", "RESERVED_FIELD", "M1 预留字段 subAgents 必须为 null"));
         }

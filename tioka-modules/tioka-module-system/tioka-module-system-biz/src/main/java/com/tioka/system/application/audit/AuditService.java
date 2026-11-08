@@ -3,11 +3,14 @@ package com.tioka.system.application.audit;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.tioka.framework.context.RequestContextHolder;
 import com.tioka.framework.id.Ids;
 import com.tioka.system.api.audit.AuditApi;
 import com.tioka.system.api.audit.AuditEvent;
 import com.tioka.system.api.audit.AuditOutcome;
 import com.tioka.system.infrastructure.AuditEventRepository;
+import com.tioka.system.infrastructure.persistence.AuditEventQuery;
+import com.tioka.system.infrastructure.persistence.AuditEventWriteRow;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -27,6 +30,10 @@ import java.util.Map;
  */
 @Service
 public class AuditService implements AuditApi {
+    private static final int DEFAULT_QUERY_LIMIT = 50;
+    private static final int MAX_QUERY_LIMIT = 200;
+    private static final int MAX_EXPORT_ROWS = 100_000;
+
     private final AuditEventRepository repository;
     private final ObjectMapper objectMapper;
     private final AuditService self;
@@ -66,7 +73,7 @@ public class AuditService implements AuditApi {
 
     @Override
     public List<AuditEvent> query(AuditQuery query) {
-        int limit = query.limit() <= 0 ? 50 : Math.min(query.limit(), 200);
+        int limit = query.limit() <= 0 ? DEFAULT_QUERY_LIMIT : Math.min(query.limit(), MAX_QUERY_LIMIT);
         int offset = 0;
         if (query.cursor() != null && !query.cursor().isBlank()) {
             try {
@@ -76,10 +83,10 @@ public class AuditService implements AuditApi {
             }
         }
         String outcome = query.outcome() == null ? null : query.outcome().name();
-        List<Map<String, Object>> rows = repository.query(
+        List<Map<String, Object>> rows = repository.query(new AuditEventQuery(
                 query.workspaceId(), query.actorId(), query.action(),
                 query.resourceType(), query.resourceId(), outcome,
-                query.from(), query.to(), limit, offset);
+                query.from(), query.to(), limit, offset));
         List<AuditEvent> out = new ArrayList<>(rows.size());
         for (Map<String, Object> r : rows) {
             out.add(toEvent(r));
@@ -87,14 +94,14 @@ public class AuditService implements AuditApi {
         return out;
     }
 
-    /** 导出用：最多 100000 行。 */
+    /** 导出用：最多 {@link #MAX_EXPORT_ROWS} 行。 */
     public List<AuditEvent> queryForExport(AuditQuery query, int maxRows) {
-        int limit = Math.min(Math.max(maxRows, 1), 100_000);
+        int limit = Math.min(Math.max(maxRows, 1), MAX_EXPORT_ROWS);
         String outcome = query.outcome() == null ? null : query.outcome().name();
-        List<Map<String, Object>> rows = repository.query(
+        List<Map<String, Object>> rows = repository.query(new AuditEventQuery(
                 query.workspaceId(), query.actorId(), query.action(),
                 query.resourceType(), query.resourceId(), outcome,
-                query.from(), query.to(), limit, 0);
+                query.from(), query.to(), limit, 0));
         List<AuditEvent> out = new ArrayList<>(rows.size());
         for (Map<String, Object> r : rows) {
             out.add(toEvent(r));
@@ -112,9 +119,11 @@ public class AuditService implements AuditApi {
                 detailsJson = "{}";
             }
         }
-        repository.insert(e.id(), e.ts(), e.workspaceId(),
+        String subject = RequestContextHolder.getCorrelation().subject();
+        repository.insert(new AuditEventWriteRow(
+                e.id(), e.ts(), e.workspaceId(),
                 e.actorType(), e.actorId(), e.action(), e.resourceType(), e.resourceId(),
-                e.outcome().name(), e.reason(), e.traceId(), e.requestId(), e.clientIp(), detailsJson);
+                e.outcome().name(), e.reason(), e.traceId(), e.requestId(), subject, e.clientIp(), detailsJson));
     }
 
     /** OBS-01：补齐 id/ts/traceId/requestId。 */
@@ -126,7 +135,6 @@ public class AuditService implements AuditApi {
         return AuditEvent.builder()
                 .id(id)
                 .ts(ts)
-                .tenantId(e.tenantId())
                 .workspaceId(e.workspaceId())
                 .actorType(e.actorType())
                 .actorId(e.actorId())

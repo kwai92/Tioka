@@ -11,13 +11,14 @@ import com.tioka.framework.security.ResourceGuard;
 import com.tioka.framework.security.SystemPrincipals;
 import com.tioka.framework.security.VisibilityFilter;
 import com.tioka.knowledge.api.KnowledgeSearchApi;
+import com.tioka.knowledge.infrastructure.ChunkInsertCommand;
 import com.tioka.knowledge.infrastructure.KnowledgeRepository;
 import com.tioka.knowledge.infrastructure.parse.DocumentParser;
 import com.tioka.knowledge.infrastructure.persistence.KbBaseDO;
 import com.tioka.knowledge.infrastructure.persistence.KbChunkDO;
 import com.tioka.knowledge.infrastructure.persistence.KbCitationDO;
 import com.tioka.knowledge.infrastructure.persistence.KbDocumentDO;
-import com.tioka.model.api.BindingQueryApi;
+import com.tioka.model.api.ModelBindingQueryApi;
 import com.tioka.model.api.gateway.ModelCallContext;
 import com.tioka.model.api.gateway.ModelGateway;
 import com.tioka.model.api.gateway.ModelPurpose;
@@ -32,9 +33,12 @@ import java.util.stream.Collectors;
 
 @Service
 public class KnowledgeService implements KnowledgeSearchApi {
+    private static final int CHUNK_CHAR_SIZE = 200;
+    private static final int ERROR_MESSAGE_MAX_LEN = 2000;
+
     private final KnowledgeRepository repo;
     private final ModelGateway modelGateway;
-    private final BindingQueryApi bindings;
+    private final ModelBindingQueryApi bindings;
     private final PrincipalHolder principals;
     private final ResourceGuard guard;
     private final ResourceAclApi resourceAcl;
@@ -44,7 +48,7 @@ public class KnowledgeService implements KnowledgeSearchApi {
 
     public KnowledgeService(KnowledgeRepository repo,
                             ModelGateway modelGateway,
-                            BindingQueryApi bindings,
+                            ModelBindingQueryApi bindings,
                             PrincipalHolder principals,
                             ResourceGuard guard,
                             ResourceAclApi resourceAcl,
@@ -63,15 +67,15 @@ public class KnowledgeService implements KnowledgeSearchApi {
     }
 
     /** FE-04：可用嵌入 binding（kind=embedding、enabled、维度对齐配置）。 */
-    public List<EmbeddingBindingView> listEmbeddingBindings() {
+    public List<EmbeddingModelBindingView> listEmbeddingBindings() {
         return bindings.listByKind("embedding").stream()
-                .filter(BindingQueryApi.BindingInfo::enabled)
+                .filter(ModelBindingQueryApi.ModelBindingInfo::enabled)
                 .filter(b -> b.embeddingDim() != null && b.embeddingDim() == embeddingDim)
                 .map(b -> {
                     String label = b.modelName() == null || b.modelName().isBlank()
                             ? b.id() + " (dim=" + b.embeddingDim() + ")"
                             : b.modelName() + " (" + b.id() + ", dim=" + b.embeddingDim() + ")";
-                    return new EmbeddingBindingView(b.id(), b.embeddingDim(), b.enabled(), label);
+                    return new EmbeddingModelBindingView(b.id(), b.embeddingDim(), b.enabled(), label);
                 })
                 .toList();
     }
@@ -182,8 +186,9 @@ public class KnowledgeService implements KnowledgeSearchApi {
 
         return tx.execute(status -> {
             for (PreparedChunk c : prepared) {
-                repo.insertChunkWithVector(c.chunkId(), c.docId(), c.kbId(), workspaceId, c.text(), c.ordinal(),
-                        toVectorLiteral(c.vec()));
+                repo.insertChunkWithVector(new ChunkInsertCommand(
+                        c.chunkId(), c.docId(), c.kbId(), workspaceId, c.text(), c.ordinal(),
+                        toVectorLiteral(c.vec())));
             }
             KbDocumentDO doc = repo.findDocument(id);
             if (doc == null) {
@@ -199,13 +204,12 @@ public class KnowledgeService implements KnowledgeSearchApi {
     private List<PreparedChunk> prepareChunks(String docId, String kbId, String normalized) {
         String bindingId = resolveBindingId(kbId);
         List<PreparedChunk> out = new ArrayList<>();
-        int size = 200;
         if (normalized == null || normalized.isEmpty()) {
             out.add(new PreparedChunk("chk_" + docId + "_0", docId, kbId, "", 0, embed(bindingId, "")));
             return out;
         }
-        for (int i = 0, ordinal = 0; i < normalized.length(); i += size, ordinal++) {
-            String text = normalized.substring(i, Math.min(normalized.length(), i + size));
+        for (int i = 0, ordinal = 0; i < normalized.length(); i += CHUNK_CHAR_SIZE, ordinal++) {
+            String text = normalized.substring(i, Math.min(normalized.length(), i + CHUNK_CHAR_SIZE));
             out.add(new PreparedChunk("chk_" + docId + "_" + ordinal, docId, kbId, text, ordinal,
                     embed(bindingId, text)));
         }
@@ -218,7 +222,8 @@ public class KnowledgeService implements KnowledgeSearchApi {
             return;
         }
         doc.setStatus("FAILED");
-        doc.setErrorMessage(errorMessage == null ? "" : errorMessage.substring(0, Math.min(errorMessage.length(), 2000)));
+        doc.setErrorMessage(errorMessage == null ? "" : errorMessage.substring(0,
+                Math.min(errorMessage.length(), ERROR_MESSAGE_MAX_LEN)));
         repo.updateDocument(doc);
     }
 
@@ -362,7 +367,7 @@ public class KnowledgeService implements KnowledgeSearchApi {
         if (embeddingBindingId == null || embeddingBindingId.isBlank()) {
             return null;
         }
-        BindingQueryApi.BindingInfo info = bindings.find(embeddingBindingId)
+        ModelBindingQueryApi.ModelBindingInfo info = bindings.find(embeddingBindingId)
                 .orElseThrow(() -> new BizException(ErrorCode.BAD_REQUEST, "嵌入 binding 不存在"));
         if (!"embedding".equalsIgnoreCase(info.kind())) {
             throw new BizException(ErrorCode.BAD_REQUEST, "嵌入 binding 的 kind 必须是 embedding");
@@ -464,7 +469,7 @@ public class KnowledgeService implements KnowledgeSearchApi {
             this(id, workspaceId, name, null);
         }
     }
-    public record EmbeddingBindingView(String id, Integer embeddingDim, boolean enabled, String label) {}
+    public record EmbeddingModelBindingView(String id, Integer embeddingDim, boolean enabled, String label) {}
     public record ReindexProgress(String kbId, long pending, long ready, long failed, long embedding,
                                   long total, int percent) {}
     public record Document(String id, String kbId, String title, String sourceType, String status, String format) {}

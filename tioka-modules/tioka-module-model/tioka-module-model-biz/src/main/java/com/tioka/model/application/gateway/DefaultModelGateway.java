@@ -10,6 +10,9 @@ import com.tioka.model.domain.ModelEntities;
 import com.tioka.model.infrastructure.provider.ProviderClient;
 import com.tioka.model.infrastructure.provider.ProviderHttpException;
 import com.tioka.system.api.spi.QuotaGuard;
+import io.opentelemetry.api.GlobalOpenTelemetry;
+import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.context.Scope;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
@@ -26,25 +29,25 @@ import java.util.function.Consumer;
  */
 @Service
 public class DefaultModelGateway implements ModelGateway {
-    private final BindingResolver resolver;
+    private final ModelBindingResolver resolver;
     private final ProviderClient provider;
     private final ModelEntities entities;
     private final ApplicationEventPublisher events;
     private final UsageRecorder usage;
     private final QuotaGuard quota;
     private final ModelRateLimiter rateLimiter;
-    private final BindingCooldownService cooldown;
+    private final ModelBindingCooldownService cooldown;
     private final RetryBackoff backoff;
     private final int failoverMax;
 
-    public DefaultModelGateway(BindingResolver resolver,
+    public DefaultModelGateway(ModelBindingResolver resolver,
                                ProviderClient provider,
                                ModelEntities entities,
                                ApplicationEventPublisher events,
                                UsageRecorder usage,
                                QuotaGuard quota,
                                ModelRateLimiter rateLimiter,
-                               BindingCooldownService cooldown,
+                               ModelBindingCooldownService cooldown,
                                @Value("${tioka.model.failover-max:2}") int failoverMax,
                                @Value("${tioka.model.retry.max-attempts:2}") int retryMaxAttempts,
                                @Value("${tioka.model.retry.base-delay:500ms}") Duration retryBaseDelay,
@@ -63,8 +66,33 @@ public class DefaultModelGateway implements ModelGateway {
 
     @Override
     public ChatResult chat(ModelCallContext ctx, ChatRequest request, Consumer<StreamDelta> onDelta) {
+        Span span = GlobalOpenTelemetry.getTracer("tioka").spanBuilder("model.chat")
+                .setAttribute("gen_ai.system", "openai")
+                .startSpan();
+        try (Scope ignored = span.makeCurrent()) {
+            ChatResult result = chatTracked(ctx, request, onDelta, span);
+            span.setAttribute("gen_ai.usage.input_tokens", result.promptTokens());
+            span.setAttribute("gen_ai.usage.output_tokens", result.completionTokens());
+            span.setAttribute("tioka.failover_count", result.failoverCount());
+            if (result.modelRef() != null) {
+                span.setAttribute("gen_ai.request.model", result.modelRef());
+            }
+            return result;
+        } catch (RuntimeException e) {
+            span.recordException(e);
+            throw e;
+        } finally {
+            span.end();
+        }
+    }
+
+    private ChatResult chatTracked(ModelCallContext ctx, ChatRequest request,
+                                   Consumer<StreamDelta> onDelta, Span span) {
         precheck(ctx);
-        BindingResolver.Resolution sel = resolver.resolve(ctx);
+        ModelBindingResolver.Resolution sel = resolver.resolve(ctx);
+        if (sel.modelName() != null) {
+            span.setAttribute("gen_ai.request.model", sel.modelName());
+        }
         List<String> chain = new ArrayList<>(sel.fallbackChain() == null ? List.of() : sel.fallbackChain());
         int failovers = 0;
         AtomicBoolean emitted = new AtomicBoolean(false);
@@ -128,7 +156,7 @@ public class DefaultModelGateway implements ModelGateway {
     /**
      * MH-03：限流 → 同 binding 重试（可切换错误）；耗尽后把最后一次异常抛给外层做 failover。
      */
-    private ChatResult invokeChatWithRetry(BindingResolver.Resolution sel,
+    private ChatResult invokeChatWithRetry(ModelBindingResolver.Resolution sel,
                                            ChatRequest request,
                                            Consumer<StreamDelta> sink,
                                            int failovers,
@@ -179,7 +207,7 @@ public class DefaultModelGateway implements ModelGateway {
         }
     }
 
-    private long acquireRateLimit(BindingResolver.Resolution sel, ChatRequest request) {
+    private long acquireRateLimit(ModelBindingResolver.Resolution sel, ChatRequest request) {
         if (sel == null || sel.binding() == null) {
             return 0L;
         }
@@ -188,7 +216,7 @@ public class DefaultModelGateway implements ModelGateway {
                 sel.binding().rpmLimit(), sel.binding().tpmLimit(), est);
     }
 
-    private void reconcileTpm(BindingResolver.Resolution sel, long reserved, long actual) {
+    private void reconcileTpm(ModelBindingResolver.Resolution sel, long reserved, long actual) {
         if (sel == null || sel.binding() == null || reserved <= 0) {
             return;
         }
@@ -212,7 +240,7 @@ public class DefaultModelGateway implements ModelGateway {
         return Math.max(1L, chars / 3L + maxTokens);
     }
 
-    private ChatResult invokeChat(BindingResolver.Resolution sel,
+    private ChatResult invokeChat(ModelBindingResolver.Resolution sel,
                                   ChatRequest request,
                                   Consumer<StreamDelta> sink,
                                   int failovers) throws Exception {
@@ -240,7 +268,7 @@ public class DefaultModelGateway implements ModelGateway {
     }
 
     private void failoverTo(ModelCallContext ctx,
-                            BindingResolver.Resolution from,
+                            ModelBindingResolver.Resolution from,
                             String nextBindingId,
                             List<String> remaining,
                             String reason,
@@ -250,23 +278,23 @@ public class DefaultModelGateway implements ModelGateway {
             sink.accept(StreamDelta.discard());
             emitted.set(false);
         }
-        if (ctx.sessionId() != null && ctx.turnId() != null) {
-            entities.recordFailover(ctx.sessionId(), ctx.turnId(), nextBindingId,
+        if (ctx.threadId() != null && ctx.turnId() != null) {
+            entities.recordFailover(ctx.threadId(), ctx.turnId(), nextBindingId,
                     reason == null ? "failover" : reason);
         }
-        BindingResolver.Resolution to = resolver.ofBinding(nextBindingId, remaining, "failover");
+        ModelBindingResolver.Resolution to = resolver.ofBinding(nextBindingId, remaining, "failover");
         events.publishEvent(new FailoverEvent(
-                ctx.sessionId(), to.modelRef(),
+                ctx.threadId(), to.modelRef(),
                 reason == null ? "failover" : reason,
                 ctx.turnId(), from.modelRef()));
     }
 
-    private void account(ModelCallContext ctx, BindingResolver.Resolution sel,
+    private void account(ModelCallContext ctx, ModelBindingResolver.Resolution sel,
                          int promptTokens, int completionTokens, int latencyMs, String status) {
         long in = sel.binding() == null ? 0L : sel.binding().inputPriceMicros();
         long out = sel.binding() == null ? 0L : sel.binding().outputPriceMicros();
-        usage.record(ctx, sel.bindingId(), sel.modelRef(),
-                promptTokens, completionTokens, in, out, latencyMs, status);
+        usage.record(new UsageRecordCommand(ctx, sel.bindingId(), sel.modelRef(),
+                promptTokens, completionTokens, in, out, latencyMs, status));
         consume(ctx, promptTokens, completionTokens);
     }
 
@@ -309,9 +337,9 @@ public class DefaultModelGateway implements ModelGateway {
         String forced = request == null ? null : request.bindingId();
         List<String> inputs = request == null || request.inputs() == null ? List.of() : request.inputs();
         long t0 = System.nanoTime();
-        BindingResolver.Resolution sel = null;
+        ModelBindingResolver.Resolution sel = null;
         try {
-            // KNW-01：不再回退本地哈希；必须经 BindingResolver 选到真实/mock Provider
+            // KNW-01：不再回退本地哈希；必须经 ModelBindingResolver 选到真实/mock Provider
             sel = resolver.resolve(ctx, forced);
             long est = Math.max(1L, inputs.stream().mapToInt(s -> s == null ? 0 : s.length()).sum() / 3L);
             long reserved = rateLimiter.acquire(sel.bindingId(),
@@ -344,12 +372,12 @@ public class DefaultModelGateway implements ModelGateway {
         }
     }
 
-    private void accountEmbedError(ModelCallContext ctx, BindingResolver.Resolution sel,
+    private void accountEmbedError(ModelCallContext ctx, ModelBindingResolver.Resolution sel,
                                    String forced, int latencyMs) {
         if (sel != null) {
             account(ctx, sel, 0, 0, latencyMs, "ERROR");
         } else {
-            usage.record(ctx, forced, forced, 0, 0, 0L, 0L, latencyMs, "ERROR");
+            usage.record(new UsageRecordCommand(ctx, forced, forced, 0, 0, 0L, 0L, latencyMs, "ERROR"));
         }
     }
 

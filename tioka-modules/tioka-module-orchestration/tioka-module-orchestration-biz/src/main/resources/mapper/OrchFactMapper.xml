@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tioka.orchestration.infrastructure.mapper.OrchFactMapper">
+
+    <select id="maxSeq" resultType="int">
+        SELECT COALESCE(MAX(seq), 0) FROM orch_fact WHERE run_id = #{runId}
+    </select>
+
+</mapper>

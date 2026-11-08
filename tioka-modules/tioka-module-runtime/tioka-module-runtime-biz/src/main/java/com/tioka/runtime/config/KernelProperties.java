@@ -15,7 +15,7 @@ public class KernelProperties {
     private Loop loop = new Loop();
     private Events events = new Events();
     /**
-     * 关闭上下文时是否释放 SessionLock / 让 Turn 收尾。
+     * 关闭上下文时是否释放 ThreadLock / 让 Turn 收尾。
      * 闸门模拟崩溃时置 false，租约留给 LeaseReaper（ENG-04b）。
      */
     private boolean releaseOnShutdown = true;

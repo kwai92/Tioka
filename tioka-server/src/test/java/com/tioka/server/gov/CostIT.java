@@ -108,13 +108,13 @@ class CostIT {
                 .andExpect(status().isNotFound());
     }
 
-    private void insertUsage(String workspaceId, String userId, String sessionId,
+    private void insertUsage(String workspaceId, String userId, String threadId,
                              LocalDateTime at, int prompt, int completion, long costMicros) {
         ModelUsageDO row = new ModelUsageDO();
         row.setId(Ids.newId("usage"));
         row.setWorkspaceId(workspaceId);
         row.setUserId(userId);
-        row.setSessionId(sessionId);
+        row.setThreadId(threadId);
         row.setPurpose("CHAT");
         row.setBindingId("bind-it");
         row.setModelRef("gpt-test");

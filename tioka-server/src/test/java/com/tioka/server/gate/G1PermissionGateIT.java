@@ -11,7 +11,7 @@ import com.tioka.framework.security.PrincipalHolder;
 import com.tioka.framework.security.PrincipalType;
 import com.tioka.mcp.application.McpAdminService;
 import com.tioka.mcp.domain.McpStore;
-import com.tioka.model.api.dto.ProviderDtos.CreateBindingRequest;
+import com.tioka.model.api.dto.ProviderDtos.CreateModelBindingRequest;
 import com.tioka.model.api.dto.ProviderDtos.CreateLogicalModelRequest;
 import com.tioka.model.api.dto.ProviderDtos.CreateProviderRequest;
 import com.tioka.model.api.dto.ProviderDtos.CreateRoutingPlanRequest;
@@ -112,7 +112,7 @@ class G1PermissionGateIT {
             String tag = Ids.newId("g1p");
             var provider = models.createProvider(new CreateProviderRequest(tag + "-p", "mock://x", "k"));
             String lm = models.createLogicalModel(new CreateLogicalModelRequest(tag + "-m", "tool"));
-            String binding = models.createBinding(new CreateBindingRequest(lm, provider.id(), "gpt"));
+            String binding = models.createModelBinding(new CreateModelBindingRequest(lm, provider.id(), "gpt"));
             String planId = models.createPlan(new CreateRoutingPlanRequest(tag + "-rp", "FIXED", binding)).id();
             models.publish(planId);
 
@@ -135,12 +135,12 @@ class G1PermissionGateIT {
                     AgentSpec.SandboxPolicy.defaults(),
                     AgentSpec.ApprovalSettings.empty(),
                     AgentSpec.Limits.defaults(),
-                    null, null, null, null);
+                null, null, null, null, null, null, null, null);
             return agents.publishSpec(agent.id(), spec).versionId();
         });
 
         Principal memberP = principalLoader.load(Long.parseLong(member.userId()), member.workspaceId());
-        Map<String, Object> toolCfg = principals.runAs(adminPrincipal(admin), () -> mcpGrantsOf(versionId));
+        Map<String, Object> toolCfg = principals.runAs(adminPrincipal(admin), () -> mcpBindingsOf(versionId));
         ToolProvider.ToolResult result = principals.runAs(memberP, () ->
                 toolGateway.call(
                         ToolCallContexts.forTurn(memberP, "thr-g1", "turn-g1", versionId,
@@ -157,21 +157,21 @@ class G1PermissionGateIT {
         assertFalse(denied.isEmpty(), "审计应有 tool.invoke DENIED");
     }
 
-    private Map<String, Object> mcpGrantsOf(String versionId) {
+    private Map<String, Object> mcpBindingsOf(String versionId) {
         AgentSpec.ToolSet tools = snapshots.get(versionId).spec().tools();
         if (tools == null || tools.mcp() == null) {
-            return Map.of("mcpGrants", List.of());
+            return Map.of("mcp", List.of());
         }
         List<Map<String, Object>> grants = tools.mcp().stream()
                 .map(b -> Map.<String, Object>of(
                         "serverId", b.serverId(),
                         "allowlist", b.allowlist() == null ? List.of() : b.allowlist()))
                 .toList();
-        return Map.of("mcpGrants", grants);
+        return Map.of("mcp", grants);
     }
 
     private static Principal adminPrincipal(TestFixtures.Actor admin) {
         return new Principal(admin.userId(), admin.workspaceId(), PrincipalType.USER,
-                Set.of("tenant_admin", "workspace_admin"), Set.of("*"), "password");
+                Set.of("system_admin", "workspace_admin"), Set.of("*"), "password");
     }
 }

@@ -29,13 +29,13 @@ public class LocalWorkspaceFs implements WorkspaceFs {
     }
 
     @Override
-    public Path root(String workspaceId, String sessionId) {
-        return workRoot.resolve(safeSeg(workspaceId)).resolve(safeSeg(sessionId)).normalize();
+    public Path root(String workspaceId, String threadId) {
+        return workRoot.resolve(safeSeg(workspaceId)).resolve(safeSeg(threadId)).normalize();
     }
 
     @Override
-    public Path resolve(String workspaceId, String sessionId, String logicalPath) {
-        Path base = root(workspaceId, sessionId);
+    public Path resolve(String workspaceId, String threadId, String logicalPath) {
+        Path base = root(workspaceId, threadId);
         if (logicalPath == null || logicalPath.isBlank()) {
             throw new BizException(ErrorCode.BAD_REQUEST, "logicalPath 为空");
         }
@@ -48,9 +48,9 @@ public class LocalWorkspaceFs implements WorkspaceFs {
     }
 
     @Override
-    public void ensureLayout(String workspaceId, String sessionId) {
+    public void ensureLayout(String workspaceId, String threadId) {
         try {
-            Path base = root(workspaceId, sessionId);
+            Path base = root(workspaceId, threadId);
             Files.createDirectories(base.resolve("uploads"));
             Files.createDirectories(base.resolve("skills"));
             Files.createDirectories(base.resolve("scratch"));
@@ -61,9 +61,9 @@ public class LocalWorkspaceFs implements WorkspaceFs {
     }
 
     @Override
-    public void writeBytes(String workspaceId, String sessionId, String logicalPath, byte[] content) {
+    public void writeBytes(String workspaceId, String threadId, String logicalPath, byte[] content) {
         try {
-            Path target = resolve(workspaceId, sessionId, logicalPath);
+            Path target = resolve(workspaceId, threadId, logicalPath);
             Files.createDirectories(target.getParent());
             Files.write(target, content == null ? new byte[0] : content);
         } catch (BizException e) {
@@ -74,9 +74,9 @@ public class LocalWorkspaceFs implements WorkspaceFs {
     }
 
     @Override
-    public byte[] readBytes(String workspaceId, String sessionId, String logicalPath) {
+    public byte[] readBytes(String workspaceId, String threadId, String logicalPath) {
         try {
-            Path target = resolve(workspaceId, sessionId, logicalPath);
+            Path target = resolve(workspaceId, threadId, logicalPath);
             if (!Files.isRegularFile(target)) {
                 throw new BizException(ErrorCode.NOT_FOUND, "文件不存在: " + logicalPath);
             }
@@ -89,25 +89,25 @@ public class LocalWorkspaceFs implements WorkspaceFs {
     }
 
     @Override
-    public void materializeFromObject(String workspaceId, String sessionId, String objectKey, String logicalDest) {
+    public void materializeFromObject(String workspaceId, String threadId, String objectKey, String logicalDest) {
         if (objectStore == null) {
             throw new UnsupportedOperationException("objectStore 未配置");
         }
         byte[] bytes = objectStore.get(objectKey);
-        writeBytes(workspaceId, sessionId, logicalDest, bytes);
+        writeBytes(workspaceId, threadId, logicalDest, bytes);
     }
 
     @Override
-    public PublishedArtifact publishArtifact(String workspaceId, String sessionId, String logicalSrc, String contentType) {
+    public PublishedArtifact publishArtifact(String workspaceId, String threadId, String logicalSrc, String contentType) {
         if (objectStore == null) {
             throw new UnsupportedOperationException("objectStore 未配置");
         }
         if (logicalSrc == null || !logicalSrc.replace('\\', '/').startsWith("artifacts/out/")) {
             throw new BizException(ErrorCode.BAD_REQUEST, "仅允许发布 artifacts/out/ 下文件");
         }
-        byte[] bytes = readBytes(workspaceId, sessionId, logicalSrc);
+        byte[] bytes = readBytes(workspaceId, threadId, logicalSrc);
         String name = Path.of(logicalSrc).getFileName().toString();
-        String key = objectStore.put("artifacts/" + sessionId + "/" + name, bytes,
+        String key = objectStore.put("artifacts/" + threadId + "/" + name, bytes,
                 contentType == null ? "application/octet-stream" : contentType);
         return objectStore.issueDownloadTicket(key);
     }

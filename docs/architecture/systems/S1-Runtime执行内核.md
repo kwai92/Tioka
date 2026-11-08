@@ -46,7 +46,9 @@
 
 ## 3. 领域模型
 
-Session、Turn、Step、SessionEvent、ToolDescriptor、ToolCall、AgentPreset、SkillPackage、SubAgentRef、SandboxSession、UsageRecord、ApprovalDecision。
+**权威（ADR-016 / [47-GL](../enterprise/47-GL-统一名词释义.md)）**：Thread、Turn、Item、Step、ToolGateway、Approval、SubAgent（Child Thread）、ToolDescriptor、ToolCall、SkillPackage、UsageRecord。
+
+> 历史文档中的 Session / Part / `runtime_session` 已废止为对外名；物理表为 `runtime_thread`，MQ 为 `thread.*` / `item.*`。
 
 ---
 
@@ -66,9 +68,9 @@ runtime-biz
 
 ## 5. 状态机
 
-Session：`CREATED→RUNNING↔WAITING_TOOL↔WAITING_APPROVAL→COMPLETED|CANCELLED|FAILED`  
-SubAgent：独立 Session，父 Turn 等待 `agent_handoff` 结果。  
-Sandbox：按 Session 或 ToolCall 生命周期创建销毁。
+Thread：`CREATED→RUNNING↔WAITING_TOOL↔WAITING_APPROVAL→COMPLETED|CANCELLED|FAILED`  
+SubAgent：独立 Child Thread，父 Turn 等待 `agent_handoff` / `WAITING_CHILD`。  
+Sandbox：按 Thread 或 ToolCall 生命周期创建销毁。
 
 ---
 
@@ -76,7 +78,7 @@ Sandbox：按 Session 或 ToolCall 生命周期创建销毁。
 
 | API | 能力 |
 | --- | --- |
-| RuntimeSessionApi | CRUD、append、steer、cancel、fork、resume |
+| RuntimeApi（Thread） | CRUD、append、steer、cancel、fork、resume |
 | RuntimeStreamApi | SSE/WS：delta、tool、approval、usage |
 | RuntimeToolApi | list/invoke（管理面调试） |
 | RuntimeSkillApi | install/enable/list |
@@ -89,13 +91,13 @@ Sandbox：按 Session 或 ToolCall 生命周期创建销毁。
 
 ## 7. MQ
 
-`tioka-runtime`：`session.*` `turn.*` `part.*` `tool.*` `approval.*` `subagent.*` `usage.reported` `sandbox.*`
+`tioka-runtime`：`thread.*` `turn.*` `item.*` `tool.*` `approval.*` `subagent.*` `usage.reported` `sandbox.*`
 
 ---
 
 ## 8. 数据模型
 
-`rt_session` `rt_event` `rt_tool_call` `rt_usage` `rt_skill` `rt_mcp_binding` `rt_sandbox` `rt_subagent` `rt_approval`
+`runtime_thread` `runtime_turn` `runtime_item` `runtime_approval`（及用量/技能/MCP/沙箱相关表，见迁移与 ADR-016）
 
 事件日志可重建投影；大附件外置对象存储。
 
@@ -103,7 +105,7 @@ Sandbox：按 Session 或 ToolCall 生命周期创建销毁。
 
 ## 9. 安全
 
-租户隔离；工具权限档；密钥不进 prompt；沙箱网络默认拒绝；审批审计；输出脱敏钩子。  
+空间隔离（`workspace_id`）；工具权限档；密钥不进 prompt；沙箱网络默认拒绝；审批审计；输出脱敏钩子。  
 **凭证与工具入口**：执行面经 **ToolGateway** 调工具；`SecretStore.get` 白名单与 CredentialBroker 见 **ADR-014 D3/D5**。
 
 ---

@@ -1,0 +1,47 @@
+---
+description: 阿里巴巴 Java 规约摘录 + Tioka 分层（Java）
+globs: "**/*.java"
+alwaysApply: false
+---
+
+# Java 编码约束
+
+人读全文：`docs/architecture/enterprise/48-CS-编码规约摘要.md`
+
+## 禁止
+
+```java
+// ❌
+System.out.println(x);
+catch (Exception e) { }
+import org.springframework.jdbc.core.JdbcTemplate;
+private String tenantId; // DO / 新 API
+roles.contains("tenant_admin");
+@Select("SELECT ...")  // 自定义 SQL 禁止注解；用 mapper/*.xml
+void foo(String a, String b, String c, boolean d); // ≥3 业务参 → Command
+if (retry > 3 && ttl < 60_000) { } // 魔法值
+```
+
+- `application` 注入 `*Mapper`
+- 魔法数字直接写业务分支（抽命名常量 / 配置）
+- `*-biz` 依赖其他 `*-biz`
+- Mapper 接口上的 `@Select` / `@Insert` / `@Update` / `@Delete`
+- 业务入参 ≥3 却不建 Command/Query/DTO
+- 自造缓存/锁/限流协议（优先 Redis / Spring / MP；例外须 ADR）
+
+## 必须
+
+```java
+// ✅
+roles.contains("system_admin");
+// application → Repository → mapper.Mapper
+@TableName("sys_member")
+public class SysMemberDO extends BaseDO { }
+private static final int MAX_PAGE_SIZE = 200;
+// SQL 在 resources/mapper/SysMemberMapper.xml
+```
+
+- 类名 UpperCamel；方法/变量 lowerCamel；常量 UPPER_SNAKE
+- DO 在 `infrastructure.persistence`
+- 日志用 Logger，不用标准输出
+- 自定义 SQL → `src/main/resources/mapper/**/*.xml`

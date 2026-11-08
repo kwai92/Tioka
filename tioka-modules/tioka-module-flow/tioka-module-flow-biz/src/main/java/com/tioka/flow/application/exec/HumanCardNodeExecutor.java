@@ -1,6 +1,6 @@
 package com.tioka.flow.application.exec;
 
-import com.tioka.orchestration.api.OrchApi;
+import com.tioka.orchestration.api.OrchAttentionApi;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Component;
 
@@ -9,10 +9,10 @@ import java.util.Map;
 
 @Component
 public class HumanCardNodeExecutor implements NodeExecutor {
-    private final ObjectProvider<OrchApi> orchApi;
+    private final ObjectProvider<OrchAttentionApi> orchAttention;
 
-    public HumanCardNodeExecutor(ObjectProvider<OrchApi> orchApi) {
-        this.orchApi = orchApi;
+    public HumanCardNodeExecutor(ObjectProvider<OrchAttentionApi> orchAttention) {
+        this.orchAttention = orchAttention;
     }
 
     @Override
@@ -27,15 +27,14 @@ public class HumanCardNodeExecutor implements NodeExecutor {
                 ? (Map<String, Object>) m
                 : Map.of("input", input == null ? Map.of() : input);
 
-        OrchApi orch = orchApi.getIfAvailable();
+        OrchAttentionApi orch = orchAttention.getIfAvailable();
         String attentionId;
         if (orch != null) {
-            OrchApi.AttentionView view = orch.openAttention(ctx.runId(), title, card);
+            OrchAttentionApi.AttentionView view = orch.openAttention(ctx.runId(), title, card);
             attentionId = view.id();
         } else {
             attentionId = "attn_local_" + ctx.runId();
         }
-        // 最小：记录 attentionId 并继续（也可标 SUSPENDED）
         ctx.markSuspended(attentionId);
         Map<String, Object> out = new LinkedHashMap<>();
         out.put("attentionId", attentionId);

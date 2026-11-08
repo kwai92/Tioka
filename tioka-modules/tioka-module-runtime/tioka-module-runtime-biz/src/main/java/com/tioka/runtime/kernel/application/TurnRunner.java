@@ -4,6 +4,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tioka.agent.api.AgentSnapshotApi;
 import com.tioka.agent.api.spec.AgentSpec;
+import com.tioka.framework.context.RequestContext;
+import com.tioka.framework.context.RequestContextHolder;
 import com.tioka.framework.error.BizException;
 import com.tioka.framework.error.ErrorCode;
 import com.tioka.framework.security.Principal;
@@ -19,24 +21,32 @@ import com.tioka.runtime.kernel.domain.LeaseLost;
 import com.tioka.runtime.kernel.domain.LoopContext;
 import com.tioka.runtime.kernel.domain.LoopPorts;
 import com.tioka.runtime.kernel.domain.LoopResult;
-import com.tioka.runtime.infrastructure.RuntimeSessionRepository;
-import com.tioka.runtime.infrastructure.persistence.RuntimeSessionDO;
+import com.tioka.runtime.infrastructure.RuntimeThreadRepository;
+import com.tioka.runtime.infrastructure.persistence.RuntimeThreadDO;
 import com.tioka.runtime.kernel.events.EventStream;
 import com.tioka.runtime.kernel.events.RuntimeEventFactory;
 import com.tioka.runtime.kernel.infrastructure.TurnRepository;
-import com.tioka.runtime.kernel.infrastructure.persistence.RuntimeTurnDO;
-import com.tioka.runtime.kernel.infrastructure.redis.SessionLock;
+import com.tioka.runtime.infrastructure.persistence.RuntimeTurnDO;
+import com.tioka.runtime.kernel.infrastructure.redis.ThreadLock;
 import com.tioka.runtime.kernel.infrastructure.redis.SignalBus;
 import com.tioka.runtime.api.event.TurnCompletedEvent;
 import com.tioka.runtime.kernel.infrastructure.redis.TurnDispatchQueue;
 import com.tioka.system.api.spi.PrincipalLoaderApi;
 import com.tioka.system.api.spi.QuotaGuard;
+import io.opentelemetry.api.GlobalOpenTelemetry;
+import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.api.trace.SpanBuilder;
+import io.opentelemetry.api.trace.SpanContext;
+import io.opentelemetry.api.trace.TraceFlags;
+import io.opentelemetry.api.trace.TraceState;
+import io.opentelemetry.context.Scope;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -53,8 +63,8 @@ public class TurnRunner {
     private static final Logger log = LoggerFactory.getLogger(TurnRunner.class);
 
     private final TurnRepository turns;
-    private final RuntimeSessionRepository sessions;
-    private final SessionLock sessionLock;
+    private final RuntimeThreadRepository threads;
+    private final ThreadLock threadLock;
     private final AgentLoop agentLoop;
     private final PrincipalHolder principals;
     private final PrincipalLoaderApi principalLoader;
@@ -72,8 +82,8 @@ public class TurnRunner {
     private final ApplicationEventPublisher appEvents;
 
     public TurnRunner(TurnRepository turns,
-                      RuntimeSessionRepository sessions,
-                      SessionLock sessionLock,
+                      RuntimeThreadRepository threads,
+                      ThreadLock threadLock,
                       AgentLoop agentLoop,
                       PrincipalHolder principals,
                       PrincipalLoaderApi principalLoader,
@@ -90,8 +100,8 @@ public class TurnRunner {
                       QuotaGuard quota,
                       ApplicationEventPublisher appEvents) {
         this.turns = turns;
-        this.sessions = sessions;
-        this.sessionLock = sessionLock;
+        this.threads = threads;
+        this.threadLock = threadLock;
         this.agentLoop = agentLoop;
         this.principals = principals;
         this.principalLoader = principalLoader;
@@ -110,16 +120,58 @@ public class TurnRunner {
     }
 
     public void run(String turnId) {
-        RuntimeTurnDO turn = turns.findById(turnId).orElse(null);
+        RuntimeTurnDO peek = turnId == null ? null : turns.findById(turnId).orElse(null);
+        SpanBuilder builder = GlobalOpenTelemetry.getTracer("tioka").spanBuilder("turn.run")
+                .setAttribute("tioka.turn_id", turnId == null ? "" : turnId);
+        // OBS-03 / ADR-073：审批挂起后续跑新开 trace，用 span link 指回原 turn.run
+        SpanContext prior = peek == null ? SpanContext.getInvalid() : parseTraceparent(peek.getTraceparent());
+        if (prior.isValid()) {
+            builder.addLink(prior);
+        }
+        if (peek != null && peek.getRequestId() != null && !peek.getRequestId().isBlank()) {
+            builder.setAttribute("tioka.request_id", peek.getRequestId());
+        }
+        if (peek != null && peek.getSubject() != null && !peek.getSubject().isBlank()) {
+            builder.setAttribute("tioka.subject", peek.getSubject());
+        }
+        Span span = builder.startSpan();
+        RequestContext previous = RequestContextHolder.getCorrelation();
+        boolean restored = false;
+        try {
+            if (peek != null && peek.getRequestId() != null && !peek.getRequestId().isBlank()) {
+                RequestContextHolder.setCorrelation(
+                        new RequestContext(peek.getRequestId(), peek.getSubject(), null));
+                restored = true;
+            }
+            try (Scope ignored = span.makeCurrent()) {
+                runTracked(turnId, span, peek);
+            }
+        } catch (RuntimeException e) {
+            span.recordException(e);
+            throw e;
+        } finally {
+            if (restored) {
+                RequestContextHolder.setCorrelation(previous);
+            }
+            span.end();
+        }
+    }
+
+    private void runTracked(String turnId, Span span, RuntimeTurnDO preloaded) {
+        RuntimeTurnDO turn = preloaded != null ? preloaded : turns.findById(turnId).orElse(null);
         if (turn == null) {
             return;
         }
-        String threadId = turn.getSessionId();
-        Optional<SessionLock.Handle> lockOpt = sessionLock.tryAcquire(threadId, turnId);
+        String threadId = turn.getThreadId();
+        span.setAttribute("tioka.thread_id", threadId == null ? "" : threadId);
+        if (turn.getOrigin() != null) {
+            span.setAttribute("tioka.origin", turn.getOrigin());
+        }
+        Optional<ThreadLock.Handle> lockOpt = threadLock.tryAcquire(threadId, turnId);
         if (lockOpt.isEmpty()) {
             return;
         }
-        SessionLock.Handle lock = lockOpt.get();
+        ThreadLock.Handle lock = lockOpt.get();
         AtomicBoolean lost = new AtomicBoolean(false);
         ScheduledFuture<?> renewFuture = null;
         long leaseVersion = -1;
@@ -145,6 +197,7 @@ public class TurnRunner {
                 return;
             }
             leaseVersion = acquired.getAsLong();
+            turns.saveTraceparent(turnId, formatTraceparent(span.getSpanContext()));
             long lv = leaseVersion;
             String ws = quotaWs;
             String user = quotaUser;
@@ -165,7 +218,7 @@ public class TurnRunner {
 
             signalBus.register(turnId);
             try {
-                // 必须先 resolveRunAs：sessions.find 走行级过滤，无 Principal 会炸
+                // 必须先 resolveRunAs：threads.find 走行级过滤，无 Principal 会炸
                 // R-1：runAs 无效时立刻 FAILED(RUN_AS_INVALID)，释放配额，不续跑
                 Principal runAs;
                 try {
@@ -178,14 +231,19 @@ public class TurnRunner {
                 }
                 long finalLv = lv;
                 LoopResult result = principals.runAs(runAs, () -> {
-                    RuntimeSessionDO session = sessions.find(threadId);
-                    int maxSteps = props.getLoop().getMaxSteps();
+                    RuntimeThreadDO thread = threads.find(threadId);
+                    if (thread != null && thread.getAgentVersionId() != null) {
+                        span.setAttribute("tioka.agent_version_id", thread.getAgentVersionId());
+                    }
+                    int maxSteps = parseMaxSteps(turn.getOptionsJson(), props.getLoop().getMaxSteps());
                     // RT-06：崩溃续跑从已累计的 step_count 继续（中断前 model 步已 increment）
                     int startStep = turn.getStepCount() == null ? 0 : turn.getStepCount();
                     String approvalPolicy = parseApprovalPolicy(turn.getOptionsJson());
                     List<String> toolAllowList = parseToolAllowList(turn.getOptionsJson());
                     Map<String, Object> agentToolConfig = agentToolConfigOf(
-                            session == null ? null : session.getAgentVersionId());
+                            thread == null ? null : thread.getAgentVersionId());
+                    String origin = thread == null ? null : thread.getOrigin();
+                    Instant deadline = resolveDeadline(turn, origin);
                     LoopContext ctx = new LoopContext(threadId, turnId, finalLv,
                             maxSteps, props.getLoop().getRepeatCallLimit(), startStep,
                             c -> {
@@ -194,18 +252,20 @@ public class TurnRunner {
                                 }
                                 signalPort.checkpoint(c);
                             },
-                            session == null ? null : session.getAgentVersionId(),
-                            session == null ? null : session.getRoutingPlanId(),
-                            session == null ? null : session.getWorkspaceId(),
+                            thread == null ? null : thread.getAgentVersionId(),
+                            thread == null ? null : thread.getRoutingPlanId(),
+                            thread == null ? null : thread.getWorkspaceId(),
                             runAs.userId(),
                             approvalPolicy,
-                            session == null ? null : session.getOrigin(),
+                            origin,
                             toolAllowList,
-                            agentToolConfig);
+                            agentToolConfig,
+                            deadline);
                     return agentLoop.run(ctx);
                 });
-                if (result.status() == TurnStatus.WAITING_APPROVAL) {
-                    // 挂起已在 ApprovalSuspendService 内完成；释放锁与并发槽，不 enqueueNext
+                if (result.status() == TurnStatus.WAITING_APPROVAL
+                        || result.status() == TurnStatus.WAITING_CHILD) {
+                    // 挂起已在 suspend 服务内完成；释放锁与并发槽，不 enqueueNext
                     quota.releaseConcurrent(quotaWs, quotaUser, turnId);
                     holdConcurrent = false;
                 } else {
@@ -260,6 +320,31 @@ public class TurnRunner {
             if (finished) {
                 enqueueNext(threadId);
             }
+        }
+    }
+
+    private static String formatTraceparent(SpanContext ctx) {
+        if (ctx == null || !ctx.isValid()) {
+            return null;
+        }
+        return "00-" + ctx.getTraceId() + "-" + ctx.getSpanId() + "-"
+                + (ctx.getTraceFlags().isSampled() ? "01" : "00");
+    }
+
+    /** 解析 runtime_turn.traceparent；非法则返回 invalid。 */
+    private static SpanContext parseTraceparent(String traceparent) {
+        if (traceparent == null || traceparent.isBlank()) {
+            return SpanContext.getInvalid();
+        }
+        String[] parts = traceparent.trim().split("-");
+        if (parts.length < 4) {
+            return SpanContext.getInvalid();
+        }
+        try {
+            TraceFlags flags = "01".equals(parts[3]) ? TraceFlags.getSampled() : TraceFlags.getDefault();
+            return SpanContext.create(parts[1], parts[2], flags, TraceState.getDefault());
+        } catch (RuntimeException e) {
+            return SpanContext.getInvalid();
         }
     }
 
@@ -357,6 +442,55 @@ public class TurnRunner {
         return cur;
     }
 
+    private int parseMaxSteps(String optionsJson, int defaultMax) {
+        if (optionsJson == null || optionsJson.isBlank()) {
+            return defaultMax;
+        }
+        try {
+            JsonNode n = mapper.readTree(optionsJson).path("maxSteps");
+            if (n.isNumber()) {
+                return Math.min(50, Math.max(1, n.asInt(defaultMax)));
+            }
+        } catch (Exception ignored) {
+            // fall through
+        }
+        return defaultMax;
+    }
+
+    /**
+     * RT-09：默认 30 分钟；origin=orch|job 上限 4 小时，其他 1 小时。
+     */
+    private Instant resolveDeadline(RuntimeTurnDO turn, String origin) {
+        Duration requested = parseMaxDuration(turn.getOptionsJson());
+        if (requested == null) {
+            requested = Duration.ofMinutes(30);
+        }
+        Duration cap = ("orch".equalsIgnoreCase(origin) || "job".equalsIgnoreCase(origin))
+                ? Duration.ofHours(4) : Duration.ofHours(1);
+        if (requested.compareTo(cap) > 0) {
+            requested = cap;
+        }
+        Instant start = turn.getStartedAt() == null
+                ? Instant.now()
+                : turn.getStartedAt().toInstant(java.time.ZoneOffset.UTC);
+        return start.plus(requested);
+    }
+
+    private Duration parseMaxDuration(String optionsJson) {
+        if (optionsJson == null || optionsJson.isBlank()) {
+            return null;
+        }
+        try {
+            JsonNode n = mapper.readTree(optionsJson).path("maxDuration");
+            if (n.isMissingNode() || n.isNull() || n.asText("").isBlank()) {
+                return null;
+            }
+            return Duration.parse(n.asText());
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
     private String parseApprovalPolicy(String optionsJson) {
         if (optionsJson == null || optionsJson.isBlank()) {
             return null;
@@ -391,7 +525,7 @@ public class TurnRunner {
         }
     }
 
-    /** CON-01：从 Agent 快照抽出 mcpGrants 放入 ToolCallContext.agentToolConfig。 */
+    /** CON-01：从 Agent 快照抽出 McpBinding 列表，写入 agentToolConfig.mcp（47-GL）。 */
     private Map<String, Object> agentToolConfigOf(String agentVersionId) {
         if (agentVersionId == null || agentVersionId.isBlank()) {
             return Map.of();
@@ -403,16 +537,16 @@ public class TurnRunner {
         try {
             AgentSpec.ToolSet tools = snapshots.get(agentVersionId).spec().tools();
             if (tools == null || tools.mcp() == null || tools.mcp().isEmpty()) {
-                return Map.of("mcpGrants", List.of());
+                return Map.of("mcp", List.of());
             }
-            List<Map<String, Object>> grants = new ArrayList<>();
+            List<Map<String, Object>> bindings = new ArrayList<>();
             for (AgentSpec.ToolSet.McpBinding b : tools.mcp()) {
                 Map<String, Object> g = new LinkedHashMap<>();
                 g.put("serverId", b.serverId());
                 g.put("allowlist", b.allowlist() == null ? List.of() : b.allowlist());
-                grants.add(g);
+                bindings.add(g);
             }
-            return Map.of("mcpGrants", grants);
+            return Map.of("mcp", bindings);
         } catch (RuntimeException e) {
             log.warn("load agentToolConfig failed version={}: {}", agentVersionId, e.toString());
             return Map.of();

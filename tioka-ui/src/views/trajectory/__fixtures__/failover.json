@@ -1,0 +1,92 @@
+{
+  "turn": {
+    "turnId": "trn_failover_01",
+    "threadId": "thd_failover_01",
+    "seq": 2,
+    "status": "SUCCEEDED",
+    "origin": "chat",
+    "originRef": null,
+    "stepCount": 2,
+    "requestId": "req_failover_01",
+    "errorCode": null,
+    "errorMessage": null,
+    "promptTokens": 260,
+    "completionTokens": 110,
+    "createdAt": "2026-11-07T04:00:00Z",
+    "startedAt": "2026-11-07T04:00:01Z",
+    "endedAt": "2026-11-07T04:00:15Z"
+  },
+  "steps": [
+    {
+      "step": 1,
+      "modelRef": "gpt-mock@primary",
+      "promptTokens": 140,
+      "completionTokens": 20,
+      "latencyMs": 2000,
+      "costMicros": 800,
+      "failover": false,
+      "items": [
+        {
+          "itemId": "itm_discarded_half",
+          "threadId": "thd_failover_01",
+          "turnId": "trn_failover_01",
+          "seq": 1,
+          "step": 1,
+          "type": "message",
+          "role": "assistant",
+          "content": { "text": "半成品输出（将被作废）" },
+          "createdAt": "2026-11-07T04:00:03Z",
+          "discarded": true
+        },
+        {
+          "itemId": "itm_status_failover",
+          "threadId": "thd_failover_01",
+          "turnId": "trn_failover_01",
+          "seq": 2,
+          "step": 1,
+          "type": "status",
+          "role": "system",
+          "content": { "code": "MODEL_FAILOVER", "message": "主模型超时，切换备份" },
+          "createdAt": "2026-11-07T04:00:05Z",
+          "discarded": false
+        }
+      ]
+    },
+    {
+      "step": 2,
+      "modelRef": "gpt-mock@backup",
+      "promptTokens": 120,
+      "completionTokens": 90,
+      "latencyMs": 950,
+      "costMicros": 1600,
+      "failover": true,
+      "items": [
+        {
+          "itemId": "itm_msg_after_failover",
+          "threadId": "thd_failover_01",
+          "turnId": "trn_failover_01",
+          "seq": 3,
+          "step": 2,
+          "type": "message",
+          "role": "assistant",
+          "content": { "text": "备份模型已完成回复。" },
+          "createdAt": "2026-11-07T04:00:12Z",
+          "discarded": false
+        },
+        {
+          "itemId": "itm_unknown_data",
+          "threadId": "thd_failover_01",
+          "turnId": "trn_failover_01",
+          "seq": 4,
+          "step": 2,
+          "type": "data",
+          "role": "assistant",
+          "content": { "rows": [{ "k": "ok", "v": true }] },
+          "createdAt": "2026-11-07T04:00:13Z",
+          "discarded": false
+        }
+      ]
+    }
+  ],
+  "traceUrl": "http://jaeger.local/trace/failover01"
+}

@@ -56,6 +56,10 @@ public class ChatController {
         return ApiResponse.ok(chatService.send(id, str(body.get("text")), str(body.get("clientMsgId"))));
     }
 
+    /**
+     * 产品「消息列表」：返回绑定 Thread 上的 Runtime {@link RuntimeApi.ItemView} 投影
+     *（非独立 chat_message；见 47-GL § Chat）。
+     */
     @GetMapping("/conversations/{id}/messages")
     public ApiResponse<List<RuntimeApi.ItemView>> messages(
             @PathVariable String id,

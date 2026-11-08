@@ -28,7 +28,7 @@ public class ModelRouterController {
     @PostMapping("/router/failover")
     public ApiResponse<ModelRouterApi.ModelSelection> failover(@RequestBody Map<String, String> body) {
         return ApiResponse.ok(router.failover(
-                body.get("sessionId"),
+                body.get("threadId"),
                 body.get("turnId"),
                 body.get("routingPlanId"),
                 body.get("reason")));
@@ -36,10 +36,10 @@ public class ModelRouterController {
 
     /** MH-01：调试查询轮次冻结（取代 /router/select 与 sessions/{id}/route）。 */
     @GetMapping("/freezes")
-    public ApiResponse<List<ModelRouterApi.FreezeView>> freezes(@RequestParam String sessionId) {
-        if (sessionId == null || sessionId.isBlank()) {
-            throw new BizException(ErrorCode.BAD_REQUEST, "sessionId 必填");
+    public ApiResponse<List<ModelRouterApi.FreezeView>> freezes(@RequestParam String threadId) {
+        if (threadId == null || threadId.isBlank()) {
+            throw new BizException(ErrorCode.BAD_REQUEST, "threadId 必填");
         }
-        return ApiResponse.ok(router.listFreezes(sessionId));
+        return ApiResponse.ok(router.listFreezes(threadId));
     }
 }

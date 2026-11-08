@@ -49,7 +49,7 @@ public class ModelEntities {
         return repo.hasLogical(id);
     }
 
-    public void putBinding(Binding b) {
+    public void putBinding(ModelBinding b) {
         ModelBindingDO row = new ModelBindingDO();
         row.setId(b.id());
         row.setLogicalModelId(b.logicalModelId());
@@ -66,12 +66,12 @@ public class ModelEntities {
         repo.putBinding(row);
     }
 
-    public Optional<Binding> getBinding(String id) {
-        return repo.getBinding(id).map(this::toBinding);
+    public Optional<ModelBinding> getModelBinding(String id) {
+        return repo.getModelBinding(id).map(this::toBinding);
     }
 
-    private Binding toBinding(ModelBindingDO r) {
-        return new Binding(
+    private ModelBinding toBinding(ModelBindingDO r) {
+        return new ModelBinding(
                 r.getId(), r.getLogicalModelId(), r.getProviderId(), r.getModelName(),
                 r.getKind() == null ? "chat" : r.getKind(),
                 r.getContextWindow(), r.getEmbeddingDim(),
@@ -85,14 +85,14 @@ public class ModelEntities {
         return repo.hasBinding(id);
     }
 
-    public List<Binding> bindings() {
+    public List<ModelBinding> bindings() {
         return repo.bindings().stream().map(this::toBinding).toList();
     }
 
-    public Optional<Binding> firstEnabledBinding() {
+    public Optional<ModelBinding> firstEnabledBinding() {
         return repo.bindings().stream()
                 .map(this::toBinding)
-                .filter(Binding::enabled)
+                .filter(ModelBinding::enabled)
                 .findFirst();
     }
 
@@ -118,28 +118,28 @@ public class ModelEntities {
         return repo.plans().stream().map(this::toPlan).toList();
     }
 
-    public Optional<String> getFreeze(String sessionId, String turnId) {
-        return repo.getFreeze(sessionId, turnId);
+    public Optional<String> getFreeze(String threadId, String turnId) {
+        return repo.getFreeze(threadId, turnId);
     }
 
     /** @return 实际冻结的 bindingId（并发以先写者为准） */
-    public String insertFreezeIfAbsent(String sessionId, String turnId, String bindingId, String reason) {
-        return repo.insertFreezeIfAbsent(sessionId, turnId, bindingId, reason);
+    public String insertFreezeIfAbsent(String threadId, String turnId, String bindingId, String reason) {
+        return repo.insertFreezeIfAbsent(threadId, turnId, bindingId, reason);
     }
 
-    public void putFreeze(String sessionId, String turnId, String bindingId) {
-        repo.putFreeze(sessionId, turnId, bindingId);
+    public void putFreeze(String threadId, String turnId, String bindingId) {
+        repo.putFreeze(threadId, turnId, bindingId);
     }
 
     /** MH-02：冻结切到 nextBinding，failover_count + 1。 */
-    public void recordFailover(String sessionId, String turnId, String nextBinding, String reason) {
-        repo.recordFailover(sessionId, turnId, nextBinding, reason);
+    public void recordFailover(String threadId, String turnId, String nextBinding, String reason) {
+        repo.recordFailover(threadId, turnId, nextBinding, reason);
     }
 
-    public List<Freeze> listFreezes(String sessionId) {
-        return repo.listFreezes(sessionId).stream()
+    public List<Freeze> listFreezes(String threadId) {
+        return repo.listFreezes(threadId).stream()
                 .map(r -> new Freeze(
-                        r.getSessionId(), r.getTurnId(), r.getBindingId(),
+                        r.getThreadId(), r.getTurnId(), r.getBindingId(),
                         r.getReason(),
                         r.getFailoverCount() == null ? 0 : r.getFailoverCount()))
                 .toList();
@@ -156,11 +156,11 @@ public class ModelEntities {
     public record Provider(String id, String name, String baseUrl, String apiKeyRef) {}
     public record LogicalModel(String id, String name, String capabilityTags) {}
 
-    public record Binding(String id, String logicalModelId, String providerId, String modelName,
+    public record ModelBinding(String id, String logicalModelId, String providerId, String modelName,
                           String kind, Integer contextWindow, Integer embeddingDim,
                           long inputPriceMicros, long outputPriceMicros,
                           Integer rpmLimit, Integer tpmLimit, boolean enabled) {
-        public Binding(String id, String logicalModelId, String providerId, String modelName) {
+        public ModelBinding(String id, String logicalModelId, String providerId, String modelName) {
             this(id, logicalModelId, providerId, modelName, "chat", null, null, 0L, 0L, null, null, true);
         }
     }
@@ -176,5 +176,5 @@ public class ModelEntities {
         }
     }
 
-    public record Freeze(String sessionId, String turnId, String bindingId, String reason, int failoverCount) {}
+    public record Freeze(String threadId, String turnId, String bindingId, String reason, int failoverCount) {}
 }

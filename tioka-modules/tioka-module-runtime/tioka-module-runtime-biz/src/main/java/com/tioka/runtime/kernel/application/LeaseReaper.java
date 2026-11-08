@@ -13,9 +13,10 @@ import com.tioka.runtime.kernel.events.EventId;
 import com.tioka.runtime.kernel.events.EventStream;
 import com.tioka.runtime.kernel.events.RuntimeEventFactory;
 import com.tioka.runtime.kernel.infrastructure.ItemRepository;
+import com.tioka.runtime.kernel.infrastructure.ItemWrite;
 import com.tioka.runtime.kernel.infrastructure.TurnRepository;
-import com.tioka.runtime.kernel.infrastructure.persistence.RuntimeItemDO;
-import com.tioka.runtime.kernel.infrastructure.persistence.RuntimeTurnDO;
+import com.tioka.runtime.infrastructure.persistence.RuntimeItemDO;
+import com.tioka.runtime.infrastructure.persistence.RuntimeTurnDO;
 import com.tioka.runtime.kernel.infrastructure.redis.TurnDispatchQueue;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -87,7 +88,7 @@ public class LeaseReaper {
 
     private void recoverOrFail(RuntimeTurnDO row) {
         String turnId = row.getId();
-        String threadId = row.getSessionId();
+        String threadId = row.getThreadId();
         int recoverCount = row.getRecoverCount() == null ? 0 : row.getRecoverCount();
         int maxRecover = Math.max(0, props.getMaxRecover());
 
@@ -151,7 +152,7 @@ public class LeaseReaper {
     }
 
     private void writeLostToolResults(RuntimeTurnDO turn) {
-        List<RuntimeItemDO> turnItems = items.listBySession(turn.getSessionId()).stream()
+        List<RuntimeItemDO> turnItems = items.listByThread(turn.getThreadId()).stream()
                 .filter(i -> turn.getId().equals(i.getTurnId()))
                 .filter(i -> !Boolean.TRUE.equals(i.getDiscarded()))
                 .toList();
@@ -183,12 +184,12 @@ public class LeaseReaper {
             content.put("output", LOST_TOOL_OUTPUT);
             content.put("durationMs", 0);
             int step = i.getStep() == null ? 0 : i.getStep();
-            RuntimeItemDO result = items.appendWithoutLease(
-                    turn.getSessionId(), turn.getId(), step,
-                    ItemType.TOOL_RESULT.wire(), "tool", json(content));
-            streams.publish(turn.getSessionId(), EventId.of(result.getSeq()).toString(),
+            RuntimeItemDO result = items.appendWithoutLease(ItemWrite.withoutLease(
+                    turn.getThreadId(), turn.getId(), step,
+                    ItemType.TOOL_RESULT.wire(), "tool", json(content)));
+            streams.publish(turn.getThreadId(), EventId.of(result.getSeq()).toString(),
                     RuntimeEventType.ITEM_COMPLETED.wire(),
-                    events.itemCompleted(turn.getSessionId(), result));
+                    events.itemCompleted(turn.getThreadId(), result));
             done.add(callId);
         }
     }

@@ -8,7 +8,7 @@ import com.tioka.framework.id.Ids;
 import com.tioka.framework.security.Principal;
 import com.tioka.framework.security.PrincipalHolder;
 import com.tioka.framework.security.PrincipalType;
-import com.tioka.model.api.dto.ProviderDtos.CreateBindingRequest;
+import com.tioka.model.api.dto.ProviderDtos.CreateModelBindingRequest;
 import com.tioka.model.api.dto.ProviderDtos.CreateLogicalModelRequest;
 import com.tioka.model.api.dto.ProviderDtos.CreateProviderRequest;
 import com.tioka.model.api.dto.ProviderDtos.CreateRoutingPlanRequest;
@@ -83,7 +83,7 @@ class AgentPublishIT {
             AgentService.PublishResult v2 = agents.publishSpec(agent.id(),
                     baseSpec(agent.name(), planId, "new", List.of(), Map.of()));
             String pinned = jdbc.queryForObject(
-                    "SELECT agent_version_id FROM runtime_session WHERE id=?",
+                    "SELECT agent_version_id FROM runtime_thread WHERE id=?",
                     String.class, thr.threadId());
             assertEquals(v1.versionId(), pinned);
             assertEquals(v2.versionId(), snapshots.currentPublished(agent.id()).versionId());
@@ -117,7 +117,7 @@ class AgentPublishIT {
     private String publishPlan(String tag) {
         var provider = models.createProvider(new CreateProviderRequest(tag + "-p", "mock://x", "k"));
         String lm = models.createLogicalModel(new CreateLogicalModelRequest(tag + "-m", "tool"));
-        String binding = models.createBinding(new CreateBindingRequest(lm, provider.id(), "gpt"));
+        String binding = models.createModelBinding(new CreateModelBindingRequest(lm, provider.id(), "gpt"));
         String planId = models.createPlan(new CreateRoutingPlanRequest(tag + "-rp", "FIXED", binding)).id();
         models.publish(planId);
         return planId;
@@ -136,11 +136,11 @@ class AgentPublishIT {
                 AgentSpec.SandboxPolicy.defaults(),
                 new AgentSpec.ApprovalSettings(policies, null),
                 AgentSpec.Limits.defaults(),
-                null, null, null, null);
+                null, null, null, null, null, null, null, null);
     }
 
     private static Principal admin(String ws) {
         return new Principal("1", ws, PrincipalType.USER,
-                Set.of("tenant_admin", "builder"), Set.of("*"), "test");
+                Set.of("system_admin", "builder"), Set.of("*"), "test");
     }
 }

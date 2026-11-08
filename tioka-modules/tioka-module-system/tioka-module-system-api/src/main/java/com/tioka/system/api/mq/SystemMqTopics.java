@@ -1,12 +1,16 @@
 package com.tioka.system.api.mq;
 
 /**
- * MQ Topic / 事件名常量（禁止在 biz 内硬编码字符串）。
+ * MQ Topic/Tag 与跨域事件名常量（禁止在 biz 内硬编码字符串）。
  * 身份生命周期事件域名为 {@code identity}，由 system 模块经 outbox 桥接（M1-01 F7 / ID-BR）。
  */
 public final class SystemMqTopics {
 
     public static final String TOPIC = "tioka-system";
+
+    public static final String TAG_USER_CREATED = "user.created";
+    public static final String TAG_ROLE_CHANGED = "role.changed";
+    public static final String TAG_AUDIT_EMITTED = "audit.emitted";
 
     public static final String USER_DISABLED = "tioka.identity.user_disabled.v1";
     public static final String MEMBER_REMOVED = "tioka.identity.member_removed.v1";

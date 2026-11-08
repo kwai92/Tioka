@@ -19,7 +19,7 @@ class ProviderClientStreamTest {
                     @Override public String get(String namespace, String key) { return ""; }
                     @Override public void delete(String namespace, String key) {}
                 },
-                url -> {},
+                org.mockito.Mockito.mock(com.tioka.system.api.spi.EgressClient.class),
                 true,
                 32,
                 new ObjectMapper());

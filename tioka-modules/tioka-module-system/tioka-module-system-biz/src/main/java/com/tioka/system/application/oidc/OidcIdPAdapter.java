@@ -2,6 +2,7 @@ package com.tioka.system.application.oidc;
 
 import com.tioka.framework.error.BizException;
 import com.tioka.framework.error.ErrorCode;
+import com.tioka.system.api.spi.EgressClient;
 import com.tioka.system.config.OidcProperties;
 import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
 import org.springframework.security.oauth2.core.OAuth2Error;
@@ -16,7 +17,6 @@ import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 
 import java.net.URI;
 import java.net.URLEncoder;
-import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
@@ -36,11 +36,12 @@ public final class OidcIdPAdapter implements IdPAdapter {
     private final OidcProperties.Provider provider;
     private final JwtDecoder idTokenDecoder;
     private final JwtDecoder accessTokenDecoder;
-    private final HttpClient http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build();
+    private final EgressClient egress;
 
-    public OidcIdPAdapter(String idp, OidcProperties.Provider provider) {
+    public OidcIdPAdapter(String idp, OidcProperties.Provider provider, EgressClient egress) {
         this.idp = idp;
         this.provider = provider;
+        this.egress = egress;
         String issuer = requireIssuer(provider);
         NimbusJwtDecoder idDec = (NimbusJwtDecoder) JwtDecoders.fromOidcIssuerLocation(issuer);
         idDec.setJwtValidator(new DelegatingOAuth2TokenValidator<>(
@@ -178,7 +179,7 @@ public final class OidcIdPAdapter implements IdPAdapter {
                 .header("Content-Type", "application/x-www-form-urlencoded")
                 .POST(HttpRequest.BodyPublishers.ofString(form))
                 .build();
-        HttpResponse<String> resp = http.send(req, HttpResponse.BodyHandlers.ofString());
+        HttpResponse<String> resp = egress.send(req);
         if (resp.statusCode() / 100 != 2) {
             throw new IllegalStateException("token endpoint HTTP " + resp.statusCode() + ": " + resp.body());
         }

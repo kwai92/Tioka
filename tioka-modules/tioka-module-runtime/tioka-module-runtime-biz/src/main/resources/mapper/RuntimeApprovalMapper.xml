@@ -1,0 +1,141 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tioka.runtime.infrastructure.mapper.RuntimeApprovalMapper">
+
+    <select id="findById" resultType="RuntimeApprovalDO">
+        <![CDATA[
+            SELECT id, workspace_id AS workspaceId, subject_type AS subjectType, subject_id AS subjectId,
+                   item_id AS itemId, kind, tool_name AS toolName, args_json AS argsJson, card_json AS cardJson,
+                   policy, assignee_json AS assigneeJson, status, decided_by AS decidedBy,
+                   decided_at AS decidedAt, answer_json AS answerJson, expires_at AS expiresAt,
+                   create_at AS createAt, update_at AS updateAt, create_by AS createBy, update_by AS updateBy
+              FROM runtime_approval WHERE id = #{id}
+            
+]]>
+    </select>
+
+    <select id="findForUpdate" resultType="RuntimeApprovalDO">
+        <![CDATA[
+            SELECT id, workspace_id AS workspaceId, subject_type AS subjectType, subject_id AS subjectId,
+                   item_id AS itemId, kind, tool_name AS toolName, args_json AS argsJson, card_json AS cardJson,
+                   policy, assignee_json AS assigneeJson, status, decided_by AS decidedBy,
+                   decided_at AS decidedAt, answer_json AS answerJson, expires_at AS expiresAt,
+                   create_at AS createAt, update_at AS updateAt, create_by AS createBy, update_by AS updateBy
+              FROM runtime_approval WHERE id = #{id} FOR UPDATE
+            
+]]>
+    </select>
+
+    <insert id="insert">
+        <![CDATA[
+            INSERT INTO runtime_approval (
+              id, workspace_id, subject_type, subject_id, item_id, kind, tool_name, args_json, card_json,
+              policy, assignee_json, status, expires_at, request_id, subject,
+              requested_by, title, risk, agent_id,
+              create_at, update_at, create_by, update_by
+            ) VALUES (
+              #{id}, #{workspaceId}, #{subjectType}, #{subjectId}, #{itemId}, #{kind}, #{toolName},
+              #{argsJson}, #{cardJson}, #{policy}, #{assigneeJson}, #{status}, #{expiresAt},
+              #{requestId}, #{subject},
+              #{requestedBy}, #{title}, #{risk}, #{agentId},
+              now(), now(), COALESCE(#{createBy}, 'system'), COALESCE(#{updateBy}, 'system')
+            )
+            
+]]>
+    </insert>
+
+    <update id="decide">
+        <![CDATA[
+            UPDATE runtime_approval
+               SET status = #{status},
+                   decided_by = #{decidedBy},
+                   decided_at = now(),
+                   answer_json = #{answerJson},
+                   update_at = now(),
+                   update_by = COALESCE(#{updateBy}, 'system')
+             WHERE id = #{id} AND status = 'PENDING'
+            
+]]>
+    </update>
+
+    <select id="listBySubject" resultType="RuntimeApprovalDO">
+        <![CDATA[
+            SELECT id, workspace_id AS workspaceId, subject_type AS subjectType, subject_id AS subjectId,
+                   item_id AS itemId, kind, tool_name AS toolName, args_json AS argsJson, card_json AS cardJson,
+                   policy, assignee_json AS assigneeJson, status, decided_by AS decidedBy,
+                   decided_at AS decidedAt, answer_json AS answerJson, expires_at AS expiresAt,
+                   create_at AS createAt, update_at AS updateAt, create_by AS createBy, update_by AS updateBy
+              FROM runtime_approval
+             WHERE subject_type = #{subjectType} AND subject_id = #{subjectId}
+            
+]]>
+    </select>
+
+    <select id="countPending">
+        <![CDATA[
+            SELECT COUNT(*) FROM runtime_approval
+             WHERE subject_type = #{subjectType} AND subject_id = #{subjectId} AND status = 'PENDING'
+            
+]]>
+    </select>
+
+    <select id="findByItemId" resultType="RuntimeApprovalDO">
+        <![CDATA[
+            SELECT id, workspace_id AS workspaceId, subject_type AS subjectType, subject_id AS subjectId,
+                   item_id AS itemId, kind, tool_name AS toolName, args_json AS argsJson, card_json AS cardJson,
+                   policy, assignee_json AS assigneeJson, status, decided_by AS decidedBy,
+                   decided_at AS decidedAt, answer_json AS answerJson, expires_at AS expiresAt,
+                   request_id AS requestId, subject,
+                   create_at AS createAt, update_at AS updateAt, create_by AS createBy, update_by AS updateBy
+              FROM runtime_approval
+             WHERE item_id = #{itemId}
+             ORDER BY create_at DESC
+             LIMIT 1
+            
+]]>
+    </select>
+
+    <select id="expireDue" resultType="String">
+        <![CDATA[
+            UPDATE runtime_approval
+               SET status = 'EXPIRED',
+                   decided_by = COALESCE(#{decidedBy}, 'system'),
+                   decided_at = now(),
+                   update_at = now(),
+                   update_by = 'system'
+             WHERE status = 'PENDING' AND expires_at < #{now}
+         RETURNING id
+            
+]]>
+    </select>
+
+    <update id="expirePendingForSubject">
+        <![CDATA[
+            UPDATE runtime_approval
+               SET status = 'EXPIRED',
+                   decided_by = #{decidedBy},
+                   decided_at = now(),
+                   update_at = now(),
+                   update_by = 'system'
+             WHERE subject_type = #{subjectType}
+               AND subject_id = #{subjectId}
+               AND status = 'PENDING'
+            
+]]>
+    </update>
+
+    <select id="findWaitingWithoutPending" resultType="com.tioka.runtime.infrastructure.persistence.WaitingTurnRow">
+        <![CDATA[
+            SELECT t.id, t.thread_id AS threadId
+              FROM runtime_turn t
+             WHERE t.status = 'WAITING_APPROVAL'
+               AND NOT EXISTS (
+                     SELECT 1 FROM runtime_approval a
+                      WHERE a.subject_type = 'turn' AND a.subject_id = t.id AND a.status = 'PENDING')
+             LIMIT 50
+            
+]]>
+    </select>
+
+</mapper>

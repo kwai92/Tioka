@@ -25,8 +25,8 @@ public class SysUserRoleRepository {
         mapper.delete(userId, roleCode);
     }
 
-    public boolean existsEnabledTenantAdmin() {
-        return mapper.existsEnabledTenantAdmin();
+    public boolean existsEnabledSystemAdmin() {
+        return mapper.existsEnabledSystemAdmin();
     }
 
     public long countByRole(String roleCode) {

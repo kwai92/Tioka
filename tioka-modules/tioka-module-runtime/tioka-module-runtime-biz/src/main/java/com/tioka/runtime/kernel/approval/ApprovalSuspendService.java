@@ -19,9 +19,11 @@ import com.tioka.runtime.kernel.events.EventStream;
 import com.tioka.runtime.kernel.events.RuntimeEventFactory;
 import com.tioka.runtime.kernel.infrastructure.ApprovalRepository;
 import com.tioka.runtime.kernel.infrastructure.ItemRepository;
+import com.tioka.runtime.kernel.infrastructure.ItemWrite;
 import com.tioka.runtime.kernel.infrastructure.TurnRepository;
-import com.tioka.runtime.kernel.infrastructure.persistence.RuntimeApprovalDO;
-import com.tioka.runtime.kernel.infrastructure.persistence.RuntimeItemDO;
+import com.tioka.runtime.infrastructure.persistence.RuntimeApprovalDO;
+import com.tioka.runtime.infrastructure.persistence.RuntimeItemDO;
+import com.tioka.runtime.infrastructure.persistence.RuntimeTurnDO;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -70,6 +72,9 @@ public class ApprovalSuspendService {
         String workspaceId = ctx.workspaceId();
         String policyCode = ctx.approvalPolicy() == null || ctx.approvalPolicy().isBlank()
                 ? AgentConfigApprovalPolicy.CODE : ctx.approvalPolicy();
+        RuntimeTurnDO turn = turns.findById(ctx.turnId()).orElse(null);
+        String requestId = turn == null ? null : turn.getRequestId();
+        String subject = turn == null ? null : turn.getSubject();
         int step = 0;
         for (PendingToolCall p : requires) {
             if (!(p.decision() instanceof ApprovalPolicy.RequireApproval req)) {
@@ -96,6 +101,8 @@ public class ApprovalSuspendService {
                     "roleCodes", req.assignee().roleCodes())));
             row.setStatus(ApprovalStatus.PENDING.name());
             row.setExpiresAt(LocalDateTime.ofInstant(expires, ZoneOffset.UTC));
+            row.setRequestId(requestId);
+            row.setSubject(subject);
             String by = principals.current() == null ? "system" : principals.current().userId();
             row.setCreateBy(by);
             row.setUpdateBy(by);
@@ -108,8 +115,8 @@ public class ApprovalSuspendService {
             card.put("args", p.args());
             card.put("risk", risk.name());
             card.put("reason", req.reason());
-            RuntimeItemDO cardItem = items.append(ctx.threadId(), ctx.turnId(), ctx.leaseVersion(), step,
-                    ItemType.CARD.wire(), "system", json(card), null);
+            RuntimeItemDO cardItem = items.append(ItemWrite.append(ctx.threadId(), ctx.turnId(), ctx.leaseVersion(), step,
+                    ItemType.CARD.wire(), "system", json(card), null));
             streams.publish(ctx.threadId(), EventId.of(cardItem.getSeq()).toString(),
                     RuntimeEventType.ITEM_COMPLETED.wire(),
                     events.itemCompleted(ctx.threadId(), cardItem));

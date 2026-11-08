@@ -3,6 +3,7 @@ import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import com.tioka.framework.persistence.BaseDO;
+/** DocSyncMapping 现行落点（47-GL §1.8）；表名暂 feishu 专用。 */
 @TableName("feishu_doc_map")
 public class FeishuDocMapDO extends BaseDO {
     @TableId(type = IdType.INPUT)

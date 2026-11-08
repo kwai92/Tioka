@@ -9,7 +9,10 @@ alwaysApply: true
 - `docs/architecture/enterprise/41-TA-技术架构.md`
 - `docs/architecture/enterprise/42-DA-数据架构.md`
 - `docs/architecture/enterprise/44-EA-Java工程架构.md`
+- `docs/architecture/enterprise/47-GL-统一名词释义.md`
+- `docs/architecture/enterprise/48-CS-编码规约摘要.md`
 - `docs/superpowers/specs/2026-11-05-persistence-guardrails-mybatis-plus-design.md`
+- `docs/superpowers/specs/2026-11-07-coding-conventions-glossary-design.md`
 
 ## 硬规则
 

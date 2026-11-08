@@ -9,6 +9,9 @@ import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * Chat 应用侧门面（薄）。持久化经 {@link ChatRepository}。
+ */
 @Repository
 public class ChatStore {
     private final ChatRepository repo;
@@ -22,7 +25,7 @@ public class ChatStore {
         row.setId(c.id());
         row.setTitle(c.title());
         row.setAgentVersionId(c.agentVersionId());
-        row.setRuntimeSessionId(c.threadId());
+        row.setRuntimeThreadId(c.threadId());
         row.setLastActiveAt(OffsetDateTime.now());
         repo.insertConversation(row);
     }
@@ -59,11 +62,11 @@ public class ChatStore {
     }
 
     private Conversation toConversation(ChatConversationDO row) {
-        return new Conversation(row.getId(), row.getTitle(), row.getAgentVersionId(), row.getRuntimeSessionId());
+        return new Conversation(row.getId(), row.getTitle(), row.getAgentVersionId(), row.getRuntimeThreadId());
     }
 
     /**
-     * @param threadId Runtime thread（库列仍为 runtime_session_id）；JSON 同时暴露 threadId 与兼容字段 runtimeSessionId
+     * @param threadId Runtime Thread id（库列 {@code runtime_thread_id}）；JSON 仅暴露 {@code threadId}
      */
     public record Conversation(
             String id,
@@ -71,12 +74,20 @@ public class ChatStore {
             String agentVersionId,
             @JsonProperty("threadId") String threadId
     ) {
-        @JsonProperty("runtimeSessionId")
-        public String runtimeSessionId() {
-            return threadId;
-        }
     }
 
-    /** 卡片 API 响应 DTO；内容只存 Runtime Item，不再落 chat_message。 */
-    public record Message(String id, String conversationId, String role, String text, List<Map<String, Object>> parts) {}
+    /**
+     * 卡片 API 临时响应 DTO（非持久化产品 Message；见 47-GL CardMessage）。
+     */
+    public record CardMessage(String id, String conversationId, String role, String text,
+                              List<Map<String, Object>> parts) {}
+
+    /** @deprecated 使用 {@link CardMessage} */
+    @Deprecated
+    public record Message(String id, String conversationId, String role, String text,
+                          List<Map<String, Object>> parts) {
+        public CardMessage toCardMessage() {
+            return new CardMessage(id, conversationId, role, text, parts);
+        }
+    }
 }

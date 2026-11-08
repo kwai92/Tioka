@@ -14,7 +14,7 @@ import com.tioka.system.infrastructure.AuthUserRepository;
 import com.tioka.system.infrastructure.SysMemberRepository;
 import com.tioka.system.infrastructure.SysUserRoleRepository;
 import com.tioka.system.infrastructure.SysWorkspaceRepository;
-import com.tioka.system.infrastructure.dataobject.SysMemberDO;
+import com.tioka.system.infrastructure.persistence.SysMemberDO;
 import com.tioka.system.infrastructure.persistence.AuthUserDO;
 import com.tioka.system.infrastructure.persistence.SysWorkspaceDO;
 import org.springframework.data.redis.core.StringRedisTemplate;

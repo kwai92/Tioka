@@ -3,7 +3,7 @@ package com.tioka.runtime.kernel.events;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.tioka.runtime.api.kernel.RuntimeEventType;
-import com.tioka.runtime.kernel.infrastructure.persistence.RuntimeItemDO;
+import com.tioka.runtime.infrastructure.persistence.RuntimeItemDO;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
@@ -70,8 +70,19 @@ public class RuntimeEventFactory {
     }
 
     public String turnStatus(RuntimeEventType type, String threadId, String turnId, String status) {
+        return turnStatus(type, threadId, turnId, status, null);
+    }
+
+    public String turnStatus(RuntimeEventType type, String threadId, String turnId, String status,
+                             String waitReason) {
         ObjectNode root = base(type, threadId, turnId);
-        root.putObject("turn").put("status", status);
+        ObjectNode turn = root.putObject("turn");
+        turn.put("status", status);
+        if (waitReason != null && !waitReason.isBlank()) {
+            // FE-20：turn.waiting 带 reason=child
+            turn.put("reason", "child");
+            turn.put("waitReason", waitReason);
+        }
         return json(root);
     }
 

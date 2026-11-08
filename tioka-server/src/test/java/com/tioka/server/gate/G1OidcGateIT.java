@@ -57,7 +57,7 @@ class G1OidcGateIT {
             List<String> roles = jdbc.queryForList(
                     "SELECT role_code FROM sys_user_role WHERE user_id = ?",
                     String.class, String.valueOf(userId));
-            assertTrue(roles.contains("tenant_admin"), "roles=" + roles);
+            assertTrue(roles.contains("system_admin"), "roles=" + roles);
 
             cluster.keycloak().removeUserFromGroup("alice", "/tioka/admins");
             Thread.sleep(500);
@@ -66,7 +66,7 @@ class G1OidcGateIT {
             List<String> after = jdbc.queryForList(
                     "SELECT role_code FROM sys_user_role WHERE user_id = ?",
                     String.class, String.valueOf(userId));
-            assertFalse(after.contains("tenant_admin"), "after=" + after);
+            assertFalse(after.contains("system_admin"), "after=" + after);
 
             cluster.keycloak().addUserToGroup("alice", "/tioka/admins");
         }

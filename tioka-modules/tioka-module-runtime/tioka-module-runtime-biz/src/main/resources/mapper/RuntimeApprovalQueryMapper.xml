@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tioka.runtime.infrastructure.mapper.RuntimeApprovalQueryMapper">
+
+    <sql id="selectCols">
+        a.id, a.workspace_id AS workspaceId, a.subject_type AS subjectType, a.subject_id AS subjectId,
+        a.item_id AS itemId, a.kind, a.tool_name AS toolName, a.args_json AS argsJson, a.card_json AS cardJson,
+        a.policy, a.assignee_json AS assigneeJson, a.status, a.decided_by AS decidedBy,
+        a.decided_at AS decidedAt, a.answer_json AS answerJson, a.expires_at AS expiresAt,
+        a.requested_by AS requestedBy, a.title, a.risk, a.agent_id AS agentId,
+        a.create_at AS createAt, a.update_at AS updateAt, a.create_by AS createBy, a.update_by AS updateBy
+    </sql>
+
+    <sql id="whereClause">
+        WHERE a.workspace_id = #{workspaceId}
+        <if test="status != null and status != ''">
+            AND a.status = #{status}
+        </if>
+        <if test="subjectType != null and subjectType != ''">
+            AND a.subject_type = #{subjectType}
+        </if>
+        <if test="agentId != null and agentId != ''">
+            AND a.agent_id = #{agentId}
+        </if>
+        <if test="risk != null and risk != ''">
+            AND a.risk = #{risk}
+        </if>
+        <if test="from != null">
+            AND a.create_at &gt;= #{from}
+        </if>
+        <if test="to != null">
+            AND a.create_at &lt;= #{to}
+        </if>
+        <if test="keyword != null and keyword != ''">
+            AND (a.title ILIKE '%' || #{keyword} || '%' OR a.tool_name ILIKE '%' || #{keyword} || '%')
+        </if>
+        <choose>
+            <when test="scope == 'ASSIGNED_TO_ME'">
+                AND EXISTS (
+                    SELECT 1 FROM runtime_approval_assignee s
+                     WHERE s.approval_id = a.id AND s.user_id = #{userId})
+            </when>
+            <when test="scope == 'REQUESTED_BY_ME'">
+                AND a.requested_by = #{userId}
+            </when>
+            <when test="scope == 'WORKSPACE_ALL'">
+            </when>
+        </choose>
+    </sql>
+
+    <select id="list" resultType="com.tioka.runtime.infrastructure.persistence.RuntimeApprovalDO">
+        SELECT
+        <include refid="selectCols"/>
+        FROM runtime_approval a
+        <include refid="whereClause"/>
+        ORDER BY a.create_at DESC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="count" resultType="long">
+        SELECT COUNT(*)
+        FROM runtime_approval a
+        <include refid="whereClause"/>
+    </select>
+
+    <select id="findById" resultType="com.tioka.runtime.infrastructure.persistence.RuntimeApprovalDO">
+        SELECT
+        <include refid="selectCols"/>
+        FROM runtime_approval a
+        WHERE a.id = #{id}
+    </select>
+
+    <select id="listAssigneeUserIds" resultType="string">
+        SELECT user_id FROM runtime_approval_assignee WHERE approval_id = #{approvalId}
+    </select>
+</mapper>

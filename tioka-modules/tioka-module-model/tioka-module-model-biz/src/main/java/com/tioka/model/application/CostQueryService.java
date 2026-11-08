@@ -51,17 +51,17 @@ public class CostQueryService implements CostQueryApi {
     }
 
     @Override
-    public CostBucket sessionCost(String sessionId) {
-        if (sessionId == null || sessionId.isBlank()) {
-            throw new BizException(ErrorCode.BAD_REQUEST, "sessionId 必填");
+    public CostBucket sessionCost(String threadId) {
+        if (threadId == null || threadId.isBlank()) {
+            throw new BizException(ErrorCode.BAD_REQUEST, "threadId 必填");
         }
-        Map<String, Object> row = usages.sessionAggregate(sessionId);
+        Map<String, Object> row = usages.sessionAggregate(threadId);
         if (row == null) {
-            return new CostBucket(sessionId, sessionId, 0, 0, 0, 0);
+            return new CostBucket(threadId, threadId, 0, 0, 0, 0);
         }
         return new CostBucket(
-                sessionId,
-                sessionId,
+                threadId,
+                threadId,
                 asLong(row.get("promptTokens")),
                 asLong(row.get("completionTokens")),
                 asLong(row.get("costMicros")),
@@ -69,11 +69,21 @@ public class CostQueryService implements CostQueryApi {
     }
 
     @Override
-    public List<UsageEntry> sessionTimeline(String sessionId) {
-        if (sessionId == null || sessionId.isBlank()) {
+    public List<UsageEntry> sessionTimeline(String threadId) {
+        if (threadId == null || threadId.isBlank()) {
             return List.of();
         }
-        return usages.findBySessionId(sessionId).stream()
+        return usages.findBySessionId(threadId).stream()
+                .map(this::toEntry)
+                .toList();
+    }
+
+    @Override
+    public List<UsageEntry> turnUsage(String turnId) {
+        if (turnId == null || turnId.isBlank()) {
+            return List.of();
+        }
+        return usages.findByTurnId(turnId).stream()
                 .map(this::toEntry)
                 .toList();
     }
@@ -81,7 +91,7 @@ public class CostQueryService implements CostQueryApi {
     private UsageEntry toEntry(ModelUsageDO row) {
         return new UsageEntry(
                 row.getTurnId(),
-                null, // step：V143 才有列
+                row.getStep(),
                 row.getModelRef(),
                 row.getPromptTokens() == null ? 0 : row.getPromptTokens(),
                 row.getCompletionTokens() == null ? 0 : row.getCompletionTokens(),

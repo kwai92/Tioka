@@ -11,6 +11,7 @@ import com.tioka.runtime.api.kernel.TurnStatus;
 import com.tioka.runtime.kernel.events.EventStream;
 import com.tioka.runtime.kernel.events.RuntimeEventFactory;
 import com.tioka.runtime.kernel.infrastructure.ItemRepository;
+import com.tioka.runtime.kernel.infrastructure.ItemWrite;
 import com.tioka.server.gate.support.GateSeed;
 import com.tioka.server.support.IntegrationTestSupport;
 import org.junit.jupiter.api.BeforeEach;
@@ -217,8 +218,8 @@ class RuntimeApiContractTest {
 
             String assistant = "final-from-awaiter";
             principals.runAs(principal, () ->
-                    items.appendWithoutLease(thr.threadId(), handle.turnId(), 1,
-                            "message", "assistant", "{\"text\":\"" + assistant + "\"}"));
+                    items.appendWithoutLease(ItemWrite.withoutLease(thr.threadId(), handle.turnId(), 1,
+                            "message", "assistant", "{\"text\":\"" + assistant + "\"}")));
             jdbc.update("UPDATE runtime_turn SET status = 'COMPLETED', ended_at = now() WHERE id = ?",
                     handle.turnId());
             streams.publish(thr.threadId(), null, RuntimeEventType.TURN_COMPLETED.wire(),

@@ -13,7 +13,7 @@ public class ChatConversationDO extends WorkspaceAwareDO {
     private String id;
     private String title;
     private String agentVersionId;
-    private String runtimeSessionId;
+    private String runtimeThreadId;
     private OffsetDateTime lastActiveAt;
     private String lastPreview;
 
@@ -23,8 +23,8 @@ public class ChatConversationDO extends WorkspaceAwareDO {
     public void setTitle(String title) { this.title = title; }
     public String getAgentVersionId() { return agentVersionId; }
     public void setAgentVersionId(String agentVersionId) { this.agentVersionId = agentVersionId; }
-    public String getRuntimeSessionId() { return runtimeSessionId; }
-    public void setRuntimeSessionId(String runtimeSessionId) { this.runtimeSessionId = runtimeSessionId; }
+    public String getRuntimeThreadId() { return runtimeThreadId; }
+    public void setRuntimeThreadId(String runtimeThreadId) { this.runtimeThreadId = runtimeThreadId; }
     public OffsetDateTime getLastActiveAt() { return lastActiveAt; }
     public void setLastActiveAt(OffsetDateTime lastActiveAt) { this.lastActiveAt = lastActiveAt; }
     public String getLastPreview() { return lastPreview; }

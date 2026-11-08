@@ -66,7 +66,7 @@ class JwtResourceServerIT {
         registry.add("tioka.auth.oidc.providers.keycloak.client-secret", () -> KeycloakGateSupport.CLIENT_SECRET);
         registry.add("tioka.auth.oidc.providers.keycloak.auto-provision", () -> "true");
         registry.add("tioka.auth.oidc.providers.keycloak.group-role-mappings[0].group", () -> "/tioka/admins");
-        registry.add("tioka.auth.oidc.providers.keycloak.group-role-mappings[0].tenant-role", () -> "tenant_admin");
+        registry.add("tioka.auth.oidc.providers.keycloak.group-role-mappings[0].system-role", () -> "system_admin");
         registry.add("tioka.auth.oidc.resource-server.enabled", () -> "true");
         registry.add("tioka.auth.oidc.resource-server.audiences[0]", () -> "tioka-api");
     }
@@ -75,7 +75,7 @@ class JwtResourceServerIT {
     void idpTokenAccepted() throws Exception {
         String accessToken = obtainKeycloakAccessToken(
                 KeycloakGateSupport.USER_ALICE, KeycloakGateSupport.PASSWORD_ALICE);
-        // tenant_admin 可无空间成员身份访问；不强制 X-Workspace-Id
+        // system_admin 可无空间成员身份访问；不强制 X-Workspace-Id
         HttpResponse<String> me = HttpClient.newHttpClient().send(
                 HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + "/api/system/auth/me"))
                         .header("Authorization", "Bearer " + accessToken)

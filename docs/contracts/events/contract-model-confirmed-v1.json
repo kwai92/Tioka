@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tioka.local/contracts/events/contract-model-confirmed-v1.json",
+  "title": "contract.model.confirmed data",
+  "type": "object",
+  "required": ["contractKey", "version", "contentHash", "confirmedBy"],
+  "properties": {
+    "contractKey": { "type": "string" },
+    "version": { "type": "integer", "minimum": 1 },
+    "contentHash": { "type": "string" },
+    "confirmedBy": { "type": "string" },
+    "aclPrincipals": { "type": "array", "items": { "type": "string" } }
+  },
+  "additionalProperties": false
+}

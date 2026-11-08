@@ -9,14 +9,14 @@ import com.tioka.framework.persistence.AppendOnlyDO;
 public class RuntimeIdemDO extends AppendOnlyDO {
     @TableId(type = IdType.INPUT)
     private String id;
-    private String sessionId;
+    private String threadId;
     private String clientMsgId;
     private String turnId;
 
     public String getId() { return id; }
     public void setId(String id) { this.id = id; }
-    public String getSessionId() { return sessionId; }
-    public void setSessionId(String sessionId) { this.sessionId = sessionId; }
+    public String getThreadId() { return threadId; }
+    public void setThreadId(String threadId) { this.threadId = threadId; }
     public String getClientMsgId() { return clientMsgId; }
     public void setClientMsgId(String clientMsgId) { this.clientMsgId = clientMsgId; }
     public String getTurnId() { return turnId; }

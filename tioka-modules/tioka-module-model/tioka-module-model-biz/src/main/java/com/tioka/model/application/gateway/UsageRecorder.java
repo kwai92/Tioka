@@ -1,9 +1,13 @@
 package com.tioka.model.application.gateway;
 
+import com.tioka.framework.context.RequestContext;
+import com.tioka.framework.context.RequestContextHolder;
 import com.tioka.framework.id.Ids;
 import com.tioka.model.api.gateway.ModelCallContext;
 import com.tioka.model.infrastructure.ModelUsageRepository;
 import com.tioka.model.infrastructure.persistence.ModelUsageDO;
+import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.api.trace.SpanContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.SmartLifecycle;
@@ -36,18 +40,9 @@ public class UsageRecorder implements SmartLifecycle {
         this.usages = usages;
     }
 
-    /**
-     * @param status SUCCESS / ERROR / FAILOVER
-     */
-    public void record(ModelCallContext ctx,
-                       String bindingId,
-                       String modelRef,
-                       int promptTokens,
-                       int completionTokens,
-                       long inputPriceMicros,
-                       long outputPriceMicros,
-                       int latencyMs,
-                       String status) {
+    /** @param cmd.status SUCCESS / ERROR / FAILOVER */
+    public void record(UsageRecordCommand cmd) {
+        ModelCallContext ctx = cmd.ctx();
         ModelUsageDO row = new ModelUsageDO();
         row.setId(Ids.newId("usage"));
         if (ctx != null && ctx.principal() != null) {
@@ -57,18 +52,26 @@ public class UsageRecorder implements SmartLifecycle {
         }
         if (ctx != null) {
             row.setAgentId(ctx.agentId());
-            row.setSessionId(ctx.sessionId());
+            row.setThreadId(ctx.threadId());
             row.setTurnId(ctx.turnId());
             row.setPurpose(ctx.purpose() == null ? null : ctx.purpose().name());
         }
-        row.setBindingId(bindingId);
-        row.setModelRef(modelRef);
-        row.setPromptTokens(Math.max(0, promptTokens));
-        row.setCompletionTokens(Math.max(0, completionTokens));
-        row.setCostMicros(costMicros(promptTokens, completionTokens, inputPriceMicros, outputPriceMicros));
-        row.setLatencyMs(Math.max(0, latencyMs));
-        row.setStatus(status == null ? "ERROR" : status);
+        row.setBindingId(cmd.bindingId());
+        row.setModelRef(cmd.modelRef());
+        row.setPromptTokens(Math.max(0, cmd.promptTokens()));
+        row.setCompletionTokens(Math.max(0, cmd.completionTokens()));
+        row.setCostMicros(costMicros(cmd.promptTokens(), cmd.completionTokens(),
+                cmd.inputPriceMicros(), cmd.outputPriceMicros()));
+        row.setLatencyMs(Math.max(0, cmd.latencyMs()));
+        row.setStatus(cmd.status() == null ? "ERROR" : cmd.status());
         row.setCreateAt(LocalDateTime.now());
+        RequestContext correlation = RequestContextHolder.getCorrelation();
+        row.setRequestId(correlation.requestId());
+        row.setSubject(correlation.subject());
+        SpanContext spanCtx = Span.current().getSpanContext();
+        if (spanCtx != null && spanCtx.isValid()) {
+            row.setTraceId(spanCtx.getTraceId());
+        }
         if (!queue.offer(row)) {
             log.warn("model_usage 队列拒绝写入 id={}", row.getId());
             return;

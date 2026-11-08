@@ -1,0 +1,116 @@
+{
+  "turn": {
+    "turnId": "trn_approval_01",
+    "threadId": "thd_approval_01",
+    "seq": 3,
+    "status": "SUCCEEDED",
+    "origin": "chat",
+    "originRef": null,
+    "stepCount": 2,
+    "requestId": "req_approval_01",
+    "errorCode": null,
+    "errorMessage": null,
+    "promptTokens": 180,
+    "completionTokens": 70,
+    "createdAt": "2026-11-07T05:00:00Z",
+    "startedAt": "2026-11-07T05:00:01Z",
+    "endedAt": "2026-11-07T05:01:20Z"
+  },
+  "steps": [
+    {
+      "step": 1,
+      "modelRef": "gpt-mock@primary",
+      "promptTokens": 100,
+      "completionTokens": 30,
+      "latencyMs": 700,
+      "costMicros": 1000,
+      "failover": false,
+      "items": [
+        {
+          "itemId": "itm_msg_need_approval",
+          "threadId": "thd_approval_01",
+          "turnId": "trn_approval_01",
+          "seq": 1,
+          "step": 1,
+          "type": "message",
+          "role": "assistant",
+          "content": { "text": "写入前需要审批。" },
+          "createdAt": "2026-11-07T05:00:02Z",
+          "discarded": false
+        },
+        {
+          "itemId": "itm_card_tool",
+          "threadId": "thd_approval_01",
+          "turnId": "trn_approval_01",
+          "seq": 2,
+          "step": 1,
+          "type": "card",
+          "role": "system",
+          "content": {
+            "kind": "tool",
+            "approvalId": "apv_traj_01",
+            "toolName": "fs.write",
+            "risk": "WRITE",
+            "reason": "写入需审批",
+            "args": { "path": "/tmp/out", "body": "ok" },
+            "decidedBy": "user_alice",
+            "decidedByName": "Alice",
+            "decidedAt": "2026-11-07T05:01:00Z",
+            "status": "APPROVED",
+            "comment": "同意写入"
+          },
+          "createdAt": "2026-11-07T05:00:03Z",
+          "discarded": false
+        }
+      ]
+    },
+    {
+      "step": 2,
+      "modelRef": "gpt-mock@primary",
+      "promptTokens": 80,
+      "completionTokens": 40,
+      "latencyMs": 500,
+      "costMicros": 800,
+      "failover": false,
+      "items": [
+        {
+          "itemId": "itm_tool_call_write",
+          "threadId": "thd_approval_01",
+          "turnId": "trn_approval_01",
+          "seq": 3,
+          "step": 2,
+          "type": "tool_call",
+          "role": "assistant",
+          "content": { "name": "fs.write", "args": { "path": "/tmp/out", "body": "ok" } },
+          "createdAt": "2026-11-07T05:01:05Z",
+          "discarded": false
+        },
+        {
+          "itemId": "itm_tool_result_write",
+          "threadId": "thd_approval_01",
+          "turnId": "trn_approval_01",
+          "seq": 4,
+          "step": 2,
+          "type": "tool_result",
+          "role": "tool",
+          "content": { "ok": true, "output": "written", "latencyMs": 12 },
+          "createdAt": "2026-11-07T05:01:06Z",
+          "discarded": false
+        },
+        {
+          "itemId": "itm_msg_approved_done",
+          "threadId": "thd_approval_01",
+          "turnId": "trn_approval_01",
+          "seq": 5,
+          "step": 2,
+          "type": "message",
+          "role": "assistant",
+          "content": { "text": "已写入。" },
+          "createdAt": "2026-11-07T05:01:10Z",
+          "discarded": false
+        }
+      ]
+    }
+  ],
+  "traceUrl": null
+}

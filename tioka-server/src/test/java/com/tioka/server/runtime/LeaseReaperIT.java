@@ -5,11 +5,11 @@ import com.tioka.framework.security.Principal;
 import com.tioka.framework.security.PrincipalHolder;
 import com.tioka.framework.security.PrincipalType;
 import com.tioka.runtime.api.kernel.TurnStatus;
-import com.tioka.runtime.infrastructure.RuntimeSessionRepository;
-import com.tioka.runtime.infrastructure.persistence.RuntimeSessionDO;
+import com.tioka.runtime.infrastructure.RuntimeThreadRepository;
+import com.tioka.runtime.infrastructure.persistence.RuntimeThreadDO;
 import com.tioka.runtime.kernel.application.LeaseReaper;
 import com.tioka.runtime.kernel.infrastructure.TurnRepository;
-import com.tioka.runtime.kernel.infrastructure.persistence.RuntimeTurnDO;
+import com.tioka.runtime.infrastructure.persistence.RuntimeTurnDO;
 import com.tioka.server.support.IntegrationTestSupport;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -37,7 +37,7 @@ class LeaseReaperIT {
 
     @Autowired LeaseReaper reaper;
     @Autowired TurnRepository turns;
-    @Autowired RuntimeSessionRepository sessions;
+    @Autowired RuntimeThreadRepository sessions;
     @Autowired PrincipalHolder principals;
     @Autowired JdbcTemplate jdbc;
 
@@ -47,7 +47,7 @@ class LeaseReaperIT {
         String turnId = Ids.newId("turn");
 
         principals.runAs(user("10", "ws_reaper"), () -> {
-            RuntimeSessionDO s = new RuntimeSessionDO();
+            RuntimeThreadDO s = new RuntimeThreadDO();
             s.setId(threadId);
             s.setStatus("OPEN");
             s.setAgentVersionId("av_x");
@@ -60,7 +60,7 @@ class LeaseReaperIT {
 
             RuntimeTurnDO t = new RuntimeTurnDO();
             t.setId(turnId);
-            t.setSessionId(threadId);
+            t.setThreadId(threadId);
             t.setSeq(1);
             t.setStatus(TurnStatus.RUNNING.name());
             t.setOrigin("chat");

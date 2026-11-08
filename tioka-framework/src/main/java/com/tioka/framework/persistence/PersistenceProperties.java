@@ -7,24 +7,80 @@ import java.util.List;
 
 @ConfigurationProperties(prefix = "tioka.persistence")
 public class PersistenceProperties {
-    private List<String> workspaceScopedTables = new ArrayList<>(List.of(
-            "agent_agent",
-            "kb_base",
-            "kb_chunk",
-            "flow_draft",
-            "mcp_server",
-            "skill_package",
-            "orch_run",
-            "chat_conversation",
-            "runtime_session",
-            "runtime_approval"
+    /**
+     * ScopeLine <b>旁路</b>表白名单（deny-by-default）。
+     * 列入者不加 {@code workspace_id} 过滤：无该列的表，或鉴权路径常无 Principal 的表。
+     * 未列入且带 {@code workspace_id} 的表一律过滤。
+     * 无 workspace 的 SYSTEM Principal 仍整表旁路（后台扫表）。
+     */
+    private List<String> workspaceScopeExemptTables = new ArrayList<>(List.of(
+            // 鉴权例外（有 workspace_id 列，但登录/API Key 常无用户 Principal）
+            "sys_member",
+            "sys_api_key",
+            // 无 workspace_id 列（迁移盘点 2026-11-07）
+            "agent_draft",
+            "agent_marketplace",
+            "agent_version",
+            "auth_user",
+            "automation_job",
+            "chat_memory",
+            "chat_message",
+            "decision_binding",
+            "feishu_doc_map",
+            "feishu_doc_push",
+            "flow_publication",
+            "flow_run",
+            "flow_version",
+            "gov_quota",
+            "im_outbox",
+            "kb_citation",
+            "kb_datasource",
+            "kb_document",
+            "kb_wiki",
+            "mcp_tool",
+            "model_binding",
+            "model_default_plan",
+            "model_logical",
+            "model_provider",
+            "model_routing_plan",
+            "model_turn_freeze",
+            // M0 旧编排表（V132 已 DROP；无 workspace_id）
+            "orch_attention",
+            "orch_idem",
+            "orch_why",
+            // V132：无 workspace_id 的编排新表（orch_rule / orch_run 等有列，不得 exempt）
+            "orch_rule_version",
+            "orch_decision",
+            "orch_mandate",
+            "orch_subscription",
+            "orch_fact",
+            "runtime_idem",
+            "runtime_item",
+            "runtime_turn",
+            "scim_user",
+            "secret_store",
+            "sys_group",
+            "sys_group_member",
+            "sys_resource_acl",
+            "sys_role",
+            "sys_role_permission",
+            "sys_user_role",
+            "sys_workspace",
+            "trace_span",
+            // ORC-02 / V130：平台 outbox / 消费去重 / 死信（无 workspace_id）
+            "sys_outbox",
+            "sys_consumed",
+            "sys_dead_letter",
+            // GOV-12 / V150：配置版本框架（无 workspace_id）
+            "cfg_draft",
+            "cfg_version"
     ));
 
-    public List<String> getWorkspaceScopedTables() {
-        return workspaceScopedTables;
+    public List<String> getWorkspaceScopeExemptTables() {
+        return workspaceScopeExemptTables;
     }
 
-    public void setWorkspaceScopedTables(List<String> workspaceScopedTables) {
-        this.workspaceScopedTables = workspaceScopedTables;
+    public void setWorkspaceScopeExemptTables(List<String> workspaceScopeExemptTables) {
+        this.workspaceScopeExemptTables = workspaceScopeExemptTables;
     }
 }

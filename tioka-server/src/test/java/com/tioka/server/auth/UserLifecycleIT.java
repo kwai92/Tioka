@@ -7,11 +7,11 @@ import com.tioka.framework.security.PrincipalHolder;
 import com.tioka.framework.security.PrincipalType;
 import com.tioka.framework.security.SystemPrincipals;
 import com.tioka.runtime.api.kernel.TurnStatus;
-import com.tioka.runtime.infrastructure.RuntimeSessionRepository;
-import com.tioka.runtime.infrastructure.persistence.RuntimeSessionDO;
+import com.tioka.runtime.infrastructure.RuntimeThreadRepository;
+import com.tioka.runtime.infrastructure.persistence.RuntimeThreadDO;
 import com.tioka.runtime.kernel.application.TurnSignalService;
 import com.tioka.runtime.kernel.infrastructure.TurnRepository;
-import com.tioka.runtime.kernel.infrastructure.persistence.RuntimeTurnDO;
+import com.tioka.runtime.infrastructure.persistence.RuntimeTurnDO;
 import com.tioka.server.support.IntegrationTestSupport;
 import com.tioka.server.support.TestFixtures;
 import com.tioka.system.application.AuthService;
@@ -55,7 +55,7 @@ class UserLifecycleIT {
     @Autowired UserAdminService userAdmin;
     @Autowired SysMemberRepository members;
     @Autowired PrincipalHolder principals;
-    @Autowired RuntimeSessionRepository sessions;
+    @Autowired RuntimeThreadRepository sessions;
     @Autowired TurnRepository turns;
 
     @Test
@@ -67,7 +67,7 @@ class UserLifecycleIT {
 
         UserAdminService.CreatedUser created = principals.runAs(
                 new Principal(admin.userId(), admin.workspaceId(), PrincipalType.USER,
-                        Set.of("tenant_admin"), Set.of("*"), "password"),
+                        Set.of("system_admin"), Set.of("*"), "password"),
                 () -> userAdmin.create(username, "ToDisable", password));
         members.upsert(admin.workspaceId(), created.id(), "member");
         AuthService.LoginResult login = auth.login(username, password, "127.0.0.1");
@@ -137,9 +137,9 @@ class UserLifecycleIT {
 
     private String seedQueuedTurn(String userId, String workspaceId) {
         return principals.runAs(SystemPrincipals.system(), () -> {
-            String sessionId = Ids.newId("thr");
-            RuntimeSessionDO s = new RuntimeSessionDO();
-            s.setId(sessionId);
+            String threadId = Ids.newId("thr");
+            RuntimeThreadDO s = new RuntimeThreadDO();
+            s.setId(threadId);
             s.setStatus("OPEN");
             s.setAgentVersionId("agent_v1");
             s.setWorkspaceId(workspaceId);
@@ -152,8 +152,8 @@ class UserLifecycleIT {
             String turnId = Ids.newId("turn");
             RuntimeTurnDO t = new RuntimeTurnDO();
             t.setId(turnId);
-            t.setSessionId(sessionId);
-            t.setSeq(turns.nextSeq(sessionId));
+            t.setThreadId(threadId);
+            t.setSeq(turns.nextSeq(threadId));
             t.setStatus(TurnStatus.QUEUED.name());
             t.setOrigin("chat");
             t.setClientMsgId(Ids.newId("cm"));

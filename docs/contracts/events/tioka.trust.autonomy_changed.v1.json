@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tioka.dev/schema/tioka.trust.autonomy_changed.v1.json",
+  "title": "tioka.trust.autonomy_changed.v1",
+  "description": "TRU-09/10 自治等级变更（升降、观察期进出）。",
+  "type": "object",
+  "required": [
+    "agentId",
+    "oldLevel",
+    "newLevel",
+    "reason"
+  ],
+  "properties": {
+    "agentId": {
+      "type": "string"
+    },
+    "oldLevel": {
+      "type": "string"
+    },
+    "newLevel": {
+      "type": "string"
+    },
+    "reason": {
+      "type": "string"
+    },
+    "actionCategory": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "workspaceId": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": true
+}

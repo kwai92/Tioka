@@ -43,6 +43,6 @@ public class TurnApprovalHandler implements ApprovalSubjectHandler {
         if (n == 0) {
             return;
         }
-        turns.findById(turnId).ifPresent(t -> dispatchQueue.offer(turnId, t.getSessionId()));
+        turns.findById(turnId).ifPresent(t -> dispatchQueue.offer(turnId, t.getThreadId()));
     }
 }

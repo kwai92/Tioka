@@ -31,11 +31,33 @@
     "approval": { "$ref": "#/$defs/ApprovalSettings" },
     "limits": { "$ref": "#/$defs/Limits" },
     "charter": { "type": ["object", "null"] },
-    "output": { "type": ["object", "null"] },
+    "output": {
+      "oneOf": [
+        { "type": "null" },
+        { "$ref": "#/$defs/OutputContract" }
+      ]
+    },
     "subAgents": { "type": ["object", "null"] },
     "dataClearance": { "type": ["string", "null"] }
   },
   "$defs": {
+    "OutputContract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schemaRef", "mode"],
+      "properties": {
+        "schemaRef": { "type": "string", "minLength": 1 },
+        "mode": { "type": "string", "enum": ["FINAL", "TOOL"] },
+        "maxRepair": { "type": "integer", "minimum": 0, "default": 2 },
+        "requireEvidence": { "type": "boolean", "default": false },
+        "strategy": {
+          "type": "string",
+          "enum": ["DIRECT", "REASON_THEN_FORMAT"],
+          "default": "DIRECT"
+        },
+        "formatModelAlias": { "type": ["string", "null"] }
+      }
+    },
     "Profile": {
       "type": "object",
       "additionalProperties": false,

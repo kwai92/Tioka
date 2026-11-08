@@ -1,5 +1,7 @@
 package com.tioka.system.api;
 
+import com.tioka.system.api.authz.SystemRoles;
+
 import com.tioka.framework.error.ApiResponse;
 import com.tioka.framework.error.BizException;
 import com.tioka.framework.error.ErrorCode;
@@ -33,6 +35,9 @@ import java.util.List;
 @RequestMapping("/api/system/audit")
 public class AuditController {
     private static final Duration MAX_RANGE = Duration.ofDays(93);
+    private static final int DEFAULT_PAGE_SIZE = 50;
+    private static final int MAX_PAGE_SIZE = 200;
+    private static final int MAX_EXPORT_ROWS = 100_000;
 
     private final AuditService auditService;
     private final PrincipalHolder principals;
@@ -53,9 +58,9 @@ public class AuditController {
             @RequestParam(required = false) String resourceId,
             @RequestParam(required = false) AuditOutcome outcome,
             @RequestParam(defaultValue = "1") int page,
-            @RequestParam(defaultValue = "50") int size) {
+            @RequestParam(defaultValue = "" + DEFAULT_PAGE_SIZE) int size) {
         Instant[] range = normalizeRange(from, to);
-        int safeSize = Math.min(Math.max(size, 1), 200);
+        int safeSize = Math.min(Math.max(size, 1), MAX_PAGE_SIZE);
         int safePage = Math.max(page, 1);
         int offset = (safePage - 1) * safeSize;
         AuditApi.AuditQuery q = buildQuery(range[0], range[1], actorId, action, resourceType, resourceId,
@@ -76,8 +81,8 @@ public class AuditController {
             HttpServletResponse response) throws IOException {
         Instant[] range = normalizeRange(from, to);
         AuditApi.AuditQuery q = buildQuery(range[0], range[1], actorId, action, resourceType, resourceId,
-                outcome, null, 100_000);
-        List<AuditEvent> rows = auditService.queryForExport(q, 100_000);
+                outcome, null, MAX_EXPORT_ROWS);
+        List<AuditEvent> rows = auditService.queryForExport(q, MAX_EXPORT_ROWS);
         response.setStatus(200);
         response.setContentType("text/csv;charset=UTF-8");
         response.setHeader(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"audit.csv\"");
@@ -99,7 +104,7 @@ public class AuditController {
         Principal p = principals.current();
         String workspaceId = null;
         if (!p.hasPermission(Permissions.TENANT_ADMIN) && !p.hasPermission("*")
-                && !p.roles().contains("tenant_admin")) {
+                && !p.roles().contains(SystemRoles.SYSTEM_ADMIN)) {
             workspaceId = p.workspaceId();
         }
         return new AuditApi.AuditQuery(workspaceId, actorId, action, resourceType, resourceId,

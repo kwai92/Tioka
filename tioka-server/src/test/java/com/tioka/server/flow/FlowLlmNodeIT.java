@@ -5,7 +5,7 @@ import com.tioka.framework.id.Ids;
 import com.tioka.framework.security.Principal;
 import com.tioka.framework.security.PrincipalHolder;
 import com.tioka.framework.security.PrincipalType;
-import com.tioka.model.api.dto.ProviderDtos.CreateBindingRequest;
+import com.tioka.model.api.dto.ProviderDtos.CreateModelBindingRequest;
 import com.tioka.model.api.dto.ProviderDtos.CreateLogicalModelRequest;
 import com.tioka.model.api.dto.ProviderDtos.CreateProviderRequest;
 import com.tioka.model.api.dto.ProviderDtos.CreateRoutingPlanRequest;
@@ -78,7 +78,7 @@ class FlowLlmNodeIT {
             usageRecorder.flush();
             List<Map<String, Object>> rows = jdbc.queryForList(
                     """
-                    SELECT purpose, status, session_id, turn_id, prompt_tokens, completion_tokens
+                    SELECT purpose, status, thread_id, turn_id, prompt_tokens, completion_tokens
                     FROM model_usage
                     WHERE workspace_id = ? AND purpose = 'FLOW'
                     """,
@@ -86,8 +86,8 @@ class FlowLlmNodeIT {
             assertFalse(rows.isEmpty(), "Flow LLM 须经 ModelGateway 记账 FLOW: " + rows);
             assertTrue(rows.stream().allMatch(r -> "SUCCESS".equals(r.get("status"))),
                     "FLOW usage 应为 SUCCESS: " + rows);
-            assertTrue(rows.stream().anyMatch(r -> run.id().equals(r.get("session_id"))),
-                    "usage.session_id 应为 flowRunId: " + rows);
+            assertTrue(rows.stream().anyMatch(r -> run.id().equals(r.get("thread_id"))),
+                    "usage.thread_id 应为 flowRunId: " + rows);
             assertTrue(rows.stream().anyMatch(r -> r.get("turn_id") != null
                             && String.valueOf(r.get("turn_id")).startsWith("fnr")),
                     "usage.turn_id 应为 nodeRunId(fnr_*): " + rows);
@@ -152,7 +152,7 @@ class FlowLlmNodeIT {
     private String seedChatPlan() {
         var provider = models.createProvider(new CreateProviderRequest(Ids.newId("p"), "mock://openai", "k"));
         String lm = models.createLogicalModel(new CreateLogicalModelRequest(Ids.newId("m"), "chat"));
-        String binding = models.createBinding(new CreateBindingRequest(lm, provider.id(), "gpt-flow"));
+        String binding = models.createModelBinding(new CreateModelBindingRequest(lm, provider.id(), "gpt-flow"));
         String planId = models.createPlan(
                 new CreateRoutingPlanRequest(Ids.newId("rp"), "PRIMARY_FALLBACK", binding, null, null)).id();
         models.publish(planId);

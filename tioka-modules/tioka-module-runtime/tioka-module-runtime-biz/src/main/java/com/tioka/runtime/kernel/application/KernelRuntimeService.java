@@ -2,6 +2,8 @@ package com.tioka.runtime.kernel.application;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tioka.agent.api.AgentSnapshotApi;
+import com.tioka.framework.context.RequestContext;
+import com.tioka.framework.context.RequestContextHolder;
 import com.tioka.framework.error.BizException;
 import com.tioka.framework.error.ErrorCode;
 import com.tioka.framework.error.NotImplemented;
@@ -13,15 +15,16 @@ import com.tioka.runtime.api.kernel.RuntimeApi;
 import com.tioka.runtime.api.kernel.RuntimeEventType;
 import com.tioka.runtime.api.kernel.TurnStatus;
 import com.tioka.runtime.config.KernelProperties;
-import com.tioka.runtime.infrastructure.RuntimeSessionRepository;
-import com.tioka.runtime.infrastructure.persistence.RuntimeSessionDO;
+import com.tioka.runtime.infrastructure.RuntimeThreadRepository;
+import com.tioka.runtime.infrastructure.persistence.RuntimeThreadDO;
 import com.tioka.runtime.kernel.approval.ApprovalDecideService;
 import com.tioka.runtime.kernel.events.EventStream;
 import com.tioka.runtime.kernel.events.RuntimeEventFactory;
 import com.tioka.runtime.kernel.infrastructure.ItemRepository;
+import com.tioka.runtime.kernel.infrastructure.ItemWrite;
 import com.tioka.runtime.kernel.infrastructure.TurnRepository;
-import com.tioka.runtime.kernel.infrastructure.persistence.RuntimeItemDO;
-import com.tioka.runtime.kernel.infrastructure.persistence.RuntimeTurnDO;
+import com.tioka.runtime.infrastructure.persistence.RuntimeItemDO;
+import com.tioka.runtime.infrastructure.persistence.RuntimeTurnDO;
 import com.tioka.runtime.kernel.infrastructure.redis.TurnDispatchQueue;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
@@ -39,7 +42,7 @@ import java.util.Optional;
 
 @Service
 public class KernelRuntimeService implements RuntimeApi {
-    private final RuntimeSessionRepository sessions;
+    private final RuntimeThreadRepository threads;
     private final TurnRepository turns;
     private final ItemRepository items;
     private final TurnDispatchQueue dispatchQueue;
@@ -52,7 +55,7 @@ public class KernelRuntimeService implements RuntimeApi {
     private final AgentSnapshotApi agents;
     private final ApprovalDecideService approvalDecide;
 
-    public KernelRuntimeService(RuntimeSessionRepository sessions,
+    public KernelRuntimeService(RuntimeThreadRepository threads,
                                 TurnRepository turns,
                                 ItemRepository items,
                                 TurnDispatchQueue dispatchQueue,
@@ -64,7 +67,7 @@ public class KernelRuntimeService implements RuntimeApi {
                                 ObjectMapper mapper,
                                 AgentSnapshotApi agents,
                                 ApprovalDecideService approvalDecide) {
-        this.sessions = sessions;
+        this.threads = threads;
         this.turns = turns;
         this.items = items;
         this.dispatchQueue = dispatchQueue;
@@ -88,7 +91,7 @@ public class KernelRuntimeService implements RuntimeApi {
         Principal p = principals.current();
         AgentSnapshotApi.AgentSnapshot ver = agents.get(cmd.agentVersionId());
         String id = Ids.newId("thr");
-        RuntimeSessionDO row = new RuntimeSessionDO();
+        RuntimeThreadDO row = new RuntimeThreadDO();
         row.setId(id);
         row.setStatus("OPEN");
         row.setAgentVersionId(ver.versionId());
@@ -106,7 +109,7 @@ public class KernelRuntimeService implements RuntimeApi {
                 throw new BizException(ErrorCode.BAD_REQUEST, "metadata 无法序列化");
             }
         }
-        sessions.upsert(row);
+        threads.upsert(row);
         return toThreadView(row);
     }
 
@@ -119,7 +122,7 @@ public class KernelRuntimeService implements RuntimeApi {
         }
         requireText(cmd.clientMsgId(), "clientMsgId");
         requireThread(threadId);
-        var existing = turns.findBySessionAndClientMsgId(threadId, cmd.clientMsgId());
+        var existing = turns.findByThreadAndClientMsgId(threadId, cmd.clientMsgId());
         if (existing.isPresent()) {
             RuntimeTurnDO t = existing.get();
             return new TurnHandle(t.getId(), TurnStatus.valueOf(t.getStatus()), eventsUrl(threadId));
@@ -129,9 +132,10 @@ public class KernelRuntimeService implements RuntimeApi {
             throw new BizException(ErrorCode.RATE_LIMITED, "同 thread 排队超过上限");
         }
         String turnId = Ids.newId("turn");
+        RequestContext correlation = ensureCorrelation();
         RuntimeTurnDO t = new RuntimeTurnDO();
         t.setId(turnId);
-        t.setSessionId(threadId);
+        t.setThreadId(threadId);
         t.setSeq(turns.nextSeq(threadId));
         t.setStatus(TurnStatus.QUEUED.name());
         t.setOrigin(blankToNull(cmd.origin()) == null ? "chat" : cmd.origin());
@@ -141,10 +145,12 @@ public class KernelRuntimeService implements RuntimeApi {
         t.setOptionsJson(optionsJson(cmd.options()));
         t.setStepCount(0);
         t.setLeaseVersion(0L);
+        t.setRequestId(correlation.requestId());
+        t.setSubject(correlation.subject());
         try {
             turns.insert(t);
         } catch (DuplicateKeyException e) {
-            RuntimeTurnDO again = turns.findBySessionAndClientMsgId(threadId, cmd.clientMsgId()).orElseThrow();
+            RuntimeTurnDO again = turns.findByThreadAndClientMsgId(threadId, cmd.clientMsgId()).orElseThrow();
             return new TurnHandle(again.getId(), TurnStatus.valueOf(again.getStatus()), eventsUrl(threadId));
         }
         if (cmd.input() != null) {
@@ -153,8 +159,8 @@ public class KernelRuntimeService implements RuntimeApi {
                     continue;
                 }
                 String type = in.type() == null ? ItemType.MESSAGE.wire() : in.type();
-                items.appendWithoutLease(threadId, turnId, 0, type, "user",
-                        json(Map.of("text", in.text())));
+                items.appendWithoutLease(ItemWrite.withoutLease(threadId, turnId, 0, type, "user",
+                        json(Map.of("text", in.text()))));
             }
         }
         streams.publish(threadId, null, RuntimeEventType.TURN_STARTED.wire(),
@@ -182,7 +188,7 @@ public class KernelRuntimeService implements RuntimeApi {
         requireText(turnId, "turnId");
         RuntimeTurnDO t = turns.findById(turnId)
                 .orElseThrow(() -> new BizException(ErrorCode.NOT_FOUND, "turn 不存在"));
-        requireThread(t.getSessionId());
+        requireThread(t.getThreadId());
         signals.interrupt(turnId);
     }
 
@@ -191,7 +197,7 @@ public class KernelRuntimeService implements RuntimeApi {
         requireText(turnId, "turnId");
         RuntimeTurnDO t = turns.findById(turnId)
                 .orElseThrow(() -> new BizException(ErrorCode.NOT_FOUND, "turn 不存在"));
-        requireThread(t.getSessionId());
+        requireThread(t.getThreadId());
         signals.steer(turnId, text);
     }
 
@@ -209,7 +215,7 @@ public class KernelRuntimeService implements RuntimeApi {
         requireText(turnId, "turnId");
         RuntimeTurnDO t = turns.findById(turnId)
                 .orElseThrow(() -> new BizException(ErrorCode.NOT_FOUND, "turn 不存在"));
-        requireThread(t.getSessionId());
+        requireThread(t.getThreadId());
         return toTurnView(t);
     }
 
@@ -242,8 +248,8 @@ public class KernelRuntimeService implements RuntimeApi {
         throw NotImplemented.of("runtime-fork", "M3");
     }
 
-    private RuntimeSessionDO requireThread(String threadId) {
-        RuntimeSessionDO s = sessions.find(threadId);
+    private RuntimeThreadDO requireThread(String threadId) {
+        RuntimeThreadDO s = threads.find(threadId);
         if (s == null) {
             throw new BizException(ErrorCode.NOT_FOUND, "thread 不存在");
         }
@@ -270,17 +276,21 @@ public class KernelRuntimeService implements RuntimeApi {
             return null;
         }
         int max = options.maxSteps() == null ? props.getLoop().getMaxSteps() : Math.min(50, options.maxSteps());
-        return json(Map.of(
-                "maxSteps", max,
-                "approvalPolicy", options.approvalPolicy() == null ? "" : options.approvalPolicy(),
-                "toolAllowList", options.toolAllowList() == null ? List.of() : options.toolAllowList()));
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("maxSteps", max);
+        m.put("approvalPolicy", options.approvalPolicy() == null ? "" : options.approvalPolicy());
+        m.put("toolAllowList", options.toolAllowList() == null ? List.of() : options.toolAllowList());
+        if (options.maxDuration() != null) {
+            m.put("maxDuration", options.maxDuration().toString());
+        }
+        return json(m);
     }
 
     private String eventsUrl(String threadId) {
         return "/api/runtime/threads/" + threadId + "/events";
     }
 
-    private ThreadView toThreadView(RuntimeSessionDO s) {
+    private ThreadView toThreadView(RuntimeThreadDO s) {
         Instant created = s.getCreateAt() == null ? Instant.EPOCH
                 : s.getCreateAt().atZone(ZoneOffset.UTC).toInstant();
         return new ThreadView(s.getId(), s.getAgentVersionId(), s.getOrigin(), s.getOriginRef(),
@@ -290,7 +300,7 @@ public class KernelRuntimeService implements RuntimeApi {
 
     private TurnView toTurnView(RuntimeTurnDO t) {
         return new TurnView(
-                t.getId(), t.getSessionId(), t.getSeq() == null ? 0 : t.getSeq(),
+                t.getId(), t.getThreadId(), t.getSeq() == null ? 0 : t.getSeq(),
                 TurnStatus.valueOf(t.getStatus()), t.getOrigin(), t.getOriginRef(),
                 t.getStepCount() == null ? 0 : t.getStepCount(),
                 t.getErrorCode(), t.getErrorMessage(),
@@ -309,7 +319,7 @@ public class KernelRuntimeService implements RuntimeApi {
             content = Map.of();
         }
         return new ItemView(
-                item.getId(), item.getSessionId(), item.getTurnId(),
+                item.getId(), item.getThreadId(), item.getTurnId(),
                 item.getSeq() == null ? 0L : item.getSeq(),
                 item.getStep() == null ? 0 : item.getStep(),
                 ItemType.fromWire(item.getType()),
@@ -338,5 +348,15 @@ public class KernelRuntimeService implements RuntimeApi {
 
     private static String blankToNull(String value) {
         return value == null || value.isBlank() ? null : value;
+    }
+
+    /** OBS-03：入口缺 request_id 时生成并写入关联上下文。 */
+    private static RequestContext ensureCorrelation() {
+        RequestContext ctx = RequestContextHolder.getCorrelation();
+        if (ctx.requestId() == null || ctx.requestId().isBlank()) {
+            ctx = ctx.withRequestId(Ids.newId("req"));
+            RequestContextHolder.setCorrelation(ctx);
+        }
+        return ctx;
     }
 }

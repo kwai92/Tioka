@@ -9,7 +9,7 @@ import com.tioka.framework.security.PrincipalHolder;
 import com.tioka.framework.security.PrincipalType;
 import com.tioka.mcp.application.McpAdminService;
 import com.tioka.mcp.domain.McpStore;
-import com.tioka.model.api.dto.ProviderDtos.CreateBindingRequest;
+import com.tioka.model.api.dto.ProviderDtos.CreateModelBindingRequest;
 import com.tioka.model.api.dto.ProviderDtos.CreateLogicalModelRequest;
 import com.tioka.model.api.dto.ProviderDtos.CreateProviderRequest;
 import com.tioka.model.api.dto.ProviderDtos.CreateRoutingPlanRequest;
@@ -58,7 +58,7 @@ public final class GateSeed {
             String tag = Ids.newId("gate");
             var provider = models.createProvider(new CreateProviderRequest(tag + "-llm", llmBaseUrl, "sk-gate"));
             String lm = models.createLogicalModel(new CreateLogicalModelRequest(tag + "-m", "tool"));
-            String binding = models.createBinding(new CreateBindingRequest(lm, provider.id(), "gpt-stub"));
+            String binding = models.createModelBinding(new CreateModelBindingRequest(lm, provider.id(), "gpt-stub"));
             String planId = models.createPlan(new CreateRoutingPlanRequest(tag + "-rp", "FIXED", binding)).id();
             models.publish(planId);
 
@@ -93,7 +93,7 @@ public final class GateSeed {
                     AgentSpec.SandboxPolicy.defaults(),
                     AgentSpec.ApprovalSettings.empty(),
                     AgentSpec.Limits.defaults(),
-                    null, null, null, null);
+                null, null, null, null, null, null, null, null);
             AgentService.PublishResult published = agents.publishSpec(agent.id(), spec);
             return new Bundle(userId, ws, login.accessToken(), published.versionId(), planId);
         });
@@ -162,6 +162,6 @@ public final class GateSeed {
 
     public static Principal user(String uid, String ws) {
         return new Principal(uid, ws, PrincipalType.USER,
-                Set.of("tenant_admin", "builder"), Set.of("*"), "password");
+                Set.of("system_admin", "builder"), Set.of("*"), "password");
     }
 }

@@ -7,9 +7,9 @@ package com.tioka.model.api;
  * @param fromModelRef 切前的模型；可空（手工 failover 兼容）
  * @param turnId       可空
  */
-public record FailoverEvent(String sessionId, String modelRef, String reason,
+public record FailoverEvent(String threadId, String modelRef, String reason,
                             String turnId, String fromModelRef) {
-    public FailoverEvent(String sessionId, String modelRef, String reason) {
-        this(sessionId, modelRef, reason, null, null);
+    public FailoverEvent(String threadId, String modelRef, String reason) {
+        this(threadId, modelRef, reason, null, null);
     }
 }

@@ -11,13 +11,14 @@ import com.tioka.system.application.auth.PasswordService;
 import com.tioka.system.application.auth.PrincipalLoader;
 import com.tioka.system.application.auth.TokenService;
 import com.tioka.system.application.lifecycle.AfterCommitEvents;
+import com.tioka.system.application.lifecycle.IdentityOutboxBridge;
 import com.tioka.system.config.OidcProperties;
 import com.tioka.system.infrastructure.AuthUserRepository;
 import com.tioka.system.infrastructure.SysGroupRepository;
 import com.tioka.system.infrastructure.SysMemberRepository;
 import com.tioka.system.infrastructure.SysUserRoleRepository;
 import com.tioka.system.infrastructure.SysWorkspaceRepository;
-import com.tioka.system.infrastructure.dataobject.SysMemberDO;
+import com.tioka.system.infrastructure.persistence.SysMemberDO;
 import com.tioka.system.infrastructure.persistence.AuthUserDO;
 import com.tioka.system.infrastructure.persistence.SysGroupDO;
 import org.springframework.context.ApplicationEventPublisher;
@@ -48,6 +49,7 @@ public class OidcFederationService {
     private final PrincipalLoader principalLoader;
     private final ApplicationEventPublisher events;
     private final AuditApi audit;
+    private final IdentityOutboxBridge identityOutbox;
 
     public OidcFederationService(AuthUserRepository users,
                                  PasswordService passwords,
@@ -58,7 +60,8 @@ public class OidcFederationService {
                                  SysWorkspaceRepository workspaces,
                                  PrincipalLoader principalLoader,
                                  ApplicationEventPublisher events,
-                                 AuditApi audit) {
+                                 AuditApi audit,
+                                 IdentityOutboxBridge identityOutbox) {
         this.users = users;
         this.passwords = passwords;
         this.tokens = tokens;
@@ -68,6 +71,7 @@ public class OidcFederationService {
         this.workspaces = workspaces;
         this.principalLoader = principalLoader;
         this.events = events;
+        this.identityOutbox = identityOutbox;
         this.audit = audit;
     }
 
@@ -202,7 +206,7 @@ public class OidcFederationService {
             groups.addAll(groupPaths);
         }
 
-        Set<String> desiredTenantRoles = new LinkedHashSet<>();
+        Set<String> desiredSystemRoles = new LinkedHashSet<>();
         Set<String> desiredMemberKeys = new LinkedHashSet<>(); // workspace|role
 
         List<OidcProperties.GroupRoleMapping> mappings = provider.getGroupRoleMappings();
@@ -211,8 +215,8 @@ public class OidcFederationService {
                 if (m.getGroup() == null || !groups.contains(m.getGroup())) {
                     continue;
                 }
-                if (m.getTenantRole() != null && !m.getTenantRole().isBlank()) {
-                    desiredTenantRoles.add(m.getTenantRole());
+                if (m.getSystemRole() != null && !m.getSystemRole().isBlank()) {
+                    desiredSystemRoles.add(m.getSystemRole());
                 }
                 if (m.getWorkspace() != null && !m.getWorkspace().isBlank()
                         && m.getRole() != null && !m.getRole().isBlank()) {
@@ -224,17 +228,17 @@ public class OidcFederationService {
             }
         }
 
-        // 系统级角色：仅管理映射表中出现过的 tenantRole
-        Set<String> mappedTenantRoles = new LinkedHashSet<>();
+        // 系统级角色：仅管理映射表中出现过的 systemRole
+        Set<String> mappedSystemRoles = new LinkedHashSet<>();
         if (mappings != null) {
             for (OidcProperties.GroupRoleMapping m : mappings) {
-                if (m.getTenantRole() != null && !m.getTenantRole().isBlank()) {
-                    mappedTenantRoles.add(m.getTenantRole());
+                if (m.getSystemRole() != null && !m.getSystemRole().isBlank()) {
+                    mappedSystemRoles.add(m.getSystemRole());
                 }
             }
         }
-        for (String role : mappedTenantRoles) {
-            if (desiredTenantRoles.contains(role)) {
+        for (String role : mappedSystemRoles) {
+            if (desiredSystemRoles.contains(role)) {
                 userRoles.upsert(uid, role);
             } else {
                 userRoles.delete(uid, role);
@@ -254,9 +258,10 @@ public class OidcFederationService {
             String key = row.getWorkspaceId() + "|" + row.getRoleCode();
             if (!desiredMemberKeys.contains(key)) {
                 members.softDeleteOne(row.getWorkspaceId(), uid, row.getRoleCode());
+                identityOutbox.publishMemberRemoved(row.getWorkspaceId(), uid, source);
                 AfterCommitEvents.publish(events,
                         new MemberRemovedEvent(row.getWorkspaceId(), uid, source));
-                audit.record(new AuditEvent(null, Instant.now(), null, row.getWorkspaceId(),
+                audit.record(new AuditEvent(null, Instant.now(), row.getWorkspaceId(),
                         "system", "oidc", "member.remove", "workspace_member",
                         row.getWorkspaceId() + ":" + uid,
                         AuditOutcome.SUCCESS, null, null, null, null,

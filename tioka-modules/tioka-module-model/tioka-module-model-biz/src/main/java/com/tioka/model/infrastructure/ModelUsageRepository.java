@@ -32,9 +32,17 @@ public class ModelUsageRepository {
         }
     }
 
-    public List<ModelUsageDO> findBySessionId(String sessionId) {
+    public List<ModelUsageDO> findBySessionId(String threadId) {
         return mapper.selectList(Wrappers.<ModelUsageDO>lambdaQuery()
-                .eq(ModelUsageDO::getSessionId, sessionId)
+                .eq(ModelUsageDO::getThreadId, threadId)
+                .orderByAsc(ModelUsageDO::getCreateAt)
+                .orderByAsc(ModelUsageDO::getId));
+    }
+
+    public List<ModelUsageDO> findByTurnId(String turnId) {
+        return mapper.selectList(Wrappers.<ModelUsageDO>lambdaQuery()
+                .eq(ModelUsageDO::getTurnId, turnId)
+                .orderByAsc(ModelUsageDO::getStep)
                 .orderByAsc(ModelUsageDO::getCreateAt)
                 .orderByAsc(ModelUsageDO::getId));
     }
@@ -60,8 +68,8 @@ public class ModelUsageRepository {
         return mapper.trendByDay(scopeType, scopeId, workspaceId, from, to);
     }
 
-    public Map<String, Object> sessionAggregate(String sessionId) {
-        return mapper.sessionAggregate(sessionId);
+    public Map<String, Object> sessionAggregate(String threadId) {
+        return mapper.sessionAggregate(threadId);
     }
 
     public Long sumTokensByScope(String scopeType, String scopeId, Instant from, Instant to) {
