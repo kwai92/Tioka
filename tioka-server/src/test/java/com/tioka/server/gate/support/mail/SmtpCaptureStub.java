@@ -7,8 +7,8 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
 
 /**
- * ENG-04d：SMTP 收件捕获桩（内存版，避免在 PK-01 前追加 greenmail 依赖）。
- * PK-01 合入后可替换为 GreenMail / Testcontainers，并迁入 gate/support/mail。
+ * ENG-04d：SMTP 收件捕获桩（内存版，单测无 Docker）。
+ * G3 冒烟请用 {@link MailpitContainer} 容器化邮件服务。
  */
 public final class SmtpCaptureStub implements AutoCloseable {
 

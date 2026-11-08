@@ -1,6 +1,8 @@
 package com.tioka.server.gate.support;
 
 import com.tioka.server.gate.support.biz.LeaseBizStubServer;
+import com.tioka.server.gate.support.embedding.ChineseEmbeddingContainer;
+import com.tioka.server.gate.support.erp.FakeErpMultiStepScenarios;
 import com.tioka.server.gate.support.mail.SmtpCaptureStub;
 import com.tioka.server.gate.support.ocr.OcrStubServer;
 import org.junit.jupiter.api.Test;
@@ -14,7 +16,7 @@ import java.time.Duration;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-/** ENG-04d 三桩本地验收（不依赖 -Pgate）。 */
+/** ENG-04d 桩与多步场景本地验收（不依赖 -Pgate / Docker Mailpit）。 */
 class M3GateStubsTest {
 
     private final HttpClient http = HttpClient.newHttpClient();
@@ -60,6 +62,22 @@ class M3GateStubsTest {
             smtp.accept("lawyer@example.com", "review", "hello");
             var m = smtp.waitForMessage("lawyer@", Duration.ofSeconds(1));
             assertEquals("review", m.subject());
+        }
+    }
+
+    @Test
+    void fakeErpFiveStepsRestoreAndFaultCombos() {
+        FakeErpMultiStepScenarios.FiveStepResult five = FakeErpMultiStepScenarios.runFiveWriteoffs();
+        FakeErpMultiStepScenarios.compensateAllReverse(five);
+        assertEquals("ar_s3", FakeErpMultiStepScenarios.compensateFailureStopsAtThird());
+        FakeErpMultiStepScenarios.beforeMutatedRejectsApply();
+    }
+
+    @Test
+    void chineseEmbeddingAndRerank() throws Exception {
+        try (ChineseEmbeddingContainer emb = ChineseEmbeddingContainer.start()) {
+            assertEquals(ChineseEmbeddingContainer.DEFAULT_DIM, emb.embedSmoke("华东租金"));
+            assertEquals(0, emb.rerankTopIndex("华东", "华东条款", "华南条款"));
         }
     }
 }
