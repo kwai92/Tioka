@@ -1,6 +1,7 @@
 package com.tioka.system.config;
 
 import com.tioka.system.application.auth.BearerTokenFilter;
+import com.tioka.system.application.auth.PublicApiRegistry;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.Customizer;
@@ -17,6 +18,7 @@ public class SecurityConfiguration {
     @Bean
     SecurityFilterChain api(HttpSecurity http,
                             BearerTokenFilter bearer,
+                            PublicApiRegistry publicApis,
                             RestAuthEntryPoint entry,
                             RestAccessDenied denied) throws Exception {
         return http
@@ -24,10 +26,13 @@ public class SecurityConfiguration {
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .cors(Customizer.withDefaults())
                 .authorizeHttpRequests(a -> a
+                        .requestMatchers(publicApis.matchers()).permitAll()
                         .requestMatchers(
                                 "/api/system/auth/login",
                                 "/api/system/auth/refresh",
                                 "/api/system/auth/oidc/**",
+                                // IM 平台回调（@PublicApi）；扫描时序兜底
+                                "/api/connector/im/*/*/events",
                                 "/actuator/health",
                                 "/actuator/health/**",
                                 "/v3/api-docs/**",
