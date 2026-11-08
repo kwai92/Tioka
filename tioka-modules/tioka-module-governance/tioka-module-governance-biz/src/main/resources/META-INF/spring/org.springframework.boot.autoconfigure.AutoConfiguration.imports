@@ -1,1 +1,2 @@
 com.tioka.governance.config.GovernanceAutoConfiguration
+com.tioka.governance.config.CharterAutoConfiguration
