@@ -19,4 +19,4 @@ ALTER TABLE model_usage ADD COLUMN IF NOT EXISTS trace_id VARCHAR(64);
 CREATE INDEX IF NOT EXISTS idx_model_usage_request_id ON model_usage (request_id);
 
 ALTER TABLE audit_event ADD COLUMN IF NOT EXISTS subject VARCHAR(255);
-CREATE INDEX IF NOT EXISTS idx_audit_subject_create ON audit_event (subject, create_at);
+CREATE INDEX IF NOT EXISTS idx_audit_subject_ts ON audit_event (subject, ts);
