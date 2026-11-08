@@ -5,12 +5,17 @@ import com.tioka.orchestration.infrastructure.persistence.OrchRunDO;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
+import java.time.LocalDateTime;
+
 @Mapper
 public interface OrchRunMapper extends BaseMapper<OrchRunDO> {
 
-    String lockNextClaimable(@Param("now") long now);
+    OrchRunDO lockById(@Param("id") String id);
 
-    int markLeased(@Param("id") String id,
-                   @Param("workerId") String workerId,
-                   @Param("leaseUntil") long leaseUntil);
+    int countByWorkItem(@Param("workItemId") String workItemId);
+
+    int countNonTerminalBefore(@Param("workItemId") String workItemId,
+                               @Param("createAt") LocalDateTime createAt);
+
+    int countDispatchedFacts(@Param("runId") String runId);
 }

@@ -1,6 +1,7 @@
 /**
  * F26 / F9：轨迹与会话 Item 渲染注册表。
- * 未知 itemType / 未来类型（data、change_set 等）回落到 UnknownItem，不抛错。
+ * `data` 由 P3-00c 登记 DataItem（SCH-04 schema 注册点在 dataItemRegistry）。
+ * 其余未知类型回落到 UnknownItem，不抛错。
  */
 import type { Component } from 'vue'
 import MessageItem from './MessageItem.vue'
@@ -11,6 +12,7 @@ import CitationItem from './CitationItem.vue'
 import CardItem from './CardItem.vue'
 import StatusItem from './StatusItem.vue'
 import ErrorItem from './ErrorItem.vue'
+import DataItem from './DataItem.vue'
 import UnknownItem from './UnknownItem.vue'
 
 export const itemRenderers: Record<string, Component> = {
@@ -21,7 +23,8 @@ export const itemRenderers: Record<string, Component> = {
   citation: CitationItem,
   card: CardItem,
   status: StatusItem,
-  error: ErrorItem
+  error: ErrorItem,
+  data: DataItem
 }
 
 export function resolveItemRenderer(itemType: string | undefined | null): Component {

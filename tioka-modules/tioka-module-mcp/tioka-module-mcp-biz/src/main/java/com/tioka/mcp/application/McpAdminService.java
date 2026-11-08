@@ -70,6 +70,18 @@ public class McpAdminService implements McpToolCallApi {
         return store.updateToolRisk(serverId, toolName, normalized);
     }
 
+    /** TRU-05 / PK-24c：管理端覆盖可逆性。 */
+    public com.tioka.runtime.api.spi.Reversibility updateToolReversibility(
+            String serverId, String toolName, String reversibility) {
+        if (store.getServer(serverId).isEmpty()) {
+            throw new BizException(ErrorCode.NOT_FOUND, "mcp server 不存在");
+        }
+        if (toolName == null || toolName.isBlank()) {
+            throw new BizException(ErrorCode.BAD_REQUEST, "toolName 不能为空");
+        }
+        return store.updateToolReversibility(serverId, toolName, reversibility);
+    }
+
     static String normalizeRisk(String risk) {
         if (risk == null || risk.isBlank()) {
             throw new BizException(ErrorCode.BAD_REQUEST, "risk 不能为空");
@@ -107,10 +119,13 @@ public class McpAdminService implements McpToolCallApi {
             JsonNode root = postRpc(server, "tools/list", Map.of());
             List<Tool> tools = new ArrayList<>();
             for (JsonNode t : root.path("result").path("tools")) {
+                // ADR-033：annotations.readOnlyHint=true → 默认可逆性 NONE（经 risk=READ）
+                boolean readOnly = t.path("annotations").path("readOnlyHint").asBoolean(false);
                 tools.add(new Tool(
                         t.path("name").asText(),
                         t.path("description").asText(""),
-                        mapper.convertValue(t.path("inputSchema"), Map.class)
+                        mapper.convertValue(t.path("inputSchema"), Map.class),
+                        readOnly ? "READ" : "WRITE"
                 ));
             }
             return tools;

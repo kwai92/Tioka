@@ -27,5 +27,8 @@
         <module>tioka-module-agent</module>
         <module>tioka-module-mcp</module>
         <module>tioka-module-skill</module>
+        <module>tioka-module-ontology</module>
+        <module>tioka-module-governance</module>
+        <module>tioka-module-eval</module>
     </modules>
 </project>

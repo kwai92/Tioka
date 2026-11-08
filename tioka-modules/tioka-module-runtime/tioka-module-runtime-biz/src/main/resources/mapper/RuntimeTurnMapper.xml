@@ -11,7 +11,8 @@
                    worker_id AS workerId, lease_version AS leaseVersion,
                    lease_until AS leaseUntil, error_code AS errorCode, error_message AS errorMessage,
                    prompt_tokens AS promptTokens, completion_tokens AS completionTokens,
-                   started_at AS startedAt, ended_at AS endedAt, create_at AS createAt, update_at AS updateAt
+                   started_at AS startedAt, ended_at AS endedAt, create_at AS createAt, update_at AS updateAt,
+                   traceparent, request_id AS requestId, subject
             FROM runtime_turn WHERE id = #{id}
             
 ]]>
@@ -25,7 +26,8 @@
                    worker_id AS workerId, lease_version AS leaseVersion,
                    lease_until AS leaseUntil, error_code AS errorCode, error_message AS errorMessage,
                    prompt_tokens AS promptTokens, completion_tokens AS completionTokens,
-                   started_at AS startedAt, ended_at AS endedAt, create_at AS createAt, update_at AS updateAt
+                   started_at AS startedAt, ended_at AS endedAt, create_at AS createAt, update_at AS updateAt,
+                   traceparent, request_id AS requestId, subject
             FROM runtime_turn
             WHERE thread_id = #{threadId} AND client_msg_id = #{clientMsgId}
             
@@ -57,10 +59,11 @@ SELECT 1 FROM runtime_thread WHERE id = #{threadId} FOR UPDATE
         <![CDATA[
             INSERT INTO runtime_turn (
               id, thread_id, seq, status, origin, origin_ref, client_msg_id, run_as_json, options_json,
-              step_count, lease_version, create_at, update_at, create_by, update_by
+              step_count, lease_version, request_id, subject, create_at, update_at, create_by, update_by
             ) VALUES (
               #{id}, #{threadId}, #{seq}, #{status}, #{origin}, #{originRef}, #{clientMsgId},
               #{runAsJson}, #{optionsJson}, COALESCE(#{stepCount}, 0), COALESCE(#{leaseVersion}, 0),
+              #{requestId}, #{subject},
               now(), now(), 'system', 'system'
             )
             
@@ -132,6 +135,20 @@ SELECT 1 FROM runtime_thread WHERE id = #{threadId} FOR UPDATE
 ]]>
     </update>
 
+    <update id="markWaitingChild">
+        <![CDATA[
+            UPDATE runtime_turn
+               SET status = 'WAITING_CHILD',
+                   lease_until = NULL,
+                   worker_id = NULL,
+                   update_at = now()
+             WHERE id = #{turnId}
+               AND lease_version = #{leaseVersion}
+               AND status = 'RUNNING'
+            
+]]>
+    </update>
+
     <update id="requeueFromWaitingApproval">
         <![CDATA[
             UPDATE runtime_turn
@@ -143,6 +160,39 @@ SELECT 1 FROM runtime_thread WHERE id = #{threadId} FOR UPDATE
             
 ]]>
     </update>
+
+    <update id="requeueFromWaitingChild">
+        <![CDATA[
+            UPDATE runtime_turn
+               SET status = 'QUEUED',
+                   worker_id = NULL,
+                   lease_until = NULL,
+                   update_at = now()
+             WHERE id = #{turnId} AND status = 'WAITING_CHILD'
+            
+]]>
+    </update>
+
+    <select id="findWaitingChild" resultType="RuntimeTurnDO">
+        <![CDATA[
+            SELECT id, thread_id AS threadId, seq, status, origin,
+                   origin_ref AS originRef, client_msg_id AS clientMsgId,
+                   run_as_json AS runAsJson, options_json AS optionsJson,
+                   step_count AS stepCount, recover_count AS recoverCount,
+                   worker_id AS workerId, lease_version AS leaseVersion,
+                   lease_until AS leaseUntil, error_code AS errorCode,
+                   error_message AS errorMessage,
+                   prompt_tokens AS promptTokens, completion_tokens AS completionTokens,
+                   started_at AS startedAt, ended_at AS endedAt,
+                   request_id AS requestId, subject,
+                   create_at AS createAt, update_at AS updateAt
+              FROM runtime_turn
+             WHERE status = 'WAITING_CHILD'
+             ORDER BY update_at
+             LIMIT #{limit}
+            
+]]>
+    </select>
 
     <update id="cancelWaitingApproval">
         <![CDATA[
@@ -306,5 +356,32 @@ SELECT pg_try_advisory_lock(hashtext('tioka.runtime.queued-sweeper'))
 SELECT pg_advisory_unlock(hashtext('tioka.runtime.queued-sweeper'))
 ]]>
     </select>
+
+    <select id="listByThread" resultType="RuntimeTurnDO">
+        <![CDATA[
+            SELECT id, thread_id AS threadId, seq, status, origin, origin_ref AS originRef,
+                   client_msg_id AS clientMsgId, run_as_json AS runAsJson, options_json AS optionsJson,
+                   step_count AS stepCount, recover_count AS recoverCount,
+                   worker_id AS workerId, lease_version AS leaseVersion,
+                   lease_until AS leaseUntil, error_code AS errorCode, error_message AS errorMessage,
+                   prompt_tokens AS promptTokens, completion_tokens AS completionTokens,
+                   started_at AS startedAt, ended_at AS endedAt, create_at AS createAt, update_at AS updateAt,
+                   traceparent, request_id AS requestId, subject
+            FROM runtime_turn
+            WHERE thread_id = #{threadId}
+            ORDER BY seq
+            LIMIT #{limit} OFFSET #{offset}
+            
+]]>
+    </select>
+
+    <update id="saveTraceparent">
+        <![CDATA[
+            UPDATE runtime_turn
+               SET traceparent = #{traceparent}, update_at = now()
+             WHERE id = #{turnId}
+            
+]]>
+    </update>
 
 </mapper>

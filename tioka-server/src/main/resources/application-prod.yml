@@ -3,6 +3,9 @@ spring:
     activate:
       on-profile: prod
 tioka:
+  messaging:
+    mode: ${TIOKA_MESSAGING_MODE:rocketmq}
+    relay-enabled: true
   model:
     mock: false
   airgap:

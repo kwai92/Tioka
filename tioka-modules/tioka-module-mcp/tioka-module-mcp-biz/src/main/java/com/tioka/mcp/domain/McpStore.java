@@ -9,16 +9,23 @@ import org.springframework.stereotype.Repository;
 
 import com.tioka.framework.error.BizException;
 import com.tioka.framework.error.ErrorCode;
+import com.tioka.runtime.api.approval.ToolRisk;
+import com.tioka.runtime.api.spi.Reversibility;
 
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Repository
 public class McpStore {
     private final McpRepository repo;
     private final ObjectMapper mapper;
+    /**
+     * 管理端可逆性覆盖（PK-24c）。持久化列随 PK-24b V144 落入 {@code mcp_tool.reversibility}。
+     */
+    private final ConcurrentHashMap<String, Reversibility> reversibilityOverrides = new ConcurrentHashMap<>();
 
     public McpStore(McpRepository repo, ObjectMapper mapper) {
         this.mapper = mapper;
@@ -91,6 +98,37 @@ public class McpStore {
             throw new BizException(ErrorCode.NOT_FOUND, "mcp tool 不存在");
         }
         return new Tool(row.getName(), row.getDescription(), fromMap(row.getInputSchema()), risk);
+    }
+
+    /** ADR-033：管理端覆盖可逆性；COMPENSABLE 须已配置补偿工具（本阶段仅校验枚举）。 */
+    public Reversibility updateToolReversibility(String serverId, String toolName, String raw) {
+        if (repo.findTool(serverId, toolName) == null) {
+            throw new BizException(ErrorCode.NOT_FOUND, "mcp tool 不存在");
+        }
+        if (raw == null || raw.isBlank()) {
+            throw new BizException(ErrorCode.BAD_REQUEST, "reversibility 不能为空");
+        }
+        Reversibility rev;
+        try {
+            rev = Reversibility.valueOf(raw.trim());
+        } catch (IllegalArgumentException e) {
+            throw new BizException(ErrorCode.BAD_REQUEST,
+                    "reversibility 须为 NONE|REVERSIBLE|COMPENSABLE|IRREVERSIBLE");
+        }
+        reversibilityOverrides.put(key(serverId, toolName), rev);
+        return rev;
+    }
+
+    public Reversibility reversibilityOf(String serverId, String toolName, ToolRisk risk) {
+        Reversibility override = reversibilityOverrides.get(key(serverId, toolName));
+        if (override != null) {
+            return override;
+        }
+        return risk == ToolRisk.READ ? Reversibility.NONE : Reversibility.IRREVERSIBLE;
+    }
+
+    private static String key(String serverId, String toolName) {
+        return serverId + ":" + toolName;
     }
 
     public List<Tool> tools(String serverId) {

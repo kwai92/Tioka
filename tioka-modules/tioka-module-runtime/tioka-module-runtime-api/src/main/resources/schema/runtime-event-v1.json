@@ -51,7 +51,7 @@
         "itemType": {
           "description": "Unknown values must render as a generic placeholder on the client.",
           "type": "string",
-          "examples": ["message", "reasoning", "tool_call", "tool_result", "file_ref", "citation", "card", "compaction", "child_thread", "status", "error"]
+          "examples": ["message", "reasoning", "tool_call", "tool_result", "file_ref", "citation", "card", "compaction", "child_thread", "status", "error", "change_set"]
         },
         "role": { "enum": ["user", "assistant", "tool", "system"] },
         "content": { "type": "object" }

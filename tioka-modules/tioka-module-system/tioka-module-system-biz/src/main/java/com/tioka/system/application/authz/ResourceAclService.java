@@ -46,6 +46,34 @@ public class ResourceAclService implements ResourceAclApi {
     }
 
     @Override
+    public boolean aclAllows(String resourceType, String resourceId, AccessLevel level) {
+        if (resourceType == null || resourceType.isBlank() || resourceId == null || resourceId.isBlank()) {
+            return false;
+        }
+        Principal p = principals.current();
+        if (p.hasPermission(Permissions.ALL)) {
+            return true;
+        }
+        AccessLevel max = null;
+        for (SysResourceAclDO e : acls.listByResource(resourceType, resourceId)) {
+            boolean match = false;
+            if ("user".equals(e.getSubjectType()) && p.userId().equals(e.getSubjectId())) {
+                match = true;
+            } else if ("workspace".equals(e.getSubjectType()) && p.workspaceId().equals(e.getSubjectId())) {
+                match = true;
+            }
+            if (!match) {
+                continue;
+            }
+            AccessLevel lv = AccessLevel.valueOf(e.getLevel());
+            if (max == null || lv.ordinal() > max.ordinal()) {
+                max = lv;
+            }
+        }
+        return max != null && max.covers(level);
+    }
+
+    @Override
     public List<AclEntry> list(String resourceType, String resourceId) {
         requireShare(resourceType, resourceId);
         List<AclEntry> out = new ArrayList<>();

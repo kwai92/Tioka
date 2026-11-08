@@ -6,7 +6,10 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Agent 配置快照（M1 子集，schemaVersion=1）。预留字段 M1 必须为 null。
+ * Agent 配置快照（schemaVersion=1）。
+ * M3（P3-00b / K9）：一次加齐可空段 {@code output}、{@code charter}、{@code prompt}、
+ * {@code context}、{@code memory}、{@code execution}；缺省 null = 行为等于现状。
+ * {@code subAgents} / {@code dataClearance} 仍为预留（须 null，直至对应工作项解冻）。
  */
 public record AgentSpec(
         int schemaVersion,
@@ -20,7 +23,11 @@ public record AgentSpec(
         ApprovalSettings approval,
         Limits limits,
         JsonNode charter,
-        JsonNode output,
+        OutputContract output,
+        PromptRef prompt,
+        ContextSettings context,
+        MemorySettings memory,
+        ExecutionSettings execution,
         JsonNode subAgents,
         String dataClearance
 ) {

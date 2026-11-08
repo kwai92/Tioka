@@ -73,9 +73,14 @@ public final class LoopPorts {
     public record ToolCall(String callId, String name, String argumentsJson) {}
 
     public record ToolOutcome(String callId, String name, boolean ok, String output, long durationMs,
-                              String approvedBy) {
+                              String approvedBy, com.tioka.runtime.api.spi.ToolProvider.PendingJob pending) {
         public ToolOutcome(String callId, String name, boolean ok, String output, long durationMs) {
-            this(callId, name, ok, output, durationMs, null);
+            this(callId, name, ok, output, durationMs, null, null);
+        }
+
+        public ToolOutcome(String callId, String name, boolean ok, String output, long durationMs,
+                           String approvedBy) {
+            this(callId, name, ok, output, durationMs, approvedBy, null);
         }
     }
 }

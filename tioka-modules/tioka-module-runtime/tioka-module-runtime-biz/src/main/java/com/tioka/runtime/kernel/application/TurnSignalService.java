@@ -69,46 +69,67 @@ public class TurnSignalService {
      * @param reason 非空时写入 error_code（如 {@link #REASON_PRINCIPAL_REVOKED}）
      */
     public void interrupt(String turnId, String reason) {
-        RuntimeTurnDO turn = turns.findById(turnId)
+        // 与 acquire / 状态迁移竞态：cancelQueued 等 CAS 失败时重读再处理，禁止静默 return
+        for (int attempt = 0; attempt < 3; attempt++) {
+            RuntimeTurnDO turn = turns.findById(turnId)
+                    .orElseThrow(() -> new BizException(ErrorCode.NOT_FOUND, "turn 不存在"));
+            TurnStatus st = TurnStatus.valueOf(turn.getStatus());
+            if (st.isTerminal()) {
+                return;
+            }
+            if (st == TurnStatus.QUEUED) {
+                int n = turns.cancelQueued(turnId, reason, null);
+                if (n > 0) {
+                    String payload = events.turnStatus(
+                            com.tioka.runtime.api.kernel.RuntimeEventType.TURN_CANCELLED,
+                            turn.getThreadId(), turnId, TurnStatus.CANCELLED.name());
+                    streams.publish(turn.getThreadId(), null,
+                            com.tioka.runtime.api.kernel.RuntimeEventType.TURN_CANCELLED.wire(), payload);
+                    return;
+                }
+                continue;
+            }
+            if (st == TurnStatus.WAITING_APPROVAL) {
+                // RT-07：WAITING 时无 worker，直接 CANCELLED + PENDING 审批 EXPIRED
+                int n = turns.cancelWaitingApproval(turnId, reason, null);
+                if (n > 0) {
+                    List<RuntimeApprovalDO> pending = approvals.listBySubject(
+                                    ApprovalSubjectType.TURN.wire(), turnId).stream()
+                            .filter(a -> "PENDING".equals(a.getStatus()))
+                            .toList();
+                    approvals.expirePendingForSubject(ApprovalSubjectType.TURN.wire(), turnId, "system");
+                    for (RuntimeApprovalDO a : pending) {
+                        a.setStatus("EXPIRED");
+                        a.setDecidedBy("system");
+                        approvalDecide.notifyDecided(a);
+                    }
+                    String payload = events.turnStatus(RuntimeEventType.TURN_CANCELLED,
+                            turn.getThreadId(), turnId, TurnStatus.CANCELLED.name());
+                    streams.publish(turn.getThreadId(), null, RuntimeEventType.TURN_CANCELLED.wire(), payload);
+                    return;
+                }
+                continue;
+            }
+            if (st == TurnStatus.RUNNING
+                    || st == TurnStatus.WAITING_CHILD
+                    || st == TurnStatus.INTERRUPTED) {
+                if (reason == null || reason.isBlank()) {
+                    signals.publishCancel(turnId);
+                } else {
+                    signals.publishCancel(turnId, reason);
+                }
+                return;
+            }
+            throw new BizException(ErrorCode.CONFLICT, "当前状态不可取消: " + st);
+        }
+        // 极端：连续 CAS 失败后仍非终态 — 以当前态再投递一次信号或放弃
+        RuntimeTurnDO last = turns.findById(turnId)
                 .orElseThrow(() -> new BizException(ErrorCode.NOT_FOUND, "turn 不存在"));
-        TurnStatus st = TurnStatus.valueOf(turn.getStatus());
+        TurnStatus st = TurnStatus.valueOf(last.getStatus());
         if (st.isTerminal()) {
             return;
         }
-        if (st == TurnStatus.QUEUED) {
-            int n = turns.cancelQueued(turnId, reason, null);
-            if (n > 0) {
-                String payload = events.turnStatus(
-                        com.tioka.runtime.api.kernel.RuntimeEventType.TURN_CANCELLED,
-                        turn.getThreadId(), turnId, TurnStatus.CANCELLED.name());
-                streams.publish(turn.getThreadId(), null,
-                        com.tioka.runtime.api.kernel.RuntimeEventType.TURN_CANCELLED.wire(), payload);
-            }
-            return;
-        }
-        if (st == TurnStatus.WAITING_APPROVAL) {
-            // RT-07：WAITING 时无 worker，直接 CANCELLED + PENDING 审批 EXPIRED
-            int n = turns.cancelWaitingApproval(turnId, reason, null);
-            if (n > 0) {
-                List<RuntimeApprovalDO> pending = approvals.listBySubject(
-                        ApprovalSubjectType.TURN.wire(), turnId).stream()
-                        .filter(a -> "PENDING".equals(a.getStatus()))
-                        .toList();
-                approvals.expirePendingForSubject(ApprovalSubjectType.TURN.wire(), turnId, "system");
-                for (RuntimeApprovalDO a : pending) {
-                    a.setStatus("EXPIRED");
-                    a.setDecidedBy("system");
-                    approvalDecide.notifyDecided(a);
-                }
-                String payload = events.turnStatus(RuntimeEventType.TURN_CANCELLED,
-                        turn.getThreadId(), turnId, TurnStatus.CANCELLED.name());
-                streams.publish(turn.getThreadId(), null, RuntimeEventType.TURN_CANCELLED.wire(), payload);
-            }
-            return;
-        }
-        if (st == TurnStatus.RUNNING
-                || st == TurnStatus.WAITING_CHILD
-                || st == TurnStatus.INTERRUPTED) {
+        if (st == TurnStatus.RUNNING || st == TurnStatus.WAITING_CHILD || st == TurnStatus.INTERRUPTED) {
             if (reason == null || reason.isBlank()) {
                 signals.publishCancel(turnId);
             } else {
@@ -130,8 +151,14 @@ public class TurnSignalService {
                 .orElseThrow(() -> new BizException(ErrorCode.NOT_FOUND, "turn 不存在"));
         TurnStatus st = TurnStatus.valueOf(turn.getStatus());
         if (st == TurnStatus.QUEUED) {
-            appendSteerItem(turn, text);
-            return;
+            // 与 interrupt 竞态：写前再确认仍为 QUEUED，否则改走 RUNNING 信号或 CONFLICT
+            turn = turns.findById(turnId)
+                    .orElseThrow(() -> new BizException(ErrorCode.NOT_FOUND, "turn 不存在"));
+            st = TurnStatus.valueOf(turn.getStatus());
+            if (st == TurnStatus.QUEUED) {
+                appendSteerItem(turn, text);
+                return;
+            }
         }
         if (st == TurnStatus.RUNNING) {
             signals.publishSteer(turnId, text);

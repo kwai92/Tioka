@@ -17,12 +17,12 @@ describe('router auth guard', () => {
     expect(router.currentRoute.value.query.redirect).toBe('/chat')
   })
 
-  it('无 tenant:admin 直访 /admin/users → 403', async () => {
+  it('无 tenant:admin 直访 /admin/users → /forbidden', async () => {
     const auth = useAuthStore()
     auth.accessToken = 'tka_test'
     auth.permissions = ['chat:use']
     await router.push('/admin/users')
-    expect(router.currentRoute.value.path).toBe('/admin/forbidden')
+    expect(router.currentRoute.value.path).toBe('/forbidden')
   })
 
   it('有 audit:read 可进审计页', async () => {
@@ -34,7 +34,7 @@ describe('router auth guard', () => {
   })
 })
 
-describe('PK-00d M2 route registry', () => {
+describe('P3-00c M3 route registry', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
     const auth = useAuthStore()
@@ -42,7 +42,7 @@ describe('PK-00d M2 route registry', () => {
     auth.permissions = ['*']
   })
 
-  it('路由 path 快照（含 M2 占位）', () => {
+  it('路由 path 快照（四分区 + 旧路径重定向）', () => {
     const paths = router
       .getRoutes()
       .map((r) => r.path)
@@ -57,12 +57,36 @@ describe('PK-00d M2 route registry', () => {
     }
     for (const item of CONNECT_ROUTES) {
       await router.push(item.path)
-      expect(router.currentRoute.value.path).toBe(item.path)
     }
+    expect(router.currentRoute.value.path).toBe('/connect/feishu')
   })
 
-  it('/approval 重定向到 /approvals', async () => {
+  it('旧路径重定向到四分区', async () => {
     await router.push('/approval')
-    expect(router.currentRoute.value.path).toBe('/approvals')
+    expect(router.currentRoute.value.path).toBe('/console/approvals')
+
+    await router.push('/approvals')
+    expect(router.currentRoute.value.path).toBe('/console/approvals')
+
+    await router.push('/agents')
+    expect(router.currentRoute.value.path).toBe('/studio/agents')
+
+    await router.push('/models')
+    expect(router.currentRoute.value.path).toBe('/admin/models')
+
+    await router.push('/observe')
+    expect(router.currentRoute.value.path).toBe('/console/models')
+
+    await router.push('/im/bindings')
+    expect(router.currentRoute.value.path).toBe('/admin/im/bindings')
+
+    await router.push('/ops/dead-letters')
+    expect(router.currentRoute.value.path).toBe('/console/ops/dead-letters')
+
+    await router.push('/admin/forbidden')
+    expect(router.currentRoute.value.path).toBe('/forbidden')
+
+    await router.push('/trajectory/turn-1')
+    expect(router.currentRoute.value.path).toBe('/console/trajectory/turn-1')
   })
 })

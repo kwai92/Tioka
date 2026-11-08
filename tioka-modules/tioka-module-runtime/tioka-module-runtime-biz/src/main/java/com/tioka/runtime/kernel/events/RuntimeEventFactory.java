@@ -70,8 +70,19 @@ public class RuntimeEventFactory {
     }
 
     public String turnStatus(RuntimeEventType type, String threadId, String turnId, String status) {
+        return turnStatus(type, threadId, turnId, status, null);
+    }
+
+    public String turnStatus(RuntimeEventType type, String threadId, String turnId, String status,
+                             String waitReason) {
         ObjectNode root = base(type, threadId, turnId);
-        root.putObject("turn").put("status", status);
+        ObjectNode turn = root.putObject("turn");
+        turn.put("status", status);
+        if (waitReason != null && !waitReason.isBlank()) {
+            // FE-20：turn.waiting 带 reason=child
+            turn.put("reason", "child");
+            turn.put("waitReason", waitReason);
+        }
         return json(root);
     }
 

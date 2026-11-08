@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tioka.governance.infrastructure.mapper.CfgProjectionPointerMapper">
+
+    <update id="updateProvider">
+        <![CDATA[
+            UPDATE model_provider
+               SET current_version_id = #{versionId}, current_version_no = #{versionNo}
+             WHERE id = #{objectId}
+        ]]>
+    </update>
+
+    <update id="updateBinding">
+        <![CDATA[
+            UPDATE model_binding
+               SET current_version_id = #{versionId}, current_version_no = #{versionNo}
+             WHERE id = #{objectId}
+        ]]>
+    </update>
+
+    <update id="updateLogical">
+        <![CDATA[
+            UPDATE model_logical
+               SET current_version_id = #{versionId}, current_version_no = #{versionNo}
+             WHERE id = #{objectId}
+        ]]>
+    </update>
+
+    <update id="updateRoutingPlan">
+        <![CDATA[
+            UPDATE model_routing_plan
+               SET current_version_id = #{versionId}, current_version_no = #{versionNo}
+             WHERE id = #{objectId}
+        ]]>
+    </update>
+</mapper>

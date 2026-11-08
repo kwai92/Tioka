@@ -78,10 +78,20 @@ public class CostQueryService implements CostQueryApi {
                 .toList();
     }
 
+    @Override
+    public List<UsageEntry> turnUsage(String turnId) {
+        if (turnId == null || turnId.isBlank()) {
+            return List.of();
+        }
+        return usages.findByTurnId(turnId).stream()
+                .map(this::toEntry)
+                .toList();
+    }
+
     private UsageEntry toEntry(ModelUsageDO row) {
         return new UsageEntry(
                 row.getTurnId(),
-                null, // step：V143 才有列
+                row.getStep(),
                 row.getModelRef(),
                 row.getPromptTokens() == null ? 0 : row.getPromptTokens(),
                 row.getCompletionTokens() == null ? 0 : row.getCompletionTokens(),

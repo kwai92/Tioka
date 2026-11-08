@@ -17,7 +17,9 @@ public enum ItemType {
     COMPACTION("compaction"),
     CHILD_THREAD("child_thread"),
     STATUS("status"),
-    ERROR("error");
+    ERROR("error"),
+    /** TRU-05 变更单（ADR-033）。 */
+    CHANGE_SET("change_set");
 
     private final String wire;
 

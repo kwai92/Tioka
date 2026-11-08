@@ -163,7 +163,7 @@ class G1QuotaGateIT {
                     com.tioka.agent.api.spec.AgentSpec.SandboxPolicy.defaults(),
                     com.tioka.agent.api.spec.AgentSpec.ApprovalSettings.empty(),
                     com.tioka.agent.api.spec.AgentSpec.Limits.defaults(),
-                    null, null, null, null);
+                    null, null, null, null, null, null, null, null);
             var published = agents.publishSpec(agent.id(), spec);
             return new GateSeed.Bundle(base.userId(), base.workspaceId(), base.token(),
                     published.versionId(), planId);

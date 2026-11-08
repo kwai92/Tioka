@@ -46,6 +46,10 @@ public class SandboxPolicyService {
                 spec.limits(),
                 spec.charter(),
                 spec.output(),
+                spec.prompt(),
+                spec.context(),
+                spec.memory(),
+                spec.execution(),
                 spec.subAgents(),
                 spec.dataClearance());
         agents.saveDraft(agentId, updated, draft.revision());

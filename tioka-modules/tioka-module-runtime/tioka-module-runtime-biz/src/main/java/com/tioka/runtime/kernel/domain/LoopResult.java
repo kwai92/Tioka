@@ -25,4 +25,9 @@ public record LoopResult(TurnStatus status, int promptTokens, int completionToke
     public static LoopResult waitingApproval(int promptTokens, int completionTokens) {
         return new LoopResult(TurnStatus.WAITING_APPROVAL, promptTokens, completionTokens, null, null);
     }
+
+    /** RT-09：等待异步子任务；TurnRunner 释放锁与 worker，不得写终态。 */
+    public static LoopResult waitingChild(int promptTokens, int completionTokens) {
+        return new LoopResult(TurnStatus.WAITING_CHILD, promptTokens, completionTokens, null, null);
+    }
 }

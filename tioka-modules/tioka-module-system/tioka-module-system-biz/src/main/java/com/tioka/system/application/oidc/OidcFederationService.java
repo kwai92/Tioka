@@ -11,6 +11,7 @@ import com.tioka.system.application.auth.PasswordService;
 import com.tioka.system.application.auth.PrincipalLoader;
 import com.tioka.system.application.auth.TokenService;
 import com.tioka.system.application.lifecycle.AfterCommitEvents;
+import com.tioka.system.application.lifecycle.IdentityOutboxBridge;
 import com.tioka.system.config.OidcProperties;
 import com.tioka.system.infrastructure.AuthUserRepository;
 import com.tioka.system.infrastructure.SysGroupRepository;
@@ -48,6 +49,7 @@ public class OidcFederationService {
     private final PrincipalLoader principalLoader;
     private final ApplicationEventPublisher events;
     private final AuditApi audit;
+    private final IdentityOutboxBridge identityOutbox;
 
     public OidcFederationService(AuthUserRepository users,
                                  PasswordService passwords,
@@ -58,7 +60,8 @@ public class OidcFederationService {
                                  SysWorkspaceRepository workspaces,
                                  PrincipalLoader principalLoader,
                                  ApplicationEventPublisher events,
-                                 AuditApi audit) {
+                                 AuditApi audit,
+                                 IdentityOutboxBridge identityOutbox) {
         this.users = users;
         this.passwords = passwords;
         this.tokens = tokens;
@@ -68,6 +71,7 @@ public class OidcFederationService {
         this.workspaces = workspaces;
         this.principalLoader = principalLoader;
         this.events = events;
+        this.identityOutbox = identityOutbox;
         this.audit = audit;
     }
 
@@ -254,6 +258,7 @@ public class OidcFederationService {
             String key = row.getWorkspaceId() + "|" + row.getRoleCode();
             if (!desiredMemberKeys.contains(key)) {
                 members.softDeleteOne(row.getWorkspaceId(), uid, row.getRoleCode());
+                identityOutbox.publishMemberRemoved(row.getWorkspaceId(), uid, source);
                 AfterCommitEvents.publish(events,
                         new MemberRemovedEvent(row.getWorkspaceId(), uid, source));
                 audit.record(new AuditEvent(null, Instant.now(), row.getWorkspaceId(),

@@ -29,6 +29,11 @@ public class RuntimeTurnDO extends MutableRecordDO {
     private Integer completionTokens;
     private LocalDateTime startedAt;
     private LocalDateTime endedAt;
+    /** GOV-08 / V131：W3C traceparent，跨实例恢复上下文。 */
+    private String traceparent;
+    /** OBS-03 / V133：关联上下文。 */
+    private String requestId;
+    private String subject;
 
     public String getId() { return id; }
     public void setId(String id) { this.id = id; }
@@ -70,4 +75,10 @@ public class RuntimeTurnDO extends MutableRecordDO {
     public void setStartedAt(LocalDateTime startedAt) { this.startedAt = startedAt; }
     public LocalDateTime getEndedAt() { return endedAt; }
     public void setEndedAt(LocalDateTime endedAt) { this.endedAt = endedAt; }
+    public String getTraceparent() { return traceparent; }
+    public void setTraceparent(String traceparent) { this.traceparent = traceparent; }
+    public String getRequestId() { return requestId; }
+    public void setRequestId(String requestId) { this.requestId = requestId; }
+    public String getSubject() { return subject; }
+    public void setSubject(String subject) { this.subject = subject; }
 }

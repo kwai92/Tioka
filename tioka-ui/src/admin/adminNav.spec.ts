@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  ADMIN_NAV,
   APP_NAV,
   CONNECT_ROUTES,
   canSeeAdmin,
@@ -29,16 +30,23 @@ describe('adminNav', () => {
     expect(hasAnyPermission(['tenant:admin'], ['tenant:admin'])).toBe(true)
   })
 
-  it('PK-00d 登记 M2 工作台与连接页导航', () => {
+  it('P3-00c 四分区工作台与管理导航', () => {
     const paths = APP_NAV.map((n) => n.path)
-    expect(paths).toContain('/approvals')
-    expect(paths).toContain('/trajectory')
-    expect(paths).toContain('/orch/rules')
-    expect(paths).toContain('/orch/work-items')
-    expect(paths).toContain('/ops/dead-letters')
-    expect(paths).toContain('/ops/timers')
-    expect(paths).toContain('/im/bindings')
-    expect(paths).toContain('/settings/connected-apps')
+    expect(paths).toContain('/console/approvals')
+    expect(paths).toContain('/console/trajectory')
+    expect(paths).toContain('/console/orch/rules')
+    expect(paths).toContain('/console/orch/work-items')
+    expect(paths).toContain('/console/ops/dead-letters')
+    expect(paths).toContain('/console/ops/timers')
+    expect(paths).toContain('/studio/agents')
+    expect(paths).toContain('/console/timeline')
+    expect(paths).toContain('/console/eval')
+    const adminPaths = ADMIN_NAV.map((n) => n.path)
+    expect(adminPaths).toContain('/admin/im/bindings')
+    expect(adminPaths).toContain('/admin/connected-apps')
+    expect(adminPaths).toContain('/admin/models')
+    expect(adminPaths).toContain('/admin/data')
+    expect(adminPaths).toContain('/admin/plugins')
     expect(CONNECT_ROUTES.map((r) => r.path)).toEqual(['/connect/feishu'])
   })
 })

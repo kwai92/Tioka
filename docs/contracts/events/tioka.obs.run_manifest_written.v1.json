@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tioka.dev/schema/tioka.obs.run_manifest_written.v1.json",
+  "title": "tioka.obs.run_manifest_written.v1",
+  "description": "OBS-06 运行清单落库，供时间线与哈希链。",
+  "type": "object",
+  "required": [
+    "manifestId",
+    "runRef",
+    "runKind"
+  ],
+  "properties": {
+    "manifestId": {
+      "type": "string"
+    },
+    "runRef": {
+      "type": "string"
+    },
+    "runKind": {
+      "type": "string"
+    },
+    "agentVersionId": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "workspaceId": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": true
+}

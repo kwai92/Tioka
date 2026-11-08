@@ -22,7 +22,7 @@ jobs:
 
   gate:
     runs-on: ubuntu-latest
-    # ENG-04c：双实例 + Keycloak + RocketMQ NameServer/Broker，抬高堆与 Docker 可用内存
+    # ENG-04c/04d：双实例 + Keycloak + RocketMQ + Mailpit；抬高堆与 Docker 可用内存
     env:
       JAVA_TOOL_OPTIONS: -Duser.timezone=UTC -Xmx3g
       MAVEN_OPTS: -Xmx1g
@@ -37,7 +37,9 @@ jobs:
         run: docker pull quay.io/keycloak/keycloak:24.0
       - name: Pre-pull RocketMQ image
         run: docker pull apache/rocketmq:5.3.1
-      - name: Gate (cluster + LLM/MCP/Feishu stub + Keycloak + RocketMQ)
+      - name: Pre-pull Mailpit image
+        run: docker pull axllent/mailpit:v1.21.2
+      - name: Gate (cluster + LLM/MCP/Feishu/OCR/SMTP + Keycloak + RocketMQ + Mailpit)
         run: mvn -B verify -Pgate
         env:
           TESTCONTAINERS_RYUK_DISABLED: "true"
