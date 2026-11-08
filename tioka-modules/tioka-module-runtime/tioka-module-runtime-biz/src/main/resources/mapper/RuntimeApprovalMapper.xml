@@ -32,11 +32,13 @@
             INSERT INTO runtime_approval (
               id, workspace_id, subject_type, subject_id, item_id, kind, tool_name, args_json, card_json,
               policy, assignee_json, status, expires_at, request_id, subject,
+              requested_by, title, risk, agent_id,
               create_at, update_at, create_by, update_by
             ) VALUES (
               #{id}, #{workspaceId}, #{subjectType}, #{subjectId}, #{itemId}, #{kind}, #{toolName},
               #{argsJson}, #{cardJson}, #{policy}, #{assigneeJson}, #{status}, #{expiresAt},
               #{requestId}, #{subject},
+              #{requestedBy}, #{title}, #{risk}, #{agentId},
               now(), now(), COALESCE(#{createBy}, 'system'), COALESCE(#{updateBy}, 'system')
             )
             

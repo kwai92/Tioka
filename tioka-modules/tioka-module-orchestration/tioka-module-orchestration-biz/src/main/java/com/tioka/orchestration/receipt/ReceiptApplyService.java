@@ -9,6 +9,7 @@ import com.tioka.framework.messaging.EventPublisher;
 import com.tioka.orchestration.api.engine.OrchApi;
 import com.tioka.orchestration.api.engine.Receipt;
 import com.tioka.orchestration.api.mq.OrchestrationMqTopics;
+import com.tioka.orchestration.attention.OrchAttentionService;
 import com.tioka.orchestration.infrastructure.persistence.OrchRunDO;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -36,15 +37,18 @@ public class ReceiptApplyService {
     private final EventPublisher publisher;
     private final OrchApi orchApi;
     private final ObjectMapper mapper;
+    private final OrchAttentionService attention;
 
     public ReceiptApplyService(OrchReceiptRepository repo,
                                EventPublisher publisher,
                                OrchApi orchApi,
-                               ObjectMapper mapper) {
+                               ObjectMapper mapper,
+                               OrchAttentionService attention) {
         this.repo = repo;
         this.publisher = publisher;
         this.orchApi = orchApi;
         this.mapper = mapper;
+        this.attention = attention;
     }
 
     public void apply(ReceiptApplyCommand cmd) {
@@ -63,7 +67,7 @@ public class ReceiptApplyService {
             if (action instanceof Receipt.Notice notice) {
                 maybeSendNotice(run, receipt, notice, cmd.tellPolicy(), hasAsk);
             } else if (action instanceof Receipt.Ask ask) {
-                openAttentionPlaceholder(run, ask);
+                attention.openFromAsk(run, ask);
             } else if (action instanceof Receipt.Later later) {
                 applyLater(run, later);
             } else if (action instanceof Receipt.Emit emit) {
@@ -162,14 +166,6 @@ public class ReceiptApplyService {
             return;
         }
         publishImNotice(run, notice.text());
-    }
-
-    private void openAttentionPlaceholder(OrchRunDO run, Receipt.Ask ask) {
-        // ORC-04（PK-16）负责创建 runtime_approval；此处仅落 fact，状态由 apply 设为 WAITING_ATTENTION
-        repo.appendFact(run.getId(), ReceiptFactKinds.ATTENTION_OPENED, Map.of(
-                "key", ask.key(),
-                "title", ask.title() == null ? "" : ask.title(),
-                "deferred", "ORC-04"));
     }
 
     private void applyLater(OrchRunDO run, Receipt.Later later) {

@@ -134,6 +134,8 @@ tioka:
   orch:
     hops-limit: 8
     flow-action-enabled: false
+    timer-poll-enabled: true
+    timer-poll-interval-ms: 5000
   im:
     feishu:
       api-base: ${TIOKA_FEISHU_API_BASE:https://open.feishu.cn}
