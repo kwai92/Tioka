@@ -33,6 +33,11 @@ public class ImBindingRepository {
         return Optional.ofNullable(mapper.selectById(id));
     }
 
+    /** 入站回调：无 Principal 时按 id 读取。 */
+    public Optional<ImBindingDO> findByIdUnscoped(String id) {
+        return Optional.ofNullable(mapper.selectByIdUnscoped(id));
+    }
+
     public List<ImBindingDO> listByWorkspace(String workspaceId) {
         return mapper.selectList(Wrappers.<ImBindingDO>lambdaQuery()
                 .eq(ImBindingDO::getWorkspaceId, workspaceId)
