@@ -2,6 +2,8 @@ package com.tioka.runtime.kernel.application;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tioka.agent.api.AgentSnapshotApi;
+import com.tioka.framework.context.RequestContext;
+import com.tioka.framework.context.RequestContextHolder;
 import com.tioka.framework.error.BizException;
 import com.tioka.framework.error.ErrorCode;
 import com.tioka.framework.error.NotImplemented;
@@ -130,6 +132,7 @@ public class KernelRuntimeService implements RuntimeApi {
             throw new BizException(ErrorCode.RATE_LIMITED, "同 thread 排队超过上限");
         }
         String turnId = Ids.newId("turn");
+        RequestContext correlation = ensureCorrelation();
         RuntimeTurnDO t = new RuntimeTurnDO();
         t.setId(turnId);
         t.setThreadId(threadId);
@@ -142,6 +145,8 @@ public class KernelRuntimeService implements RuntimeApi {
         t.setOptionsJson(optionsJson(cmd.options()));
         t.setStepCount(0);
         t.setLeaseVersion(0L);
+        t.setRequestId(correlation.requestId());
+        t.setSubject(correlation.subject());
         try {
             turns.insert(t);
         } catch (DuplicateKeyException e) {
@@ -271,10 +276,14 @@ public class KernelRuntimeService implements RuntimeApi {
             return null;
         }
         int max = options.maxSteps() == null ? props.getLoop().getMaxSteps() : Math.min(50, options.maxSteps());
-        return json(Map.of(
-                "maxSteps", max,
-                "approvalPolicy", options.approvalPolicy() == null ? "" : options.approvalPolicy(),
-                "toolAllowList", options.toolAllowList() == null ? List.of() : options.toolAllowList()));
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("maxSteps", max);
+        m.put("approvalPolicy", options.approvalPolicy() == null ? "" : options.approvalPolicy());
+        m.put("toolAllowList", options.toolAllowList() == null ? List.of() : options.toolAllowList());
+        if (options.maxDuration() != null) {
+            m.put("maxDuration", options.maxDuration().toString());
+        }
+        return json(m);
     }
 
     private String eventsUrl(String threadId) {
@@ -339,5 +348,15 @@ public class KernelRuntimeService implements RuntimeApi {
 
     private static String blankToNull(String value) {
         return value == null || value.isBlank() ? null : value;
+    }
+
+    /** OBS-03：入口缺 request_id 时生成并写入关联上下文。 */
+    private static RequestContext ensureCorrelation() {
+        RequestContext ctx = RequestContextHolder.getCorrelation();
+        if (ctx.requestId() == null || ctx.requestId().isBlank()) {
+            ctx = ctx.withRequestId(Ids.newId("req"));
+            RequestContextHolder.setCorrelation(ctx);
+        }
+        return ctx;
     }
 }

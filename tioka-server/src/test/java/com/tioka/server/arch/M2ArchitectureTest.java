@@ -68,12 +68,13 @@ class M2ArchitectureTest {
 
     /**
      * M2 规则动作不得引用 FLOW 派工（发布校验拒绝 flow；M3 FLW-06 接通时删除本规则）。
+     * PK-09：实现侧用字符串校验 flow，不再访问 {@code OrchActionType.FLOW}，从冻结库移出。
      */
     @ArchTest
-    static final ArchRule noFlowActionInM2 = FreezingArchRule.freeze(
+    static final ArchRule noFlowActionInM2 =
             noClasses().that().resideInAnyPackage(
                             "com.tioka.orchestration.application..",
                             "com.tioka.orchestration.infrastructure..")
                     .should().accessField(OrchActionType.class, "FLOW")
-                    .because("M2 规则发布拒绝 flow 动作（约束 F23 / M2-00 7.2）"));
+                    .because("M2 规则发布拒绝 flow 动作（约束 F23 / M2-00 7.2）");
 }

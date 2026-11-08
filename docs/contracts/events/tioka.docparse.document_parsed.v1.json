@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tioka.dev/schema/tioka.docparse.document_parsed.v1.json",
+  "title": "tioka.docparse.document_parsed.v1",
+  "description": "ADR-060 / PRS：解析服务完成（M3 PRS-00 起订阅；M4 PRS-01 完善）。",
+  "type": "object",
+  "required": [
+    "parseId",
+    "fileHash",
+    "planVersion",
+    "status"
+  ],
+  "properties": {
+    "parseId": {
+      "type": "string"
+    },
+    "fileHash": {
+      "type": "string"
+    },
+    "planVersion": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string"
+    },
+    "qualitySummary": {
+      "type": "object"
+    },
+    "workspaceId": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": true
+}

@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tioka.dev/schema/tioka.ontology.document_ready.v1.json",
+  "title": "tioka.ontology.document_ready.v1",
+  "description": "M3-03 DOC：文档层解析完成可引用。",
+  "type": "object",
+  "required": [
+    "documentId",
+    "fileHash",
+    "parserVersion",
+    "status"
+  ],
+  "properties": {
+    "documentId": {
+      "type": "string"
+    },
+    "fileHash": {
+      "type": "string"
+    },
+    "parserVersion": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string"
+    },
+    "workspaceId": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": true
+}

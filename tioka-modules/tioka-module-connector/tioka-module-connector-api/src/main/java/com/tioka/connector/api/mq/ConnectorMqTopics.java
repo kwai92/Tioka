@@ -15,6 +15,8 @@ public final class ConnectorMqTopics {
 
     public static final String IM_SEND_REQUESTED = "tioka.connector.im_send_requested.v1";
     public static final String IM_INBOUND = "tioka.connector.im_inbound.v1";
+    /** NTF-01 通知投递请求（渠道消费者）。 */
+    public static final String NTF_DELIVERY_REQUESTED = "tioka.ntf.delivery_requested.v1";
 
     private ConnectorMqTopics() {
     }

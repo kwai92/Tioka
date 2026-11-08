@@ -1,0 +1,62 @@
+[
+  {
+    "id": "rule_fixture_01",
+    "name": "飞书@机器人自动接单",
+    "workspaceId": "ws_demo",
+    "ownerId": "usr_alice",
+    "pausedAt": null,
+    "pausedReason": null,
+    "stableVersionId": "rv_fixture_stable",
+    "canaryVersionId": "rv_fixture_canary",
+    "versions": [
+      {
+        "id": "rv_fixture_stable",
+        "ruleId": "rule_fixture_01",
+        "version": 2,
+        "eventType": "tioka.connector.im_inbound.v1",
+        "conditionCel": "event.source == \"feishu\" && attrs.mentioned == \"true\"",
+        "actions": [
+          {
+            "type": "agent",
+            "agentVersionId": "av_demo_01",
+            "maxSteps": 30,
+            "maxDuration": "2h",
+            "prompt": "处理以下事件：{{event.body}}"
+          }
+        ],
+        "concurrency": "serial",
+        "acceptMode": "auto",
+        "tell": "needed",
+        "emits": ["tioka.custom.refund_requested.v1"],
+        "serviceAccountId": "sa_orch",
+        "stage": "STABLE",
+        "canaryPercent": null,
+        "schedule": null
+      },
+      {
+        "id": "rv_fixture_canary",
+        "ruleId": "rule_fixture_01",
+        "version": 3,
+        "eventType": "tioka.connector.im_inbound.v1",
+        "conditionCel": "event.source == \"feishu\"",
+        "actions": [
+          {
+            "type": "agent",
+            "agentVersionId": "av_demo_02",
+            "maxSteps": 20,
+            "maxDuration": "1h",
+            "prompt": "灰度处理：{{event.body}}"
+          }
+        ],
+        "concurrency": "serial",
+        "acceptMode": "observe",
+        "tell": "always",
+        "emits": [],
+        "serviceAccountId": "sa_orch",
+        "stage": "CANARY",
+        "canaryPercent": 10,
+        "schedule": null
+      }
+    ]
+  }
+]

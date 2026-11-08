@@ -71,8 +71,30 @@ class AgentSpecContractTest {
                 AgentSpec.SandboxPolicy.defaults(),
                 AgentSpec.ApprovalSettings.empty(),
                 AgentSpec.Limits.defaults(),
-                null, null, null, null);
+                null, null, null, null, null, null, null, null);
         JsonNode node = AgentSpecJson.strictMapper(MAPPER).valueToTree(spec);
         assertTrue(schema.validate(node).isEmpty(), () -> schema.validate(node).toString());
+    }
+
+    @Test
+    void outputContractPassesSchema() {
+        AgentSpec spec = new AgentSpec(
+                1,
+                new AgentSpec.Profile("demo", null, null, null, "CHAT"),
+                new AgentSpec.Instructions(java.util.List.of(
+                        new AgentSpec.Instructions.Section("main", "hi"))),
+                new AgentSpec.ModelPolicy("rp_1", false),
+                AgentSpec.ToolSet.empty(),
+                java.util.List.of(),
+                AgentSpec.KnowledgeBinding.empty(),
+                AgentSpec.SandboxPolicy.defaults(),
+                AgentSpec.ApprovalSettings.empty(),
+                AgentSpec.Limits.defaults(),
+                null,
+                OutputContract.of("lease.finding@3", OutputMode.FINAL),
+                null, null, null, null, null, null);
+        JsonNode node = AgentSpecJson.strictMapper(MAPPER).valueToTree(spec);
+        assertTrue(schema.validate(node).isEmpty(), () -> schema.validate(node).toString());
+        assertEquals("lease.finding@3", spec.output().schemaRef());
     }
 }

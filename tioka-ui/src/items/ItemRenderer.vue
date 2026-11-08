@@ -9,15 +9,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { ApprovalDecisionView, RuntimeItemView } from './types'
-import MessageItem from './MessageItem.vue'
-import ReasoningItem from './ReasoningItem.vue'
-import ToolResultItem from './ToolResultItem.vue'
-import ToolPair from './ToolPair.vue'
-import CitationItem from './CitationItem.vue'
-import CardItem from './CardItem.vue'
-import StatusItem from './StatusItem.vue'
-import ErrorItem from './ErrorItem.vue'
-import UnknownItem from './UnknownItem.vue'
+import { resolveItemRenderer } from './itemRegistry'
 
 const props = defineProps<{
   item: RuntimeItemView
@@ -30,28 +22,7 @@ const emit = defineEmits<{
   submitted: []
 }>()
 
-const comp = computed(() => {
-  switch (props.item.itemType) {
-    case 'message':
-      return MessageItem
-    case 'reasoning':
-      return ReasoningItem
-    case 'tool_call':
-      return ToolPair
-    case 'tool_result':
-      return ToolResultItem
-    case 'citation':
-      return CitationItem
-    case 'card':
-      return CardItem
-    case 'status':
-      return StatusItem
-    case 'error':
-      return ErrorItem
-    default:
-      return UnknownItem
-  }
-})
+const comp = computed(() => resolveItemRenderer(props.item.itemType))
 
 const compProps = computed(() => {
   if (props.item.itemType === 'tool_call') {

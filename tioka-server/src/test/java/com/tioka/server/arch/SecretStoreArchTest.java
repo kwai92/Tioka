@@ -32,6 +32,8 @@ class SecretStoreArchTest {
                 .and().resideOutsideOfPackage("com.tioka.system.infrastructure..")
                 .and().resideOutsideOfPackage("com.tioka.runtime.infrastructure..")
                 .and().resideOutsideOfPackage("com.tioka.flow.infrastructure..")
+                // IM-ADM：连通性检查经 ConnectorSecretBridge 取应用密钥（对齐 FlowSecretBridge）
+                .and().resideOutsideOfPackage("com.tioka.connector.infrastructure..")
                 .should().callMethod(com.tioka.system.api.spi.SecretStore.class, "get", String.class, String.class)
                 .because("SecretStore.get 仅允许 ProviderClient/McpTransport/ObjectStorage/SecretStore 实现调用（ADR-014 D5）")
                 .allowEmptyShould(true)

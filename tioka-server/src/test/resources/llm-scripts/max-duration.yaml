@@ -1,0 +1,6 @@
+# RT-09：maxDuration 在步间生效（首步带延迟，确保越过极短 deadline）
+calls:
+  - tool_calls: [{ name: echo, arguments: { text: "step1" } }]
+    chunk_delay_ms: 50
+  - tool_calls: [{ name: echo, arguments: { text: "step2" } }]
+  - content: "should-not-finish"

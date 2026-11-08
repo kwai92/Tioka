@@ -44,8 +44,17 @@ public interface RuntimeTurnMapper {
     /** RT-07：RUNNING → WAITING_APPROVAL，释放租约。 */
         int markWaitingApproval(@Param("turnId") String turnId, @Param("leaseVersion") long leaseVersion);
 
+    /** RT-09：RUNNING → WAITING_CHILD，释放租约。 */
+        int markWaitingChild(@Param("turnId") String turnId, @Param("leaseVersion") long leaseVersion);
+
     /** RT-07：WAITING_APPROVAL → QUEUED（无 PENDING 审批后续跑）。 */
         int requeueFromWaitingApproval(String turnId);
+
+    /** RT-09：WAITING_CHILD → QUEUED（子任务完成 / 超时后续跑）。 */
+        int requeueFromWaitingChild(String turnId);
+
+    /** RT-09：扫描等待子任务的 Turn（超时清扫）。 */
+        List<RuntimeTurnDO> findWaitingChild(@Param("limit") int limit);
 
     /** RT-07：WAITING_APPROVAL → CANCELLED（interrupt）。 */
         int cancelWaitingApproval(@Param("turnId") String turnId,
@@ -85,4 +94,12 @@ public interface RuntimeTurnMapper {
         boolean tryAdvisoryLockQueuedSweeper();
 
         boolean unlockAdvisoryLockQueuedSweeper();
+
+    /** HCI-07b：按 thread 分页列出 Turn（seq 升序）。 */
+        List<RuntimeTurnDO> listByThread(@Param("threadId") String threadId,
+                                     @Param("offset") int offset,
+                                     @Param("limit") int limit);
+
+    /** GOV-08：写入 W3C traceparent（跨实例恢复）。 */
+    int saveTraceparent(@Param("turnId") String turnId, @Param("traceparent") String traceparent);
 }

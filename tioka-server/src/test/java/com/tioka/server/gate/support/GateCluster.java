@@ -252,6 +252,10 @@ public final class GateCluster implements AutoCloseable {
         m.put("spring.flyway.placeholders.embeddingDim", "32");
         m.put("tioka.knowledge.embedding-dim", 32);
         m.put("tioka.knowledge.reindex-enabled", false);
+        // ENG-04d：双实例指标端点供 PrometheusScrapeSupport / MH-10 / FLW-14
+        m.put("management.endpoints.web.exposure.include", "health,info,metrics,prometheus");
+        m.put("management.endpoint.metrics.enabled", true);
+        m.put("management.endpoint.prometheus.enabled", true);
         if (keycloak != null) {
             m.put("tioka.auth.oidc.frontend-base-url", "http://127.0.0.1:5173");
             m.put("tioka.auth.oidc.providers.keycloak.issuer-uri", keycloak.issuerUri());

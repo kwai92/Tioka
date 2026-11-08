@@ -80,6 +80,11 @@
             </dependency>
             <dependency>
                 <groupId>com.tioka</groupId>
+                <artifactId>tioka-testkit</artifactId>
+                <version>${revision}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.tioka</groupId>
                 <artifactId>tioka-module-runtime-biz</artifactId>
                 <version>${revision}</version>
             </dependency>
@@ -181,6 +186,26 @@
             <dependency>
                 <groupId>com.tioka</groupId>
                 <artifactId>tioka-module-ontology-biz</artifactId>
+                <version>${revision}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.tioka</groupId>
+                <artifactId>tioka-module-governance-api</artifactId>
+                <version>${revision}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.tioka</groupId>
+                <artifactId>tioka-module-governance-biz</artifactId>
+                <version>${revision}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.tioka</groupId>
+                <artifactId>tioka-module-eval-api</artifactId>
+                <version>${revision}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.tioka</groupId>
+                <artifactId>tioka-module-eval-biz</artifactId>
                 <version>${revision}</version>
             </dependency>
             <dependency>

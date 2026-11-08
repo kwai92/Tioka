@@ -271,6 +271,6 @@ class ToolGatewayIT {
                 AgentSpec.SandboxPolicy.defaults(),
                 AgentSpec.ApprovalSettings.empty(),
                 AgentSpec.Limits.defaults(),
-                null, null, null, null);
+                null, null, null, null, null, null, null, null);
     }
 }

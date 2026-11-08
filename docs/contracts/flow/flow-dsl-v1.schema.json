@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tioka.local/contracts/flow/flow-dsl-v1.schema.json",
+  "title": "Tioka Flow DSL v1",
+  "type": "object",
+  "required": ["schemaVersion", "meta", "inputs", "outputs", "nodes", "edges"],
+  "properties": {
+    "schemaVersion": { "type": "integer", "const": 1 },
+    "meta": { "type": "object" },
+    "inputs": { "type": "array", "items": { "type": "object" } },
+    "outputs": { "type": "array", "items": { "type": "object" } },
+    "constants": { "type": "object" },
+    "settings": { "type": "object" },
+    "nodes": { "type": "array", "items": { "type": "object" } },
+    "edges": { "type": "array", "items": { "type": "object" } },
+    "subgraphs": { "type": "object" }
+  },
+  "additionalProperties": false
+}

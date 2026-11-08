@@ -55,6 +55,14 @@ public class TurnRepository {
         return lv == null ? OptionalLong.empty() : OptionalLong.of(lv);
     }
 
+    /** GOV-08：acquire 后写入当前 span 的 traceparent。 */
+    public int saveTraceparent(String turnId, String traceparent) {
+        if (turnId == null || traceparent == null || traceparent.isBlank()) {
+            return 0;
+        }
+        return mapper.saveTraceparent(turnId, traceparent);
+    }
+
     public int renew(String turnId, long leaseVersion, Instant leaseUntil) {
         return mapper.renew(turnId, leaseVersion, LocalDateTime.ofInstant(leaseUntil, ZoneOffset.UTC));
     }
@@ -75,8 +83,20 @@ public class TurnRepository {
         return mapper.markWaitingApproval(turnId, leaseVersion);
     }
 
+    public int markWaitingChild(String turnId, long leaseVersion) {
+        return mapper.markWaitingChild(turnId, leaseVersion);
+    }
+
     public int requeueFromWaitingApproval(String turnId) {
         return mapper.requeueFromWaitingApproval(turnId);
+    }
+
+    public int requeueFromWaitingChild(String turnId) {
+        return mapper.requeueFromWaitingChild(turnId);
+    }
+
+    public List<RuntimeTurnDO> findWaitingChild(int limit) {
+        return mapper.findWaitingChild(limit);
     }
 
     public int cancelWaitingApproval(String turnId, String errorCode, String errorMessage) {
@@ -117,6 +137,11 @@ public class TurnRepository {
 
     public Optional<RuntimeTurnDO> findActive(String threadId) {
         return Optional.ofNullable(mapper.findActive(threadId));
+    }
+
+    /** HCI-07b：轨迹 Turn 列表。 */
+    public List<RuntimeTurnDO> listByThread(String threadId, int offset, int limit) {
+        return mapper.listByThread(threadId, offset, limit);
     }
 
     public List<RuntimeTurnDO> findStaleQueuedForDispatch() {

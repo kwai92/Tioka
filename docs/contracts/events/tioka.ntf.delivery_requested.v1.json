@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tioka.dev/schema/tioka.ntf.delivery_requested.v1.json",
+  "title": "tioka.ntf.delivery_requested.v1",
+  "description": "NTF-01 通知投递请求（渠道消费者消费）。",
+  "type": "object",
+  "required": [
+    "deliveryId",
+    "channel",
+    "templateKey"
+  ],
+  "properties": {
+    "deliveryId": {
+      "type": "string"
+    },
+    "channel": {
+      "type": "string"
+    },
+    "templateKey": {
+      "type": "string"
+    },
+    "dedupeKey": {
+      "type": "string"
+    },
+    "workspaceId": {
+      "type": "string"
+    },
+    "payload": {
+      "type": "object"
+    }
+  },
+  "additionalProperties": true
+}

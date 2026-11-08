@@ -26,6 +26,12 @@ public class ModelUsageDO extends AppendOnlyDO {
     private Long costMicros;
     private Integer latencyMs;
     private String status;
+    /** V143：按 Turn 步对齐轨迹用量；历史行可空。 */
+    private Integer step;
+    /** OBS-03 / V133：关联上下文。 */
+    private String requestId;
+    private String subject;
+    private String traceId;
 
     public String getId() { return id; }
     public void setId(String id) { this.id = id; }
@@ -55,4 +61,12 @@ public class ModelUsageDO extends AppendOnlyDO {
     public void setLatencyMs(Integer latencyMs) { this.latencyMs = latencyMs; }
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }
+    public Integer getStep() { return step; }
+    public void setStep(Integer step) { this.step = step; }
+    public String getRequestId() { return requestId; }
+    public void setRequestId(String requestId) { this.requestId = requestId; }
+    public String getSubject() { return subject; }
+    public void setSubject(String subject) { this.subject = subject; }
+    public String getTraceId() { return traceId; }
+    public void setTraceId(String traceId) { this.traceId = traceId; }
 }

@@ -3,6 +3,7 @@ package com.tioka.system.application.audit;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.tioka.framework.context.RequestContextHolder;
 import com.tioka.framework.id.Ids;
 import com.tioka.system.api.audit.AuditApi;
 import com.tioka.system.api.audit.AuditEvent;
@@ -118,10 +119,11 @@ public class AuditService implements AuditApi {
                 detailsJson = "{}";
             }
         }
+        String subject = RequestContextHolder.getCorrelation().subject();
         repository.insert(new AuditEventWriteRow(
                 e.id(), e.ts(), e.workspaceId(),
                 e.actorType(), e.actorId(), e.action(), e.resourceType(), e.resourceId(),
-                e.outcome().name(), e.reason(), e.traceId(), e.requestId(), e.clientIp(), detailsJson));
+                e.outcome().name(), e.reason(), e.traceId(), e.requestId(), subject, e.clientIp(), detailsJson));
     }
 
     /** OBS-01：补齐 id/ts/traceId/requestId。 */

@@ -3,26 +3,32 @@
         "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.tioka.orchestration.infrastructure.mapper.OrchRunMapper">
 
-    <select id="lockNextClaimable" resultType="String">
-        <![CDATA[
-            SELECT id FROM orch_run
-            WHERE deleted = FALSE
-              AND (status = 'READY' OR (status = 'LEASED' AND lease_until < #{now}))
-            ORDER BY create_at
-            FOR UPDATE SKIP LOCKED
-            LIMIT 1
-            
-]]>
+    <select id="lockById" resultType="com.tioka.orchestration.infrastructure.persistence.OrchRunDO">
+        SELECT id, workspace_id, work_item_id, event_id, rule_version_id, status, attempt, rewrite_count,
+               input_json, thread_id, current_turn_id, receipt_json, run_as_json,
+               error_code, error_message, request_id AS requestId, subject,
+               create_at, update_at, ended_at
+        FROM orch_run
+        WHERE id = #{id}
+        FOR UPDATE
     </select>
 
-    <update id="markLeased">
-        <![CDATA[
-            UPDATE orch_run
-            SET status = 'LEASED', worker_id = #{workerId}, lease_until = #{leaseUntil},
-                update_at = CURRENT_TIMESTAMP
-            WHERE id = #{id} AND deleted = FALSE
-            
-]]>
-    </update>
+    <select id="countByWorkItem" resultType="int">
+        SELECT COUNT(*) FROM orch_run WHERE work_item_id = #{workItemId}
+    </select>
+
+    <select id="countNonTerminalBefore" resultType="int">
+        SELECT COUNT(*)
+        FROM orch_run
+        WHERE work_item_id = #{workItemId}
+          AND create_at &lt; #{createAt}
+          AND status NOT IN ('SUCCEEDED', 'FAILED', 'CANCELLED')
+    </select>
+
+    <select id="countDispatchedFacts" resultType="int">
+        SELECT COUNT(*)
+        FROM orch_fact
+        WHERE run_id = #{runId} AND kind = 'dispatched'
+    </select>
 
 </mapper>
