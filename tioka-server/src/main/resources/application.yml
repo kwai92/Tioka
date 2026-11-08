@@ -115,6 +115,9 @@ tioka:
     version:
       enabled: false
       reconcile-interval-ms: 30000
+  # P3-00b：评测模块（默认关闭，不改变 M2 行为）
+  eval:
+    enabled: false
 
   # —— M2 配置键（PK-00c；实现包只追加自己的子键）——
   messaging:

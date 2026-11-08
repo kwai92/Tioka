@@ -352,7 +352,7 @@ class G1EndToEndGateIT {
                 AgentSpec.SandboxPolicy.defaults(),
                 new AgentSpec.ApprovalSettings(policies, null),
                 AgentSpec.Limits.defaults(),
-                null, null, null, null);
+                null, null, null, null, null, null, null, null);
         // 经 Spring 代理调用 publish，避免 publishSpec 自调用绕过 @Audited
         AgentService.DraftView draft = agents.saveDraft(agent.id(), spec, agents.getDraft(agent.id()).revision());
         AgentService.PublishResult pub = agents.publish(agent.id(), draft.revision(), "g1-e2e");

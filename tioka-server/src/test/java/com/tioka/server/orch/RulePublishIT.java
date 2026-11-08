@@ -242,7 +242,7 @@ class RulePublishIT {
                 AgentSpec.SandboxPolicy.defaults(),
                 AgentSpec.ApprovalSettings.empty(),
                 AgentSpec.Limits.defaults(),
-                null, null, null, null);
+                null, null, null, null, null, null, null, null);
     }
 
     private static Principal principal(TestFixtures.Actor actor) {

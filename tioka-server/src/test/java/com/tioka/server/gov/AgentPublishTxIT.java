@@ -66,7 +66,7 @@ class AgentPublishTxIT {
                     AgentSpec.SandboxPolicy.defaults(),
                     AgentSpec.ApprovalSettings.empty(),
                     AgentSpec.Limits.defaults(),
-                    null, null, null, null);
+                null, null, null, null, null, null, null, null);
             AgentService.DraftView draft = agents.saveDraft(agent.id(), spec, agents.getDraft(agent.id()).revision());
 
             doThrow(new RuntimeException("boom-second-step")).when(store).putAgent(any());

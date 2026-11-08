@@ -167,7 +167,6 @@ class OutputContractPublishCheckTest {
                 AgentSpec.Limits.defaults(),
                 null,
                 output,
-                null,
-                null);
+                null, null, null, null, null, null);
     }
 }

@@ -135,7 +135,7 @@ class G1PermissionGateIT {
                     AgentSpec.SandboxPolicy.defaults(),
                     AgentSpec.ApprovalSettings.empty(),
                     AgentSpec.Limits.defaults(),
-                    null, null, null, null);
+                null, null, null, null, null, null, null, null);
             return agents.publishSpec(agent.id(), spec).versionId();
         });
 

@@ -193,7 +193,7 @@ class PublishValidatorIT {
                 AgentSpec.SandboxPolicy.defaults(),
                 AgentSpec.ApprovalSettings.empty(),
                 AgentSpec.Limits.defaults(),
-                charter, null, null, null);
+                charter, null, null, null, null, null, null, null);
     }
 
     private static Principal adminPrincipal(TestFixtures.Actor a) {
