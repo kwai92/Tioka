@@ -291,13 +291,6 @@ public class DefaultToolGateway implements ToolGateway {
         return PolicyOutcome.ESCALATE;
     }
 
-    private ToolProvider.ToolDescriptor resolveDescriptor(ToolCallContext ctx, String name) {
-        return registry.resolve(ctx == null ? null : ctx.agentVersionId(),
-                        ctx == null ? Map.of() : ctx.agentToolConfig(), name)
-                .map(ToolRegistry.ResolvedTool::descriptor)
-                .orElse(null);
-    }
-
     @Override
     public List<Map<String, Object>> asOpenAiTools(ToolCallContext ctx) {
         return listTools(ctx).stream().map(d -> {
