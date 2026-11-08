@@ -10,6 +10,7 @@ import com.tioka.system.api.event.UserDisabledEvent;
 import com.tioka.system.api.event.UserEnabledEvent;
 import com.tioka.system.application.auth.PasswordService;
 import com.tioka.system.application.lifecycle.AfterCommitEvents;
+import com.tioka.system.application.lifecycle.IdentityOutboxBridge;
 import com.tioka.system.infrastructure.AuthUserRepository;
 import com.tioka.system.infrastructure.persistence.AuthUserDO;
 import org.springframework.context.ApplicationEventPublisher;
@@ -33,17 +34,20 @@ public class UserAdminService {
     private final PrincipalHolder principals;
     private final ApplicationEventPublisher events;
     private final AuditApi audit;
+    private final IdentityOutboxBridge identityOutbox;
 
     public UserAdminService(AuthUserRepository users,
                             PasswordService passwords,
                             PrincipalHolder principals,
                             ApplicationEventPublisher events,
-                            AuditApi audit) {
+                            AuditApi audit,
+                            IdentityOutboxBridge identityOutbox) {
         this.users = users;
         this.passwords = passwords;
         this.principals = principals;
         this.events = events;
         this.audit = audit;
+        this.identityOutbox = identityOutbox;
     }
 
     /** HCI-03：用户列表搜索。 */
@@ -102,6 +106,7 @@ public class UserAdminService {
         audit.record(new AuditEvent(null, at, principals.current().workspaceId(),
                 "user", operatorId, "user.disable", "user", userId,
                 AuditOutcome.SUCCESS, null, null, null, null, Map.of()));
+        identityOutbox.publishUserDisabled(userId, operatorId, at);
         AfterCommitEvents.publish(events, new UserDisabledEvent(userId, operatorId, at));
     }
 
