@@ -30,10 +30,6 @@ public class FakeConnectorTypeHandler implements ConnectorTypeHandler {
         this.spec = new ConnectorSpec(TYPE, schema, true, true, false, false);
     }
 
-    public FakeConnectorTypeHandler() {
-        this(new ObjectMapper());
-    }
-
     @Override
     public String type() {
         return TYPE;

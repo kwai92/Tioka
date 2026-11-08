@@ -45,9 +45,8 @@ public class DefaultConnectorSdk implements ConnectorSdk {
                                ConnectorInstanceStore store,
                                ObjectProvider<CredentialCipher> cipher,
                                ObjectProvider<EgressGuard> egressGuard,
-                               ObjectProvider<ObjectMapper> objectMapper) {
-        this(handlers, store, cipher, egressGuard,
-                objectMapper.getIfAvailable() == null ? new ObjectMapper() : objectMapper.getIfAvailable(),
+                               ObjectMapper objectMapper) {
+        this(handlers, store, cipher, egressGuard, objectMapper,
                 ConnectorRetryPolicy.DEFAULT, Thread::sleep);
     }
 
@@ -63,7 +62,7 @@ public class DefaultConnectorSdk implements ConnectorSdk {
         this.store = store;
         this.cipher = cipher;
         this.egressGuard = egressGuard;
-        this.objectMapper = objectMapper == null ? new ObjectMapper() : objectMapper;
+        this.objectMapper = objectMapper;
         this.retryPolicy = retryPolicy;
         this.sleeper = sleeper;
     }
