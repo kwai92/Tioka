@@ -178,8 +178,44 @@ public final class KeycloakGateSupport implements AutoCloseable {
      * 幂等；挂在 {@code /tioka/sales}，与 bob 同组以便后续 DAT 闸门复用。
      */
     public synchronized void ensureRegionUsers() {
+        enableUnmanagedUserAttributes();
         ensureRegionUser(USER_EAST, PASSWORD_EAST, "East", "Huadong", REGION_EAST);
         ensureRegionUser(USER_SOUTH, PASSWORD_SOUTH, "South", "Huanan", REGION_SOUTH);
+    }
+
+    /** Keycloak 24 默认禁 unmanaged 属性，区域属性写入前需放开 ADMIN_EDIT。 */
+    private void enableUnmanagedUserAttributes() {
+        try {
+            String admin = adminToken();
+            HttpResponse<String> get = http.send(
+                    HttpRequest.newBuilder(URI.create(authServerUrl()
+                                    + "/admin/realms/" + REALM + "/users/profile"))
+                            .header("Authorization", "Bearer " + admin).GET().build(),
+                    HttpResponse.BodyHandlers.ofString());
+            if (get.statusCode() != 200) {
+                throw new IllegalStateException("get user profile: " + get.statusCode() + " " + get.body());
+            }
+            ObjectNode profile = (ObjectNode) json.readTree(get.body());
+            if ("ADMIN_EDIT".equals(profile.path("unmanagedAttributePolicy").asText())
+                    || "ENABLED".equals(profile.path("unmanagedAttributePolicy").asText())) {
+                return;
+            }
+            profile.put("unmanagedAttributePolicy", "ADMIN_EDIT");
+            HttpResponse<String> put = http.send(
+                    HttpRequest.newBuilder(URI.create(authServerUrl()
+                                    + "/admin/realms/" + REALM + "/users/profile"))
+                            .header("Authorization", "Bearer " + admin)
+                            .header("Content-Type", "application/json")
+                            .PUT(HttpRequest.BodyPublishers.ofString(json.writeValueAsString(profile)))
+                            .build(),
+                    HttpResponse.BodyHandlers.ofString());
+            if (put.statusCode() / 100 != 2) {
+                throw new IllegalStateException("enable unmanaged attrs: "
+                        + put.statusCode() + " " + put.body());
+            }
+        } catch (Exception e) {
+            throw new IllegalStateException("enableUnmanagedUserAttributes", e);
+        }
     }
 
     public String userRegionAttribute(String username) {
@@ -237,22 +273,23 @@ public final class KeycloakGateSupport implements AutoCloseable {
                             + create.statusCode() + " " + create.body());
                 }
             }
-            // 保证 region 属性与组
+            // 保证 region 属性与组（只写必要字段，避免整包 PUT 被 User Profile 拒）
             String userId = findUserId(admin, username);
-            HttpResponse<String> get = http.send(
-                    HttpRequest.newBuilder(URI.create(authServerUrl()
-                                    + "/admin/realms/" + REALM + "/users/" + userId))
-                            .header("Authorization", "Bearer " + admin).GET().build(),
-                    HttpResponse.BodyHandlers.ofString());
-            ObjectNode existing = (ObjectNode) json.readTree(get.body());
-            ObjectNode attrs = existing.with("attributes");
-            attrs.putArray("region").add(region);
+            ObjectNode patch = json.createObjectNode();
+            patch.put("id", userId);
+            patch.put("username", username);
+            patch.put("enabled", true);
+            patch.put("email", username + "@tioka.local");
+            patch.put("emailVerified", true);
+            patch.put("firstName", first);
+            patch.put("lastName", last);
+            patch.putObject("attributes").putArray("region").add(region);
             HttpResponse<String> put = http.send(
                     HttpRequest.newBuilder(URI.create(authServerUrl()
                                     + "/admin/realms/" + REALM + "/users/" + userId))
                             .header("Authorization", "Bearer " + admin)
                             .header("Content-Type", "application/json")
-                            .PUT(HttpRequest.BodyPublishers.ofString(json.writeValueAsString(existing)))
+                            .PUT(HttpRequest.BodyPublishers.ofString(json.writeValueAsString(patch)))
                             .build(),
                     HttpResponse.BodyHandlers.ofString());
             if (put.statusCode() / 100 != 2) {
