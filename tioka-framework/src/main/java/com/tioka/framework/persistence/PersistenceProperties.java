@@ -73,7 +73,9 @@ public class PersistenceProperties {
             "sys_dead_letter",
             // GOV-12 / V150：配置版本框架（无 workspace_id）
             "cfg_draft",
-            "cfg_version"
+            "cfg_version",
+            // CON-02 / V140：入站去重（无 workspace_id）
+            "im_inbound_dedupe"
     ));
 
     public List<String> getWorkspaceScopeExemptTables() {
