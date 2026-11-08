@@ -11,7 +11,7 @@ import com.tioka.runtime.api.spi.GateDecision;
 import com.tioka.runtime.api.spi.Reversibility;
 import com.tioka.runtime.api.spi.ToolGateway;
 import com.tioka.runtime.api.spi.ToolInvocation;
-import com.tioka.runtime.infrastructure.mapper.TrustActionMapper;
+import com.tioka.runtime.infrastructure.TrustActionRepository;
 import com.tioka.runtime.infrastructure.persistence.TrustActionDO;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -33,11 +33,11 @@ public class PreparedCallStore {
     public static final String STATUS_STALE = "STALE";
     public static final String STATUS_FAILED = "FAILED";
 
-    private final TrustActionMapper mapper;
+    private final TrustActionRepository actions;
     private final ObjectMapper json;
 
-    public PreparedCallStore(TrustActionMapper mapper, ObjectMapper json) {
-        this.mapper = mapper;
+    public PreparedCallStore(TrustActionRepository actions, ObjectMapper json) {
+        this.actions = actions;
         this.json = json;
     }
 
@@ -62,7 +62,7 @@ public class PreparedCallStore {
         row.setThreadId(ctx.threadId());
         row.setTurnId(ctx.turnId());
         row.setItemId(itemId);
-        row.setSeq(mapper.nextSeq(ctx.turnId()));
+        row.setSeq(actions.nextSeq(ctx.turnId()));
         row.setToolName(toolName);
         row.setActionClass(actionClass == null ? toolName : actionClass);
         row.setRisk(risk == null ? "WRITE" : risk.name());
@@ -80,13 +80,13 @@ public class PreparedCallStore {
             row.setRecords(changeSet.totals().records());
             row.setAmountMicros(changeSet.totals().amountMicros());
         }
-        mapper.insert(row);
+        actions.insert(row);
         return row;
     }
 
     @Transactional
     public TrustActionDO lockForUpdate(String preparedId) {
-        TrustActionDO row = mapper.findForUpdate(preparedId);
+        TrustActionDO row = actions.findForUpdate(preparedId);
         if (row == null) {
             throw new BizException(ErrorCode.NOT_FOUND, "prepared call 不存在: " + preparedId);
         }
@@ -94,7 +94,7 @@ public class PreparedCallStore {
     }
 
     public TrustActionDO find(String preparedId) {
-        return mapper.findById(preparedId);
+        return actions.findById(preparedId);
     }
 
     @Transactional
@@ -104,7 +104,7 @@ public class PreparedCallStore {
             // 撤销期默认 24h；TRU-07 再做成可配
             undo = LocalDateTime.ofInstant(receipt.appliedAt().plusSeconds(24 * 3600), ZoneOffset.UTC);
         }
-        int n = mapper.markStatus(row.getId(), row.getStatus(), STATUS_APPLIED, writeJson(receipt), undo);
+        int n = actions.markStatus(row.getId(), row.getStatus(), STATUS_APPLIED, writeJson(receipt), undo);
         if (n != 1) {
             throw new BizException(ErrorCode.CONFLICT, "trust_action 状态已变: " + row.getId());
         }
@@ -115,7 +115,7 @@ public class PreparedCallStore {
 
     @Transactional
     public void markStale(TrustActionDO row) {
-        int n = mapper.markStatus(row.getId(), row.getStatus(), STATUS_STALE, null, null);
+        int n = actions.markStatus(row.getId(), row.getStatus(), STATUS_STALE, null, null);
         if (n != 1) {
             throw new BizException(ErrorCode.CONFLICT, "trust_action 状态已变: " + row.getId());
         }
@@ -124,7 +124,7 @@ public class PreparedCallStore {
 
     @Transactional
     public void markFailed(TrustActionDO row, String reason) {
-        int n = mapper.markStatus(row.getId(), row.getStatus(), STATUS_FAILED,
+        int n = actions.markStatus(row.getId(), row.getStatus(), STATUS_FAILED,
                 writeJson(Map.of("error", reason == null ? "" : reason)), null);
         if (n != 1) {
             throw new BizException(ErrorCode.CONFLICT, "trust_action 状态已变: " + row.getId());
@@ -135,7 +135,7 @@ public class PreparedCallStore {
     @Transactional
     public void markApproved(TrustActionDO row, String approvalId) {
         row.setApprovalId(approvalId);
-        int n = mapper.markStatus(row.getId(), STATUS_PROPOSED, STATUS_APPROVED, null, null);
+        int n = actions.markStatus(row.getId(), STATUS_PROPOSED, STATUS_APPROVED, null, null);
         if (n != 1) {
             throw new BizException(ErrorCode.CONFLICT, "trust_action 非 PROPOSED: " + row.getId());
         }
