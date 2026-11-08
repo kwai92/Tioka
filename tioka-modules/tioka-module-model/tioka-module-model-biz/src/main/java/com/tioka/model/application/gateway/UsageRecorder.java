@@ -1,9 +1,13 @@
 package com.tioka.model.application.gateway;
 
+import com.tioka.framework.context.RequestContext;
+import com.tioka.framework.context.RequestContextHolder;
 import com.tioka.framework.id.Ids;
 import com.tioka.model.api.gateway.ModelCallContext;
 import com.tioka.model.infrastructure.ModelUsageRepository;
 import com.tioka.model.infrastructure.persistence.ModelUsageDO;
+import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.api.trace.SpanContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.SmartLifecycle;
@@ -61,6 +65,13 @@ public class UsageRecorder implements SmartLifecycle {
         row.setLatencyMs(Math.max(0, cmd.latencyMs()));
         row.setStatus(cmd.status() == null ? "ERROR" : cmd.status());
         row.setCreateAt(LocalDateTime.now());
+        RequestContext correlation = RequestContextHolder.getCorrelation();
+        row.setRequestId(correlation.requestId());
+        row.setSubject(correlation.subject());
+        SpanContext spanCtx = Span.current().getSpanContext();
+        if (spanCtx != null && spanCtx.isValid()) {
+            row.setTraceId(spanCtx.getTraceId());
+        }
         if (!queue.offer(row)) {
             log.warn("model_usage 队列拒绝写入 id={}", row.getId());
             return;
