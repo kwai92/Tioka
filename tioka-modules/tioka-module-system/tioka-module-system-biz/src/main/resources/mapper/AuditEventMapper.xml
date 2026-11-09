@@ -127,4 +127,32 @@ UPDATE audit_event SET forwarded = TRUE WHERE id = #{id}
 ]]>
     </select>
 
+    <!-- OBS-05 转发互斥与水位（V221 / ADR-072） -->
+
+    <select id="tryAdvisoryLock" resultType="boolean">
+        <![CDATA[
+            SELECT pg_try_advisory_lock(hashtext(#{lockKey}))
+
+]]>
+    </select>
+
+    <select id="advisoryUnlock" resultType="boolean">
+        <![CDATA[
+            SELECT pg_advisory_unlock(hashtext(#{lockKey}))
+
+]]>
+    </select>
+
+    <insert id="updateForwardProgress">
+        <![CDATA[
+            INSERT INTO audit_forward_progress (channel, last_forwarded_id, batches, last_forwarded_at)
+            VALUES (#{channel}, #{lastForwardedId}, #{batchSize}, now())
+            ON CONFLICT (channel) DO UPDATE
+              SET last_forwarded_id = EXCLUDED.last_forwarded_id,
+                  batches = audit_forward_progress.batches + EXCLUDED.batches,
+                  last_forwarded_at = now()
+
+]]>
+    </insert>
+
 </mapper>

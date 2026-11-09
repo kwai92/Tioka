@@ -23,6 +23,11 @@ import java.util.Map;
 public class AuditForwarder {
     private static final Logger log = LoggerFactory.getLogger(AuditForwarder.class);
 
+    /** OBS-05：转发互斥键（PG advisory lock，双实例下保证 SIEM 不收重复记录）。 */
+    static final String FORWARD_LOCK_KEY = "audit-forward-siem";
+    /** OBS-05：水位通道名（audit_forward_progress PK）。 */
+    static final String FORWARD_CHANNEL = "siem";
+
     private final AuditEventRepository repository;
     private final AuditSink sink;
     private final AuditProperties props;
@@ -33,27 +38,44 @@ public class AuditForwarder {
         this.props = props;
     }
 
+    /**
+     * 批量外送（GOV-02）+ OBS-05 互斥与水位：
+     * PG advisory lock（同事务同连接）保证双实例只有一方外送；未取得锁直接跳过本轮。
+     * 成功后推进 {@code audit_forward_progress} 水位（本批最后一条记录 ID）。
+     */
     @Scheduled(fixedDelayString = "${tioka.audit.forward-delay-ms:5000}")
     @Transactional
     public void forwardBatch() {
-        int batch = Math.max(1, props.getForwardBatchSize());
-        List<Map<String, Object>> rows = repository.listUnforwarded(batch);
-        if (rows.isEmpty()) {
+        if (!repository.tryAdvisoryLock(FORWARD_LOCK_KEY)) {
+            log.debug("audit forward skipped: another instance holds the advisory lock");
             return;
         }
-        List<String> done = new ArrayList<>(rows.size());
-        for (Map<String, Object> row : rows) {
-            String id = str(row.get("id"));
-            try {
-                Map<String, Object> detail = new LinkedHashMap<>(row);
-                sink.emit(str(row.get("action")), str(row.get("actorId")), detail);
-                done.add(id);
-            } catch (RuntimeException ex) {
-                log.warn("audit forward failed id={}: {}", id, ex.toString());
-                break;
+        try {
+            int batch = Math.max(1, props.getForwardBatchSize());
+            List<Map<String, Object>> rows = repository.listUnforwarded(batch);
+            if (rows.isEmpty()) {
+                return;
             }
+            List<String> done = new ArrayList<>(rows.size());
+            for (Map<String, Object> row : rows) {
+                String id = str(row.get("id"));
+                try {
+                    Map<String, Object> detail = new LinkedHashMap<>(row);
+                    sink.emit(str(row.get("action")), str(row.get("actorId")), detail);
+                    done.add(id);
+                } catch (RuntimeException ex) {
+                    log.warn("audit forward failed id={}: {}", id, ex.toString());
+                    break;
+                }
+            }
+            repository.markForwarded(done);
+            if (!done.isEmpty()) {
+                repository.updateForwardProgress(FORWARD_CHANNEL,
+                        done.get(done.size() - 1), done.size());
+            }
+        } finally {
+            repository.advisoryUnlock(FORWARD_LOCK_KEY);
         }
-        repository.markForwarded(done);
     }
 
     @Scheduled(cron = "${tioka.audit.retention-cron:0 30 3 * * *}")

@@ -77,4 +77,21 @@ public class AuditEventRepository {
     public Map<String, Object> getSeal(String workspaceKey) {
         return mapper.getSeal(workspaceKey);
     }
+
+    /* ---- OBS-05 转发互斥与水位（V221 / ADR-072） ---- */
+
+    /** PG advisory lock（须在事务内取用与释放，保证同连接）。 */
+    public boolean tryAdvisoryLock(String lockKey) {
+        return mapper.tryAdvisoryLock(lockKey);
+    }
+
+    /** 释放 advisory lock（与 tryAdvisoryLock 同事务内调用）。 */
+    public boolean advisoryUnlock(String lockKey) {
+        return mapper.advisoryUnlock(lockKey);
+    }
+
+    /** 转发水位 upsert：本通道已外送的最后一条记录 ID。 */
+    public void updateForwardProgress(String channel, String lastForwardedId, int batchSize) {
+        mapper.updateForwardProgress(channel, lastForwardedId, batchSize);
+    }
 }

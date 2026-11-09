@@ -1,0 +1,508 @@
+# 审计动作目录（ADR-072 §2 登记制，OBS-05 / M2 残余收口批次 B-2）
+# 分类: SECURITY/CONFIG/DATA/EXECUTION/ADMIN（ADR-072 §2）; 保留类别: rclass 映射 SEC=400d,BIZ=180d(ADR-072 §5)
+# 维护: 新动作必须先登记再使用; 契约测试 AuditedActionCatalogTest 校验 @Audited 与本文件一致
+actions:
+  - action: agent.create
+    category: CONFIG
+    resourceType: agent
+    retentionClass: BIZ
+    siemSeverity: LOW
+    module: tioka-module-agent
+  - action: agent.disable
+    category: CONFIG
+    resourceType: agent
+    retentionClass: BIZ
+    siemSeverity: LOW
+    module: tioka-module-agent
+  - action: agent.draft.put
+    category: CONFIG
+    resourceType: agent
+    retentionClass: BIZ
+    siemSeverity: LOW
+    module: tioka-module-agent
+  - action: agent.enable
+    category: CONFIG
+    resourceType: agent
+    retentionClass: BIZ
+    siemSeverity: LOW
+    module: tioka-module-agent
+  - action: agent.publish
+    category: CONFIG
+    resourceType: agent
+    retentionClass: BIZ
+    siemSeverity: LOW
+    module: tioka-module-agent
+  - action: agent.rollback
+    category: CONFIG
+    resourceType: agent
+    retentionClass: BIZ
+    siemSeverity: LOW
+    module: tioka-module-agent
+  - action: agent.update
+    category: CONFIG
+    resourceType: agent
+    retentionClass: BIZ
+    siemSeverity: LOW
+    module: tioka-module-agent
+  - action: agent.validate
+    category: CONFIG
+    resourceType: agent
+    retentionClass: BIZ
+    siemSeverity: LOW
+    module: tioka-module-agent
+  - action: agui.agent.run
+    category: CONFIG
+    resourceType: agent
+    retentionClass: BIZ
+    siemSeverity: LOW
+    module: tioka-module-runtime
+  - action: api_key.create
+    category: SECURITY
+    resourceType: api_key
+    retentionClass: SEC
+    siemSeverity: HIGH
+    module: tioka-module-system
+  - action: api_key.revoke
+    category: SECURITY
+    resourceType: api_key
+    retentionClass: SEC
+    siemSeverity: HIGH
+    module: tioka-module-system
+  - action: audit.export
+    category: DATA
+    resourceType: audit_event
+    retentionClass: BIZ
+    siemSeverity: MEDIUM
+    module: tioka-module-system
+  - action: audit.query
+    category: DATA
+    resourceType: audit_event
+    retentionClass: BIZ
+    siemSeverity: MEDIUM
+    module: tioka-module-system
+  - action: chat.card.approval
+    category: EXECUTION
+    resourceType: card
+    retentionClass: BIZ
+    siemSeverity: LOW
+    module: tioka-module-chat
+  - action: chat.card.approval.submit
+    category: EXECUTION
+    resourceType: card
+    retentionClass: BIZ
+    siemSeverity: LOW
+    module: tioka-module-chat
+  - action: chat.card.continue
+    category: EXECUTION
+    resourceType: card
+    retentionClass: BIZ
+    siemSeverity: LOW
+    module: tioka-module-chat
+  - action: chat.card.continue.submit
+    category: EXECUTION
+    resourceType: card
+    retentionClass: BIZ
+    siemSeverity: LOW
+    module: tioka-module-chat
+  - action: chat.conversation.create
+    category: CONFIG
+    resourceType: conversation
+    retentionClass: BIZ
+    siemSeverity: LOW
+    module: tioka-module-chat
+  - action: chat.conversation.delete
+    category: CONFIG
+    resourceType: conversation
+    retentionClass: BIZ
+    siemSeverity: LOW
+    module: tioka-module-chat
+  - action: chat.message.send
+    category: CONFIG
+    resourceType: conversation
+    retentionClass: BIZ
+    siemSeverity: LOW
+    module: tioka-module-chat
+  - action: chat.stop
+    category: CONFIG
+    resourceType: conversation
+    retentionClass: BIZ
+    siemSeverity: LOW
+    module: tioka-module-chat
+  - action: egress.denied
+    category: SECURITY
+    resourceType: egress
+    retentionClass: BIZ
+    siemSeverity: MEDIUM
+    module: tioka-module-system
+  - action: flow.draft.publish
+    category: CONFIG
+    resourceType: flow
+    retentionClass: BIZ
+    siemSeverity: LOW
+    module: tioka-module-flow
+  - action: flow.draft.save
+    category: CONFIG
+    resourceType: flow
+    retentionClass: BIZ
+    siemSeverity: LOW
+    module: tioka-module-flow
+  - action: flow.publication.as_tool
+    category: CONFIG
+    resourceType: flow
+    retentionClass: BIZ
+    siemSeverity: LOW
+    module: tioka-module-flow
+  - action: flow.version.run
+    category: CONFIG
+    resourceType: flow_version
+    retentionClass: BIZ
+    siemSeverity: LOW
+    module: tioka-module-flow
+  - action: group.create
+    category: CONFIG
+    resourceType: group
+    retentionClass: BIZ
+    siemSeverity: LOW
+    module: tioka-module-system
+  - action: group.members.replace
+    category: CONFIG
+    resourceType: group
+    retentionClass: BIZ
+    siemSeverity: LOW
+    module: tioka-module-system
+  - action: http.access_denied
+    category: SECURITY
+    resourceType: http
+    retentionClass: BIZ
+    siemSeverity: MEDIUM
+    module: tioka-module-system
+  - action: im.binding.connectivity
+    category: CONFIG
+    resourceType: im_binding
+    retentionClass: BIZ
+    siemSeverity: LOW
+    module: tioka-module-connector
+  - action: im.binding.create
+    category: CONFIG
+    resourceType: im_binding
+    retentionClass: BIZ
+    siemSeverity: LOW
+    module: tioka-module-connector
+  - action: im.binding.delete
+    category: CONFIG
+    resourceType: im_binding
+    retentionClass: BIZ
+    siemSeverity: LOW
+    module: tioka-module-connector
+  - action: im.binding.update
+    category: CONFIG
+    resourceType: im_binding
+    retentionClass: BIZ
+    siemSeverity: LOW
+    module: tioka-module-connector
+  - action: knowledge.base.create
+    category: CONFIG
+    resourceType: kb
+    retentionClass: BIZ
+    siemSeverity: LOW
+    module: tioka-module-knowledge
+  - action: knowledge.datasource.bind
+    category: CONFIG
+    resourceType: kb_datasource
+    retentionClass: BIZ
+    siemSeverity: LOW
+    module: tioka-module-knowledge
+  - action: knowledge.datasource.sync
+    category: CONFIG
+    resourceType: kb_datasource
+    retentionClass: BIZ
+    siemSeverity: LOW
+    module: tioka-module-knowledge
+  - action: knowledge.document.ingest
+    category: CONFIG
+    resourceType: kb
+    retentionClass: BIZ
+    siemSeverity: LOW
+    module: tioka-module-knowledge
+  - action: knowledge.document.upload
+    category: CONFIG
+    resourceType: kb
+    retentionClass: BIZ
+    siemSeverity: LOW
+    module: tioka-module-knowledge
+  - action: knowledge.eval.run
+    category: CONFIG
+    resourceType: kb
+    retentionClass: BIZ
+    siemSeverity: LOW
+    module: tioka-module-knowledge
+  - action: mcp.outbound.call
+    category: CONFIG
+    resourceType: mcp_tool
+    retentionClass: BIZ
+    siemSeverity: LOW
+    module: tioka-server
+  - action: mcp.server.refresh_tools
+    category: CONFIG
+    resourceType: mcp_server
+    retentionClass: BIZ
+    siemSeverity: LOW
+    module: tioka-module-mcp
+  - action: mcp.server.register
+    category: CONFIG
+    resourceType: mcp_server
+    retentionClass: BIZ
+    siemSeverity: LOW
+    module: tioka-module-mcp
+  - action: mcp.server.trial
+    category: CONFIG
+    resourceType: mcp_server
+    retentionClass: BIZ
+    siemSeverity: LOW
+    module: tioka-module-mcp
+  - action: mcp.tool.risk.update
+    category: CONFIG
+    resourceType: mcp_tool
+    retentionClass: BIZ
+    siemSeverity: LOW
+    module: tioka-module-mcp
+  - action: model.binding.create
+    category: CONFIG
+    resourceType: model_binding
+    retentionClass: BIZ
+    siemSeverity: LOW
+    module: tioka-module-model
+  - action: model.binding.update
+    category: CONFIG
+    resourceType: model_binding
+    retentionClass: BIZ
+    siemSeverity: LOW
+    module: tioka-module-model
+  - action: model.default_plan.upsert
+    category: CONFIG
+    resourceType: default_plan
+    retentionClass: BIZ
+    siemSeverity: LOW
+    module: tioka-module-model
+  - action: model.logical.create
+    category: CONFIG
+    resourceType: logical_model
+    retentionClass: BIZ
+    siemSeverity: LOW
+    module: tioka-module-model
+  - action: model.provider.create
+    category: CONFIG
+    resourceType: model_provider
+    retentionClass: BIZ
+    siemSeverity: LOW
+    module: tioka-module-model
+  - action: model.routing_plan.create
+    category: CONFIG
+    resourceType: routing_plan
+    retentionClass: BIZ
+    siemSeverity: LOW
+    module: tioka-module-model
+  - action: model.routing_plan.publish
+    category: CONFIG
+    resourceType: routing_plan
+    retentionClass: BIZ
+    siemSeverity: LOW
+    module: tioka-module-model
+  - action: ops.agent.share
+    category: ADMIN
+    resourceType: agent
+    retentionClass: SEC
+    siemSeverity: MEDIUM
+    module: tioka-server
+  - action: ops.datasource.bind
+    category: ADMIN
+    resourceType: kb_datasource
+    retentionClass: SEC
+    siemSeverity: MEDIUM
+    module: tioka-server
+  - action: ops.feishu.map
+    category: ADMIN
+    resourceType: feishu_doc
+    retentionClass: SEC
+    siemSeverity: MEDIUM
+    module: tioka-server
+  - action: ops.scim.sync
+    category: ADMIN
+    resourceType: scim
+    retentionClass: SEC
+    siemSeverity: MEDIUM
+    module: tioka-server
+  - action: ops.wiki.upsert
+    category: ADMIN
+    resourceType: wiki
+    retentionClass: SEC
+    siemSeverity: MEDIUM
+    module: tioka-server
+  - action: orch.event.ingest
+    category: CONFIG
+    resourceType: orch_event
+    retentionClass: BIZ
+    siemSeverity: LOW
+    module: tioka-module-orchestration
+  - action: orch.rule.create
+    category: CONFIG
+    resourceType: orch_rule
+    retentionClass: BIZ
+    siemSeverity: LOW
+    module: tioka-module-orchestration
+  - action: orch.rule.dry_run
+    category: CONFIG
+    resourceType: orch_rule_version
+    retentionClass: BIZ
+    siemSeverity: LOW
+    module: tioka-module-orchestration
+  - action: orch.rule.publish
+    category: CONFIG
+    resourceType: orch_rule_version
+    retentionClass: BIZ
+    siemSeverity: LOW
+    module: tioka-module-orchestration
+  - action: orch.rule.version.create
+    category: CONFIG
+    resourceType: orch_rule
+    retentionClass: BIZ
+    siemSeverity: LOW
+    module: tioka-module-orchestration
+  - action: orch.run.cancel
+    category: EXECUTION
+    resourceType: orch_run
+    retentionClass: BIZ
+    siemSeverity: LOW
+    module: tioka-module-orchestration
+  - action: orch.timer.cancel
+    category: CONFIG
+    resourceType: orch_timer
+    retentionClass: BIZ
+    siemSeverity: LOW
+    module: tioka-module-orchestration
+  - action: orch.timer.create
+    category: CONFIG
+    resourceType: orch_timer
+    retentionClass: BIZ
+    siemSeverity: LOW
+    module: tioka-module-orchestration
+  - action: permission.denied
+    category: SECURITY
+    resourceType: permission
+    retentionClass: BIZ
+    siemSeverity: MEDIUM
+    module: tioka-module-system
+  - action: quota.put
+    category: CONFIG
+    resourceType: quota
+    retentionClass: BIZ
+    siemSeverity: LOW
+    module: tioka-module-system
+  - action: resource.acl.replace
+    category: CONFIG
+    resourceType: acl
+    retentionClass: BIZ
+    siemSeverity: LOW
+    module: tioka-module-system
+  - action: role.create
+    category: CONFIG
+    resourceType: role
+    retentionClass: BIZ
+    siemSeverity: LOW
+    module: tioka-module-system
+  - action: role.delete
+    category: CONFIG
+    resourceType: role
+    retentionClass: BIZ
+    siemSeverity: LOW
+    module: tioka-module-system
+  - action: role.update
+    category: CONFIG
+    resourceType: role
+    retentionClass: BIZ
+    siemSeverity: LOW
+    module: tioka-module-system
+  - action: runtime.thread.create
+    category: CONFIG
+    resourceType: thread
+    retentionClass: BIZ
+    siemSeverity: LOW
+    module: tioka-module-runtime
+  - action: runtime.turn.interrupt
+    category: CONFIG
+    resourceType: turn
+    retentionClass: BIZ
+    siemSeverity: LOW
+    module: tioka-module-runtime
+  - action: runtime.turn.start
+    category: CONFIG
+    resourceType: thread
+    retentionClass: BIZ
+    siemSeverity: LOW
+    module: tioka-module-runtime
+  - action: runtime.turn.steer
+    category: CONFIG
+    resourceType: turn
+    retentionClass: BIZ
+    siemSeverity: LOW
+    module: tioka-module-runtime
+  - action: service_account.create
+    category: CONFIG
+    resourceType: user
+    retentionClass: BIZ
+    siemSeverity: LOW
+    module: tioka-module-system
+  - action: skill.import
+    category: CONFIG
+    resourceType: skill
+    retentionClass: BIZ
+    siemSeverity: LOW
+    module: tioka-module-skill
+  - action: skill.publish
+    category: CONFIG
+    resourceType: skill
+    retentionClass: BIZ
+    siemSeverity: LOW
+    module: tioka-module-skill
+  - action: upload.confirm
+    category: CONFIG
+    resourceType: upload
+    retentionClass: BIZ
+    siemSeverity: LOW
+    module: tioka-module-runtime
+  - action: upload.content.put
+    category: CONFIG
+    resourceType: upload
+    retentionClass: BIZ
+    siemSeverity: LOW
+    module: tioka-module-runtime
+  - action: upload.presign
+    category: CONFIG
+    resourceType: upload
+    retentionClass: BIZ
+    siemSeverity: LOW
+    module: tioka-module-runtime
+  - action: upload.session.publish
+    category: CONFIG
+    resourceType: upload_session
+    retentionClass: BIZ
+    siemSeverity: LOW
+    module: tioka-module-runtime
+  - action: user.create
+    category: CONFIG
+    resourceType: user
+    retentionClass: BIZ
+    siemSeverity: LOW
+    module: tioka-module-system
+  - action: workspace.create
+    category: CONFIG
+    resourceType: workspace
+    retentionClass: BIZ
+    siemSeverity: LOW
+    module: tioka-module-system
+  - action: workspace.member.put
+    category: CONFIG
+    resourceType: workspace
+    retentionClass: BIZ
+    siemSeverity: LOW
+    module: tioka-module-system
