@@ -20,6 +20,8 @@ public class ModelUsageDO extends AppendOnlyDO {
     private String turnId;
     private String purpose;
     private String bindingId;
+    /** P2-L5（V218）：供给侧分摊维度；历史行为 NULL。 */
+    private String providerId;
     private String modelRef;
     private Integer promptTokens;
     private Integer completionTokens;
@@ -49,6 +51,8 @@ public class ModelUsageDO extends AppendOnlyDO {
     public void setPurpose(String purpose) { this.purpose = purpose; }
     public String getBindingId() { return bindingId; }
     public void setBindingId(String bindingId) { this.bindingId = bindingId; }
+    public String getProviderId() { return providerId; }
+    public void setProviderId(String providerId) { this.providerId = providerId; }
     public String getModelRef() { return modelRef; }
     public void setModelRef(String modelRef) { this.modelRef = modelRef; }
     public Integer getPromptTokens() { return promptTokens; }

@@ -67,7 +67,8 @@ public class ModelAdminService {
                 req.inputPriceMicros() == null ? 0L : req.inputPriceMicros(),
                 req.outputPriceMicros() == null ? 0L : req.outputPriceMicros(),
                 req.rpmLimit(), req.tpmLimit(),
-                req.enabled() == null || req.enabled()));
+                req.enabled() == null || req.enabled(),
+                req.budgetTokenMonth(), req.budgetCostMonth()));
         return id;
     }
 
@@ -90,7 +91,9 @@ public class ModelAdminService {
                 req.outputPriceMicros() != null ? req.outputPriceMicros() : existing.outputPriceMicros(),
                 req.rpmLimit() != null ? req.rpmLimit() : existing.rpmLimit(),
                 req.tpmLimit() != null ? req.tpmLimit() : existing.tpmLimit(),
-                req.enabled() != null ? req.enabled() : existing.enabled());
+                req.enabled() != null ? req.enabled() : existing.enabled(),
+                req.budgetTokenMonth() != null ? req.budgetTokenMonth() : existing.budgetTokenMonth(),
+                req.budgetCostMonth() != null ? req.budgetCostMonth() : existing.budgetCostMonth());
         entities.putBinding(updated);
         return toModelBindingView(updated);
     }
@@ -180,7 +183,8 @@ public class ModelAdminService {
                 b.id(), b.logicalModelId(), b.providerId(), b.modelName(),
                 b.kind(), b.contextWindow(), b.embeddingDim(),
                 b.inputPriceMicros(), b.outputPriceMicros(),
-                b.rpmLimit(), b.tpmLimit(), b.enabled());
+                b.rpmLimit(), b.tpmLimit(), b.enabled(),
+                b.budgetTokenMonth(), b.budgetCostMonth());
     }
 
     private RoutingPlanView toView(RoutingPlan p) {

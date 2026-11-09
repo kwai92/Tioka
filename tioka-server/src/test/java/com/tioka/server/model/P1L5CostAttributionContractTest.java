@@ -17,9 +17,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * P1 / L5（模型网关配额与成本归集）离线契约测试：纯 JUnit5 + 反射，不启 Spring、
  * 不依赖 Redis / PostgreSQL（离线验收）。
  *
- * <p>本类只固化「代码现状与 L5 验收准则一致」的部分；供给侧月度预算、provider 分摊、
+ * <p>本类只固化「代码现状与 L5 验收准则一致」的部分；供给侧月度预算与 provider 分摊
+ * 已在 P2 落地（见 {@code P2L5SupplyBudgetContractTest} 与 V218 迁移）；
  * 成本 80% 预警、rerank 实现（MH-04）等缺口见
- * {@code docs/architecture/design-notes/P1-L5-gap-ledger.md}，归 P2。
+ * {@code docs/architecture/design-notes/P1-L5-gap-ledger.md}。
  */
 class P1L5CostAttributionContractTest {
 
@@ -73,6 +74,9 @@ class P1L5CostAttributionContractTest {
         assertTrue(fields.contains("modelRef"));
         assertTrue(fields.contains("promptTokens"));
         assertTrue(fields.contains("completionTokens"));
+        // P2-L5（GAP-L5-2 已落地）：供给侧 provider 分摊维度
+        assertTrue(fields.contains("providerId"),
+                "P2-L5 落地后 model_usage 须携带 providerId（供给侧分摊）");
     }
 
     @Test

@@ -63,6 +63,11 @@ public class ModelUsageRepository {
         return mapper.summaryByModel(workspaceId, from, to);
     }
 
+    /** P2-L5（GAP-L5-2）：成本按供给侧 provider 分摊。 */
+    public List<Map<String, Object>> summaryByProvider(String workspaceId, Instant from, Instant to) {
+        return mapper.summaryByProvider(workspaceId, from, to);
+    }
+
     public List<Map<String, Object>> trendByDay(String scopeType, String scopeId, String workspaceId,
                                                 Instant from, Instant to) {
         return mapper.trendByDay(scopeType, scopeId, workspaceId, from, to);
@@ -74,6 +79,16 @@ public class ModelUsageRepository {
 
     public Long sumTokensByScope(String scopeType, String scopeId, Instant from, Instant to) {
         return mapper.sumTokensByScope(scopeType, scopeId, from, to);
+    }
+
+    /** P2-L5（GAP-L5-1）：binding 自 {@code from}（月窗起点）以来的 token 消耗合计。 */
+    public Long sumTokensByBinding(String bindingId, Instant from) {
+        return mapper.sumTokensByBinding(bindingId, from);
+    }
+
+    /** P2-L5（GAP-L5-1）：binding 自 {@code from}（月窗起点）以来的成本合计（微美分）。 */
+    public Long sumCostByBinding(String bindingId, Instant from) {
+        return mapper.sumCostByBinding(bindingId, from);
     }
 }
 

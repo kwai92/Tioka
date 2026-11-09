@@ -83,6 +83,27 @@
 ]]>
     </select>
 
+    <!-- P2-L5（GAP-L5-2）：成本按供给侧 provider 分摊；历史行 provider_id 为 NULL，不出现在分摊结果 -->
+    <select id="summaryByProvider" resultType="java.util.HashMap">
+        <![CDATA[
+            SELECT u.provider_id AS key,
+                   COALESCE(p.name, u.provider_id, '') AS name,
+                   COALESCE(SUM(u.prompt_tokens), 0) AS "promptTokens",
+                   COALESCE(SUM(u.completion_tokens), 0) AS "completionTokens",
+                   COALESCE(SUM(u.cost_micros), 0) AS "costMicros",
+                   COUNT(*) AS calls
+            FROM model_usage u
+            LEFT JOIN model_provider p ON p.id = u.provider_id
+            WHERE (#{workspaceId}::varchar IS NULL OR u.workspace_id = #{workspaceId})
+              AND u.create_at >= #{from}
+              AND u.create_at <= #{to}
+              AND u.provider_id IS NOT NULL
+            GROUP BY u.provider_id, p.name
+            ORDER BY "costMicros" DESC
+
+]]>
+    </select>
+
     <select id="trendByDay" resultType="java.util.HashMap">
         <![CDATA[
             SELECT to_char(date_trunc('day', u.create_at), 'YYYY-MM-DD') AS day,
@@ -99,6 +120,7 @@
                  OR (#{scopeType} = 'agent' AND u.agent_id = #{scopeId})
                  OR (#{scopeType} = 'user' AND u.user_id = #{scopeId})
                  OR (#{scopeType} = 'model' AND COALESCE(NULLIF(u.binding_id, ''), u.model_ref) = #{scopeId})
+                 OR (#{scopeType} = 'provider' AND u.provider_id = #{scopeId})
               )
             GROUP BY 1
             ORDER BY 1
@@ -129,6 +151,27 @@
                 OR (#{scopeType} = 'agent' AND agent_id = #{scopeId})
               )
             
+]]>
+    </select>
+
+    <!-- P2-L5（GAP-L5-1）：binding 供给侧预算窗口聚合（月窗，from = 月初） -->
+    <select id="sumTokensByBinding" resultType="java.lang.Long">
+        <![CDATA[
+            SELECT COALESCE(SUM(prompt_tokens), 0) + COALESCE(SUM(completion_tokens), 0)
+            FROM model_usage
+            WHERE binding_id = #{bindingId}
+              AND create_at >= #{from}
+
+]]>
+    </select>
+
+    <select id="sumCostByBinding" resultType="java.lang.Long">
+        <![CDATA[
+            SELECT COALESCE(SUM(cost_micros), 0)
+            FROM model_usage
+            WHERE binding_id = #{bindingId}
+              AND create_at >= #{from}
+
 ]]>
     </select>
 

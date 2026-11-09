@@ -26,6 +26,8 @@ public enum ErrorCode {
     RATE_LIMITED(42900, 429, "请求过于频繁"),
     /** 配额用尽（ADR-017、ADR-029 第 7 条），HTTP 429。 */
     QUOTA_EXCEEDED(42901, 429, "配额已用尽"),
+    /** 供给侧（binding）月度预算耗尽（P2-L5 / GAP-L5-1），HTTP 429。 */
+    MODEL_BUDGET_EXHAUSTED(42902, 429, "模型预算已耗尽"),
     INTERNAL(50000, 500, "内部错误"),
     /** 会话锁租约丢失，仅内部使用，不对外返回（ADR-029 第 4 条）。 */
     LEASE_LOST(50001, 500, "执行租约已失效"),

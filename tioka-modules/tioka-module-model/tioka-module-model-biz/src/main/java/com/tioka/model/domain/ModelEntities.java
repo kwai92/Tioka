@@ -62,6 +62,8 @@ public class ModelEntities {
         row.setOutputPriceMicros(b.outputPriceMicros());
         row.setRpmLimit(b.rpmLimit());
         row.setTpmLimit(b.tpmLimit());
+        row.setBudgetTokenMonth(b.budgetTokenMonth());
+        row.setBudgetCostMonth(b.budgetCostMonth());
         row.setEnabled(b.enabled());
         repo.putBinding(row);
     }
@@ -78,7 +80,8 @@ public class ModelEntities {
                 r.getInputPriceMicros() == null ? 0L : r.getInputPriceMicros(),
                 r.getOutputPriceMicros() == null ? 0L : r.getOutputPriceMicros(),
                 r.getRpmLimit(), r.getTpmLimit(),
-                r.getEnabled() == null || r.getEnabled());
+                r.getEnabled() == null || r.getEnabled(),
+                r.getBudgetTokenMonth(), r.getBudgetCostMonth());
     }
 
     public boolean hasBinding(String id) {
@@ -156,12 +159,26 @@ public class ModelEntities {
     public record Provider(String id, String name, String baseUrl, String apiKeyRef) {}
     public record LogicalModel(String id, String name, String capabilityTags) {}
 
+    /**
+     * 模型绑定快照。预算字段（P2-L5 / V218）：NULL 表示不限；
+     * {@code budgetTokenMonth} 为本月 token 上限，{@code budgetCostMonth} 为本月成本上限（微美分）。
+     */
     public record ModelBinding(String id, String logicalModelId, String providerId, String modelName,
                           String kind, Integer contextWindow, Integer embeddingDim,
                           long inputPriceMicros, long outputPriceMicros,
-                          Integer rpmLimit, Integer tpmLimit, boolean enabled) {
+                          Integer rpmLimit, Integer tpmLimit, boolean enabled,
+                          Long budgetTokenMonth, Long budgetCostMonth) {
         public ModelBinding(String id, String logicalModelId, String providerId, String modelName) {
-            this(id, logicalModelId, providerId, modelName, "chat", null, null, 0L, 0L, null, null, true);
+            this(id, logicalModelId, providerId, modelName, "chat", null, null, 0L, 0L, null, null, true,
+                    null, null);
+        }
+        /** 兼容 V218 之前调用方的短构造：预算不限。 */
+        public ModelBinding(String id, String logicalModelId, String providerId, String modelName,
+                            String kind, Integer contextWindow, Integer embeddingDim,
+                            long inputPriceMicros, long outputPriceMicros,
+                            Integer rpmLimit, Integer tpmLimit, boolean enabled) {
+            this(id, logicalModelId, providerId, modelName, kind, contextWindow, embeddingDim,
+                    inputPriceMicros, outputPriceMicros, rpmLimit, tpmLimit, enabled, null, null);
         }
     }
 

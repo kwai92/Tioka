@@ -6,33 +6,42 @@ public final class ProviderDtos {
     public record ProviderView(String id, String name, String baseUrl, String apiKeyRef) {}
     public record CreateLogicalModelRequest(String name, String capabilityTags) {}
 
-    /** FE-03 / V117：创建 binding；短构造兼容旧调用方。 */
+    /**
+     * FE-03 / V117：创建 binding；短构造兼容旧调用方。
+     * <p>P2-L5（V218）：{@code budgetTokenMonth}/{@code budgetCostMonth} 为供给侧月度预算，
+     * NULL = 不限（金额单位微美分，与 model_usage.cost_micros 一致）。
+     */
     public record CreateModelBindingRequest(
             String logicalModelId, String providerId, String modelName,
             String kind, Integer embeddingDim,
             Integer contextWindow,
             Long inputPriceMicros, Long outputPriceMicros,
             Integer rpmLimit, Integer tpmLimit,
-            Boolean enabled) {
+            Boolean enabled,
+            Long budgetTokenMonth, Long budgetCostMonth) {
         public CreateModelBindingRequest(String logicalModelId, String providerId, String modelName) {
-            this(logicalModelId, providerId, modelName, null, null, null, null, null, null, null, null);
+            this(logicalModelId, providerId, modelName, null, null, null, null, null, null, null, null,
+                    null, null);
         }
         public CreateModelBindingRequest(String logicalModelId, String providerId, String modelName,
                                     String kind, Integer embeddingDim) {
-            this(logicalModelId, providerId, modelName, kind, embeddingDim, null, null, null, null, null, null);
+            this(logicalModelId, providerId, modelName, kind, embeddingDim, null, null, null, null, null,
+                    null, null, null);
         }
     }
 
     public record UpdateModelBindingRequest(
             String kind, Integer embeddingDim, Integer contextWindow,
             Long inputPriceMicros, Long outputPriceMicros,
-            Integer rpmLimit, Integer tpmLimit, Boolean enabled) {}
+            Integer rpmLimit, Integer tpmLimit, Boolean enabled,
+            Long budgetTokenMonth, Long budgetCostMonth) {}
 
     public record ModelBindingView(
             String id, String logicalModelId, String providerId, String modelName,
             String kind, Integer contextWindow, Integer embeddingDim,
             long inputPriceMicros, long outputPriceMicros,
-            Integer rpmLimit, Integer tpmLimit, boolean enabled) {}
+            Integer rpmLimit, Integer tpmLimit, boolean enabled,
+            Long budgetTokenMonth, Long budgetCostMonth) {}
 
     public record CreateRoutingPlanRequest(
             String name,
