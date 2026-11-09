@@ -208,6 +208,18 @@ SELECT 1 FROM runtime_thread WHERE id = #{threadId} FOR UPDATE
 ]]>
     </update>
 
+    <update id="cancelWaitingChild">
+        <![CDATA[
+            UPDATE runtime_turn
+               SET status = 'CANCELLED',
+                   error_code = #{errorCode},
+                   error_message = #{errorMessage},
+                   ended_at = now(),
+                   update_at = now()
+             WHERE id = #{turnId} AND status = 'WAITING_CHILD'
+        ]]>
+    </update>
+
     <update id="cancelQueued">
         <![CDATA[
             UPDATE runtime_turn

@@ -57,6 +57,10 @@ public interface RuntimeTurnMapper {
         List<RuntimeTurnDO> findWaitingChild(@Param("limit") int limit);
 
     /** RT-07：WAITING_APPROVAL → CANCELLED（interrupt）。 */
+        int cancelWaitingChild(@Param("turnId") String turnId,
+                               @Param("errorCode") String errorCode,
+                               @Param("errorMessage") String errorMessage);
+
         int cancelWaitingApproval(@Param("turnId") String turnId,
                               @Param("errorCode") String errorCode,
                               @Param("errorMessage") String errorMessage);

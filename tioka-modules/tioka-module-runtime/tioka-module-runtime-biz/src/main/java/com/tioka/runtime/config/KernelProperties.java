@@ -31,6 +31,33 @@ public class KernelProperties {
      * 配置键 {@code tioka.runtime.max-recover}，默认 2（即最多续跑 2 次，第 3 次中断放弃）。
      */
     private int maxRecover = 2;
+    /** RT-12 委派（agent.delegate）：MAS-01 合并前默认关闭（M3-01 / ADR-029 第 43 条）。 */
+    private Delegate delegate = new Delegate();
+    /** MAS-01：根授予 TTL（ADR-039，默认 24h）。 */
+    private Duration rootGrantTtl = Duration.ofHours(24);
+    /** MAS-01：委派子授予 TTL 上限（子快照无 turnTimeout 投影的近似，登记偏差）。 */
+    private Duration childGrantTtl = Duration.ofHours(1);
+
+    public Duration getRootGrantTtl() { return rootGrantTtl; }
+    public void setRootGrantTtl(Duration rootGrantTtl) { this.rootGrantTtl = rootGrantTtl; }
+    public Duration getChildGrantTtl() { return childGrantTtl; }
+    public void setChildGrantTtl(Duration childGrantTtl) { this.childGrantTtl = childGrantTtl; }
+    public Delegate getDelegate() { return delegate; }
+    public void setDelegate(Delegate delegate) { this.delegate = delegate; }
+
+    /** RT-12：{@code tioka.runtime.delegate.*}。 */
+    public static class Delegate {
+        private boolean enabled = false;
+        private int maxDepth = 2;
+        private int maxParallel = 3;
+
+        public boolean isEnabled() { return enabled; }
+        public void setEnabled(boolean enabled) { this.enabled = enabled; }
+        public int getMaxDepth() { return maxDepth; }
+        public void setMaxDepth(int maxDepth) { this.maxDepth = maxDepth; }
+        public int getMaxParallel() { return maxParallel; }
+        public void setMaxParallel(int maxParallel) { this.maxParallel = maxParallel; }
+    }
 
     public String getInstanceId() { return instanceId; }
     public void setInstanceId(String instanceId) { this.instanceId = instanceId; }

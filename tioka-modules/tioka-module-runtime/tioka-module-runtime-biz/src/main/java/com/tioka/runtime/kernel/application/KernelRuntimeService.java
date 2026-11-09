@@ -8,8 +8,15 @@ import com.tioka.framework.error.BizException;
 import com.tioka.framework.error.ErrorCode;
 import com.tioka.framework.error.NotImplemented;
 import com.tioka.framework.id.Ids;
+import com.tioka.framework.label.DataLabel;
 import com.tioka.framework.security.Principal;
 import com.tioka.framework.security.PrincipalHolder;
+import com.tioka.runtime.api.grant.Budget;
+import com.tioka.runtime.api.grant.DelegationGrant;
+import com.tioka.runtime.api.grant.GrantAgentView;
+import com.tioka.runtime.api.grant.GrantService;
+import com.tioka.runtime.api.grant.GrantStatus;
+import com.tioka.runtime.api.grant.MandateScope;
 import com.tioka.runtime.api.kernel.ItemType;
 import com.tioka.runtime.api.kernel.RuntimeApi;
 import com.tioka.runtime.api.kernel.RuntimeEventType;
@@ -25,6 +32,7 @@ import com.tioka.runtime.kernel.infrastructure.ItemWrite;
 import com.tioka.runtime.kernel.infrastructure.TurnRepository;
 import com.tioka.runtime.infrastructure.persistence.RuntimeItemDO;
 import com.tioka.runtime.infrastructure.persistence.RuntimeTurnDO;
+import com.tioka.runtime.application.ToolRegistry;
 import com.tioka.runtime.kernel.infrastructure.redis.TurnDispatchQueue;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
@@ -35,10 +43,12 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 @Service
 public class KernelRuntimeService implements RuntimeApi {
@@ -54,6 +64,8 @@ public class KernelRuntimeService implements RuntimeApi {
     private final ObjectMapper mapper;
     private final AgentSnapshotApi agents;
     private final ApprovalDecideService approvalDecide;
+    private final GrantService grants;
+    private final ToolRegistry tools;
 
     public KernelRuntimeService(RuntimeThreadRepository threads,
                                 TurnRepository turns,
@@ -66,7 +78,9 @@ public class KernelRuntimeService implements RuntimeApi {
                                 RuntimeEventFactory events,
                                 ObjectMapper mapper,
                                 AgentSnapshotApi agents,
-                                ApprovalDecideService approvalDecide) {
+                                ApprovalDecideService approvalDecide,
+                                GrantService grants,
+                                ToolRegistry tools) {
         this.threads = threads;
         this.turns = turns;
         this.items = items;
@@ -79,6 +93,8 @@ public class KernelRuntimeService implements RuntimeApi {
         this.mapper = mapper;
         this.agents = agents;
         this.approvalDecide = approvalDecide;
+        this.grants = grants;
+        this.tools = tools;
     }
 
     @Override
@@ -133,6 +149,8 @@ public class KernelRuntimeService implements RuntimeApi {
         }
         String turnId = Ids.newId("turn");
         RequestContext correlation = ensureCorrelation();
+        // MAS-01：新 thread 第一个 Turn 签发根授予；同 thread 后续 Turn 复用（过期重签）
+        ensureRootGrant(threadId);
         RuntimeTurnDO t = new RuntimeTurnDO();
         t.setId(turnId);
         t.setThreadId(threadId);
@@ -141,7 +159,7 @@ public class KernelRuntimeService implements RuntimeApi {
         t.setOrigin(blankToNull(cmd.origin()) == null ? "chat" : cmd.origin());
         t.setOriginRef(cmd.originRef());
         t.setClientMsgId(cmd.clientMsgId());
-        t.setRunAsJson(runAsJson());
+        t.setRunAsJson(runAsJson(cmd));
         t.setOptionsJson(optionsJson(cmd.options()));
         t.setStepCount(0);
         t.setLeaseVersion(0L);
@@ -262,13 +280,52 @@ public class KernelRuntimeService implements RuntimeApi {
         return s;
     }
 
-    private String runAsJson() {
+    private String runAsJson(RuntimeApi.StartTurnCmd cmd) {
         Principal p = principals.current();
         Map<String, Object> m = new LinkedHashMap<>();
         m.put("userId", p == null ? "0" : p.userId());
         m.put("workspaceId", p == null ? null : p.workspaceId());
         m.put("type", p == null ? "SYSTEM" : p.type().name());
+        // MAS-01 / ADR-039：SERVICE 模式代表经办人，只存身份，工具调用前按定案 6 重载权限
+        if (cmd != null && cmd.onBehalfOf() != null && !cmd.onBehalfOf().isBlank()) {
+            m.put("onBehalfOf", cmd.onBehalfOf());
+        }
         return json(m);
+    }
+
+    /**
+     * MAS-01：thread 无授予（或已失效 / 过期）时签发根授予并写 runtime_thread.grant_id；
+     * 工具、Skill、资源取自 Agent 版本快照（M3-01 L35-47）。
+     */
+    private void ensureRootGrant(String threadId) {
+        RuntimeThreadDO thread = threads.find(threadId);
+        if (thread == null) {
+            return;
+        }
+        if (thread.getGrantId() != null && !thread.getGrantId().isBlank()) {
+            DelegationGrant existing = grants.get(thread.getGrantId());
+            if (existing != null && existing.status() == GrantStatus.ACTIVE
+                    && (existing.expiresAt() == null || Instant.now().isBefore(existing.expiresAt()))) {
+                return;
+            }
+        }
+        if (thread.getAgentVersionId() == null || thread.getAgentVersionId().isBlank()) {
+            return;
+        }
+        try {
+            AgentSnapshotApi.AgentSnapshot snap = agents.get(thread.getAgentVersionId());
+            GrantAgentView view = com.tioka.runtime.application.grant.GrantAgentViews.fromSnapshot(snap, tools);
+            Principal runAs = principals.current();
+            DelegationGrant grant = grants.root(runAs, null, view, MandateScope.empty());
+            RuntimeThreadDO patch = new RuntimeThreadDO();
+            patch.setId(threadId);
+            patch.setGrantId(grant.grantId());
+            threads.upsert(patch);
+        } catch (BizException e) {
+            throw e;
+        } catch (RuntimeException e) {
+            // 根授予签发失败不阻断 Turn（thread.grant_id 保持空，2.5 步放行），登记告警
+        }
     }
 
     private String optionsJson(TurnOptions options) {
@@ -332,17 +389,17 @@ public class KernelRuntimeService implements RuntimeApi {
         return t == null ? null : t.toInstant(ZoneOffset.UTC);
     }
 
+    private static void requireText(String value, String name) {
+        if (value == null || value.isBlank()) {
+            throw new BizException(ErrorCode.BAD_REQUEST, name + " 必填");
+        }
+    }
+
     private String json(Object o) {
         try {
             return mapper.writeValueAsString(o);
         } catch (Exception e) {
             throw new BizException(ErrorCode.INTERNAL, "JSON 序列化失败");
-        }
-    }
-
-    private static void requireText(String value, String name) {
-        if (value == null || value.isBlank()) {
-            throw new BizException(ErrorCode.BAD_REQUEST, name + " 必填");
         }
     }
 

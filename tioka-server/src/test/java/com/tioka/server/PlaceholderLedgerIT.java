@@ -97,7 +97,7 @@ class PlaceholderLedgerIT {
     @Test
     void kernelForkRemainsNotImplemented_M3Reserved() {
         KernelRuntimeService svc = new KernelRuntimeService(
-                null, null, null, null, null, null, null, null, null, null, null, null);
+                null, null, null, null, null, null, null, null, null, null, null, null, null, null);
         BizException ex = assertThrows(BizException.class, () -> svc.fork("thread_x", 0));
         assertEquals(ErrorCode.NOT_IMPLEMENTED, ex.getErrorCode(),
                 "fork 必须保持 M3 RESERVED（NOT_IMPLEMENTED），不得被实现");

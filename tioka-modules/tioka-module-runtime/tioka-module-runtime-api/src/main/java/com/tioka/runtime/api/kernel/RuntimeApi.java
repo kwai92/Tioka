@@ -54,8 +54,18 @@ public interface RuntimeApi {
     record CreateThreadCmd(String agentVersionId, String origin, String originRef,
                            String title, Map<String, String> metadata) {}
 
+    /**
+     * MAS-01：{@code onBehalfOf} SERVICE 模式代表经办人（全链不变）；{@code mandateScope}
+     * 编排 {@code orch_mandate.scope_json} 解析出的任务范围。旧 5 参构造兼容（两者为空）。
+     */
     record StartTurnCmd(String clientMsgId, List<InputItem> input, TurnOptions options,
-                        String origin, String originRef) {}
+                        String origin, String originRef,
+                        String onBehalfOf, Map<String, List<String>> mandateScope) {
+        public StartTurnCmd(String clientMsgId, List<InputItem> input, TurnOptions options,
+                            String origin, String originRef) {
+            this(clientMsgId, input, options, origin, originRef, null, null);
+        }
+    }
 
     /**
      * @param maxSteps       默认 20

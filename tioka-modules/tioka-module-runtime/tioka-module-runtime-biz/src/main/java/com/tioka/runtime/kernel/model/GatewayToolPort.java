@@ -141,6 +141,7 @@ public class GatewayToolPort implements LoopPorts.ToolPort {
                 ctx.agentVersionId(),
                 ctx.origin(),
                 ctx.toolAllowList(),
-                ctx.agentToolConfig());
+                ctx.agentToolConfig(),
+                ctx.grantId());
     }
 }

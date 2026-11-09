@@ -28,6 +28,8 @@ public class RuntimeThreadDO extends WorkspaceAwareDO {
     private String metadataJson;
     private String parentTurnId;
     private Integer depth;
+    /** MAS-01：当前生效的委派授予 ID（V160）。 */
+    private String grantId;
 
     public String getId() { return id; }
     public void setId(String id) { this.id = id; }
@@ -57,4 +59,6 @@ public class RuntimeThreadDO extends WorkspaceAwareDO {
     public void setParentTurnId(String parentTurnId) { this.parentTurnId = parentTurnId; }
     public Integer getDepth() { return depth; }
     public void setDepth(Integer depth) { this.depth = depth; }
+    public String getGrantId() { return grantId; }
+    public void setGrantId(String grantId) { this.grantId = grantId; }
 }

@@ -15,6 +15,7 @@ import com.tioka.framework.security.SystemPrincipals;
 import com.tioka.runtime.api.kernel.RuntimeEventType;
 import com.tioka.runtime.api.kernel.TurnStatus;
 import com.tioka.runtime.config.KernelProperties;
+import com.tioka.runtime.kernel.child.SubAgentReaper;
 import com.tioka.runtime.kernel.domain.AgentLoop;
 import com.tioka.runtime.kernel.domain.CancelledSignal;
 import com.tioka.runtime.kernel.domain.LeaseLost;
@@ -80,6 +81,7 @@ public class TurnRunner {
     private final ObjectProvider<AgentSnapshotApi> agentSnapshots;
     private final QuotaGuard quota;
     private final ApplicationEventPublisher appEvents;
+    private final ObjectProvider<SubAgentReaper> reaper;
 
     public TurnRunner(TurnRepository turns,
                       RuntimeThreadRepository threads,
@@ -98,7 +100,8 @@ public class TurnRunner {
                       TurnDispatchQueue dispatchQueue,
                       ObjectProvider<AgentSnapshotApi> agentSnapshots,
                       QuotaGuard quota,
-                      ApplicationEventPublisher appEvents) {
+                      ApplicationEventPublisher appEvents,
+                      ObjectProvider<SubAgentReaper> reaper) {
         this.turns = turns;
         this.threads = threads;
         this.threadLock = threadLock;
@@ -117,6 +120,7 @@ public class TurnRunner {
         this.agentSnapshots = agentSnapshots;
         this.quota = quota;
         this.appEvents = appEvents;
+        this.reaper = reaper;
     }
 
     public void run(String turnId) {
@@ -260,7 +264,8 @@ public class TurnRunner {
                             origin,
                             toolAllowList,
                             agentToolConfig,
-                            deadline);
+                            deadline,
+                            thread == null ? null : thread.getGrantId());
                     return agentLoop.run(ctx);
                 });
                 if (result.status() == TurnStatus.WAITING_APPROVAL
@@ -274,6 +279,7 @@ public class TurnRunner {
                             result.promptTokens(), result.completionTokens());
                     turns.requireLeaseWrite(n);
                     publishTerminal(threadId, turnId, result.status());
+                    reapChild(threadId, turnId, result.status());
                     finished = true;
                 }
             } catch (LeaseLost e) {
@@ -283,6 +289,7 @@ public class TurnRunner {
             } catch (CancelledSignal e) {
                 turns.finish(turnId, lv, TurnStatus.CANCELLED, e.reason(), null, null, null);
                 publishTerminal(threadId, turnId, TurnStatus.CANCELLED);
+                reapChild(threadId, turnId, TurnStatus.CANCELLED);
                 finished = true;
             } catch (RuntimeException e) {
                 Throwable root = unwrap(e);
@@ -298,6 +305,7 @@ public class TurnRunner {
                         turns.finish(turnId, lv, TurnStatus.FAILED, "INTERNAL",
                                 truncate(e.getMessage()), null, null);
                         publishTerminal(threadId, turnId, TurnStatus.FAILED);
+                        reapChild(threadId, turnId, TurnStatus.FAILED);
                         finished = true;
                     } catch (RuntimeException ignored) {
                         // ignore
@@ -351,6 +359,19 @@ public class TurnRunner {
     /** LeaseReaper / 外部在终态后触发同 thread 下一条。 */
     public void enqueueNext(String threadId) {
         turns.nextQueued(threadId).ifPresent(t -> dispatchQueue.offer(t.getId(), threadId));
+    }
+
+    /** MAS-03：子 Turn 终态回收（非子 thread 空操作；失败仅告警不影响 Turn 终态）。 */
+    private void reapChild(String threadId, String turnId, TurnStatus status) {
+        SubAgentReaper r = reaper.getIfAvailable();
+        if (r == null) {
+            return;
+        }
+        try {
+            r.onChildTerminal(threadId, turnId, status);
+        } catch (RuntimeException e) {
+            log.warn("subagent reap failed thread={} turn={}: {}", threadId, turnId, e.toString());
+        }
     }
 
     private void failTurn(String turnId, long leaseVersion, String threadId,
@@ -423,6 +444,11 @@ public class TurnRunner {
             }
             if (workspaceId == null || workspaceId.isBlank()) {
                 throw new BizException(ErrorCode.INTERNAL, "turn.runAs 缺少 workspaceId");
+            }
+            // MAS-01（ADR-039）：SERVICE 模式带经办人 → 服务账号 ∩ 经办人 权限交集
+            String onBehalfOf = n.path("onBehalfOf").asText(null);
+            if (onBehalfOf != null && !onBehalfOf.isBlank()) {
+                return principalLoader.loadEffective(Long.parseLong(userId), workspaceId, onBehalfOf);
             }
             return principalLoader.load(Long.parseLong(userId), workspaceId);
         } catch (BizException e) {

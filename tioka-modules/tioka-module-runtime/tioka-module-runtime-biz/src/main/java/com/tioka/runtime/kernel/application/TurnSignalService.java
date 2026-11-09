@@ -39,6 +39,7 @@ public class TurnSignalService {
     private final ObjectMapper mapper;
     private final ApprovalRepository approvals;
     private final ApprovalDecideService approvalDecide;
+    private final com.tioka.runtime.infrastructure.GrantStore childThreads;
 
     public TurnSignalService(TurnRepository turns,
                              ItemRepository items,
@@ -47,7 +48,8 @@ public class TurnSignalService {
                              RuntimeEventFactory events,
                              ObjectMapper mapper,
                              ApprovalRepository approvals,
-                             ApprovalDecideService approvalDecide) {
+                             ApprovalDecideService approvalDecide,
+                             com.tioka.runtime.infrastructure.GrantStore childThreads) {
         this.turns = turns;
         this.items = items;
         this.signals = signals;
@@ -56,6 +58,7 @@ public class TurnSignalService {
         this.mapper = mapper;
         this.approvals = approvals;
         this.approvalDecide = approvalDecide;
+        this.childThreads = childThreads;
     }
 
     /** FND-04e：身份失效取消原因，写入 {@code runtime_turn.error_code}。 */
@@ -85,6 +88,7 @@ public class TurnSignalService {
                             turn.getThreadId(), turnId, TurnStatus.CANCELLED.name());
                     streams.publish(turn.getThreadId(), null,
                             com.tioka.runtime.api.kernel.RuntimeEventType.TURN_CANCELLED.wire(), payload);
+                    cascadeToChildren(turnId);
                     return;
                 }
                 continue;
@@ -106,6 +110,7 @@ public class TurnSignalService {
                     String payload = events.turnStatus(RuntimeEventType.TURN_CANCELLED,
                             turn.getThreadId(), turnId, TurnStatus.CANCELLED.name());
                     streams.publish(turn.getThreadId(), null, RuntimeEventType.TURN_CANCELLED.wire(), payload);
+                    cascadeToChildren(turnId);
                     return;
                 }
                 continue;
@@ -113,11 +118,24 @@ public class TurnSignalService {
             if (st == TurnStatus.RUNNING
                     || st == TurnStatus.WAITING_CHILD
                     || st == TurnStatus.INTERRUPTED) {
+                if (st == TurnStatus.WAITING_CHILD) {
+                    // MAS-03 / RT-12：WAITING_CHILD 无 worker，直接 CANCELLED + 级联取消子孙
+                    int n = turns.cancelWaitingChild(turnId, reason, null);
+                    if (n > 0) {
+                        String payload = events.turnStatus(RuntimeEventType.TURN_CANCELLED,
+                                turn.getThreadId(), turnId, TurnStatus.CANCELLED.name());
+                        streams.publish(turn.getThreadId(), null, RuntimeEventType.TURN_CANCELLED.wire(), payload);
+                        cascadeToChildren(turnId);
+                        return;
+                    }
+                    continue;
+                }
                 if (reason == null || reason.isBlank()) {
                     signals.publishCancel(turnId);
                 } else {
                     signals.publishCancel(turnId, reason);
                 }
+                cascadeToChildren(turnId);
                 return;
             }
             throw new BizException(ErrorCode.CONFLICT, "当前状态不可取消: " + st);
@@ -135,9 +153,31 @@ public class TurnSignalService {
             } else {
                 signals.publishCancel(turnId, reason);
             }
+            cascadeToChildren(turnId);
             return;
         }
         throw new BizException(ErrorCode.CONFLICT, "当前状态不可取消: " + st);
+    }
+
+    /**
+     * RT-12 cascadeCancel：取消父 Turn 后级联取消全部子 thread 的活跃 Turn（递归到孙）。
+     */
+    private void cascadeToChildren(String parentTurnId) {
+        List<String> childThreadIds;
+        try {
+            childThreadIds = childThreads.findChildThreadIds(parentTurnId);
+        } catch (RuntimeException e) {
+            return;
+        }
+        for (String childThreadId : childThreadIds) {
+            turns.findActive(childThreadId).ifPresent(t -> {
+                try {
+                    interrupt(t.getId(), "parent_cancelled");
+                } catch (RuntimeException ignored) {
+                    // 竞态：子 Turn 可能刚进终态
+                }
+            });
+        }
     }
 
     public void steer(String turnId, String text) {

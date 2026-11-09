@@ -19,6 +19,10 @@ public enum ErrorCode {
     STALE_REVISION(40901, 409, "数据已被修改，请刷新后重试"),
     /** 不能移除空间的最后一个管理员（GOV-01）。 */
     LAST_ADMIN(40902, 409, "空间至少需要一名管理员"),
+    /** 委派收窄校验失败：结果不是父授予子集（ADR-039 MAS-01），HTTP 403。 */
+    GRANT_NOT_NARROWER(40330, 403, "委派收窄校验失败"),
+    /** 委派授予已失效（REAPED / REVOKED / 过期）（ADR-039 MAS-01），HTTP 403。 */
+    GRANT_INACTIVE(40331, 403, "委派授予已失效"),
     /** Agent 发布校验失败（AST-01/AST-02），HTTP 422。 */
     AGENT_PUBLISH_INVALID(42201, 422, "Agent 发布校验失败"),
     /** Agent 已停用，HTTP 423。 */
