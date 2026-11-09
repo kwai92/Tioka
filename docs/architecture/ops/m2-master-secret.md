@@ -45,10 +45,15 @@
   GCM 用 `TIOKA_CREDENTIAL_MASTER_KEY` → `tioka.credential.master-key` → 开发缺省；
   版本 `TIOKA_CREDENTIAL_KEY_VERSION`（缺省 1）。**V145 执行前必须同时注入新旧两把密钥**。
 - 验收 IT：`tioka-server/src/test/java/com/tioka/server/security/CredentialReencryptIT.java` 已在 main。
-- **未落地 / 待收口（34 号复盘清单第 49 行口径）**：FND-08 整项仍列 M2 残余——
-  `UserTokenVault`（V141，代用户令牌保管）未落地；V145 目前只覆盖 `secret_store.cipher_text`，
-  PK-14a 设想的「供应商 API Key 等其他表列」的重加密登记未扩展；轮换多密钥版本共存未实现。
-  复盘口径与 main 现状（V145 文件已存在）的差异需负责人确认后关闭该项。
+- **未落地 / 待收口**：`UserTokenVault`（V141，代用户令牌保管）未落地（34 号复盘清单
+  第 49 行已收窄为此项）；V145 只覆盖 `secret_store.cipher_text`，PK-14a 设想的
+  「供应商 API Key 等其他表列」的重加密登记未扩展；轮换多密钥版本共存未实现。
+- **口径裁决（2026-11-11，B-3 批次收口）**：34 号复盘曾把「ECB 重加密（V145）」与
+  V141 并列为 M2 残余，系口径差异——V145 实为 Java 迁移，落在
+  `tioka-server/src/main/java/db/migration/V145__CredentialReencrypt.java`（不在
+  resources 目录，迁移目录 grep 计数为 0 造成误判），契约说明在
+  `docs/contracts/db/V145__m2_credential_reencrypt.sql`；提交 6267cc8（含 db98eea
+  修正）已在 main，`CredentialReencryptIT` 同在。差异确认关闭，V145 不再列残余。
 
 ## 5. 轮换注意事项（当前能力边界）
 
