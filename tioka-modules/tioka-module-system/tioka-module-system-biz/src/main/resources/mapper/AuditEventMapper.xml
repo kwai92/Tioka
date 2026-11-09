@@ -62,8 +62,69 @@ UPDATE audit_event SET forwarded = TRUE WHERE id = #{id}
         <![CDATA[
             DELETE FROM audit_event
             WHERE forwarded = TRUE AND ts < #{before}
-            
+
 ]]>
     </delete>
+
+    <!-- GOV-09 审计哈希链封印（V219 / ADR-025） -->
+
+    <select id="listUnsealed" resultType="java.util.HashMap">
+        <![CDATA[
+            SELECT id, ts, workspace_id AS workspaceId, actor_type AS actorType, actor_id AS actorId,
+                   action, resource_type AS resourceType, resource_id AS resourceId,
+                   outcome, reason, trace_id AS traceId, span_id AS spanId, service,
+                   request_id AS requestId, subject, client_ip AS clientIp, details_json AS detailsJson
+            FROM audit_event
+            WHERE hash IS NULL
+            ORDER BY id ASC
+            LIMIT #{limit}
+
+]]>
+    </select>
+
+    <update id="markSealed">
+        <![CDATA[
+            UPDATE audit_event SET prev_hash = #{prevHash}, hash = #{hash} WHERE id = #{id}
+
+]]>
+    </update>
+
+    <insert id="upsertSeal">
+        <![CDATA[
+            INSERT INTO audit_seal (workspace_key, last_id, last_hash, events_sealed, sealed_at)
+            VALUES (#{workspaceKey}, #{lastId}, #{lastHash}, #{count}, now())
+            ON CONFLICT (workspace_key) DO UPDATE
+              SET last_id = EXCLUDED.last_id,
+                  last_hash = EXCLUDED.last_hash,
+                  events_sealed = audit_seal.events_sealed + EXCLUDED.events_sealed,
+                  sealed_at = now()
+
+]]>
+    </insert>
+
+    <select id="listSealedByChain" resultType="java.util.HashMap">
+        <![CDATA[
+            SELECT id, ts, workspace_id AS workspaceId, actor_type AS actorType, actor_id AS actorId,
+                   action, resource_type AS resourceType, resource_id AS resourceId,
+                   outcome, reason, trace_id AS traceId, span_id AS spanId, service,
+                   request_id AS requestId, subject, client_ip AS clientIp, details_json AS detailsJson,
+                   prev_hash AS prevHash, hash
+            FROM audit_event
+            WHERE (CASE WHEN #{workspaceKey} = '_system' THEN workspace_id IS NULL ELSE workspace_id = #{workspaceKey} END)
+              AND hash IS NOT NULL
+            ORDER BY id ASC
+
+]]>
+    </select>
+
+    <select id="getSeal" resultType="java.util.HashMap">
+        <![CDATA[
+            SELECT workspace_key AS workspaceKey, last_id AS lastId, last_hash AS lastHash,
+                   events_sealed AS eventsSealed, sealed_at AS sealedAt
+            FROM audit_seal
+            WHERE workspace_key = #{workspaceKey}
+
+]]>
+    </select>
 
 </mapper>

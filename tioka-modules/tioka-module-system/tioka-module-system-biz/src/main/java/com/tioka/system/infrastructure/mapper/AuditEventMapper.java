@@ -27,4 +27,26 @@ public interface AuditEventMapper {
     int markForwardedOne(@Param("id") String id);
 
     int deleteExpiredForwarded(@Param("before") Instant before);
+
+    /* ---- GOV-09 审计哈希链封印（V219 / ADR-025） ---- */
+
+    /** 取未封印记录（hash IS NULL），按 id ASC——Monotonic ULID 保证即时间序。 */
+    List<Map<String, Object>> listUnsealed(@Param("limit") int limit);
+
+    /** 封印回写：prev_hash + hash 一次落库。 */
+    int markSealed(@Param("id") String id,
+                   @Param("prevHash") String prevHash,
+                   @Param("hash") String hash);
+
+    /** 封印锚 upsert：每租户一条链，链末哈希落锚（可外送 SIEM）。 */
+    int upsertSeal(@Param("workspaceKey") String workspaceKey,
+                   @Param("lastId") String lastId,
+                   @Param("lastHash") String lastHash,
+                   @Param("count") int count);
+
+    /** 校验用：取指定链全部已封印记录（含 prev_hash/hash），按 id ASC。 */
+    List<Map<String, Object>> listSealedByChain(@Param("workspaceKey") String workspaceKey);
+
+    /** 校验用：读取封印锚。 */
+    Map<String, Object> getSeal(@Param("workspaceKey") String workspaceKey);
 }
