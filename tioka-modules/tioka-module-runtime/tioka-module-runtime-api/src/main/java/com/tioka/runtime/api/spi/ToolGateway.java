@@ -50,7 +50,15 @@ public interface ToolGateway {
      * 工具调用上下文（取代 SessionToolContext）。
      *
      * @param agentToolConfig 含 {@code mcp}（{@code [{serverId, allowlist[]}]} = McpBinding），由 Runtime 从 Agent 快照注入
+     * @param grantId         委派授予 ID（MAS-01）；null 视为根授予尚未签发（仅测试 / 无授予链路，放行 2.5 步）
      */
     record ToolCallContext(Principal principal, String threadId, String turnId, String agentVersionId,
-                           String origin, List<String> toolAllowList, Map<String, Object> agentToolConfig) {}
+                           String origin, List<String> toolAllowList, Map<String, Object> agentToolConfig,
+                           String grantId) {
+        /** 兼容旧 8 参口径（仅 spi 内部工厂使用；M3 后 grantId 必经工厂注入）。 */
+        public ToolCallContext(Principal principal, String threadId, String turnId, String agentVersionId,
+                               String origin, List<String> toolAllowList, Map<String, Object> agentToolConfig) {
+            this(principal, threadId, turnId, agentVersionId, origin, toolAllowList, agentToolConfig, null);
+        }
+    }
 }

@@ -64,6 +64,7 @@ public class DefaultToolGateway implements ToolGateway {
 
     private final ToolRegistry registry;
     private final ToolCallPipeline pipeline;
+    private final com.tioka.runtime.api.grant.GrantService grants;
     private final ObjectProvider<AuditApi> auditApi;
     private final ObjectProvider<AuditDegradedSink> degradedSink;
     private final ObjectMapper mapper;
@@ -74,6 +75,7 @@ public class DefaultToolGateway implements ToolGateway {
 
     public DefaultToolGateway(ToolRegistry registry,
                               ToolCallPipeline pipeline,
+                              com.tioka.runtime.api.grant.GrantService grants,
                               ObjectProvider<AuditApi> auditApi,
                               ObjectProvider<AuditDegradedSink> degradedSink,
                               ObjectMapper mapper,
@@ -83,6 +85,7 @@ public class DefaultToolGateway implements ToolGateway {
                               ToolPipelineStepRegistry pipelineSteps) {
         this.registry = registry;
         this.pipeline = pipeline;
+        this.grants = grants;
         this.auditApi = auditApi;
         this.degradedSink = degradedSink;
         this.mapper = mapper;
@@ -101,10 +104,17 @@ public class DefaultToolGateway implements ToolGateway {
         }
         List<ToolProvider.ToolDescriptor> all = registry.listAll(ctx.agentVersionId(), ctx.agentToolConfig());
         List<String> allow = ctx.toolAllowList();
-        if (allow == null || allow.isEmpty()) {
-            return all;
+        if (allow != null && !allow.isEmpty()) {
+            all = all.stream().filter(d -> allow.contains(d.name())).toList();
         }
-        return all.stream().filter(d -> allow.contains(d.name())).toList();
+        // MAS-01：listTools 按授予过滤，模型看不到授予外工具（M3-01）
+        if (ctx.grantId() != null && !ctx.grantId().isBlank()) {
+            com.tioka.runtime.api.grant.DelegationGrant grant = grants.get(ctx.grantId());
+            if (grant != null && grant.tools() != null) {
+                all = all.stream().filter(d -> grant.tools().contains(d.name())).toList();
+            }
+        }
+        return all;
     }
 
     @Override
@@ -275,7 +285,8 @@ public class DefaultToolGateway implements ToolGateway {
         AuthorizedCall ac = ((AuthorizeResult.Ok) authz).call();
         ToolProvider.ToolResult result;
         try {
-            result = ac.provider().invoke(ctx.agentVersionId(), name, ac.args(),
+            // M3：透传完整 ctx（agent.delegate 等需要父 Turn / grantId 的 provider 走此重载）
+            result = ac.provider().invoke(ctx, ctx.agentVersionId(), name, ac.args(),
                     ctx == null ? Map.of() : ctx.agentToolConfig());
         } catch (RuntimeException e) {
             String err = e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage();

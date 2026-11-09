@@ -12,6 +12,7 @@ import java.util.Map;
 public final class ToolCallContexts {
     private ToolCallContexts() {}
 
+    /** 旧 8 参语义：grantId = null（根授予尚未签发，仅测试 / 无授予链路用）。 */
     public static ToolGateway.ToolCallContext forTurn(Principal principal,
                                                      String threadId,
                                                      String turnId,
@@ -19,6 +20,19 @@ public final class ToolCallContexts {
                                                      String origin,
                                                      List<String> toolAllowList,
                                                      Map<String, Object> agentToolConfig) {
+        return forTurn(principal, threadId, turnId, agentVersionId, origin,
+                toolAllowList, agentToolConfig, null);
+    }
+
+    /** M3 MAS-01：带委派授予 ID 的完整上下文。 */
+    public static ToolGateway.ToolCallContext forTurn(Principal principal,
+                                                     String threadId,
+                                                     String turnId,
+                                                     String agentVersionId,
+                                                     String origin,
+                                                     List<String> toolAllowList,
+                                                     Map<String, Object> agentToolConfig,
+                                                     String grantId) {
         return new ToolGateway.ToolCallContext(
                 principal,
                 threadId,
@@ -26,6 +40,7 @@ public final class ToolCallContexts {
                 agentVersionId,
                 origin == null ? "" : origin,
                 toolAllowList == null ? List.of() : List.copyOf(toolAllowList),
-                agentToolConfig == null ? Map.of() : Map.copyOf(agentToolConfig));
+                agentToolConfig == null ? Map.of() : Map.copyOf(agentToolConfig),
+                grantId);
     }
 }

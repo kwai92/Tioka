@@ -103,6 +103,11 @@ public class TurnRepository {
         return mapper.cancelWaitingApproval(turnId, errorCode, errorMessage);
     }
 
+    /** MAS-03 / 级联取消：WAITING_CHILD 无 worker，直接 CANCELLED。 */
+    public int cancelWaitingChild(String turnId, String errorCode, String errorMessage) {
+        return mapper.cancelWaitingChild(turnId, errorCode, errorMessage);
+    }
+
     public int cancelQueued(String turnId) {
         return cancelQueued(turnId, null, null);
     }

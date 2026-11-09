@@ -31,6 +31,15 @@ public interface ToolProvider {
     }
 
     /**
+     * M3（RT-12）：带完整 {@code ToolCallContext} 的调用（agent.delegate 需要父 Turn / grantId）。
+     * 默认回退四参 invoke，既有 provider 不受影响。
+     */
+    default ToolResult invoke(ToolGateway.ToolCallContext ctx, String agentVersionId, String toolName,
+                              Map<String, Object> arguments, Map<String, Object> agentToolConfig) {
+        return invoke(agentVersionId, toolName, arguments, agentToolConfig);
+    }
+
+    /**
      * 工具关联的出网地址（CON-01 第 7 步 EgressGuard）；无外网则空。
      */
     default Optional<String> egressUrl(String agentVersionId, String toolName) {

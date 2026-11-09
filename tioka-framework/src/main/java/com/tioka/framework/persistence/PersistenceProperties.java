@@ -54,6 +54,8 @@ public class PersistenceProperties {
             "orch_subscription",
             "orch_fact",
             "runtime_idem",
+            // MAS-01 / V160：委派授予（会话级内部对象，经 runtime_thread.grant_id 关联，无 workspace_id）
+            "rt_grant",
             "runtime_item",
             "runtime_turn",
             "scim_user",

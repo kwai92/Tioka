@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tioka.runtime.infrastructure.mapper.RuntimeGrantMapper">
+
+    <insert id="insert">
+        <![CDATA[
+            INSERT INTO rt_grant (
+              id, parent_id, root_principal, on_behalf_of, chain_json, depth,
+              body_json, hash, status, expires_at, create_at
+            ) VALUES (
+              #{id}, #{parentId}, #{rootPrincipal}, #{onBehalfOf}, #{chainJson}, #{depth},
+              #{bodyJson}, #{hash}, #{status}, #{expiresAt}, now()
+            )
+        ]]>
+    </insert>
+
+    <select id="findById" resultType="RuntimeGrantDO">
+        <![CDATA[
+            SELECT id, parent_id AS parentId, root_principal AS rootPrincipal,
+                   on_behalf_of AS onBehalfOf, chain_json AS chainJson, depth,
+                   body_json AS bodyJson, hash, status, expires_at AS expiresAt,
+                   create_at AS createAt, ended_at AS endedAt
+            FROM rt_grant WHERE id = #{id}
+        ]]>
+    </select>
+
+    <update id="updateBodyCas">
+        <![CDATA[
+            UPDATE rt_grant
+               SET body_json = #{newBody}, hash = #{newHash}
+             WHERE id = #{id} AND body_json = #{oldBody}
+        ]]>
+    </update>
+
+    <update id="reapRecursive">
+        <![CDATA[
+            WITH RECURSIVE descendants AS (
+                SELECT id, parent_id FROM rt_grant WHERE id = #{grantId}
+                UNION ALL
+                SELECT g.id, g.parent_id FROM rt_grant g JOIN descendants d ON g.parent_id = d.id
+            )
+            UPDATE rt_grant SET status = #{status}, ended_at = now()
+            WHERE id IN (SELECT id FROM descendants) AND status = 'ACTIVE'
+            RETURNING id
+        ]]>
+    </update>
+
+    <select id="sumThreadTokens" resultType="long">
+        <![CDATA[
+            SELECT COALESCE(SUM(COALESCE(prompt_tokens, 0) + COALESCE(completion_tokens, 0)), 0)
+            FROM runtime_turn WHERE thread_id = #{threadId}
+        ]]>
+    </select>
+
+    <select id="countActiveChildTurns" resultType="int">
+        <![CDATA[
+            SELECT COUNT(*)
+            FROM runtime_thread th
+            JOIN runtime_turn t ON t.thread_id = th.id
+            WHERE th.parent_turn_id = #{parentTurnId}
+              AND t.status IN ('QUEUED', 'RUNNING', 'WAITING_CHILD', 'WAITING_APPROVAL', 'INTERRUPTED')
+        ]]>
+    </select>
+
+    <select id="findChildThreadIds" resultType="string">
+        <![CDATA[
+            SELECT id FROM runtime_thread WHERE parent_turn_id = #{parentTurnId}
+        ]]>
+    </select>
+</mapper>

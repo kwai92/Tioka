@@ -79,7 +79,9 @@ public class AgentActionDispatcher implements OrchActionDispatcher {
                 List.of(RuntimeApi.InputItem.text(prompt)),
                 new RuntimeApi.TurnOptions(maxSteps, null, allow),
                 "orch",
-                command.runId()));
+                command.runId(),
+                onBehalfOf(command.workItemId()),
+                mandateScope(command.workItemId())));
 
         OrchRunDO run = repo.findRun(command.runId());
         if (run != null) {
@@ -100,6 +102,33 @@ public class AgentActionDispatcher implements OrchActionDispatcher {
             body = String.valueOf(command.eventBody());
         }
         return template.replace("{{event.body}}", body);
+    }
+
+    /**
+     * MAS-01（ADR-039）：orch_mandate.requester_user_id → StartTurnCmd.onBehalfOf（代表经办人）。
+     */
+    private String onBehalfOf(String workItemId) {
+        try {
+            var mandate = repo.findLatestMandate(workItemId);
+            return mandate == null ? null : mandate.getRequesterUserId();
+        } catch (RuntimeException e) {
+            return null;
+        }
+    }
+
+    /** MAS-01：orch_mandate.scope_json → StartTurnCmd.mandateScope（根授予 scope）。 */
+    private java.util.Map<String, java.util.List<String>> mandateScope(String workItemId) {
+        try {
+            var mandate = repo.findLatestMandate(workItemId);
+            if (mandate == null || mandate.getScopeJson() == null || mandate.getScopeJson().isBlank()) {
+                return java.util.Map.of();
+            }
+            var parsed = mapper.readValue(mandate.getScopeJson(),
+                    new com.fasterxml.jackson.core.type.TypeReference<java.util.Map<String, java.util.List<String>>>() {});
+            return parsed == null ? java.util.Map.of() : parsed;
+        } catch (RuntimeException | java.io.IOException e) {
+            return java.util.Map.of();
+        }
     }
 
     private static String stringVal(Object v) {

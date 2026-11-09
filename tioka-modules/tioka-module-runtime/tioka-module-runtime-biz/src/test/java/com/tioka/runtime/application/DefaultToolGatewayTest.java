@@ -88,7 +88,8 @@ class DefaultToolGatewayTest {
         ApprovalPolicy allow = mock(ApprovalPolicy.class);
         when(allow.evaluate(any())).thenReturn(new ApprovalPolicy.Allow());
         when(policies.resolve(any(), any())).thenReturn(allow);
-        gw = new DefaultToolGateway(registry, pipeline, audit, degraded, new ObjectMapper(),
+        gw = new DefaultToolGateway(registry, pipeline, mock(com.tioka.runtime.api.grant.GrantService.class),
+                audit, degraded, new ObjectMapper(),
                 preparedCalls, changeSets, policies, new ToolPipelineStepRegistry(List.of()));
     }
 

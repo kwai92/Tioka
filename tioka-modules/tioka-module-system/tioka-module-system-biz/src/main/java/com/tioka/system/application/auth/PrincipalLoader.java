@@ -60,6 +60,43 @@ public class PrincipalLoader implements PrincipalLoaderApi {
         return load(userId, workspaceId, "password");
     }
 
+    /**
+     * MAS-01（ADR-039）：经办人有效权限 = 服务账号权限 ∩ 经办人权限（on_behalf_of 语义）。
+     * 编排触发的 Run 不会因服务账号权限宽而检索到经办人无权看的数据。
+     */
+    @Override
+    public Principal loadEffective(long userId, String workspaceId, String onBehalfOf) {
+        Principal service = load(userId, workspaceId);
+        if (onBehalfOf == null || onBehalfOf.isBlank()) {
+            return service;
+        }
+        long behalfId;
+        try {
+            behalfId = Long.parseLong(onBehalfOf);
+        } catch (NumberFormatException e) {
+            return service;
+        }
+        Principal behalf = load(behalfId, workspaceId);
+        Set<String> effective = intersect(service.permissions(), behalf.permissions());
+        return new Principal(service.userId(), service.workspaceId(), service.type(),
+                service.roles(), effective, service.authMethod(), onBehalfOf);
+    }
+
+    /** 权限交集：任一侧含 "*" 时取另一侧具体集（不含 "*"）。 */
+    static Set<String> intersect(Set<String> a, Set<String> b) {
+        Set<String> sa = a == null ? Set.of() : a;
+        Set<String> sb = b == null ? Set.of() : b;
+        if (sa.contains("*")) {
+            return sb.contains("*") ? Set.of("*") : Set.copyOf(sb);
+        }
+        if (sb.contains("*")) {
+            return Set.copyOf(sa);
+        }
+        Set<String> out = new HashSet<>(sa);
+        out.retainAll(sb);
+        return Set.copyOf(out);
+    }
+
     public Principal load(long userId, String workspaceId, String authMethod) {
         String method = authMethod == null || authMethod.isBlank() ? "password" : authMethod;
         String cacheKey = "auth:principal:" + userId + ":" + workspaceId + ":" + method;

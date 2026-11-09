@@ -22,6 +22,8 @@ public final class LoopContext {
     private final Map<String, Object> agentToolConfig;
     /** RT-09：时长上限截止时刻；null 表示不限制（由 TurnRunner 填默认）。 */
     private final Instant deadline;
+    /** M3 MAS-01：thread 的委派授予 ID；null = 无授予（2.5 步放行）。 */
+    private final String grantId;
     private boolean forceFinalAnswer;
 
     public LoopContext(String threadId, String turnId, long leaseVersion,
@@ -78,6 +80,21 @@ public final class LoopContext {
                        String origin, List<String> toolAllowList,
                        Map<String, Object> agentToolConfig,
                        Instant deadline) {
+        this(threadId, turnId, leaseVersion, maxSteps, repeatLimit, startStep, signals,
+                agentVersionId, routingPlanId, workspaceId, principalId, approvalPolicy,
+                origin, toolAllowList, agentToolConfig, deadline, null);
+    }
+
+    /** M3 MAS-01：带 thread.grant_id 的完整构造（TurnRunner 唯一调用点）。 */
+    public LoopContext(String threadId, String turnId, long leaseVersion,
+                       int maxSteps, int repeatLimit, int startStep,
+                       LoopPorts.SignalPort signals,
+                       String agentVersionId, String routingPlanId, String workspaceId,
+                       String principalId, String approvalPolicy,
+                       String origin, List<String> toolAllowList,
+                       Map<String, Object> agentToolConfig,
+                       Instant deadline,
+                       String grantId) {
         this.threadId = threadId;
         this.turnId = turnId;
         this.leaseVersion = leaseVersion;
@@ -94,6 +111,7 @@ public final class LoopContext {
         this.toolAllowList = toolAllowList == null ? List.of() : List.copyOf(toolAllowList);
         this.agentToolConfig = agentToolConfig == null ? Map.of() : Map.copyOf(agentToolConfig);
         this.deadline = deadline;
+        this.grantId = grantId;
     }
 
     public String threadId() { return threadId; }
@@ -119,6 +137,9 @@ public final class LoopContext {
 
     /** RT-09：时长上限；到达后当前步结束以 TURN_TIMEOUT 失败。 */
     public Instant deadline() { return deadline; }
+
+    /** MAS-01：thread.grant_id；null = 未签发。 */
+    public String grantId() { return grantId; }
 
     public void checkpoint() {
         signals.checkpoint(this);
