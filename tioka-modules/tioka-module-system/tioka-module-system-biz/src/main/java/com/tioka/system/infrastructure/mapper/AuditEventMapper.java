@@ -49,4 +49,17 @@ public interface AuditEventMapper {
 
     /** 校验用：读取封印锚。 */
     Map<String, Object> getSeal(@Param("workspaceKey") String workspaceKey);
+
+    /* ---- OBS-05 转发互斥与水位（V221 / ADR-072） ---- */
+
+    /** PG advisory lock（会话级；须在同一事务/连接内取用与释放）。 */
+    boolean tryAdvisoryLock(@Param("lockKey") String lockKey);
+
+    /** 释放 advisory lock（与 tryAdvisoryLock 同连接）。 */
+    boolean advisoryUnlock(@Param("lockKey") String lockKey);
+
+    /** 转发水位 upsert：记录本通道已外送的最后一条记录 ID（双实例互斥后单调推进）。 */
+    int updateForwardProgress(@Param("channel") String channel,
+                              @Param("lastForwardedId") String lastForwardedId,
+                              @Param("batchSize") int batchSize);
 }
