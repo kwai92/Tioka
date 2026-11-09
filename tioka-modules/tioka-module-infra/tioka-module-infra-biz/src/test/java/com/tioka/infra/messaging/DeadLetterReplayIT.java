@@ -1,14 +1,18 @@
 package com.tioka.infra.messaging;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.tioka.framework.error.BizException;
+import com.tioka.framework.error.ErrorCode;
 import com.tioka.framework.messaging.EventEnvelope;
 import com.tioka.framework.messaging.IdempotentConsumer;
+import com.tioka.framework.security.Principal;
 import com.tioka.framework.security.PrincipalHolder;
+import com.tioka.framework.security.PrincipalType;
+import com.tioka.infra.messaging.api.DeadLetterOpsController;
 import com.tioka.infra.messaging.infrastructure.SysConsumedRepository;
 import com.tioka.infra.messaging.infrastructure.SysDeadLetterRepository;
 import com.tioka.infra.messaging.infrastructure.persistence.SysDeadLetterDO;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -16,6 +20,7 @@ import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.TransactionStatus;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 
@@ -24,6 +29,9 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.contains;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -41,10 +49,12 @@ import static org.mockito.Mockito.when;
  *       {@code writeDeadLetter}（276–298 行）：落 {@code sys_dead_letter}，
  *       status=OPEN，attempts=重试次数+1；in-memory 侧 {@code deliverAndRetry}
  *       （96–112 行）本进程重试至 max-attempts 后末次写死信且不再抛出。</li>
- *   <li>❌ 缺口：死信可查询 / 重放 / 丢弃入口未实现——{@code SysDeadLetterRepository}
- *       仅有 {@code insert}（16–18 行），无 list/replay/discard，亦无 FE-17
- *       （死信列表、重放、丢弃）依赖的 REST 出口。对应用例以 @Disabled 骨架登记，
- *       见下方 {@link ReplayAndDiscard}。</li>
+ *   <li>✅ 已实现（M2-B6b）：死信查询 / 重放 / 丢弃——{@code SysDeadLetterRepository}
+ *       list/findById/markReplayed/markDiscarded/markRetryFailed；{@code DeadLetterOpsService}
+ *       重放走 {@code deliver}（reconsumeTimes 归零），成功 → REPLAYED，仍失败 → 保持 OPEN
+ *       累加 attempts；{@code DeadLetterOpsController} 提供 {@code /api/ops/dead-letters}
+ *       列表 / replay / discard（orch:operate），REST 层 mock 测试见
+ *       {@code DeadLetterOpsControllerTest}。见下方 {@link ReplayAndDiscard}。</li>
  * </ul>
  *
  * <p>本类纯 JUnit5 + Mockito（无 Spring 上下文 / 无数据库 / 无 MQ broker），
@@ -191,35 +201,142 @@ class DeadLetterReplayIT {
     }
 
     /**
-     * ❌ 缺口骨架：死信查询 / 重放 / 丢弃入口未实现（{@code SysDeadLetterRepository}
-     * 仅有 insert；无 REST 出口）。实现后重写本组用例：
+     * ORC-07 死信查询 / 重放 / 丢弃（M2-B6b 实现，FE-17 后端出口）。
      *
-     * <ol>
-     *   <li>可查询：list(status=OPEN) 返回死信行（consumer/topic/eventId/error/attempts）；</li>
-     *   <li>重放：replay(id) 按 payloadJson 重新投递（reconsumeTimes 归零），幂等键
-     *       已消费过则跳过（sys_consumed），成功后 status → REPLAYED / CLOSED，
-     *       handledBy/handledAt 回填；</li>
-     *   <li>丢弃：discard(id) status → DISCARDED，不再出现在 OPEN 列表。</li>
-     * </ol>
-     * 届时 FE-17（M2-00 第 100 行）的前端依赖即满足。
+     * <p>实现：{@code SysDeadLetterRepository} list/findById/markReplayed/
+     * markDiscarded/markRetryFailed（条件更新仅 OPEN 可流转，天然幂等）；
+     * {@code DeadLetterOpsService} 重放走 {@code IdempotentDeliveryService#deliver}
+     * （reconsumeTimes 归零），成功 → REPLAYED，仍失败 → 保持 OPEN 并累加 attempts，
+     * 丢弃 → DISCARDED；{@code DeadLetterOpsController} 提供
+     * {@code GET /api/ops/dead-letters}（payload 截前 2000 字）、
+     * {@code POST /api/ops/dead-letters/{id}/replay|discard}（orch:operate），
+     * REST 层 mock 测试见 {@code DeadLetterOpsControllerTest}。
      */
     @Nested
-    @Disabled("缺口：死信查询/重放/丢弃入口未实现——SysDeadLetterRepository 仅 insert（16–18 行），无 list/replay/discard 与 REST 出口；实现后重写本组用例")
     class ReplayAndDiscard {
 
+        private static final String DL_ID = "dl1";
+        private static final String OPERATOR_ID = "u1";
+
+        private SysDeadLetterRepository repo;
+        private FailingConsumer redelivered;
+        private DeadLetterOpsService ops;
+
+        @BeforeEach
+        void setUp() {
+            repo = mock(SysDeadLetterRepository.class);
+            redelivered = new FailingConsumer(0);
+            ops = new DeadLetterOpsService(newService(redelivered), repo);
+        }
+
+        private SysDeadLetterDO openRow() {
+            SysDeadLetterDO row = new SysDeadLetterDO();
+            row.setId(DL_ID);
+            row.setConsumer("test-consumer");
+            row.setTopic("tioka-runtime");
+            row.setTag("demo.failed");
+            row.setEventId("evt-1");
+            row.setPayloadJson(ENVELOPE_JSON);
+            row.setError("java.lang.IllegalStateException: boom-3");
+            row.setAttempts(MAX_ATTEMPTS);
+            row.setStatus(SysDeadLetterRepository.STATUS_OPEN);
+            row.setCreateAt(Instant.now());
+            return row;
+        }
+
+        private SysDeadLetterDO terminalRow(String status) {
+            SysDeadLetterDO row = openRow();
+            row.setStatus(status);
+            row.setHandledBy(OPERATOR_ID);
+            row.setHandledAt(Instant.now());
+            return row;
+        }
+
+        /** 列表：list(status=OPEN) 分页返回死信行；REST 视图 payload 截前 2000 字。 */
         @Test
         void openDeadLettersAreListable() {
-            assertTrue(true, "占位：list(status=OPEN) 断言待实现后补");
+            SysDeadLetterDO row = openRow();
+            row.setPayloadJson("x".repeat(3000));
+            when(repo.list(null, SysDeadLetterRepository.STATUS_OPEN, 0, 20))
+                    .thenReturn(List.of(row));
+            when(repo.count(null, SysDeadLetterRepository.STATUS_OPEN)).thenReturn(1L);
+
+            DeadLetterOpsService.Page<SysDeadLetterDO> page = ops.list(null,
+                    SysDeadLetterRepository.STATUS_OPEN, 1, 20);
+            assertEquals(1, page.total());
+            assertEquals(1, page.items().size());
+            assertEquals(MAX_ATTEMPTS, page.items().get(0).getAttempts());
+
+            Principal operator = new Principal(OPERATOR_ID, "ws-1", PrincipalType.USER,
+                    java.util.Set.of(), java.util.Set.of(), "password");
+            PrincipalHolder holder = mock(PrincipalHolder.class);
+            when(holder.current()).thenReturn(operator);
+            DeadLetterOpsService.Page<DeadLetterOpsController.DeadLetterView> view =
+                    new DeadLetterOpsController(ops, holder)
+                            .list(null, SysDeadLetterRepository.STATUS_OPEN, 1, 20).getData();
+            assertEquals(2000, view.items().get(0).payload().length(), "payload 只返回前 2000 字");
         }
 
+        /** 重放：按 payloadJson 重新投递（reconsumeTimes 归零），成功后 status → REPLAYED；重复重放拒绝。 */
         @Test
         void replayRedeliversInOrder() {
-            assertTrue(true, "占位：replay 重投 + 状态流转断言待实现后补");
+            when(repo.findById(DL_ID))
+                    .thenReturn(openRow(), terminalRow(SysDeadLetterRepository.STATUS_REPLAYED));
+            when(repo.markReplayed(eq(DL_ID), eq(OPERATOR_ID), any(Instant.class))).thenReturn(true);
+
+            SysDeadLetterDO out = ops.replay(DL_ID, OPERATOR_ID);
+
+            assertEquals(1, redelivered.attempts, "重放应恰好重投一次（reconsumeTimes 归零）");
+            assertEquals(SysDeadLetterRepository.STATUS_REPLAYED, out.getStatus());
+            assertEquals(OPERATOR_ID, out.getHandledBy());
+            assertNotNull(out.getHandledAt());
+            verify(repo, times(1)).markReplayed(eq(DL_ID), eq(OPERATOR_ID), any(Instant.class));
+
+            // 幂等：已 REPLAYED 的死信不可重复重放
+            BizException dup = assertThrows(BizException.class, () -> ops.replay(DL_ID, OPERATOR_ID));
+            assertEquals(ErrorCode.CONFLICT, dup.getErrorCode());
+            assertEquals(1, redelivered.attempts, "重复重放不得再次投递");
         }
 
+        /** 重放仍失败：保持 OPEN、累加 attempts、回写错误，不置终态。 */
+        @Test
+        void replayFailureKeepsOpenAndAccumulatesAttempts() {
+            FailingConsumer alwaysFails = new FailingConsumer(Integer.MAX_VALUE);
+            DeadLetterOpsService failing = new DeadLetterOpsService(newService(alwaysFails), repo);
+            when(repo.findById(DL_ID)).thenReturn(openRow());
+
+            BizException e = assertThrows(BizException.class,
+                    () -> failing.replay(DL_ID, OPERATOR_ID));
+            assertEquals(ErrorCode.CONFLICT, e.getErrorCode());
+            assertEquals(1, alwaysFails.attempts);
+            verify(repo, times(1)).markRetryFailed(eq(DL_ID), contains("boom"), eq(MAX_ATTEMPTS + 1));
+            verify(repo, never()).markReplayed(any(), any(), any(Instant.class));
+        }
+
+        /** 丢弃：status → DISCARDED（原因入 error），不再出现在 OPEN 列表；重放被拒绝。 */
         @Test
         void discardClosesDeadLetter() {
-            assertTrue(true, "占位：discard 状态流转断言待实现后补");
+            when(repo.findById(DL_ID))
+                    .thenReturn(openRow(), terminalRow(SysDeadLetterRepository.STATUS_DISCARDED));
+            when(repo.markDiscarded(eq(DL_ID), eq(OPERATOR_ID), any(Instant.class), contains("[discarded:fixed upstream]")))
+                    .thenReturn(true);
+            when(repo.list(null, SysDeadLetterRepository.STATUS_OPEN, 0, 20)).thenReturn(List.of());
+            when(repo.count(null, SysDeadLetterRepository.STATUS_OPEN)).thenReturn(0L);
+
+            SysDeadLetterDO out = ops.discard(DL_ID, OPERATOR_ID, "fixed upstream");
+
+            assertEquals(SysDeadLetterRepository.STATUS_DISCARDED, out.getStatus());
+            assertEquals(OPERATOR_ID, out.getHandledBy());
+            verify(repo, times(1)).markDiscarded(eq(DL_ID), eq(OPERATOR_ID),
+                    any(Instant.class), contains("[discarded:fixed upstream]"));
+
+            DeadLetterOpsService.Page<SysDeadLetterDO> open =
+                    ops.list(null, SysDeadLetterRepository.STATUS_OPEN, 1, 20);
+            assertEquals(0, open.total(), "丢弃后不再出现在 OPEN 列表");
+
+            BizException e = assertThrows(BizException.class, () -> ops.replay(DL_ID, OPERATOR_ID));
+            assertEquals(ErrorCode.CONFLICT, e.getErrorCode());
+            assertEquals(0, redelivered.attempts, "已丢弃的死信不得重放");
         }
     }
 }
