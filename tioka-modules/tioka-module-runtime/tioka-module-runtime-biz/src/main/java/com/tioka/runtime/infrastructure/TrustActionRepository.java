@@ -21,6 +21,14 @@ public class TrustActionRepository {
         return mapper.findById(id);
     }
 
+    public TrustActionDO findByApprovalId(String approvalId) {
+        return mapper.findByApprovalId(approvalId);
+    }
+
+    public void linkApproval(String id, String approvalId) {
+        mapper.linkApproval(id, approvalId);
+    }
+
     public TrustActionDO findForUpdate(String id) {
         return mapper.findForUpdate(id);
     }

@@ -15,6 +15,7 @@ import com.tioka.runtime.api.kernel.ApprovalKind;
 import com.tioka.runtime.api.kernel.ApprovalStatus;
 import com.tioka.runtime.api.kernel.ApprovalSubjectType;
 import com.tioka.runtime.infrastructure.persistence.RuntimeApprovalDO;
+import com.tioka.runtime.application.changeset.ChangeSetCardService;
 import com.tioka.runtime.kernel.infrastructure.ApprovalQueryRepository;
 import org.springframework.stereotype.Service;
 
@@ -24,6 +25,7 @@ import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -36,15 +38,18 @@ public class ApprovalQueryService implements ApprovalQueryApi {
     private final ApprovalQueryRepository approvals;
     private final PrincipalHolder principals;
     private final ObjectMapper mapper;
+    private final ChangeSetCardService changeSetCards;
     private final Map<String, ApprovalSubjectLinker> linkers;
 
     public ApprovalQueryService(ApprovalQueryRepository approvals,
                                 PrincipalHolder principals,
                                 ObjectMapper mapper,
+                                ChangeSetCardService changeSetCards,
                                 List<ApprovalSubjectLinker> linkerList) {
         this.approvals = approvals;
         this.principals = principals;
         this.mapper = mapper;
+        this.changeSetCards = changeSetCards;
         this.linkers = linkerList.stream()
                 .collect(Collectors.toMap(l -> l.subjectType().toLowerCase(Locale.ROOT),
                         Function.identity(), (a, b) -> a));
@@ -95,6 +100,22 @@ public class ApprovalQueryService implements ApprovalQueryApi {
         guardScope(s, p);
         String st = status == null ? null : status.name();
         return approvals.count(p.workspaceId(), s.name(), p.userId(), st, null, null, null, null, null, null);
+    }
+
+    @Override
+    public Optional<ChangeSetDetail> changeSet(String approvalId) {
+        requirePrincipal();
+        // 工作区隔离：与 get() 同口径，跨空间按不存在处理
+        RuntimeApprovalDO a = approvals.findById(approvalId)
+                .orElseThrow(() -> new BizException(ErrorCode.NOT_FOUND, "审批不存在"));
+        Principal p = principals.current();
+        if (p.workspaceId() != null && a.getWorkspaceId() != null
+                && !p.workspaceId().equals(a.getWorkspaceId())
+                && !p.hasPermission(Permissions.ALL)
+                && !p.hasPermission(Permissions.TENANT_ADMIN)) {
+            throw new BizException(ErrorCode.NOT_FOUND, "审批不存在");
+        }
+        return changeSetCards.detailByApproval(approvalId);
     }
 
     private void guardScope(Scope scope, Principal p) {
