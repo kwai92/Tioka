@@ -15,6 +15,7 @@ import com.tioka.infra.messaging.infrastructure.SysOutboxRepository;
 import com.tioka.infra.messaging.infrastructure.persistence.SysOutboxDO;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.SpanContext;
+import org.slf4j.MDC;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -55,7 +56,9 @@ public class OutboxEventPublisher implements EventPublisher {
         String subject = firstNonBlank(event.subject(), correlation.subject());
 
         SpanContext spanCtx = Span.current().getSpanContext();
-        String traceId = spanCtx.isValid() ? spanCtx.getTraceId() : null;
+        // P2-L6：Span 无效（未挂 OTel agent）时回退 MDC traceId（HTTP 入口 traceparent 抽取 /
+        // 消费侧回写同源，见 IdempotentDeliveryService）；traceparent 不伪造，保持 null。
+        String traceId = spanCtx.isValid() ? spanCtx.getTraceId() : currentMdcTraceId();
         String traceparent = spanCtx.isValid()
                 ? "00-" + spanCtx.getTraceId() + "-" + spanCtx.getSpanId() + "-"
                 + (spanCtx.getTraceFlags().isSampled() ? "01" : "00")
@@ -116,6 +119,15 @@ public class OutboxEventPublisher implements EventPublisher {
             return id.substring(4);
         }
         return id;
+    }
+
+    /**
+     * P2-L6：MDC traceId（与审计同源；key 镜像 system-biz AuditRequestContext.MDC_TRACE）。
+     * 缺失或空白返回 null（envelope.traceId 保持可空）。
+     */
+    static String currentMdcTraceId() {
+        String v = MDC.get(IdempotentDeliveryService.MDC_TRACE_ID);
+        return v == null || v.isBlank() ? null : v;
     }
 
     private static String firstNonBlank(String a, String b) {

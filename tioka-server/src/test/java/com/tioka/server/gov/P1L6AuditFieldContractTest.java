@@ -15,8 +15,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * P1 / L6（审计字段语义与 traceId 贯通）离线契约测试：纯 JUnit5 + 反射，
  * 不启 Spring、不依赖 Redis / PostgreSQL（离线验收）。
  *
- * <p>固化「代码现状与 L6 验收准则一致」的部分；span_id / service 列、三套 trace
- * 互通、OTel agent 部署等缺口见 {@code docs/architecture/design-notes/P1-L6-gap-ledger.md}，归 P2。
+ * <p>spanId / service 组件与 span_id / service 列已随 P2-L6（V217 迁移）落地，
+ * 原缺口固化断言已反转；OTel agent 挂载等仍开放的缺口见
+ * {@code docs/architecture/design-notes/P1-L6-gap-ledger.md}。
  */
 class P1L6AuditFieldContractTest {
 
@@ -50,20 +51,19 @@ class P1L6AuditFieldContractTest {
     }
 
     /**
-     * 缺口固化断言：AuditEvent 当前不含 spanId / service 组件。
-     * P2 落地 span_id / service 列（需 Flyway 迁移）后，本断言须随实现更新
-     * （改为断言存在 spanId / service）。
+     * P2-L6 已落地：AuditEvent 含 spanId / service 组件（V217 迁移加列）。
+     * 原 P1 缺口固化断言（不含 spanId / service）已随实现反转。
      */
     @Test
-    @DisplayName("AuditEvent 暂无 spanId / service 组件（P2 已知缺口，落地后本断言需反转）")
-    void auditEventSpanServiceAreKnownGaps() throws Exception {
+    @DisplayName("AuditEvent 含 spanId / service 组件（P2-L6 已落地）")
+    void auditEventCarriesSpanAndService() throws Exception {
         Class<?> event = Class.forName(AUDIT_EVENT);
         List<String> comps = recordComponentNames(event);
 
-        assertFalse(comps.contains("spanId"),
-                "当前代码无 spanId —— 若本断言失败说明 P2 缺口已落地，请更新此测试与 P1-L6-gap-ledger.md");
-        assertFalse(comps.contains("service"),
-                "当前代码无 service —— 若本断言失败说明 P2 缺口已落地，请更新此测试与 P1-L6-gap-ledger.md");
+        assertTrue(comps.contains("spanId"),
+                "P2-L6 落地后 AuditEvent 必须含 spanId（audit_event.span_id，V217）");
+        assertTrue(comps.contains("service"),
+                "P2-L6 落地后 AuditEvent 必须含 service（audit_event.service，V217）");
     }
 
     @Test

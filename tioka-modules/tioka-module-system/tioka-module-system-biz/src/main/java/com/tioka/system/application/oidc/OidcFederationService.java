@@ -264,7 +264,7 @@ public class OidcFederationService {
                 audit.record(new AuditEvent(null, Instant.now(), row.getWorkspaceId(),
                         "system", "oidc", "member.remove", "workspace_member",
                         row.getWorkspaceId() + ":" + uid,
-                        AuditOutcome.SUCCESS, null, null, null, null,
+                        AuditOutcome.SUCCESS, null, null, null, null, null, null,
                         Map.of("userId", uid, "source", source, "role", row.getRoleCode())));
             }
         }

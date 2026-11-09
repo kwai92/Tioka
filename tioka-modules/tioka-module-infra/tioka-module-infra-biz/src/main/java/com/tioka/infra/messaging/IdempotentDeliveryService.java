@@ -23,6 +23,7 @@ import io.opentelemetry.context.Scope;
 import io.opentelemetry.context.propagation.TextMapGetter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -43,6 +44,14 @@ import java.util.Set;
 public class IdempotentDeliveryService {
 
     private static final Logger log = LoggerFactory.getLogger(IdempotentDeliveryService.class);
+
+    /**
+     * P2-L6：消费线程 MDC 回写 key。与 system-biz {@code AuditRequestContext}
+     * （MDC_TRACE/MDC_SPAN，值为 "traceId"/"spanId"）保持同源；infra-biz 不依赖
+     * system-biz，故以字面常量镜像（离线契约测试 P2L6TraceContinuityContractTest 守护）。
+     */
+    static final String MDC_TRACE_ID = "traceId";
+    static final String MDC_SPAN_ID = "spanId";
 
     private final List<IdempotentConsumer<?>> consumers;
     private final SysConsumedRepository consumed;
@@ -129,6 +138,9 @@ public class IdempotentDeliveryService {
                 .setAttribute("tioka.messaging.consumer", consumer.resolvedConsumerName())
                 .setAttribute("tioka.messaging.event", envelope.event() == null ? "" : envelope.event())
                 .startSpan();
+        // P2-L6：派发 handler 前回写 MDC，使消费侧审计与消息链路同 traceId；
+        // Span 上下文无效（未挂 agent）时回退 envelope.traceId，均无效则不写（审计自生成 trc_）
+        boolean mdcWritten = propagateTraceToMdc(span.getSpanContext(), envelope.traceId());
         try (Scope ignored = span.makeCurrent()) {
             Object payload = readPayload(consumer, envelope);
             Principal runAs = resolveRunAs(envelope);
@@ -149,8 +161,29 @@ public class IdempotentDeliveryService {
             span.recordException(e);
             throw e;
         } finally {
+            if (mdcWritten) {
+                MDC.remove(MDC_TRACE_ID);
+                MDC.remove(MDC_SPAN_ID);
+            }
             span.end();
         }
+    }
+
+    /**
+     * P2-L6：优先以 Span 上下文（extractParent 得到的 W3C trace-id + span-id）写 MDC；
+     * Span 无效且 envelope.traceId 非空时仅写 traceId。返回是否写入了 MDC（调用方 finally 清理）。
+     */
+    private static boolean propagateTraceToMdc(io.opentelemetry.api.trace.SpanContext spanContext, String envelopeTraceId) {
+        if (spanContext != null && spanContext.isValid()) {
+            MDC.put(MDC_TRACE_ID, spanContext.getTraceId());
+            MDC.put(MDC_SPAN_ID, spanContext.getSpanId());
+            return true;
+        }
+        if (envelopeTraceId != null && !envelopeTraceId.isBlank()) {
+            MDC.put(MDC_TRACE_ID, envelopeTraceId);
+            return true;
+        }
+        return false;
     }
 
     private static Context extractParent(String traceparent) {

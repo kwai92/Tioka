@@ -15,6 +15,8 @@ public record AuditEventWriteRow(
         String outcome,
         String reason,
         String traceId,
+        String spanId,
+        String service,
         String requestId,
         String subject,
         String clientIp,

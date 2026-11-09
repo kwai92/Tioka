@@ -19,6 +19,10 @@ import java.io.IOException;
  * HTTP 入口建立关联上下文（OBS-01 / OBS-03）：
  * {@code X-Tioka-Request-Id}（兼容 {@code X-Request-Id}）→ MDC + {@link RequestContextHolder}；响应头回写。
  *
+ * <p>P2-L6：请求头携带合法 W3C {@code traceparent} 时，MDC {@code traceId}=trace-id、
+ * {@code spanId}=parent-span-id（{@link TraceparentParser} 手写解析，无 OTel 依赖）；
+ * 缺失或非法则维持自生成 {@code trc_}、spanId 留空。
+ *
  * <p>本过滤器在 Security 之前执行，无法判断登录态；安全形态的 request_id
  * 仍按 OBS-01 采纳（长度与字符集校验）。ADR-073「仅可信来源」收紧放到网关层后续包。
  */
@@ -28,6 +32,7 @@ public class AuditRequestContextFilter extends OncePerRequestFilter {
 
     public static final String HEADER_TIOKA = "X-Tioka-Request-Id";
     public static final String HEADER_COMPAT = "X-Request-Id";
+    public static final String HEADER_TRACEPARENT = "traceparent";
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
@@ -35,6 +40,11 @@ public class AuditRequestContextFilter extends OncePerRequestFilter {
         try {
             String requestId = resolveRequestId(request);
             MDC.put(AuditRequestContext.MDC_REQUEST, requestId);
+            TraceparentParser.Parsed parent = TraceparentParser.parse(request.getHeader(HEADER_TRACEPARENT));
+            if (parent != null) {
+                MDC.put(AuditRequestContext.MDC_TRACE, parent.traceId());
+                MDC.put(AuditRequestContext.MDC_SPAN, parent.spanId());
+            }
             AuditRequestContext.currentTraceId();
 
             RequestContext correlation = RequestContextHolder.getCorrelation().withRequestId(requestId);

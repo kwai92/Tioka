@@ -100,6 +100,7 @@ public class AuditedAspect {
                 .outcome(outcome)
                 .reason(reason)
                 .traceId(AuditRequestContext.currentTraceId())
+                .spanId(AuditRequestContext.currentSpanId())
                 .requestId(AuditRequestContext.currentRequestId())
                 .details(details)
                 .build();

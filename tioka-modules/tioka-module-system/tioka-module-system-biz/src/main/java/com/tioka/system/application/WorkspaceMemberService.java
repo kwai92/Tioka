@@ -121,7 +121,7 @@ public class WorkspaceMemberService {
         audit.record(new AuditEvent(null, at, workspaceId,
                 "user", operatorId, "member.remove", "workspace_member",
                 workspaceId + ":" + userId,
-                AuditOutcome.SUCCESS, null, null, null, null,
+                AuditOutcome.SUCCESS, null, null, null, null, null, null,
                 Map.of("userId", userId, "source", MemberRemovedEvent.SOURCE_MANUAL)));
         identityOutbox.publishMemberRemoved(workspaceId, userId, MemberRemovedEvent.SOURCE_MANUAL);
         AfterCommitEvents.publish(events,
