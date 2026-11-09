@@ -36,7 +36,9 @@
 
 ## 迁移脚本
 
-`db/` 下的脚本以 `tioka-server/src/main/resources/schema-pg.sql` 为基线，按版本号顺序执行，已在 PostgreSQL 16 + pgvector 上验证可依次执行成功（含旧数据回填语句）。仓库目前用 `spring.sql.init` 加载整份 schema，尚未引入 Flyway；ENG-11（M0-01）引入 Flyway 时把 `schema-pg.sql` 作为 `V1__baseline.sql`，本目录脚本原样移入 `tioka-server/src/main/resources/db/migration`，届时删除本目录副本。
+本目录 `db/` 保留为**历史契约快照（非执行源）**：其 45 份 SQL 副本与 `tioka-server/src/main/resources/db/migration/` 下的 41 份 SQL 迁移、以及 `tioka-server/src/main/java/.../db/migration/` 下的 4 份 Java 迁移（`BaseJavaMigration`，V104 / V124 / V126 / V145）形成「同号不同形态」的演进记录；本目录不双跑、不作为迁移执行面。
+
+**现状（X7 文档新鲜度漂移已于 2026-11-09 回写）**：仓库已引入 Flyway 作为数据库迁移的唯一执行面——`spring.flyway.enabled: true` 已在 `application.yml` 与 `application-local.yml` 生效，原 `schema-pg.sql` 基线已随 M0-01 ENG-11 下线，`db/migration` 为唯一迁移源（见 ADR-029 第 29 条、ADR-026）。如需改动迁移须改 `db/migration` 并经对应 ADR 与 CODEOWNERS 审批（ADR-030）；本目录 `db/` 仅作契约留痕，不再承担执行职责。
 
 ## 契约测试
 

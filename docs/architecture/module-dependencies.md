@@ -1,7 +1,7 @@
 # Tioka 模块依赖关系
 
 > 配套：S0/S8/S10–S14；全局实施方案 30/31  
-> 更新：2026-11-05（补 model / agent / mcp / skill）
+> 更新：2026-11-09（X8 回写：补 ontology / governance / eval；模块树 15 个业务模块，事实基线）
 
 ## 1. 仓库模块树
 
@@ -18,10 +18,15 @@ tioka-modules/
 ├── tioka-module-model           # S10
 ├── tioka-module-agent           # S11
 ├── tioka-module-mcp             # S12 管理面
-└── tioka-module-skill           # S13
+├── tioka-module-skill           # S13
+├── tioka-module-ontology        # 业务本体（ADR-036）
+├── tioka-module-governance      # 授权 / 评测（ADR-025）
+└── tioka-module-eval            # 评测（ADR-031）
 ```
 
 根目录另有：`tioka-dependencies`、`tioka-framework`、`tioka-server*`、`tioka-ui`。
+
+> X8 整改（2026-11-09）：实际仓库为 **15 个业务模块**——在 ADR-025 / ADR-031 / ADR-036 后新增 `ontology` / `governance` / `eval`，上述模块树据此回写；**15 为事实基线**，设计口径「13 对 15」中的 13 为旧快照（详见一致性矩阵 X8 裁决）。
 
 ## 2. 编译期依赖（只允许 → api）
 
@@ -52,7 +57,6 @@ flowchart TB
   AG --> SK
   AG --> FL
   MCP --> SYS
-  MCP --> AG
   SK --> SYS
   OR --> SYS
   OR --> RT
@@ -72,6 +76,8 @@ flowchart TB
   CO --> OR
   CO --> KN
 ```
+
+> X6 整改（2026-11-09）：移除 `MCP --> AG` 反向边缘，打破 AG↔MCP 依赖环——`mcp-api` 实际仅依赖 `tioka-framework`，不反向依赖 `agent-api`（已由 pom 实证，X6 判为文档漂移）。本图 api 层边缘与 pom 的逐条一致性，由 L8 ArchUnit 依赖基线统一复核。
 
 ## 3. biz 实现依赖（同样只引 api）
 
