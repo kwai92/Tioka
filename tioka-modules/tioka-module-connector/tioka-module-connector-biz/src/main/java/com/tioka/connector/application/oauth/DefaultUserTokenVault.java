@@ -8,6 +8,7 @@ import com.tioka.framework.id.Ids;
 import com.tioka.framework.security.CredentialCipher;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.net.URLEncoder;
@@ -38,6 +39,7 @@ public class DefaultUserTokenVault implements UserTokenVault {
     private final OAuthStateCodec stateCodec;
     private final Clock clock;
 
+    @Autowired
     public DefaultUserTokenVault(UserCredentialRepository repository,
                                  CredentialCipher cipher,
                                  OAuthTokenClient tokenClient,

@@ -3,13 +3,13 @@ package com.tioka.connector.application.oauth;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tioka.connector.config.OAuthProviderProperties;
+import com.tioka.system.api.spi.EgressClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import java.net.URI;
 import java.net.URLEncoder;
-import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
@@ -28,13 +28,12 @@ public class HttpOAuthTokenClient implements OAuthTokenClient {
 
     private static final Logger log = LoggerFactory.getLogger(HttpOAuthTokenClient.class);
 
-    private final HttpClient http = HttpClient.newBuilder()
-            .connectTimeout(Duration.ofSeconds(5))
-            .build();
+    private final EgressClient egress;
     private final ObjectMapper mapper;
     private final OAuthProviderProperties properties;
 
-    public HttpOAuthTokenClient(ObjectMapper mapper, OAuthProviderProperties properties) {
+    public HttpOAuthTokenClient(EgressClient egress, ObjectMapper mapper, OAuthProviderProperties properties) {
+        this.egress = egress;
         this.mapper = mapper;
         this.properties = properties;
     }
@@ -67,7 +66,7 @@ public class HttpOAuthTokenClient implements OAuthTokenClient {
                     .header("Content-Type", "application/x-www-form-urlencoded")
                     .POST(HttpRequest.BodyPublishers.ofString(form, StandardCharsets.UTF_8))
                     .build();
-            HttpResponse<String> response = http.send(request, HttpResponse.BodyHandlers.ofString());
+            HttpResponse<String> response = egress.send(request);
             if (response.statusCode() < 200 || response.statusCode() >= 300) {
                 throw new IllegalStateException("token 端点返回 " + response.statusCode());
             }
