@@ -105,7 +105,7 @@ public class UserAdminService {
         Instant at = Instant.now();
         audit.record(new AuditEvent(null, at, principals.current().workspaceId(),
                 "user", operatorId, "user.disable", "user", userId,
-                AuditOutcome.SUCCESS, null, null, null, null, Map.of()));
+                AuditOutcome.SUCCESS, null, null, null, null, null, null, Map.of()));
         identityOutbox.publishUserDisabled(userId, operatorId, at);
         AfterCommitEvents.publish(events, new UserDisabledEvent(userId, operatorId, at));
     }
@@ -124,7 +124,7 @@ public class UserAdminService {
         Instant at = Instant.now();
         audit.record(new AuditEvent(null, at, principals.current().workspaceId(),
                 "user", operatorId, "user.enable", "user", userId,
-                AuditOutcome.SUCCESS, null, null, null, null, Map.of()));
+                AuditOutcome.SUCCESS, null, null, null, null, null, null, Map.of()));
         AfterCommitEvents.publish(events, new UserEnabledEvent(userId, operatorId, at));
     }
 
@@ -141,7 +141,7 @@ public class UserAdminService {
         Instant at = Instant.now();
         audit.record(new AuditEvent(null, at, principals.current().workspaceId(),
                 "user", operatorId, "user.reset_password", "user", userId,
-                AuditOutcome.SUCCESS, null, null, null, null, Map.of()));
+                AuditOutcome.SUCCESS, null, null, null, null, null, null, Map.of()));
         return new ResetPasswordResult(raw);
     }
 

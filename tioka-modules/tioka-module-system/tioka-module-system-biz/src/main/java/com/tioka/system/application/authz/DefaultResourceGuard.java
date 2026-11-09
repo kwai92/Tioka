@@ -63,7 +63,7 @@ public class DefaultResourceGuard implements ResourceGuard {
                         p.type().name().toLowerCase(), p.userId(),
                         resourceType + "." + level.name().toLowerCase(),
                         resourceType, resourceId, AuditOutcome.DENIED,
-                        "资源权限不足", null, null, null, null));
+                        "资源权限不足", null, null, null, null, null, null));
             } catch (RuntimeException ignored) {
                 // ignore
             }

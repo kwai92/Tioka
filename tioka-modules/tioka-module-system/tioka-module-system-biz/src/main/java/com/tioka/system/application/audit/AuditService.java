@@ -11,6 +11,7 @@ import com.tioka.system.api.audit.AuditOutcome;
 import com.tioka.system.infrastructure.AuditEventRepository;
 import com.tioka.system.infrastructure.persistence.AuditEventQuery;
 import com.tioka.system.infrastructure.persistence.AuditEventWriteRow;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -37,13 +38,17 @@ public class AuditService implements AuditApi {
     private final AuditEventRepository repository;
     private final ObjectMapper objectMapper;
     private final AuditService self;
+    /** P2-L6：审计 service 列取值（与 OTel service-name 同源）。 */
+    private final String serviceName;
 
     public AuditService(AuditEventRepository repository,
                         ObjectMapper objectMapper,
-                        @Lazy AuditService self) {
+                        @Lazy AuditService self,
+                        @Value("${tioka.observability.service-name:tioka}") String serviceName) {
         this.repository = repository;
         this.objectMapper = objectMapper;
         this.self = self;
+        this.serviceName = serviceName == null || serviceName.isBlank() ? "tioka" : serviceName.trim();
     }
 
     @Override
@@ -123,15 +128,18 @@ public class AuditService implements AuditApi {
         repository.insert(new AuditEventWriteRow(
                 e.id(), e.ts(), e.workspaceId(),
                 e.actorType(), e.actorId(), e.action(), e.resourceType(), e.resourceId(),
-                e.outcome().name(), e.reason(), e.traceId(), e.requestId(), subject, e.clientIp(), detailsJson));
+                e.outcome().name(), e.reason(), e.traceId(), e.spanId(), e.service(), e.requestId(),
+                subject, e.clientIp(), detailsJson));
     }
 
-    /** OBS-01：补齐 id/ts/traceId/requestId。 */
-    private static AuditEvent enrich(AuditEvent e) {
+    /** OBS-01：补齐 id/ts/traceId/requestId；P2-L6：补齐 spanId（MDC）与 service。 */
+    private AuditEvent enrich(AuditEvent e) {
         String id = blank(e.id()) ? Ids.newId("aud") : e.id();
         Instant ts = e.ts() == null ? Instant.now() : e.ts();
         String trace = blank(e.traceId()) ? AuditRequestContext.currentTraceId() : e.traceId();
         String requestId = blank(e.requestId()) ? AuditRequestContext.currentRequestId() : e.requestId();
+        String spanId = blank(e.spanId()) ? AuditRequestContext.currentSpanId() : e.spanId();
+        String service = blank(e.service()) ? serviceName : e.service();
         return AuditEvent.builder()
                 .id(id)
                 .ts(ts)
@@ -144,6 +152,8 @@ public class AuditService implements AuditApi {
                 .outcome(e.outcome())
                 .reason(e.reason())
                 .traceId(trace)
+                .spanId(spanId)
+                .service(service)
                 .requestId(requestId)
                 .clientIp(e.clientIp())
                 .details(e.details())
@@ -176,6 +186,8 @@ public class AuditService implements AuditApi {
                 .outcome(AuditOutcome.valueOf(str(r.get("outcome"))))
                 .reason(str(r.get("reason")))
                 .traceId(str(r.get("traceId")))
+                .spanId(str(r.get("spanId")))
+                .service(str(r.get("service")))
                 .requestId(str(r.get("requestId")))
                 .clientIp(str(r.get("clientIp")))
                 .details(details)
