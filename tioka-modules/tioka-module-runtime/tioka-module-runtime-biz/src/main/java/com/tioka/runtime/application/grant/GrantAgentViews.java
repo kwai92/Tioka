@@ -46,8 +46,20 @@ public final class GrantAgentViews {
                 skills.add(s.skillVersionId());
             }
         }
-        // TRU-02：charter 为 JsonNode 预留必须 null → 动作类别空集（M3-01 L37 语义）
+        // TRU-02：动作类别来自类型化 Charter（agent-api Charter）；无授权书 → 空集（M3-01 L37 语义）
         Set<String> classes = Set.of();
+        try {
+            com.tioka.agent.api.spec.Charter charter =
+                    com.tioka.agent.api.spec.Charter.parse(spec.charter());
+            if (charter != null && !charter.actionClasses().isEmpty()) {
+                classes = new LinkedHashSet<>(charter.actionClasses().stream()
+                        .map(com.tioka.agent.api.spec.Charter.ActionClass::code)
+                        .filter(c -> c != null && !c.isBlank())
+                        .toList());
+            }
+        } catch (IllegalArgumentException ignored) {
+            // charter JSON 非法按无授权书处理（发布校验已拦截）
+        }
         DataLabel clearance = parseLabel(spec.dataClearance());
         Budget budget = spec.limits() != null && spec.limits().maxTokensPerTurn() != null
                 ? new Budget(java.math.BigDecimal.valueOf(spec.limits().maxTokensPerTurn()), null, null)

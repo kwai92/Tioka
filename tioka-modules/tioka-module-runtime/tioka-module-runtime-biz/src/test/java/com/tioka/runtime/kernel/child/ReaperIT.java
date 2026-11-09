@@ -71,7 +71,8 @@ class ReaperIT {
         router = mock(RuntimeChildRouterConsumer.class);
         appEvents = mock(ApplicationEventPublisher.class);
         grantService = new DefaultGrantService(grantStore, mock(GrantCacheStore.class),
-                new com.tioka.runtime.config.KernelProperties(), mapper());
+                new com.tioka.runtime.config.KernelProperties(), mapper(),
+                (org.springframework.beans.factory.ObjectProvider<com.tioka.agent.api.AgentSnapshotApi>) mock(org.springframework.beans.factory.ObjectProvider.class));
         reaper = new SubAgentReaper(threads, turns, items, approvals, grantStore, grantService,
                 registry, router, mapper(), appEvents);
         when(grantStore.casBody(anyString(), any(GrantBody.class), any(GrantBody.class))).thenReturn(true);
@@ -120,7 +121,9 @@ class ReaperIT {
                 child.grant().budget(), child.grant().expiresAt(), GrantStatus.REAPED, null);
         com.tioka.runtime.api.grant.GrantService gs = mock(com.tioka.runtime.api.grant.GrantService.class);
         when(gs.get("grt_child")).thenReturn(reaped);
-        DelegationGrantCheck check = new DelegationGrantCheck(gs);
+        DelegationGrantCheck check = new DelegationGrantCheck(gs,
+                new com.tioka.runtime.application.ToolRegistry(List.of()),
+                (org.springframework.beans.factory.ObjectProvider<com.tioka.agent.api.AgentSnapshotApi>) mock(org.springframework.beans.factory.ObjectProvider.class));
         String deny = check.check(com.tioka.runtime.api.spi.ToolCallContexts.forTurn(null,
                 "thr_child", "turn_child", "av_child", "delegate", List.of(), Map.of(), "grt_child"),
                 "echo", Map.of());

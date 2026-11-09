@@ -49,6 +49,7 @@ public class AgentService implements AgentCatalogApi {
     private final ObjectMapper mapper;
     private final PublishValidator publishValidator;
     private final ApplicationEventPublisher events;
+    private final org.springframework.beans.factory.ObjectProvider<com.tioka.governance.api.policy.CharterPolicyCompilerApi> charterCompiler;
 
     public AgentService(AgentStore store,
                         AgentRepository repo,
@@ -58,7 +59,8 @@ public class AgentService implements AgentCatalogApi {
                         PrincipalHolder principals,
                         ObjectMapper mapper,
                         PublishValidator publishValidator,
-                        ApplicationEventPublisher events) {
+                        ApplicationEventPublisher events,
+                        org.springframework.beans.factory.ObjectProvider<com.tioka.governance.api.policy.CharterPolicyCompilerApi> charterCompiler) {
         this.store = store;
         this.repo = repo;
         this.drafts = drafts;
@@ -68,6 +70,7 @@ public class AgentService implements AgentCatalogApi {
         this.mapper = mapper;
         this.publishValidator = publishValidator;
         this.events = events;
+        this.charterCompiler = charterCompiler;
     }
 
     public Agent create(String name, String workspaceId, String visibility) {
@@ -201,6 +204,7 @@ public class AgentService implements AgentCatalogApi {
         draft.setUpdateAt(LocalDateTime.now(ZoneOffset.UTC));
         draft.setUpdateBy(principals.current().userId());
         drafts.update(draft);
+        compileCharterPolicies(agent.workspaceId(), versionId, spec);
         publishAfterCommit(agentId, versionId);
         return new PublishResult(versionId, nextNo);
     }
@@ -265,6 +269,7 @@ public class AgentService implements AgentCatalogApi {
             draft.setUpdateBy(principals.current().userId());
             drafts.update(draft);
         }
+        compileCharterPolicies(agent.workspaceId(), target.getId(), spec);
         publishAfterCommit(agentId, target.getId());
         return new PublishResult(target.getId(), target.getVersionNo());
     }
@@ -365,6 +370,46 @@ public class AgentService implements AgentCatalogApi {
                 v.getId().equals(currentId),
                 AgentSpecJson.parse(mapper, v.getSpecJson()),
                 v.getSnapshotHash());
+    }
+
+    /**
+     * TRU-02（M3-05 §3.1）：发布路径用类型化 Charter 编译 Cedar 策略组（旧版本保留、新版本写入、
+     * 幂等覆盖）；编译器由 governance-biz 经 governance-api 端口提供，缺省（策略引擎关闭）跳过。
+     * char JSON 非法时发布失败（AGENT_PUBLISH_INVALID，发布路径类型化口径）。
+     */
+    private void compileCharterPolicies(String workspaceId, String versionId, AgentSpec spec) {
+        com.tioka.governance.api.policy.CharterPolicyCompilerApi compiler = charterCompiler.getIfAvailable();
+        if (compiler == null) {
+            return;
+        }
+        if (spec.charter() == null || spec.charter().isNull() || spec.charter().isMissingNode()) {
+            return;
+        }
+        com.tioka.agent.api.spec.Charter charter;
+        try {
+            charter = com.tioka.agent.api.spec.Charter.parse(spec.charter());
+        } catch (IllegalArgumentException e) {
+            throw new BizException(ErrorCode.AGENT_PUBLISH_INVALID,
+                    "charter 类型化解析失败: " + e.getMessage());
+        }
+        if (charter == null) {
+            return;
+        }
+        List<com.tioka.governance.api.policy.CharterPolicyCompilerApi.ActionClassSpec> classes =
+                new ArrayList<>();
+        for (com.tioka.agent.api.spec.Charter.ActionClass ac : charter.actionClasses()) {
+            var limits = ac.limits();
+            classes.add(new com.tioka.governance.api.policy.CharterPolicyCompilerApi.ActionClassSpec(
+                    ac.code(), ac.toolPatterns(),
+                    limits == null ? null : limits.perCallAmountMicros(),
+                    limits == null ? null : limits.dailyAmountMicros(),
+                    limits == null ? null : limits.perRunRecords(),
+                    limits == null ? null : limits.dailyRecords(),
+                    limits == null ? Map.of() : limits.scope(),
+                    ac.fourEyes(), ac.delegable()));
+        }
+        compiler.compile(new com.tioka.governance.api.policy.CharterPolicyCompilerApi.CompilationCommand(
+                workspaceId, versionId, classes, charter.forbiddenTools()));
     }
 
     private void publishAfterCommit(String agentId, String versionId) {

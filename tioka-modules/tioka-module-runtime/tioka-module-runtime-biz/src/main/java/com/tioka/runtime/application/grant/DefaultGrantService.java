@@ -41,13 +41,16 @@ public class DefaultGrantService implements GrantService {
     private final GrantCacheStore cache;
     private final KernelProperties props;
     private final ObjectMapper mapper;
+    private final org.springframework.beans.factory.ObjectProvider<com.tioka.agent.api.AgentSnapshotApi> agentSnapshots;
 
     public DefaultGrantService(GrantStore store, GrantCacheStore cache, KernelProperties props,
-                               ObjectMapper mapper) {
+                               ObjectMapper mapper,
+                               org.springframework.beans.factory.ObjectProvider<com.tioka.agent.api.AgentSnapshotApi> agentSnapshots) {
         this.store = store;
         this.cache = cache;
         this.props = props;
         this.mapper = mapper;
+        this.agentSnapshots = agentSnapshots;
     }
 
     @Override
@@ -93,9 +96,10 @@ public class DefaultGrantService implements GrantService {
         if (parentBody == null) {
             throw new BizException(ErrorCode.NOT_FOUND, "父授予不存在: " + parent.grantId());
         }
-        // TRU-02 未落地：父授权书 delegable 无类型化投影，先取父授予 actionClasses（登记偏差）
+        // TRU-02 回接：parentCharterClasses = 父授权书 delegable 类别（MAS-02 语义）；
+        // 父快照/授权书不可得时回退父授予 actionClasses（保持行为兼容，登记偏差）
         DelegationGrant childGrant = NarrowingVerifier.narrow(parentBody.grant(), child, narrow,
-                parentBody.grant().actionClasses(), parentBody.usedTokens(),
+                parentCharterClasses(parentBody.grant()), parentBody.usedTokens(),
                 props.getChildGrantTtl(), props.getDelegate().getMaxDepth(), Instant.now());
         GrantBody body = new GrantBody(childGrant, 0L, 1L);
         store.insert(body, parent.grantId(), childGrant.rootPrincipalRef(), childGrant.onBehalfOf(),
@@ -152,6 +156,33 @@ public class DefaultGrantService implements GrantService {
                 cache.evict(List.of(parentId));
                 return;
             }
+        }
+    }
+
+    /**
+     * 父授权书 delegable 类别（MAS-02）：取父授予链当前 hop 版本的类型化 Charter。
+     * 快照缺失 / 无授权书 / 解析失败 → 父授予 actionClasses（兼容回退）。
+     */
+    private Set<String> parentCharterClasses(DelegationGrant parent) {
+        Set<String> fallback = parent.actionClasses() == null ? Set.of() : parent.actionClasses();
+        if (agentSnapshots.getIfAvailable() == null || parent.chain() == null
+                || parent.chain().isEmpty()) {
+            return fallback;
+        }
+        String parentVersionId = parent.chain().get(parent.chain().size() - 1).agentVersionId();
+        try {
+            com.tioka.agent.api.spec.AgentSpec spec =
+                    agentSnapshots.getIfAvailable().get(parentVersionId).spec();
+            com.tioka.agent.api.spec.Charter charter =
+                    spec == null ? null : com.tioka.agent.api.spec.Charter.parse(spec.charter());
+            if (charter == null) {
+                return fallback;
+            }
+            Set<String> delegable = Set.copyOf(charter.delegableClasses());
+            return delegable.isEmpty() ? fallback : delegable;
+        } catch (RuntimeException e) {
+            log.debug("父授权书 delegable 解析失败 version={}: {}", parentVersionId, e.toString());
+            return fallback;
         }
     }
 

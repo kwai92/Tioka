@@ -96,9 +96,15 @@ public class ApprovalSuspendService {
             row.setToolName(p.call().name());
             row.setArgsJson(json(p.args()));
             row.setPolicy(policyCode);
-            row.setAssigneeJson(json(Map.of(
-                    "userIds", req.assignee().userIds(),
-                    "roleCodes", req.assignee().roleCodes())));
+            boolean fourEyes = req.reason() != null && req.reason().startsWith("fourEyes");
+            Map<String, Object> assigneePayload = new LinkedHashMap<>();
+            assigneePayload.put("userIds", req.assignee().userIds());
+            assigneePayload.put("roleCodes", req.assignee().roleCodes());
+            if (fourEyes) {
+                // TRU-02 四眼：审批人不能是 Turn 发起人与编排工单请求人（M3-05 §3.4）
+                assigneePayload.put("fourEyes", true);
+            }
+            row.setAssigneeJson(json(assigneePayload));
             row.setStatus(ApprovalStatus.PENDING.name());
             row.setExpiresAt(LocalDateTime.ofInstant(expires, ZoneOffset.UTC));
             row.setRequestId(requestId);
@@ -115,6 +121,9 @@ public class ApprovalSuspendService {
             card.put("args", p.args());
             card.put("risk", risk.name());
             card.put("reason", req.reason());
+            if (fourEyes) {
+                card.put("fourEyes", true);
+            }
             RuntimeItemDO cardItem = items.append(ItemWrite.append(ctx.threadId(), ctx.turnId(), ctx.leaseVersion(), step,
                     ItemType.CARD.wire(), "system", json(card), null));
             streams.publish(ctx.threadId(), EventId.of(cardItem.getSeq()).toString(),

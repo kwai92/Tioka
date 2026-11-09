@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- GOV-07 gov_policy 自定义 SQL（48-CS §4：自定义 SQL 须放 mapper/*.xml） -->
+<mapper namespace="com.tioka.governance.infrastructure.mapper.GovPolicyMapper">
+
+    <select id="listActiveForWorkspace" resultType="com.tioka.governance.infrastructure.persistence.GovPolicyDO">
+        SELECT * FROM gov_policy
+        WHERE status = 'ACTIVE'
+          AND (workspace_id = #{workspaceId} OR workspace_id IS NULL)
+        ORDER BY version
+    </select>
+
+    <select id="listBySource" resultType="com.tioka.governance.infrastructure.persistence.GovPolicyDO">
+        SELECT * FROM gov_policy
+        WHERE workspace_id = #{workspaceId} AND source = #{source}
+        ORDER BY version
+    </select>
+
+    <select id="findById" resultType="com.tioka.governance.infrastructure.persistence.GovPolicyDO">
+        SELECT * FROM gov_policy WHERE id = #{id}
+    </select>
+
+    <select id="maxVersion" resultType="int">
+        SELECT COALESCE(MAX(version), 0) FROM gov_policy
+        WHERE workspace_id IS NOT DISTINCT FROM #{workspaceId} AND source = #{source}
+    </select>
+
+    <select id="activeVersion" resultType="int">
+        SELECT COALESCE(MAX(version), 0) FROM gov_policy
+        WHERE workspace_id = #{workspaceId} AND source = #{source} AND status = 'ACTIVE'
+    </select>
+
+    <!-- charter 来源替换：整组停用（编译幂等覆盖用；旧行保留满足审计回溯） -->
+    <update id="disableBySource">
+        UPDATE gov_policy SET status = 'DISABLED', update_at = now()
+        WHERE workspace_id = #{workspaceId} AND source = #{source} AND status = 'ACTIVE'
+    </update>
+</mapper>

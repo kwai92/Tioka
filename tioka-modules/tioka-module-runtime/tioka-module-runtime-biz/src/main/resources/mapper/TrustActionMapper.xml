@@ -86,4 +86,22 @@
             SELECT COALESCE(MAX(seq), 0) + 1 FROM trust_action WHERE turn_id = #{turnId}
         ]]>
     </select>
+
+    <select id="listAppliedInDay" resultType="com.tioka.runtime.infrastructure.persistence.TrustActionDO">
+        <![CDATA[
+            SELECT id, workspace_id AS workspaceId, agent_id AS agentId, agent_version_id AS agentVersionId,
+                   thread_id AS threadId, turn_id AS turnId, orch_run_id AS orchRunId, item_id AS itemId, seq,
+                   tool_name AS toolName, action_class AS actionClass, risk, reversibility, status, gate,
+                   args_json AS argsJson, change_set_json AS changeSetJson, fingerprint, estimated,
+                   valid_until AS validUntil, records, amount_micros AS amountMicros, approval_id AS approvalId,
+                   receipt_json AS receiptJson, undo_deadline AS undoDeadline, undone_by AS undoneBy,
+                   undo_reason AS undoReason, create_at AS createAt, update_at AS updateAt
+              FROM trust_action
+             WHERE agent_id = #{agentId}
+               AND status = 'APPLIED'
+               AND undone_by IS NULL
+               AND COALESCE(update_at, create_at) >= #{fromUtc}
+               AND COALESCE(update_at, create_at) < #{toUtc}
+        ]]>
+    </select>
 </mapper>
