@@ -128,6 +128,18 @@ actions:
     retentionClass: BIZ
     siemSeverity: LOW
     module: tioka-module-chat
+  - action: deadletter.discard
+    category: EXECUTION
+    resourceType: sys_dead_letter
+    retentionClass: BIZ
+    siemSeverity: MEDIUM
+    module: tioka-module-infra
+  - action: deadletter.replay
+    category: EXECUTION
+    resourceType: sys_dead_letter
+    retentionClass: BIZ
+    siemSeverity: MEDIUM
+    module: tioka-module-infra
   - action: egress.denied
     category: SECURITY
     resourceType: egress

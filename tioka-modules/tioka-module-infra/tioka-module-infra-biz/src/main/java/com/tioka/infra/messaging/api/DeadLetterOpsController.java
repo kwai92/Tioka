@@ -7,6 +7,7 @@ import com.tioka.framework.security.PrincipalHolder;
 import com.tioka.framework.security.RequirePermission;
 import com.tioka.infra.messaging.DeadLetterOpsService;
 import com.tioka.infra.messaging.infrastructure.persistence.SysDeadLetterDO;
+import com.tioka.system.api.audit.Audited;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -64,11 +65,13 @@ public class DeadLetterOpsController {
     }
 
     @PostMapping("/{id}/replay")
+    @Audited(action = "deadletter.replay", resourceType = "sys_dead_letter", resourceIdArg = "#id")
     public ApiResponse<DeadLetterView> replay(@PathVariable String id) {
         return ApiResponse.ok(toView(ops.replay(id, handledBy())));
     }
 
     @PostMapping("/{id}/discard")
+    @Audited(action = "deadletter.discard", resourceType = "sys_dead_letter", resourceIdArg = "#id")
     public ApiResponse<DeadLetterView> discard(@PathVariable String id,
                                                @RequestBody(required = false) Map<String, String> body) {
         String reason = body == null ? null : body.get("reason");
