@@ -36,3 +36,5 @@ node $S status Tioka
 | 企业架构基线 | 40–45（ADR-013） |
 | 域内详设 | 对应 S 篇 |
 | 执行任务 | 31 checklist |
+
+> **镜像声明（X3 裁决，2026-11-09）**：本目录为 `docs/architecture/**` 的发布面手工镜像，**不参与代码↔设计一致性校验基线**；行数与文件集与权威源存在已知差异（见 `docs/architecture/ops/doc-single-source.md` X4 说明）。
