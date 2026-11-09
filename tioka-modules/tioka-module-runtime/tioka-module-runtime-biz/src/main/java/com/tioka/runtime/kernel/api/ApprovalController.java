@@ -58,6 +58,12 @@ public class ApprovalController {
         return ApiResponse.ok(approvalQuery.get(id));
     }
 
+    /** TRU-06b：审批台详情——有变更单时以变更单替代参数 JSON。 */
+    @GetMapping("/{id}/changeset")
+    public ApiResponse<ApprovalQueryApi.ChangeSetDetail> changeSet(@PathVariable String id) {
+        return ApiResponse.ok(approvalQuery.changeSet(id).orElse(null));
+    }
+
     @PostMapping("/{id}/decision")
     public ApiResponse<Void> decide(@PathVariable String id, @RequestBody Map<String, Object> body) {
         boolean approved = Boolean.TRUE.equals(body.get("approved"))
