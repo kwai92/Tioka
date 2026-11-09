@@ -134,6 +134,25 @@ class FlywayMigrationIT {
         assertEquals(1, bindingCol, "kb_base.embedding_binding_id 应存在");
     }
 
+    /** ORC-02 / V130：消息 Outbox 三表（sys_outbox / sys_consumed / sys_dead_letter）随 V130 创建。 */
+    @Test
+    void outboxTablesExist_V130() {
+        Set<String> tables = jdbc.query(
+                        "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'",
+                        (rs, i) -> rs.getString(1))
+                .stream()
+                .map(String::toLowerCase)
+                .collect(Collectors.toSet());
+        for (String t : List.of("sys_outbox", "sys_consumed", "sys_dead_letter")) {
+            assertTrue(tables.contains(t), "V130 后缺失消息表 " + t + "; have=" + tables);
+        }
+        List<String> versions = jdbc.query(
+                "SELECT version FROM flyway_schema_history WHERE success = true",
+                (rs, i) -> rs.getString(1));
+        assertTrue(versions.contains("130"), "missing V130: " + versions);
+        assertTrue(TestContainers.PG.isRunning());
+    }
+
     /** KNW-02 / V118：检索 ACL 列。 */
     @Test
     void knowledgeAclColumns() {
