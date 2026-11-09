@@ -1,0 +1,20 @@
+-- V151__Mh08AliasRenameAndV1Registration.sql（契约说明）
+-- MH-08：model_logical → model_alias 重命名与用途/指向列 + 存量对象登记第 1 版
+--        + model_default_plan → sys.* 系统别名（ADR-041 §9 / §1 / §2；无 tenant_id）。
+-- 落地为 Java 迁移 V151__Mh08AliasRenameAndV1Registration（本文件仅契约说明，不进 server migration）。
+-- spec 构造与 sys.* 命名共用 model-api 的 ModelHubSpecs（单一事实源，与运行时发布同口径）；
+-- 注册逻辑自包含在迁移类内（server 对 biz 模块仅 runtime 依赖，仿 V104/V145 先例）。
+-- 说明：ADR-041 §9 将「model_logical 改为 model_alias」登记在 V150 内容行，但 V150 已先行落地且其
+--       首行注释声明重命名留给 MH-08；V150～V151 之间无空闲编号，故重命名并入本 Java 迁移执行。
+-- 步骤：
+-- 1. ALTER TABLE model_logical RENAME TO model_alias；
+--    ADD COLUMN purpose VARCHAR(16) / target_type VARCHAR(16) / target_id VARCHAR(64)；
+--    CREATE INDEX idx_model_alias_name ON model_alias (name)。
+-- 2. 读 model_default_plan 各行，转为 sys.* 系统别名行（id=alias_sys_<purpose 小写>，
+--    name=sys.<purpose 小写>，target_type=routing_plan|binding，target_id=对应对象），
+--    并写 cfg_change 变更记录（migratedFrom=model_default_plan）。
+-- 3. model_provider / model_binding / model_alias / model_routing_plan 现有行（deleted=FALSE）
+--    各登记 cfg_version 第 1 版（status=PUBLISHED，spec 由 ModelHubSpecs 从行数据构造，
+--    content_hash 与 ConfigSpecNormalizer 同口径），并写 cfg_change（action=register）。
+-- 4. 回填四表 current_version_id=第 1 版 ID、current_version_no=1 指针列。
+-- 幂等：别名行 ON CONFLICT DO NOTHING；cfg_version 已有该对象版本时跳过登记、仅回填指针。

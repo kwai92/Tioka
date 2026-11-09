@@ -38,6 +38,9 @@ public interface ConfigVersionApi {
     /** 当前生效版本（本地投影）；无则 empty。 */
     Optional<ConfigVersion> getCurrent(ObjectRef ref);
 
+    /** 读当前草稿（含 revision，供调用方以 expectedRevision 续存）；无则 empty。（MH-08 契约扩展） */
+    Optional<ConfigDraft> getDraft(ObjectRef ref);
+
     record ObjectRef(String objectType, String objectId) {}
 
     record SaveDraftCommand(ObjectRef ref, JsonNode spec, long expectedRevision) {}

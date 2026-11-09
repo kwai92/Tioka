@@ -11,13 +11,13 @@ import com.tioka.model.api.gateway.ModelGateway.EmbeddingResult;
 import com.tioka.model.api.gateway.ModelGateway.RerankRequest;
 import com.tioka.model.api.gateway.ModelGateway.RerankResult;
 import com.tioka.model.api.gateway.ModelPurpose;
+import com.tioka.model.ModelTestSupport;
 import com.tioka.model.application.ModelAdminService;
 import com.tioka.model.domain.ModelEntities;
-import com.tioka.model.infrastructure.ModelDefaultPlanRepository;
 import com.tioka.model.infrastructure.ModelEntitiesRepository;
 import com.tioka.model.infrastructure.ModelUsageRepository;
+import com.tioka.model.infrastructure.persistence.ModelAliasDO;
 import com.tioka.model.infrastructure.persistence.ModelBindingDO;
-import com.tioka.model.infrastructure.persistence.ModelLogicalDO;
 import com.tioka.model.infrastructure.persistence.ModelProviderDO;
 import com.tioka.model.infrastructure.persistence.ModelRoutingPlanDO;
 import com.tioka.model.infrastructure.persistence.ModelTurnFreezeDO;
@@ -64,7 +64,8 @@ class DefaultModelGatewayRerankTest {
         entities = new ModelEntities(new MinimalModelEntitiesRepository());
         SecretStore store = new MemorySecretStore();
         admin = new ModelAdminService(store, entities,
-                mock(ModelDefaultPlanRepository.class), mock(com.tioka.framework.security.PrincipalHolder.class));
+                mock(com.tioka.framework.security.PrincipalHolder.class),
+                ModelTestSupport.disabledVersioning(entities));
         providerId = admin.createProvider(new CreateProviderRequest("p", "mock://openai", "k")).id();
         String lm = admin.createLogicalModel(
                 new com.tioka.model.api.dto.ProviderDtos.CreateLogicalModelRequest("rerank-m", "rerank"));
@@ -82,7 +83,7 @@ class DefaultModelGatewayRerankTest {
         usage = new UsageRecorder(usageRepo);
         ModelBudgetGuard budget = new ModelBudgetGuard(usageRepo);
         gateway = new DefaultModelGateway(
-                new ModelBindingResolver(entities, mock(ModelDefaultPlanRepository.class), List.of()),
+                new ModelBindingResolver(entities, List.of()),
                 new ProviderClient(store, mock(EgressClient.class), true, 8, new ObjectMapper()),
                 entities,
                 mock(ApplicationEventPublisher.class),
@@ -160,10 +161,19 @@ class DefaultModelGatewayRerankTest {
         public List<ModelProviderDO> providers() { return List.copyOf(providers.values()); }
 
         @Override
-        public void putLogical(ModelLogicalDO row) { /* unused */ }
+        public void putAlias(ModelAliasDO row) { /* unused */ }
 
         @Override
-        public boolean hasLogical(String id) { return true; }
+        public boolean hasAlias(String id) { return true; }
+
+        @Override
+        public Optional<ModelAliasDO> getAlias(String id) { return Optional.empty(); }
+
+        @Override
+        public List<ModelAliasDO> aliases() { return List.of(); }
+
+        @Override
+        public Optional<ModelAliasDO> findAliasByName(String name) { return Optional.empty(); }
 
         @Override
         public void putBinding(ModelBindingDO row) { bindings.put(row.getId(), row); }

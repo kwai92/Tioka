@@ -9,8 +9,15 @@ public interface ModelEntitiesRepository {
     void putProvider(ModelProviderDO row);
     Optional<ModelProviderDO> getProvider(String id);
     List<ModelProviderDO> providers();
-    void putLogical(ModelLogicalDO row);
-    boolean hasLogical(String id);
+
+    /** MH-08：别名（原 logical model，V151 重命名 model_logical → model_alias）。 */
+    void putAlias(ModelAliasDO row);
+    boolean hasAlias(String id);
+    Optional<ModelAliasDO> getAlias(String id);
+    List<ModelAliasDO> aliases();
+    /** 按稳定名称查询（sys.chat 等系统别名解析入口）。 */
+    Optional<ModelAliasDO> findAliasByName(String name);
+
     void putBinding(ModelBindingDO row);
     Optional<ModelBindingDO> getModelBinding(String id);
     boolean hasBinding(String id);

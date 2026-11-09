@@ -23,6 +23,11 @@
             <groupId>com.tioka</groupId>
             <artifactId>tioka-module-system-api</artifactId>
         </dependency>
+        <!-- MH-08：四类对象接入 GOV-12 统一版本框架（ADR-041 §2）；仅 API 契约，实现经 Spring 装配 -->
+        <dependency>
+            <groupId>com.tioka</groupId>
+            <artifactId>tioka-module-governance-api</artifactId>
+        </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>

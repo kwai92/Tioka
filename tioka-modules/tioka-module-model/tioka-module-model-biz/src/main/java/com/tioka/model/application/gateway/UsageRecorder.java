@@ -65,6 +65,10 @@ public class UsageRecorder implements SmartLifecycle {
                 cmd.inputPriceMicros(), cmd.outputPriceMicros()));
         row.setLatencyMs(Math.max(0, cmd.latencyMs()));
         row.setStatus(cmd.status() == null ? "ERROR" : cmd.status());
+        // MH-08（V222）：调用记录带当前生效版本号
+        row.setBindingVersionNo(cmd.bindingVersionNo());
+        row.setAliasVersionNo(cmd.aliasVersionNo());
+        row.setPlanVersionNo(cmd.planVersionNo());
         row.setCreateAt(LocalDateTime.now());
         RequestContext correlation = RequestContextHolder.getCorrelation();
         row.setRequestId(correlation.requestId());

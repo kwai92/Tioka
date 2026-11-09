@@ -1,5 +1,7 @@
 package com.tioka.server.arch;
 
+import com.tngtech.archunit.base.DescribedPredicate;
+import com.tngtech.archunit.core.domain.JavaClass;
 import com.tngtech.archunit.core.importer.ImportOption;
 import com.tngtech.archunit.junit.AnalyzeClasses;
 import com.tngtech.archunit.junit.ArchTest;
@@ -7,6 +9,7 @@ import com.tngtech.archunit.lang.ArchRule;
 import com.tngtech.archunit.library.freeze.FreezingArchRule;
 
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
+import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noMethods;
 
 /**
  * M3 静态闸门（M3-00 第 8.4 节）。现存违例进冻结库；各包只能从冻结库删除自己的条目。
@@ -93,6 +96,35 @@ class M3ArchitectureTest {
                             "com.tioka.flow.application.engine.legacy..")
                     .allowEmptyShould(true)
                     .because("不再引用旧 Flow 引擎包（M3-00 8.4 flowEngineNoLegacyState）"));
+
+    /**
+     * MH-08（ADR-041 §2 只读执行路径）：cfg_* 持久化类型（CfgStore / Cfg*Mapper / Cfg*DO 等）
+     * 只有 governance 与 server 装配层可用；执行/业务模块经 ModelCatalog / ConfigVersionApi。
+     * 普通 noClasses 断言（零违例，不入冻结库）。
+     */
+    @ArchTest
+    static final ArchRule cfgInfraOnlyInGovernance = noClasses()
+            .that().resideOutsideOfPackages("com.tioka.governance..", "com.tioka.server..")
+            .should().dependOnClassesThat(new DescribedPredicate<JavaClass>(
+                    "Cfg 前缀的配置框架持久化类型") {
+                @Override
+                public boolean test(JavaClass input) {
+                    return input.getSimpleName().startsWith("Cfg");
+                }
+            })
+            .allowEmptyShould(true)
+            .because("执行/业务模块不得直接依赖 cfg_* 持久化（ADR-041 §2 / MH-08）");
+
+    /**
+     * MH-08（ADR-041 §2）：cfg_version 不可更新——CfgVersionMapper 不得声明 update/delete 方法。
+     */
+    @ArchTest
+    static final ArchRule cfgVersionRowsAreImmutable = noMethods()
+            .that().areDeclaredInClassesThat().haveFullyQualifiedName(
+                    "com.tioka.governance.infrastructure.mapper.CfgVersionMapper")
+            .should().haveNameMatching("(?i)(update|delete|upsert|truncate).*")
+            .allowEmptyShould(true)
+            .because("cfg_version 不可更新（ADR-041 §2 / MH-08）");
 
     /**
      * ToolCallContext 只经工厂构造（为 MAS-01 grantId 扩展预留；M3-00 8.4 toolCallsCarryGrant）。

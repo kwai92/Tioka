@@ -75,8 +75,8 @@ public class CfgStore {
                     projections.updateProvider(objectId, versionId, versionNo);
             case "MODEL_BINDING", "model_binding" ->
                     projections.updateBinding(objectId, versionId, versionNo);
-            case "MODEL_ALIAS", "model_logical", "MODEL_LOGICAL" ->
-                    projections.updateLogical(objectId, versionId, versionNo);
+            case "MODEL_ALIAS", "model_alias" ->
+                    projections.updateAlias(objectId, versionId, versionNo);
             case "MODEL_ROUTING_PLAN", "model_routing_plan" ->
                     projections.updateRoutingPlan(objectId, versionId, versionNo);
             default -> {

@@ -28,6 +28,10 @@ public class ModelUsageDO extends AppendOnlyDO {
     private Long costMicros;
     private Integer latencyMs;
     private String status;
+    /** MH-08（V222）：调用时各对象当前生效版本号；历史行为 NULL。 */
+    private Integer bindingVersionNo;
+    private Integer aliasVersionNo;
+    private Integer planVersionNo;
     /** V143：按 Turn 步对齐轨迹用量；历史行可空。 */
     private Integer step;
     /** OBS-03 / V133：关联上下文。 */
@@ -65,6 +69,12 @@ public class ModelUsageDO extends AppendOnlyDO {
     public void setLatencyMs(Integer latencyMs) { this.latencyMs = latencyMs; }
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }
+    public Integer getBindingVersionNo() { return bindingVersionNo; }
+    public void setBindingVersionNo(Integer bindingVersionNo) { this.bindingVersionNo = bindingVersionNo; }
+    public Integer getAliasVersionNo() { return aliasVersionNo; }
+    public void setAliasVersionNo(Integer aliasVersionNo) { this.aliasVersionNo = aliasVersionNo; }
+    public Integer getPlanVersionNo() { return planVersionNo; }
+    public void setPlanVersionNo(Integer planVersionNo) { this.planVersionNo = planVersionNo; }
     public Integer getStep() { return step; }
     public void setStep(Integer step) { this.step = step; }
     public String getRequestId() { return requestId; }
