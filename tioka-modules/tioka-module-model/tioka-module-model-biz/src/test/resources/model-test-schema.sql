@@ -1,5 +1,6 @@
 -- 离线建表契约（model-biz 测试资源）。MH-08（V151/V222）起：
 -- model_logical 已重命名为 model_alias 并加用途/指向列；model_usage 带版本列。
+-- MH-06（V214）：路由事件时间线与胜任度表。
 CREATE TABLE model_provider (
     id VARCHAR(64) PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
@@ -94,4 +95,33 @@ CREATE TABLE model_usage (
     plan_version_no INT,
     create_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     create_by VARCHAR(64) NOT NULL DEFAULT 'system'
+);
+CREATE TABLE model_route_event (
+    id                 VARCHAR(32)  PRIMARY KEY,
+    workspace_id       VARCHAR(64),
+    thread_id          VARCHAR(64),
+    turn_id            VARCHAR(64),
+    plan_id            VARCHAR(64),
+    plan_version_no    INT,
+    kind               VARCHAR(16)  NOT NULL,
+    mode               VARCHAR(16),
+    decider_id         VARCHAR(64),
+    decided_group      VARCHAR(64),
+    selected_binding_id VARCHAR(64),
+    confidence         DOUBLE PRECISION,
+    reason             TEXT,
+    latency_ms         INT,
+    create_at          TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    create_by          VARCHAR(64)  NOT NULL DEFAULT 'system'
+);
+CREATE TABLE model_competence (
+    id           VARCHAR(32)  PRIMARY KEY,
+    workspace_id VARCHAR(64),
+    binding_id   VARCHAR(64)  NOT NULL,
+    turn_id      VARCHAR(64)  NOT NULL,
+    score        DOUBLE PRECISION NOT NULL,
+    source       VARCHAR(32)  NOT NULL,
+    create_at    TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    create_by    VARCHAR(64)  NOT NULL DEFAULT 'system',
+    UNIQUE (turn_id, binding_id)
 );

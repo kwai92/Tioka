@@ -5,9 +5,12 @@ import com.tioka.governance.api.config.ConfigVersionApi;
 import com.tioka.model.application.versioning.ModelConfigVersionService;
 import com.tioka.model.domain.ModelEntities;
 import com.tioka.model.infrastructure.ModelEntitiesRepository;
+import com.tioka.model.infrastructure.RoutingTelemetryRepository;
 import com.tioka.model.infrastructure.persistence.ModelAliasDO;
 import com.tioka.model.infrastructure.persistence.ModelBindingDO;
+import com.tioka.model.infrastructure.persistence.ModelCompetenceDO;
 import com.tioka.model.infrastructure.persistence.ModelProviderDO;
+import com.tioka.model.infrastructure.persistence.ModelRouteEventDO;
 import com.tioka.model.infrastructure.persistence.ModelRoutingPlanDO;
 import com.tioka.model.infrastructure.persistence.ModelTurnFreezeDO;
 import com.tioka.system.api.spi.SecretStore;
@@ -157,6 +160,66 @@ public final class ModelTestSupport {
                 out.add(row);
             }
             return out;
+        }
+    }
+
+    /** MH-06：内存版路由时间线/胜任度仓储（V214 离线测试）。 */
+    public static final class InMemoryRoutingTelemetryRepository implements RoutingTelemetryRepository {
+        private final List<ModelRouteEventDO> events = new ArrayList<>();
+        private final List<ModelCompetenceDO> competences = new ArrayList<>();
+        private long seq = 0;
+
+        @Override
+        public void insertEvent(ModelRouteEventDO row) {
+            if (row.getCreateAt() == null) {
+                row.setCreateAt(java.time.LocalDateTime.now().plusNanos(++seq));
+            }
+            events.add(row);
+        }
+
+        @Override
+        public Optional<ModelRouteEventDO> latestSelection(String threadId) {
+            return events.stream()
+                    .filter(e -> threadId.equals(e.getThreadId()))
+                    .filter(e -> "SELECT".equals(e.getKind()) || "REUSE".equals(e.getKind()))
+                    .max(java.util.Comparator.comparing(ModelRouteEventDO::getCreateAt));
+        }
+
+        @Override
+        public List<ModelRouteEventDO> eventsByTurn(String turnId) {
+            return events.stream().filter(e -> turnId.equals(e.getTurnId()))
+                    .sorted(java.util.Comparator.comparing(ModelRouteEventDO::getCreateAt))
+                    .toList();
+        }
+
+        @Override
+        public void insertCompetence(ModelCompetenceDO row) {
+            if (row.getCreateAt() == null) {
+                row.setCreateAt(java.time.LocalDateTime.now().plusNanos(++seq));
+            }
+            competences.add(row);
+        }
+
+        @Override
+        public boolean hasCompetence(String turnId, String bindingId) {
+            return competences.stream().anyMatch(c ->
+                    turnId.equals(c.getTurnId()) && bindingId.equals(c.getBindingId()));
+        }
+
+        @Override
+        public Optional<Double> latestCompetenceScore(String bindingId) {
+            return competences.stream()
+                    .filter(c -> bindingId.equals(c.getBindingId()) && c.getScore() != null)
+                    .max(java.util.Comparator.comparing(ModelCompetenceDO::getCreateAt))
+                    .map(ModelCompetenceDO::getScore);
+        }
+
+        public List<ModelRouteEventDO> allEvents() {
+            return List.copyOf(events);
+        }
+
+        public List<ModelCompetenceDO> allCompetences() {
+            return List.copyOf(competences);
         }
     }
 }

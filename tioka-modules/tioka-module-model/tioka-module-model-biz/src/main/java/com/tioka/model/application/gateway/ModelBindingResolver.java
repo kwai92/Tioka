@@ -97,6 +97,14 @@ public class ModelBindingResolver {
 
     /** MH-08：解析顺序 显式 planId → sys.* 别名（按 purpose）→ 已发布方案 → 任意启用 binding。 */
     private PlanSelection resolvePlan(ModelCallContext ctx) {
+        return planSelectionFor(ctx);
+    }
+
+    /**
+     * MH-06：路由计划选择信息（计划 + 来源别名与版本），供 RoutingPlanExecutor 读取模式 spec。
+     * 解析顺序与 {@link #resolve(ModelCallContext, String)} 一致。
+     */
+    public PlanSelection planSelectionFor(ModelCallContext ctx) {
         if (ctx.routingPlanId() != null && !ctx.routingPlanId().isBlank()) {
             RoutingPlan plan = entities.getPlan(ctx.routingPlanId())
                     .orElseThrow(() -> new BizException(ErrorCode.BAD_REQUEST, "路由计划未发布或不存在"));
@@ -180,9 +188,14 @@ public class ModelBindingResolver {
         return value;
     }
 
-    /** 别名解析结果：plan + 来源别名（含版本）。 */
-    private record PlanSelection(RoutingPlan plan, String aliasId,
-                                 Integer aliasVersionNo, Integer planVersionNo) {}
+    /**
+     * 别名解析结果：plan + 来源别名（含版本）。
+     *
+     * @param aliasVersionNo 来源别名当前生效版本；无别名来源时 null
+     * @param planVersionNo  路由计划当前生效版本；合成 HARD 时 null
+     */
+    public record PlanSelection(RoutingPlan plan, String aliasId,
+                                Integer aliasVersionNo, Integer planVersionNo) {}
 
     /**
      * @param binding        已解析的绑定快照，供后续限流/计价使用

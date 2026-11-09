@@ -5,6 +5,7 @@ import com.tioka.framework.error.ErrorCode;
 import com.tioka.model.api.FailoverEvent;
 import com.tioka.model.api.gateway.ModelCallContext;
 import com.tioka.model.api.gateway.ModelGateway;
+import com.tioka.model.application.routing.RoutingPlanExecutor;
 import com.tioka.model.domain.ModelEntities;
 import com.tioka.model.infrastructure.provider.ProviderClient;
 import com.tioka.model.infrastructure.provider.ProviderHttpException;
@@ -12,6 +13,7 @@ import com.tioka.system.api.spi.QuotaGuard;
 import io.opentelemetry.api.GlobalOpenTelemetry;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.context.Scope;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
@@ -25,7 +27,7 @@ import java.util.function.Consumer;
 
 /**
  * MH-04 骨架 + MH-01 冻结 + MH-02 故障接力 + MH-03 限流/同 binding 重试退避/冷却 + MH-05 用量 + GOV-03 配额
- * + P2-L5 供给侧月度预算（超限熔断，沿接力链跳过耗尽候选）。
+ * + P2-L5 供给侧月度预算（超限熔断，沿接力链跳过耗尽候选）+ MH-06 路由模式编排（Turn 开始决策）。
  */
 @Service
 public class DefaultModelGateway implements ModelGateway {
@@ -39,6 +41,7 @@ public class DefaultModelGateway implements ModelGateway {
     private final ModelBindingCooldownService cooldown;
     private final ModelBudgetGuard budget;
     private final RetryBackoff backoff;
+    private final ObjectProvider<RoutingPlanExecutor> routing;
     private final int failoverMax;
 
     public DefaultModelGateway(ModelBindingResolver resolver,
@@ -53,7 +56,8 @@ public class DefaultModelGateway implements ModelGateway {
                                @Value("${tioka.model.failover-max:2}") int failoverMax,
                                @Value("${tioka.model.retry.max-attempts:2}") int retryMaxAttempts,
                                @Value("${tioka.model.retry.base-delay:500ms}") Duration retryBaseDelay,
-                               @Value("${tioka.model.retry.budget:20s}") Duration retryBudget) {
+                               @Value("${tioka.model.retry.budget:20s}") Duration retryBudget,
+                               ObjectProvider<RoutingPlanExecutor> routing) {
         this.resolver = resolver;
         this.provider = provider;
         this.entities = entities;
@@ -65,6 +69,7 @@ public class DefaultModelGateway implements ModelGateway {
         this.budget = budget;
         this.failoverMax = Math.max(0, failoverMax);
         this.backoff = new RetryBackoff(retryMaxAttempts, retryBaseDelay, retryBudget);
+        this.routing = routing;
     }
 
     @Override
@@ -92,7 +97,11 @@ public class DefaultModelGateway implements ModelGateway {
     private ChatResult chatTracked(ModelCallContext ctx, ChatRequest request,
                                    Consumer<StreamDelta> onDelta, Span span) {
         precheck(ctx);
-        ModelBindingResolver.Resolution sel = resolver.resolve(ctx);
+        // MH-06：Turn 开始路由模式决策（FIXED 平铺/冻结命中/非会话/决策防递归时返回 null 走既有解析）
+        ModelBindingResolver.Resolution sel = routeByPlan(ctx, request, span);
+        if (sel == null) {
+            sel = resolver.resolve(ctx);
+        }
         if (sel.modelName() != null) {
             span.setAttribute("gen_ai.request.model", sel.modelName());
         }
@@ -172,6 +181,27 @@ public class DefaultModelGateway implements ModelGateway {
     /**
      * MH-03：限流 → 同 binding 重试（可切换错误）；耗尽后把最后一次异常抛给外层做 failover。
      */
+    /** MH-06：路由计划模式编排；编排异常不阻断调用，回退既有解析路径。 */
+    private ModelBindingResolver.Resolution routeByPlan(ModelCallContext ctx, ChatRequest request, Span span) {
+        RoutingPlanExecutor executor = routing == null ? null : routing.getIfAvailable();
+        if (executor == null) {
+            return null;
+        }
+        try {
+            ModelBindingResolver.Resolution sel = executor.select(ctx, request);
+            if (sel != null) {
+                span.setAttribute("tioka.routing.plan_selected", sel.bindingId());
+            }
+            return sel;
+        } catch (BizException e) {
+            // 路由组耗尽等业务性失败按 ADR 直接失败，不静默回退
+            throw e;
+        } catch (RuntimeException e) {
+            span.setAttribute("tioka.routing.fallback", e.getClass().getSimpleName());
+            return null;
+        }
+    }
+
     private ChatResult invokeChatWithRetry(ModelBindingResolver.Resolution sel,
                                            ChatRequest request,
                                            Consumer<StreamDelta> sink,

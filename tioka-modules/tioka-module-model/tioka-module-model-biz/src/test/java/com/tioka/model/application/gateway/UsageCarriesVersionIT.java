@@ -89,7 +89,15 @@ class UsageCarriesVersionIT {
                 mock(ModelRateLimiter.class),
                 mock(ModelBindingCooldownService.class),
                 new ModelBudgetGuard(usageRepo),
-                2, 2, Duration.ofMillis(1), Duration.ofSeconds(1));
+                2, 2, Duration.ofMillis(1), Duration.ofSeconds(1),
+                emptyRouting());
+    }
+
+    /** MH-06：未装配路由编排（ObjectProvider 为空）时的行为回归。 */
+    @SuppressWarnings("unchecked")
+    private static org.springframework.beans.factory.ObjectProvider<com.tioka.model.application.routing.RoutingPlanExecutor> emptyRouting() {
+        return (org.springframework.beans.factory.ObjectProvider<com.tioka.model.application.routing.RoutingPlanExecutor>)
+                Mockito.mock(org.springframework.beans.factory.ObjectProvider.class);
     }
 
     @Test
