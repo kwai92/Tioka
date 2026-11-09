@@ -21,4 +21,15 @@ public interface UserTokenVault {
     String authorizeUrl(String userId, String provider, String returnTo);
 
     void revoke(String userId, String provider);
+
+    /**
+     * 回调 / 刷新后写入令牌（AES-GCM 加密落 {@code sys_user_credential}，upsert 语义）。
+     *
+     * @param accessToken     明文访问令牌（实现方加密）
+     * @param refreshToken    明文刷新令牌，可为 null（保留既有刷新令牌）
+     * @param expiresInSeconds 访问令牌有效秒数（自当前时刻起）
+     * @param scopes          授权范围，可空格分隔或 null
+     */
+    void store(String userId, String provider, String accessToken,
+               String refreshToken, long expiresInSeconds, String scopes);
 }

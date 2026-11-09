@@ -73,7 +73,9 @@ public class PersistenceProperties {
             "sys_dead_letter",
             // GOV-12 / V150：配置版本框架（无 workspace_id）
             "cfg_draft",
-            "cfg_version"
+            "cfg_version",
+            // FND-08 / V141：代用户令牌保管（用户个人凭证，无 workspace_id）
+            "sys_user_credential"
     ));
 
     public List<String> getWorkspaceScopeExemptTables() {
