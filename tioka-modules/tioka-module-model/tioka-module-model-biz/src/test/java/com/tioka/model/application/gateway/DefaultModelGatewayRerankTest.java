@@ -92,7 +92,15 @@ class DefaultModelGatewayRerankTest {
                 mock(ModelRateLimiter.class),
                 mock(ModelBindingCooldownService.class),
                 budget,
-                2, 2, Duration.ofMillis(1), Duration.ofSeconds(1));
+                2, 2, Duration.ofMillis(1), Duration.ofSeconds(1),
+                emptyRouting());
+    }
+
+    /** MH-06：未装配路由编排（ObjectProvider 为空）时的网关行为回归。 */
+    @SuppressWarnings("unchecked")
+    private static org.springframework.beans.factory.ObjectProvider<com.tioka.model.application.routing.RoutingPlanExecutor> emptyRouting() {
+        return (org.springframework.beans.factory.ObjectProvider<com.tioka.model.application.routing.RoutingPlanExecutor>)
+                org.mockito.Mockito.mock(org.springframework.beans.factory.ObjectProvider.class);
     }
 
     private ModelCallContext ctx() {
