@@ -1,0 +1,134 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1320" height="900" viewBox="0 0 1320 900" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif">
+<defs><marker id="ah" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 Z" fill="#475569"/></marker><marker id="ahb" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 Z" fill="#1d4ed8"/></marker><marker id="ahg" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 Z" fill="#0f766e"/></marker><marker id="aho" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 Z" fill="#c2410c"/></marker></defs>
+<rect width="1320" height="900" fill="#f8fafc"/>
+<text x="40" y="38" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="22" fill="#0f172a" font-weight="bold" text-anchor="start">Tioka G4 UserStory · P0 首批链路泳道图</text>
+<text x="40" y="61" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="11.5" fill="#64748b" font-weight="normal" text-anchor="start">L1–L4 四条地基链路（G3 §4.5，经中间确认 · 用户裁决方案 A 冻结）；G6 通过后才进入代码实现，G6 前不动生产代码</text>
+<rect x="40" y="86" width="150" height="34" rx="5" fill="#1e293b" stroke="#1e293b" stroke-width="0"/>
+<text x="115.0" y="108" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="12" fill="#ffffff" font-weight="bold" text-anchor="middle">角色</text>
+<rect x="200" y="86" width="210" height="34" rx="5" fill="#1e293b" stroke="#1e293b" stroke-width="0"/>
+<text x="305.0" y="108" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="12" fill="#ffffff" font-weight="bold" text-anchor="middle">触发 / 输入</text>
+<rect x="420" y="86" width="350" height="34" rx="5" fill="#1e293b" stroke="#1e293b" stroke-width="0"/>
+<text x="595.0" y="108" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="12" fill="#ffffff" font-weight="bold" text-anchor="middle">系统处理（研发可拆任务）</text>
+<rect x="780" y="86" width="300" height="34" rx="5" fill="#1e293b" stroke="#1e293b" stroke-width="0"/>
+<text x="930.0" y="108" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="12" fill="#ffffff" font-weight="bold" text-anchor="middle">代码级验收证据</text>
+<rect x="1090" y="86" width="190" height="34" rx="5" fill="#1e293b" stroke="#1e293b" stroke-width="0"/>
+<text x="1185.0" y="108" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="12" fill="#ffffff" font-weight="bold" text-anchor="middle">异常路径</text>
+<rect x="40" y="126" width="1240" height="174" rx="10" fill="#eff6ff" stroke="#1d4ed8" stroke-width="1.4"/>
+<rect x="40" y="126" width="8" height="174" rx="3" fill="#1d4ed8" stroke="#1d4ed8" stroke-width="0"/>
+<text x="58" y="166" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="12" fill="#0f172a" font-weight="bold" text-anchor="start">L1 · Runtime 状态落库</text>
+<text x="58" y="186" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="12" fill="#0f172a" font-weight="bold" text-anchor="start">与按 thread_id 会话加锁</text>
+<text x="58" y="222" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="10.5" fill="#1d4ed8" font-weight="bold" text-anchor="start">开发与测试工程师</text>
+<text x="58" y="238" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="10.5" fill="#1d4ed8" font-weight="bold" text-anchor="start">（F6 / P0 / MVP）</text>
+<rect x="200" y="140" width="198" height="146" rx="7" fill="#ffffff" stroke="#1d4ed8" stroke-width="0.9"/>
+<text x="212" y="162" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="10.2" fill="#334155" font-weight="normal" text-anchor="start">会话发起 / 进程重启</text>
+<text x="212" y="184" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="10.2" fill="#334155" font-weight="normal" text-anchor="start">同一 thread_id 并发请求</text>
+<text x="212" y="206" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="10.2" fill="#334155" font-weight="normal" text-anchor="start">D7 §01 单机内存状态</text>
+<text x="212" y="228" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="10.2" fill="#334155" font-weight="normal" text-anchor="start">D16 §2 迁移基线</text>
+<rect x="420" y="140" width="338" height="146" rx="7" fill="#ffffff" stroke="#1d4ed8" stroke-width="0.9"/>
+<text x="432" y="162" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="10.2" fill="#334155" font-weight="normal" text-anchor="start">状态持久化落现有 PostgreSQL</text>
+<text x="432" y="184" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="10.2" fill="#334155" font-weight="normal" text-anchor="start">checkpoint 表 + 按 thread_id 行锁</text>
+<text x="432" y="206" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="10.2" fill="#334155" font-weight="normal" text-anchor="start">禁止用内存态 / H2 临时代替</text>
+<text x="432" y="228" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="10.2" fill="#334155" font-weight="normal" text-anchor="start">不改 compose 五服务</text>
+<rect x="780" y="140" width="288" height="146" rx="7" fill="#ffffff" stroke="#1d4ed8" stroke-width="0.9"/>
+<text x="792" y="162" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="10.2" fill="#334155" font-weight="normal" text-anchor="start">进程重启后状态可恢复</text>
+<text x="792" y="184" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="10.2" fill="#334155" font-weight="normal" text-anchor="start">同 thread 并发串行化</text>
+<text x="792" y="206" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="10.2" fill="#334155" font-weight="normal" text-anchor="start">TurnStatus 契约测试绿</text>
+<text x="792" y="228" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="10.2" fill="#334155" font-weight="normal" text-anchor="start">G3 §4.5 L1 退出标准</text>
+<rect x="1090" y="140" width="178" height="146" rx="7" fill="#ffffff" stroke="#1d4ed8" stroke-width="0.9"/>
+<text x="1102" y="162" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="10.2" fill="#334155" font-weight="normal" text-anchor="start">状态丢失 → 从 checkpoint 恢复</text>
+<text x="1102" y="184" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="10.2" fill="#334155" font-weight="normal" text-anchor="start">进程重启错写到内存态 → 拒绝</text>
+<text x="1102" y="206" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="10.2" fill="#334155" font-weight="normal" text-anchor="start">重复加锁 → 无死锁 / 无覆盖</text>
+<line x1="190" y1="213.0" x2="200" y2="213.0" stroke="#1d4ed8" stroke-width="1.5" marker-end="url(#ah)"/>
+<line x1="410" y1="213.0" x2="420" y2="213.0" stroke="#1d4ed8" stroke-width="1.5" marker-end="url(#ah)"/>
+<line x1="770" y1="213.0" x2="780" y2="213.0" stroke="#1d4ed8" stroke-width="1.5" marker-end="url(#ah)"/>
+<line x1="1080" y1="213.0" x2="1090" y2="213.0" stroke="#1d4ed8" stroke-width="1.5" marker-end="url(#ah)"/>
+<rect x="40" y="312" width="1240" height="174" rx="10" fill="#fef2f2" stroke="#b91c1c" stroke-width="1.4"/>
+<rect x="40" y="312" width="8" height="174" rx="3" fill="#b91c1c" stroke="#b91c1c" stroke-width="0"/>
+<text x="58" y="352" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="12" fill="#0f172a" font-weight="bold" text-anchor="start">L2 · 六个假实现 API</text>
+<text x="58" y="372" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="12" fill="#0f172a" font-weight="bold" text-anchor="start">下线或替换</text>
+<text x="58" y="408" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="10.5" fill="#b91c1c" font-weight="bold" text-anchor="start">开发与测试工程师</text>
+<text x="58" y="424" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="10.5" fill="#b91c1c" font-weight="bold" text-anchor="start">（F7 / P0 / MVP）</text>
+<rect x="200" y="326" width="198" height="146" rx="7" fill="#ffffff" stroke="#b91c1c" stroke-width="0.9"/>
+<text x="212" y="348" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="10.2" fill="#334155" font-weight="normal" text-anchor="start">34 号四原则「假实现先下线」</text>
+<text x="212" y="370" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="10.2" fill="#334155" font-weight="normal" text-anchor="start">V6 待按 D7 §01 表名检索</text>
+<text x="212" y="392" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="10.2" fill="#334155" font-weight="normal" text-anchor="start">六个假实现类名清单</text>
+<text x="212" y="414" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="10.2" fill="#334155" font-weight="normal" text-anchor="start">ENG-03 下线要求</text>
+<rect x="420" y="326" width="338" height="146" rx="7" fill="#ffffff" stroke="#b91c1c" stroke-width="0.9"/>
+<text x="432" y="348" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="10.2" fill="#334155" font-weight="normal" text-anchor="start">逐类检索六类假实现</text>
+<text x="432" y="370" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="10.2" fill="#334155" font-weight="normal" text-anchor="start">每类给「仍存在/已下线/已替换」</text>
+<text x="432" y="392" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="10.2" fill="#334155" font-weight="normal" text-anchor="start">下线或替换并登记台账</text>
+<text x="432" y="414" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="10.2" fill="#334155" font-weight="normal" text-anchor="start">本报告不假设其已下线</text>
+<rect x="780" y="326" width="288" height="146" rx="7" fill="#ffffff" stroke="#b91c1c" stroke-width="0.9"/>
+<text x="792" y="348" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="10.2" fill="#334155" font-weight="normal" text-anchor="start">六类结论均可检索</text>
+<text x="792" y="370" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="10.2" fill="#334155" font-weight="normal" text-anchor="start">误调用假实现显式报错</text>
+<text x="792" y="392" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="10.2" fill="#334155" font-weight="normal" text-anchor="start">六类清单与 D7 §01 对齐</text>
+<text x="792" y="414" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="10.2" fill="#334155" font-weight="normal" text-anchor="start">G3 §4.5 L2 退出标准</text>
+<rect x="1090" y="326" width="178" height="146" rx="7" fill="#ffffff" stroke="#b91c1c" stroke-width="0.9"/>
+<text x="1102" y="348" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="10.2" fill="#334155" font-weight="normal" text-anchor="start">假实现被误调用 → 显式异常</text>
+<text x="1102" y="370" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="10.2" fill="#334155" font-weight="normal" text-anchor="start">六类之外新增假实现 → 台账补登</text>
+<text x="1102" y="392" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="10.2" fill="#334155" font-weight="normal" text-anchor="start">下线后契约测试回归绿</text>
+<line x1="190" y1="399.0" x2="200" y2="399.0" stroke="#b91c1c" stroke-width="1.5" marker-end="url(#ah)"/>
+<line x1="410" y1="399.0" x2="420" y2="399.0" stroke="#b91c1c" stroke-width="1.5" marker-end="url(#ah)"/>
+<line x1="770" y1="399.0" x2="780" y2="399.0" stroke="#b91c1c" stroke-width="1.5" marker-end="url(#ah)"/>
+<line x1="1080" y1="399.0" x2="1090" y2="399.0" stroke="#b91c1c" stroke-width="1.5" marker-end="url(#ah)"/>
+<rect x="40" y="498" width="1240" height="174" rx="10" fill="#f0fdfa" stroke="#0f766e" stroke-width="1.4"/>
+<rect x="40" y="498" width="8" height="174" rx="3" fill="#0f766e" stroke="#0f766e" stroke-width="0"/>
+<text x="58" y="538" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="12" fill="#0f172a" font-weight="bold" text-anchor="start">L3 · MQ 生产 / 消费 /</text>
+<text x="58" y="558" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="12" fill="#0f172a" font-weight="bold" text-anchor="start">幂等三点核验与补链</text>
+<text x="58" y="594" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="10.5" fill="#0f766e" font-weight="bold" text-anchor="start">开发与测试工程师</text>
+<text x="58" y="610" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="10.5" fill="#0f766e" font-weight="bold" text-anchor="start">（F8 / P0 / MVP）</text>
+<rect x="200" y="512" width="198" height="146" rx="7" fill="#ffffff" stroke="#0f766e" stroke-width="0.9"/>
+<text x="212" y="534" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="10.2" fill="#334155" font-weight="normal" text-anchor="start">S0 §5 生命周期走 MQ</text>
+<text x="212" y="556" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="10.2" fill="#334155" font-weight="normal" text-anchor="start">X13 裁定闭环未证实</text>
+<text x="212" y="578" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="10.2" fill="#334155" font-weight="normal" text-anchor="start">framework/messaging 三类</text>
+<text x="212" y="600" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="10.2" fill="#334155" font-weight="normal" text-anchor="start">D14 §3 / D18 §2 broker</text>
+<rect x="420" y="512" width="338" height="146" rx="7" fill="#ffffff" stroke="#0f766e" stroke-width="0.9"/>
+<text x="432" y="534" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="10.2" fill="#334155" font-weight="normal" text-anchor="start">按域实测生产 / 消费 / 幂等</text>
+<text x="432" y="556" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="10.2" fill="#334155" font-weight="normal" text-anchor="start">幂等键用事件 ID</text>
+<text x="432" y="578" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="10.2" fill="#334155" font-weight="normal" text-anchor="start">先按 V5 收敛双份 SQL 副本</text>
+<text x="432" y="600" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="10.2" fill="#334155" font-weight="normal" text-anchor="start">D-01 职责边界转交 system-architect</text>
+<rect x="780" y="512" width="288" height="146" rx="7" fill="#ffffff" stroke="#0f766e" stroke-width="0.9"/>
+<text x="792" y="534" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="10.2" fill="#334155" font-weight="normal" text-anchor="start">三点各标注已证实/未证实/待补</text>
+<text x="792" y="556" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="10.2" fill="#334155" font-weight="normal" text-anchor="start">给出按域实测入口</text>
+<text x="792" y="578" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="10.2" fill="#334155" font-weight="normal" text-anchor="start">V4 三点结论 3 / 3</text>
+<text x="792" y="600" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="10.2" fill="#334155" font-weight="normal" text-anchor="start">BA-05 未实测前不改判「一致」</text>
+<rect x="1090" y="512" width="178" height="146" rx="7" fill="#ffffff" stroke="#0f766e" stroke-width="0.9"/>
+<text x="1102" y="534" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="10.2" fill="#334155" font-weight="normal" text-anchor="start">重复消息 → 幂等消费去重</text>
+<text x="1102" y="556" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="10.2" fill="#334155" font-weight="normal" text-anchor="start">消费崩溃 → in-flight 回收</text>
+<text x="1102" y="578" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="10.2" fill="#334155" font-weight="normal" text-anchor="start">双份 SQL 版本不一致 → 先对账</text>
+<line x1="190" y1="585.0" x2="200" y2="585.0" stroke="#0f766e" stroke-width="1.5" marker-end="url(#ah)"/>
+<line x1="410" y1="585.0" x2="420" y2="585.0" stroke="#0f766e" stroke-width="1.5" marker-end="url(#ah)"/>
+<line x1="770" y1="585.0" x2="780" y2="585.0" stroke="#0f766e" stroke-width="1.5" marker-end="url(#ah)"/>
+<line x1="1080" y1="585.0" x2="1090" y2="585.0" stroke="#0f766e" stroke-width="1.5" marker-end="url(#ah)"/>
+<rect x="40" y="684" width="1240" height="174" rx="10" fill="#fefce8" stroke="#a16207" stroke-width="1.4"/>
+<rect x="40" y="684" width="8" height="174" rx="3" fill="#a16207" stroke="#a16207" stroke-width="0"/>
+<text x="58" y="724" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="12" fill="#0f172a" font-weight="bold" text-anchor="start">L4 · SSE 事件续传与</text>
+<text x="58" y="744" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="12" fill="#0f172a" font-weight="bold" text-anchor="start">审批挂起恢复</text>
+<text x="58" y="780" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="10.5" fill="#a16207" font-weight="bold" text-anchor="start">业务方 / 开发与测试工程师</text>
+<text x="58" y="796" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="10.5" fill="#a16207" font-weight="bold" text-anchor="start">（F9 / P0 / MVP）</text>
+<rect x="200" y="698" width="198" height="146" rx="7" fill="#ffffff" stroke="#a16207" stroke-width="0.9"/>
+<text x="212" y="720" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="10.2" fill="#334155" font-weight="normal" text-anchor="start">PoC 黄金路径 SSE delta</text>
+<text x="212" y="742" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="10.2" fill="#334155" font-weight="normal" text-anchor="start">断线重连 / 审批介入</text>
+<text x="212" y="764" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="10.2" fill="#334155" font-weight="normal" text-anchor="start">Part Schema v0 / RuntimeEventType</text>
+<text x="212" y="786" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="10.2" fill="#334155" font-weight="normal" text-anchor="start">D5 §w0-contract-freeze</text>
+<rect x="420" y="698" width="338" height="146" rx="7" fill="#ffffff" stroke="#a16207" stroke-width="0.9"/>
+<text x="432" y="720" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="10.2" fill="#334155" font-weight="normal" text-anchor="start">事件 id 单调递增持久化</text>
+<text x="432" y="742" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="10.2" fill="#334155" font-weight="normal" text-anchor="start">状态快照重放 + Last-Event-ID</text>
+<text x="432" y="764" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="10.2" fill="#334155" font-weight="normal" text-anchor="start">审批作为 paused run 不新开 Turn</text>
+<text x="432" y="786" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="10.2" fill="#334155" font-weight="normal" text-anchor="start">同轮不换模 / 不重复工具调用</text>
+<rect x="780" y="698" width="288" height="146" rx="7" fill="#ffffff" stroke="#a16207" stroke-width="0.9"/>
+<text x="792" y="720" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="10.2" fill="#334155" font-weight="normal" text-anchor="start">断线按事件 id 续传不丢上下文</text>
+<text x="792" y="742" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="10.2" fill="#334155" font-weight="normal" text-anchor="start">审批跨多次不新开 Turn</text>
+<text x="792" y="764" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="10.2" fill="#334155" font-weight="normal" text-anchor="start">RuntimeEventSchema 契约测试绿</text>
+<text x="792" y="786" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="10.2" fill="#334155" font-weight="normal" text-anchor="start">G3 §4.5 L4 退出标准</text>
+<rect x="1090" y="698" width="178" height="146" rx="7" fill="#ffffff" stroke="#a16207" stroke-width="0.9"/>
+<text x="1102" y="720" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="10.2" fill="#334155" font-weight="normal" text-anchor="start">断线重连 → 事件 id 续传</text>
+<text x="1102" y="742" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="10.2" fill="#334155" font-weight="normal" text-anchor="start">审批超时 → 挂起保留可重试</text>
+<text x="1102" y="764" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="10.2" fill="#334155" font-weight="normal" text-anchor="start">审批重复提交 → 幂等不重开</text>
+<text x="1102" y="786" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="10.2" fill="#334155" font-weight="normal" text-anchor="start">事件 id 回退 → 拒绝回放</text>
+<line x1="190" y1="771.0" x2="200" y2="771.0" stroke="#a16207" stroke-width="1.5" marker-end="url(#ah)"/>
+<line x1="410" y1="771.0" x2="420" y2="771.0" stroke="#a16207" stroke-width="1.5" marker-end="url(#ah)"/>
+<line x1="770" y1="771.0" x2="780" y2="771.0" stroke="#a16207" stroke-width="1.5" marker-end="url(#ah)"/>
+<line x1="1080" y1="771.0" x2="1090" y2="771.0" stroke="#a16207" stroke-width="1.5" marker-end="url(#ah)"/>
+<rect x="40" y="876" width="1240" height="0.6" rx="0" fill="#cbd5e1" stroke="#cbd5e1" stroke-width="0"/>
+</svg>

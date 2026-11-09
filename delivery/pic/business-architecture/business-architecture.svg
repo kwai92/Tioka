@@ -1,0 +1,133 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1360" height="1040" viewBox="0 0 1360 1040" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif">
+<defs><marker id="ah" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 Z" fill="#475569"/></marker><marker id="ahb" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 Z" fill="#1d4ed8"/></marker><marker id="ahg" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 Z" fill="#0f766e"/></marker></defs>
+<rect width="1360" height="1040" fill="#f8fafc"/>
+<text x="40" y="38" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="22" fill="#0f172a" font-weight="bold" text-anchor="start">Tioka 代码与设计一致性校验 · 三层业务架构</text>
+<text x="40" y="60" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="11.5" fill="#64748b" font-weight="normal" text-anchor="start">设计基线与代码现状的事实映射；粗线为主链路，实线为同步调用，虚线为异步事件；标注 X 编号处为本轮待裁决/待补链路</text>
+<rect x="40" y="82" width="1280" height="172" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.6"/>
+<rect x="40" y="82" width="8" height="172" rx="3" fill="#2563eb" stroke="#2563eb" stroke-width="0"/>
+<text x="66" y="112" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="17" fill="#111827" font-weight="bold" text-anchor="start">接入层</text>
+<text x="66" y="133" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="11.5" fill="#6b7280" font-weight="normal" text-anchor="start">用户触点、启动入口与外部系统接入（代码证据 D16 / D17 / D18）</text>
+<rect x="1128" y="98" width="176" height="26" rx="13" fill="#2563eb" stroke="#2563eb" stroke-width="0"/>
+<text x="1216" y="116" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="11" fill="#ffffff" font-weight="bold" text-anchor="middle">触点与网关</text>
+<rect x="70" y="148" width="300" height="88" rx="7" fill="#dbeafe" stroke="#3b82f6" stroke-width="1.1"/>
+<text x="220.0" y="187.0" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="14" fill="#111827" font-weight="bold" text-anchor="middle">tioka-ui 前端</text>
+<text x="220.0" y="205.0" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="10.5" fill="#4b5563" font-weight="normal" text-anchor="middle">Vue 3 / Chat / FlowStudio / Approval / Observability</text>
+<rect x="390" y="148" width="300" height="88" rx="7" fill="#dbeafe" stroke="#3b82f6" stroke-width="1.1"/>
+<text x="540.0" y="187.0" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="14" fill="#111827" font-weight="bold" text-anchor="middle">tioka-server 启动面</text>
+<text x="540.0" y="205.0" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="9.6" fill="#4b5563" font-weight="normal" text-anchor="middle">TiokaServerApplication / OpsFacade / AssetCatalog / MCP Outbound</text>
+<rect x="710" y="148" width="280" height="88" rx="7" fill="#dbeafe" stroke="#3b82f6" stroke-width="1.1"/>
+<text x="850.0" y="187.0" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="14" fill="#111827" font-weight="bold" text-anchor="middle">企业身份与 IM 接入</text>
+<text x="850.0" y="205.0" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="10" fill="#4b5563" font-weight="normal" text-anchor="middle">Keycloak OIDC / 飞书 IM 与开放平台 / 业务系统</text>
+<rect x="1010" y="148" width="280" height="88" rx="7" fill="#dbeafe" stroke="#3b82f6" stroke-width="1.1"/>
+<text x="1150.0" y="187.0" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="14" fill="#111827" font-weight="bold" text-anchor="middle">协议与模型接入</text>
+<text x="1150.0" y="205.0" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="10" fill="#4b5563" font-weight="normal" text-anchor="middle">MCP over HTTP / OpenAI 兼容 Provider / SSE</text>
+<rect x="40" y="282" width="1280" height="372" rx="14" fill="#f0fdfa" stroke="#0d9488" stroke-width="1.6"/>
+<rect x="40" y="282" width="8" height="372" rx="3" fill="#0d9488" stroke="#0d9488" stroke-width="0"/>
+<text x="66" y="312" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="17" fill="#111827" font-weight="bold" text-anchor="start">业务能力层</text>
+<text x="66" y="333" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="11.5" fill="#6b7280" font-weight="normal" text-anchor="start">15 个业务域，每域 api 与 biz 双子模块（代码证据 D13 §2 / D15 §1；设计基线 44-EA §1 仅列 13，见 X8）</text>
+<rect x="1128" y="298" width="176" height="26" rx="13" fill="#0d9488" stroke="#0d9488" stroke-width="0"/>
+<text x="1216" y="316" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="11" fill="#ffffff" font-weight="bold" text-anchor="middle">15 个业务域</text>
+<rect x="70" y="348" width="280" height="284" rx="10" fill="#ffffff" stroke="#5eead4" stroke-width="1.3"/>
+<text x="210" y="372" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="13" fill="#0f766e" font-weight="bold" text-anchor="middle">执行与对话簇</text>
+<rect x="84" y="386" width="252" height="48" rx="7" fill="#ccfbf1" stroke="#14b8a6" stroke-width="1.1"/>
+<text x="210.0" y="405.0" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="12.5" fill="#111827" font-weight="bold" text-anchor="middle">runtime 173</text>
+<text x="210.0" y="423.0" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="9.6" fill="#4b5563" font-weight="normal" text-anchor="middle">api 与 biz 双子模块</text>
+<rect x="84" y="445" width="252" height="48" rx="7" fill="#ccfbf1" stroke="#14b8a6" stroke-width="1.1"/>
+<text x="210.0" y="464.0" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="12.5" fill="#111827" font-weight="bold" text-anchor="middle">orchestration 87</text>
+<text x="210.0" y="482.0" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="9.6" fill="#4b5563" font-weight="normal" text-anchor="middle">api 与 biz 双子模块</text>
+<rect x="84" y="504" width="252" height="48" rx="7" fill="#ccfbf1" stroke="#14b8a6" stroke-width="1.1"/>
+<text x="210.0" y="523.0" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="12.5" fill="#111827" font-weight="bold" text-anchor="middle">chat 16</text>
+<text x="210.0" y="541.0" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="9.6" fill="#4b5563" font-weight="normal" text-anchor="middle">api 与 biz 双子模块</text>
+<rect x="390" y="348" width="280" height="284" rx="10" fill="#ffffff" stroke="#5eead4" stroke-width="1.3"/>
+<text x="530" y="372" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="13" fill="#0f766e" font-weight="bold" text-anchor="middle">资产与模型簇</text>
+<rect x="404" y="386" width="252" height="48" rx="7" fill="#ccfbf1" stroke="#14b8a6" stroke-width="1.1"/>
+<text x="530.0" y="405.0" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="12.5" fill="#111827" font-weight="bold" text-anchor="middle">model 72</text>
+<text x="530.0" y="423.0" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="9.6" fill="#4b5563" font-weight="normal" text-anchor="middle">api 与 biz 双子模块</text>
+<rect x="404" y="445" width="252" height="48" rx="7" fill="#ccfbf1" stroke="#14b8a6" stroke-width="1.1"/>
+<text x="530.0" y="464.0" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="12.5" fill="#111827" font-weight="bold" text-anchor="middle">agent 53</text>
+<text x="530.0" y="482.0" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="9.6" fill="#4b5563" font-weight="normal" text-anchor="middle">api 与 biz 双子模块</text>
+<rect x="404" y="504" width="252" height="48" rx="7" fill="#ccfbf1" stroke="#14b8a6" stroke-width="1.1"/>
+<text x="530.0" y="523.0" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="12.5" fill="#111827" font-weight="bold" text-anchor="middle">mcp 22</text>
+<text x="530.0" y="541.0" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="9.6" fill="#4b5563" font-weight="normal" text-anchor="middle">api 与 biz 双子模块</text>
+<rect x="404" y="563" width="252" height="48" rx="7" fill="#ccfbf1" stroke="#14b8a6" stroke-width="1.1"/>
+<text x="530.0" y="582.0" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="12.5" fill="#111827" font-weight="bold" text-anchor="middle">skill 12</text>
+<text x="530.0" y="600.0" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="9.6" fill="#4b5563" font-weight="normal" text-anchor="middle">api 与 biz 双子模块</text>
+<rect x="710" y="348" width="280" height="284" rx="10" fill="#ffffff" stroke="#5eead4" stroke-width="1.3"/>
+<text x="850" y="372" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="13" fill="#0f766e" font-weight="bold" text-anchor="middle">知识与流程簇</text>
+<rect x="724" y="386" width="252" height="48" rx="7" fill="#ccfbf1" stroke="#14b8a6" stroke-width="1.1"/>
+<text x="850.0" y="405.0" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="12.5" fill="#111827" font-weight="bold" text-anchor="middle">knowledge 44</text>
+<text x="850.0" y="423.0" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="9.6" fill="#4b5563" font-weight="normal" text-anchor="middle">api 与 biz 双子模块</text>
+<rect x="724" y="445" width="252" height="48" rx="7" fill="#ccfbf1" stroke="#14b8a6" stroke-width="1.1"/>
+<text x="850.0" y="464.0" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="12.5" fill="#111827" font-weight="bold" text-anchor="middle">flow 55</text>
+<text x="850.0" y="482.0" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="9.6" fill="#4b5563" font-weight="normal" text-anchor="middle">api 与 biz 双子模块</text>
+<rect x="724" y="504" width="252" height="48" rx="7" fill="#ccfbf1" stroke="#14b8a6" stroke-width="1.1"/>
+<text x="850.0" y="523.0" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="12.5" fill="#111827" font-weight="bold" text-anchor="middle">connector 68</text>
+<text x="850.0" y="541.0" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="9.6" fill="#4b5563" font-weight="normal" text-anchor="middle">api 与 biz 双子模块</text>
+<rect x="724" y="563" width="252" height="48" rx="7" fill="#fef3c7" stroke="#d97706" stroke-width="1.1"/>
+<text x="850.0" y="582.0" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="12.5" fill="#111827" font-weight="bold" text-anchor="middle">ontology 48</text>
+<text x="850.0" y="600.0" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="9.6" fill="#4b5563" font-weight="normal" text-anchor="middle">X8：ADR 补充、模块树未回写</text>
+<rect x="1010" y="348" width="280" height="284" rx="10" fill="#ffffff" stroke="#5eead4" stroke-width="1.3"/>
+<text x="1150" y="372" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="13" fill="#0f766e" font-weight="bold" text-anchor="middle">平台与治理簇</text>
+<rect x="1024" y="386" width="252" height="48" rx="7" fill="#ccfbf1" stroke="#14b8a6" stroke-width="1.1"/>
+<text x="1150.0" y="405.0" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="12.5" fill="#111827" font-weight="bold" text-anchor="middle">system 149</text>
+<text x="1150.0" y="423.0" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="9.6" fill="#4b5563" font-weight="normal" text-anchor="middle">api 与 biz 双子模块</text>
+<rect x="1024" y="445" width="252" height="48" rx="7" fill="#ccfbf1" stroke="#14b8a6" stroke-width="1.1"/>
+<text x="1150.0" y="464.0" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="12.5" fill="#111827" font-weight="bold" text-anchor="middle">infra 45</text>
+<text x="1150.0" y="482.0" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="9.6" fill="#4b5563" font-weight="normal" text-anchor="middle">api 与 biz 双子模块</text>
+<rect x="1024" y="504" width="252" height="48" rx="7" fill="#fef3c7" stroke="#d97706" stroke-width="1.1"/>
+<text x="1150.0" y="523.0" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="12.5" fill="#111827" font-weight="bold" text-anchor="middle">governance 45</text>
+<text x="1150.0" y="541.0" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="9.6" fill="#4b5563" font-weight="normal" text-anchor="middle">X8：ADR 补充、模块树未回写</text>
+<rect x="1024" y="563" width="252" height="48" rx="7" fill="#fef3c7" stroke="#d97706" stroke-width="1.1"/>
+<text x="1150.0" y="582.0" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="12.5" fill="#111827" font-weight="bold" text-anchor="middle">eval 8</text>
+<text x="1150.0" y="600.0" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="9.6" fill="#4b5563" font-weight="normal" text-anchor="middle">X8：ADR 补充、模块树未回写</text>
+<line x1="350" y1="490" x2="390" y2="490" stroke="#0f766e" stroke-width="1.5" stroke-dasharray="5,4" marker-end="url(#ahg)"/>
+<text x="370" y="480" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="10" fill="#0f766e" font-weight="normal" text-anchor="middle">MQ</text>
+<line x1="670" y1="490" x2="710" y2="490" stroke="#0f766e" stroke-width="1.5" stroke-dasharray="5,4" marker-end="url(#ahg)"/>
+<text x="690" y="480" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="10" fill="#0f766e" font-weight="normal" text-anchor="middle">MQ</text>
+<line x1="990" y1="490" x2="1010" y2="490" stroke="#0f766e" stroke-width="1.5" stroke-dasharray="5,4" marker-end="url(#ahg)"/>
+<rect x="40" y="682" width="1280" height="236" rx="14" fill="#fefce8" stroke="#ca8a04" stroke-width="1.6"/>
+<rect x="40" y="682" width="8" height="236" rx="3" fill="#ca8a04" stroke="#ca8a04" stroke-width="0"/>
+<text x="66" y="712" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="17" fill="#111827" font-weight="bold" text-anchor="start">基础能力层</text>
+<text x="66" y="733" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="11.5" fill="#6b7280" font-weight="normal" text-anchor="start">框架、契约、迁移、中间件与工程可观测（代码证据 D11 / D14 / D16 / D18 / D19）</text>
+<rect x="1128" y="698" width="176" height="26" rx="13" fill="#ca8a04" stroke="#ca8a04" stroke-width="0"/>
+<text x="1216" y="716" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="11" fill="#ffffff" font-weight="bold" text-anchor="middle">底座与数据</text>
+<rect x="70" y="748" width="300" height="90" rx="7" fill="#fef9c3" stroke="#eab308" stroke-width="1.1"/>
+<text x="220.0" y="788.0" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="14" fill="#111827" font-weight="bold" text-anchor="middle">tioka-framework</text>
+<text x="220.0" y="806.0" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="9.6" fill="#4b5563" font-weight="normal" text-anchor="middle">11 包 / 53 main：security / error / messaging / persistence / trace</text>
+<rect x="390" y="748" width="300" height="90" rx="7" fill="#fef9c3" stroke="#eab308" stroke-width="1.1"/>
+<text x="540.0" y="788.0" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="14" fill="#111827" font-weight="bold" text-anchor="middle">契约与迁移</text>
+<text x="540.0" y="806.0" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="9.6" fill="#4b5563" font-weight="normal" text-anchor="middle">W0-17 冻结契约 / 45 SQL / 39 events JSON / 41 Flyway 迁移</text>
+<rect x="710" y="748" width="280" height="90" rx="7" fill="#fef9c3" stroke="#eab308" stroke-width="1.1"/>
+<text x="850.0" y="788.0" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="14" fill="#111827" font-weight="bold" text-anchor="middle">compose 五服务</text>
+<text x="850.0" y="806.0" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="9.4" fill="#4b5563" font-weight="normal" text-anchor="middle">PostgreSQL pgvector / Redis 7 / Keycloak 24 / RocketMQ namesrv 与 broker</text>
+<rect x="1010" y="748" width="280" height="90" rx="7" fill="#fef9c3" stroke="#eab308" stroke-width="1.1"/>
+<text x="1150.0" y="788.0" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="14" fill="#111827" font-weight="bold" text-anchor="middle">工程与可观测</text>
+<text x="1150.0" y="806.0" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="9.4" fill="#4b5563" font-weight="normal" text-anchor="middle">Surefire 330 用例 / progress.md 自动生成 / OTel trace / 单源 publish 脚本</text>
+<text x="70" y="872" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="11" fill="#92400e" font-weight="normal" text-anchor="start">X13：S0 §5 规定生命周期走 MQ；现有 framework/messaging 三类 + compose broker 仅证明底座就绪，生产/消费闭环待 G4 按域实测</text>
+<text x="70" y="892" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="11" fill="#92400e" font-weight="normal" text-anchor="start">X7：contracts/README 自述「尚未引入 Flyway」与 41 份迁移、application.yml flyway 配置段并存，判为文档漂移</text>
+<line x1="220" y1="254" x2="220" y2="282" stroke="#1d4ed8" stroke-width="3" marker-end="url(#ahb)"/>
+<line x1="540" y1="254" x2="540" y2="282" stroke="#1d4ed8" stroke-width="3" marker-end="url(#ahb)"/>
+<line x1="850" y1="254" x2="850" y2="282" stroke="#1d4ed8" stroke-width="3" marker-end="url(#ahb)"/>
+<line x1="1150" y1="254" x2="1150" y2="282" stroke="#1d4ed8" stroke-width="3" marker-end="url(#ahb)"/>
+<line x1="220" y1="654" x2="220" y2="682" stroke="#475569" stroke-width="1.6" marker-end="url(#ah)"/>
+<line x1="540" y1="654" x2="540" y2="682" stroke="#475569" stroke-width="1.6" marker-end="url(#ah)"/>
+<line x1="850" y1="654" x2="850" y2="682" stroke="#475569" stroke-width="1.6" marker-end="url(#ah)"/>
+<line x1="1150" y1="654" x2="1150" y2="682" stroke="#475569" stroke-width="1.6" marker-end="url(#ah)"/>
+<text x="680" y="272" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="11.5" fill="#1d4ed8" font-weight="bold" text-anchor="middle">主链路：登录 → Provider/RoutingPlan → Agent 发布 → MCP Grant → 会话 SSE delta → 工具结果回流（40-BA §5.1）</text>
+<text x="680" y="672" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="11" fill="#475569" font-weight="normal" text-anchor="middle">同步持久化与契约依赖（api 只依赖 api 加 framework；biz 禁互依，44-EA §2 R1 至 R6）</text>
+<path d="M 1320 802 L 1332 802 L 1332 402 L 1300 402" fill="none" stroke="#7c3aed" stroke-width="1.8" stroke-dasharray="6,4" marker-end="url(#ah)"/>
+<text x="1332" y="392" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="10.5" fill="#7c3aed" font-weight="normal" text-anchor="end">一致性守护反馈回路：四态判定 → 整改清单 → 回写模块树与文档单源</text>
+<rect x="40" y="946" width="1280" height="74" rx="10" fill="#ffffff" stroke="#e2e8f0" stroke-width="1.2"/>
+<text x="62" y="970" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="13" fill="#0f172a" font-weight="bold" text-anchor="start">图例</text>
+<line x1="120" y1="966" x2="164" y2="966" stroke="#1d4ed8" stroke-width="3" marker-end="url(#ahb)"/>
+<text x="174" y="970" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="11" fill="#334155" font-weight="normal" text-anchor="start">粗线 = 主链路（PoC 黄金路径）</text>
+<line x1="430" y1="966" x2="474" y2="966" stroke="#475569" stroke-width="1.6" marker-end="url(#ah)"/>
+<text x="484" y="970" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="11" fill="#334155" font-weight="normal" text-anchor="start">实线 = 同步调用</text>
+<line x1="640" y1="966" x2="684" y2="966" stroke="#0f766e" stroke-width="1.5" stroke-dasharray="5,4" marker-end="url(#ahg)"/>
+<text x="694" y="970" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="11" fill="#334155" font-weight="normal" text-anchor="start">虚线 = 异步事件（MQ，X13 闭环待实测）</text>
+<rect x="1030" y="958" width="16" height="16" rx="3" fill="#ccfbf1" stroke="#14b8a6" stroke-width="1"/>
+<text x="1052" y="970" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="11" fill="#334155" font-weight="normal" text-anchor="start">44-EA 已列 13 域</text>
+<rect x="1030" y="986" width="16" height="16" rx="3" fill="#fef3c7" stroke="#d97706" stroke-width="1"/>
+<text x="1052" y="998" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="11" fill="#334155" font-weight="normal" text-anchor="start">X8：三域代码已落地、模块树未回写</text>
+<text x="62" y="1004" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="11" fill="#64748b" font-weight="normal" text-anchor="start">证据口径：事实=代码与文档实测（D 编号）；推断=按类名与配置判断、未做运行时验证；建议=本阶段裁决与下游转交</text>
+</svg>

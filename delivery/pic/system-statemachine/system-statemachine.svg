@@ -1,0 +1,105 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1360" height="900" viewBox="0 0 1360 900" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif">
+<defs><marker id="ah" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 Z" fill="#475569"/></marker><marker id="ahb" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 Z" fill="#1d4ed8"/></marker><marker id="ahg" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 Z" fill="#0f766e"/></marker><marker id="aho" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 Z" fill="#c2410c"/></marker></defs>
+<rect width="1360" height="900" fill="#f8fafc"/>
+<text x="40" y="38" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="22" fill="#0f172a" font-weight="bold" text-anchor="start">Tioka 系统设计 · 图 4 Runtime Turn 状态机（L1 会话锁与 L4 审批恢复）</text>
+<text x="40" y="61" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="11.5" fill="#64748b" font-weight="normal" text-anchor="start">实证事实映射（G4）：状态枚举来自 V101 / V114 与 RuntimeTurnMapper RT-07；橙色为 P0 增量约束（会话锁 / 崩溃续跑）</text>
+<rect x="60" y="120" width="190" height="62" rx="7" fill="#fef3c7" stroke="#d97706" stroke-width="1.1"/>
+<text x="155.0" y="146.0" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="13" fill="#111827" font-weight="bold" text-anchor="middle">QUEUED</text>
+<text x="155.0" y="164.0" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="9.6" fill="#4b5563" font-weight="normal" text-anchor="middle">已入队 / 待派发</text>
+<rect x="330" y="120" width="190" height="62" rx="7" fill="#dcfce7" stroke="#16a34a" stroke-width="1.1"/>
+<text x="425.0" y="146.0" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="13" fill="#111827" font-weight="bold" text-anchor="middle">RUNNING</text>
+<text x="425.0" y="164.0" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="9.6" fill="#4b5563" font-weight="normal" text-anchor="middle">持有 rt:lock 会话锁 + 租约</text>
+<rect x="600" y="120" width="210" height="62" rx="7" fill="#ffedd5" stroke="#ea580c" stroke-width="1.1"/>
+<text x="705.0" y="146.0" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="12" fill="#111827" font-weight="bold" text-anchor="middle">WAITING_APPROVAL</text>
+<text x="705.0" y="164.0" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="9.6" fill="#4b5563" font-weight="normal" text-anchor="middle">审批挂起（paused run）</text>
+<rect x="880" y="120" width="190" height="62" rx="7" fill="#ffedd5" stroke="#ea580c" stroke-width="1.1"/>
+<text x="975.0" y="146.0" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="13" fill="#111827" font-weight="bold" text-anchor="middle">WAITING_CHILD</text>
+<text x="975.0" y="164.0" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="9.6" fill="#4b5563" font-weight="normal" text-anchor="middle">子 Agent 等待（ADR-027）</text>
+<rect x="600" y="300" width="210" height="62" rx="7" fill="#dbeafe" stroke="#2563eb" stroke-width="1.1"/>
+<text x="705.0" y="326.0" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="13" fill="#111827" font-weight="bold" text-anchor="middle">COMPLETED</text>
+<text x="705.0" y="344.0" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="9.6" fill="#4b5563" font-weight="normal" text-anchor="middle">Turn 终态 / 归档轨迹</text>
+<rect x="880" y="300" width="190" height="62" rx="7" fill="#fee2e2" stroke="#dc2626" stroke-width="1.1"/>
+<text x="975.0" y="326.0" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="13" fill="#111827" font-weight="bold" text-anchor="middle">CANCELLED</text>
+<text x="975.0" y="344.0" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="9.6" fill="#4b5563" font-weight="normal" text-anchor="middle">interrupt / 用户取消</text>
+<rect x="330" y="300" width="190" height="62" rx="7" fill="#fee2e2" stroke="#dc2626" stroke-width="1.1"/>
+<text x="425.0" y="326.0" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="13" fill="#111827" font-weight="bold" text-anchor="middle">FAILED</text>
+<text x="425.0" y="344.0" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="9.6" fill="#4b5563" font-weight="normal" text-anchor="middle">LEASE_LOST / 执行失败</text>
+<rect x="60" y="300" width="190" height="62" rx="7" fill="#e0e7ff" stroke="#4f46e5" stroke-width="1.1"/>
+<text x="155.0" y="326.0" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="13" fill="#111827" font-weight="bold" text-anchor="middle">新建 Turn</text>
+<text x="155.0" y="344.0" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="9.6" fill="#4b5563" font-weight="normal" text-anchor="middle">client_msg_id 幂等</text>
+<line x1="250" y1="140" x2="330" y2="140" stroke="#0f766e" stroke-width="1.6" marker-end="url(#ahg)"/>
+<text x="290.0" y="134.0" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="10" fill="#0f766e" font-weight="normal" text-anchor="middle">TurnDispatcher 派发 + FOR UPDATE 行锁</text>
+<line x1="520" y1="140" x2="600" y2="140" stroke="#c2410c" stroke-width="1.6" marker-end="url(#aho)"/>
+<text x="560.0" y="134.0" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="10" fill="#c2410c" font-weight="normal" text-anchor="middle">RT-07 需审批 / 释放租约</text>
+<line x1="810" y1="140" x2="880" y2="140" stroke="#c2410c" stroke-width="1.6" marker-end="url(#aho)"/>
+<text x="845.0" y="134.0" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="10" fill="#c2410c" font-weight="normal" text-anchor="middle">子 Agent 委派</text>
+<line x1="420" y1="182" x2="420" y2="300" stroke="#1d4ed8" stroke-width="1.6" marker-end="url(#ahb)"/>
+<text x="470" y="250" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="10" fill="#1d4ed8" font-weight="normal" text-anchor="middle">正常完成 / 写 item.completed</text>
+<line x1="705" y1="182" x2="700" y2="300" stroke="#1d4ed8" stroke-width="1.6" marker-end="url(#ahb)"/>
+<text x="705" y="250" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="10" fill="#1d4ed8" font-weight="normal" text-anchor="middle">审批通过 → 同一 Turn 续跑完成</text>
+<line x1="975" y1="182" x2="975" y2="300" stroke="#1d4ed8" stroke-width="1.6" marker-end="url(#ahb)"/>
+<text x="1010" y="250" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="10" fill="#1d4ed8" font-weight="normal" text-anchor="middle">子 Agent 回执完成</text>
+<line x1="705" y1="120" x2="705" y2="96" stroke="#c2410c" stroke-width="1.6" marker-end="url(#aho)"/>
+<text x="705" y="88" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="10" fill="#c2410c" font-weight="normal" text-anchor="middle">审批决定 → 回到 QUEUED（不新开 Turn）</text>
+<path d="M705,96 L155,96 L155,120" fill="none" stroke="#c2410c" stroke-width="1.6" stroke-dasharray="6,3" marker-end="url(#aho)"/>
+<line x1="600" y1="168" x2="880" y2="168" stroke="#64748b" stroke-width="1.6" marker-end="url(#ah)"/>
+<line x1="600" y1="320" x2="880" y2="320" stroke="#b91c1c" stroke-width="1.6" marker-end="url(#ah)"/>
+<text x="740" y="312" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="9.5" fill="#b91c1c" font-weight="normal" text-anchor="middle">审批 interrupt → CANCELLED</text>
+<line x1="330" y1="168" x2="250" y2="168" stroke="#64748b" stroke-width="1.6" marker-end="url(#ah)"/>
+<line x1="330" y1="240" x2="330" y2="300" stroke="#b91c1c" stroke-width="1.6" marker-end="url(#ah)"/>
+<text x="270" y="270" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="10" fill="#b91c1c" font-weight="normal" text-anchor="middle">崩溃 / 租约丢失</text>
+<line x1="150" y1="182" x2="150" y2="300" stroke="#4f46e5" stroke-width="1.6" marker-end="url(#ahb)"/>
+<text x="150" y="250" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="10" fill="#4f46e5" font-weight="normal" text-anchor="middle">新建（同一 thread 内 seq 递增）</text>
+<rect x="40" y="410" width="1280" height="252" rx="14" fill="#fff7ed" stroke="#ea580c" stroke-width="1.6"/>
+<rect x="40" y="410" width="8" height="252" rx="3" fill="#ea580c" stroke="#ea580c" stroke-width="0"/>
+<text x="66" y="440" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="17" fill="#111827" font-weight="bold" text-anchor="start">P0 增量约束（L1 状态落库与会话加锁 / L4 审批挂起恢复）</text>
+<text x="66" y="461" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="11.5" fill="#6b7280" font-weight="normal" text-anchor="start">代码级已证实的既有机制（橙色）与本轮仍需收口的增量（下方清单），不新建表、不引入新中间件</text>
+<rect x="1088" y="426" width="176" height="26" rx="13" fill="#ea580c" stroke="#ea580c" stroke-width="0"/>
+<text x="1176" y="444" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="11" fill="#ffffff" font-weight="bold" text-anchor="middle">L1 + L4</text>
+<text x="66" y="476" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="11" fill="#475569" font-weight="normal" text-anchor="start">L1 已证实：runtime_turn / runtime_item / runtime_approval 落 PostgreSQL（V101）；V105 删除 parts_json，V104 Java 回填为 item；V128 更名 thread。</text>
+<text x="66" y="498" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="11" fill="#475569" font-weight="normal" text-anchor="start">L1 已证实：RuntimeTurnMapper.xml 有 SELECT 1 FROM runtime_thread WHERE id = #{threadId} FOR UPDATE（按 thread_id 行锁）；</text>
+<text x="66" y="520" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="11" fill="#475569" font-weight="normal" text-anchor="start">          RedisThreadLock 用 rt:lock:{threadId} 的 setIfAbsent + TTL + Lua 续期 / 释放（双实例互斥）。</text>
+<text x="66" y="542" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="11" fill="#475569" font-weight="normal" text-anchor="start">L1 待收口：StreamPump.subs / readPositions、MemoryItemSink.streaming、SignalBus.local 仍为 JVM 内存 Map（进程内订阅 / 读位置），</text>
+<text x="66" y="564" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="11" fill="#475569" font-weight="normal" text-anchor="start">          进程重启后需由 Redis Stream 与 DB item 补齐；EventStream 有 TTL（running / afterTurn），长时断线存在丢事件窗口。</text>
+<text x="66" y="586" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="11" fill="#475569" font-weight="normal" text-anchor="start">L4 已证实：EventId（seq 或 seq.deltaIndex）单调可比；ThreadEventsController 支持 Last-Event-ID 头与 after 参数双通道；</text>
+<text x="66" y="608" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="11" fill="#475569" font-weight="normal" text-anchor="start">          ThreadEventsService.open 四步重放（活动 Turn 状态 → DB item.completed → Redis Stream delta → StreamPump 订阅）。</text>
+<text x="66" y="630" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="11" fill="#475569" font-weight="normal" text-anchor="start">L4 已证实：V114 加 recover_count 与 idx_turn_waiting（WAITING_APPROVAL / WAITING_CHILD），RT-07 定义续跑与 interrupt 迁移。</text>
+<text x="66" y="652" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="11" fill="#475569" font-weight="normal" text-anchor="start">L4 待收口：rt:cur 清除后晚到连接无法从 DB 补到 item.discarded（仅 Redis 流式事件）；审批跨多次人审的快照完整性需契约测试锁定。</text>
+<rect x="40" y="682" width="1280" height="200" rx="10" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+<text x="58" y="708" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="13" fill="#0f172a" font-weight="bold" text-anchor="start">关键迁移（与 §3.2.M1.5 / §3.2.M3.5 状态机迁移表一致）</text>
+<text x="58" y="734" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="11" fill="#1e3a8a" font-weight="bold" text-anchor="start">起始状态</text>
+<text x="240" y="734" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="11" fill="#1e3a8a" font-weight="bold" text-anchor="start">触发事件</text>
+<text x="470" y="734" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="11" fill="#1e3a8a" font-weight="bold" text-anchor="start">终止状态</text>
+<text x="760" y="734" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="11" fill="#1e3a8a" font-weight="bold" text-anchor="start">触发条件 / 校验</text>
+<text x="1080" y="734" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="11" fill="#1e3a8a" font-weight="bold" text-anchor="start">副作用</text>
+<text x="58" y="758" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="9.8" fill="#334155" font-weight="normal" text-anchor="start">QUEUED</text>
+<text x="240" y="758" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="9.8" fill="#334155" font-weight="normal" text-anchor="start">TurnDispatcher 派发</text>
+<text x="470" y="758" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="9.8" fill="#334155" font-weight="normal" text-anchor="start">RUNNING</text>
+<text x="760" y="758" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="9.8" fill="#334155" font-weight="normal" text-anchor="start">rt:lock 抢锁成功 + FOR UPDATE</text>
+<text x="1080" y="758" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="9.8" fill="#334155" font-weight="normal" text-anchor="start">写 runtime_turn.status / lease_until</text>
+<text x="58" y="778" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="9.8" fill="#334155" font-weight="normal" text-anchor="start">RUNNING</text>
+<text x="240" y="778" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="9.8" fill="#334155" font-weight="normal" text-anchor="start">需人工审批</text>
+<text x="470" y="778" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="9.8" fill="#334155" font-weight="normal" text-anchor="start">WAITING_APPROVAL</text>
+<text x="760" y="778" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="9.8" fill="#334155" font-weight="normal" text-anchor="start">工具风险 ≥ WRITE / 策略命中</text>
+<text x="1080" y="778" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="9.8" fill="#334155" font-weight="normal" text-anchor="start">释放租约，写 runtime_approval(PENDING)</text>
+<text x="58" y="798" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="9.8" fill="#334155" font-weight="normal" text-anchor="start">WAITING_APPROVAL</text>
+<text x="240" y="798" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="9.8" fill="#334155" font-weight="normal" text-anchor="start">审批通过</text>
+<text x="470" y="798" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="9.8" fill="#334155" font-weight="normal" text-anchor="start">QUEUED</text>
+<text x="760" y="798" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="9.8" fill="#334155" font-weight="normal" text-anchor="start">无 PENDING 审批 + ResumeSweeper</text>
+<text x="1080" y="798" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="9.8" fill="#334155" font-weight="normal" text-anchor="start">同一 Turn 续跑，不新开 Turn</text>
+<text x="58" y="818" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="9.8" fill="#334155" font-weight="normal" text-anchor="start">WAITING_APPROVAL</text>
+<text x="240" y="818" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="9.8" fill="#334155" font-weight="normal" text-anchor="start">interrupt</text>
+<text x="470" y="818" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="9.8" fill="#334155" font-weight="normal" text-anchor="start">CANCELLED</text>
+<text x="760" y="818" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="9.8" fill="#334155" font-weight="normal" text-anchor="start">用户取消 / 审批驳回</text>
+<text x="1080" y="818" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="9.8" fill="#334155" font-weight="normal" text-anchor="start">发 turn.cancelled SSE 事件</text>
+<text x="58" y="838" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="9.8" fill="#334155" font-weight="normal" text-anchor="start">RUNNING</text>
+<text x="240" y="838" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="9.8" fill="#334155" font-weight="normal" text-anchor="start">崩溃 / 租约丢失</text>
+<text x="470" y="838" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="9.8" fill="#334155" font-weight="normal" text-anchor="start">FAILED</text>
+<text x="760" y="838" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="9.8" fill="#334155" font-weight="normal" text-anchor="start">recover_count ≥ maxRecover</text>
+<text x="1080" y="838" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="9.8" fill="#334155" font-weight="normal" text-anchor="start">LEASE_LOST + LeaseReaper 丢弃 in-flight</text>
+<text x="58" y="858" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="9.8" fill="#334155" font-weight="normal" text-anchor="start">RUNNING</text>
+<text x="240" y="858" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="9.8" fill="#334155" font-weight="normal" text-anchor="start">工具与模型完成</text>
+<text x="470" y="858" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="9.8" fill="#334155" font-weight="normal" text-anchor="start">COMPLETED</text>
+<text x="760" y="858" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="9.8" fill="#334155" font-weight="normal" text-anchor="start">item.completed 全部落库</text>
+<text x="1080" y="858" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="9.8" fill="#334155" font-weight="normal" text-anchor="start">写轨迹 / 发 turn.finished 事件</text>
+</svg>

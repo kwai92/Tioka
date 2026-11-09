@@ -1,0 +1,87 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="900" viewBox="0 0 1400 900" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif">
+<defs><marker id="ah" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 Z" fill="#475569"/></marker><marker id="ahb" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 Z" fill="#1d4ed8"/></marker><marker id="ahg" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 Z" fill="#0f766e"/></marker><marker id="aho" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 Z" fill="#c2410c"/></marker></defs>
+<rect width="1400" height="900" fill="#f8fafc"/>
+<text x="40" y="38" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="22" fill="#0f172a" font-weight="bold" text-anchor="start">Tioka 部署设计 · 图 3 故障域与高可用演进拓扑</text>
+<text x="40" y="61" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="11.5" fill="#64748b" font-weight="normal" text-anchor="start">本期为单 AZ 单实例 compose（6 个 service 定义 = 5 冻结中间件 + jaeger）；四层故障域逐层给出容错机制与 RTO；演进路径三段均为规划，不写成本期已实现或已承诺</text>
+<rect x="40" y="82" width="1320" height="150" rx="14" fill="#f0fdfa" stroke="#0d9488" stroke-width="1.6"/>
+<rect x="40" y="82" width="8" height="150" rx="3" fill="#0d9488" stroke="#0d9488" stroke-width="0"/>
+<text x="66" y="112" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="17" fill="#111827" font-weight="bold" text-anchor="start">本期现状（G4 §5.2 与 §5.4 冻结基线）</text>
+<text x="66" y="133" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="11.5" fill="#6b7280" font-weight="normal" text-anchor="start">单 Region 数量 1、单 AZ 数量 1、单实例；RPO ≤ 5 分钟、RTO ≤ 30 分钟；可用性由私有化宿主机与运维方兜底</text>
+<rect x="1128" y="98" width="176" height="26" rx="13" fill="#0d9488" stroke="#0d9488" stroke-width="0"/>
+<text x="1216" y="116" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="11" fill="#ffffff" font-weight="bold" text-anchor="middle">现状</text>
+<rect x="52" y="144" width="314" height="72" rx="7" fill="#ccfbf1" stroke="#0d9488" stroke-width="1.1"/>
+<text x="209.0" y="175.0" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="11" fill="#111827" font-weight="bold" text-anchor="middle">单进程 tioka-server</text>
+<text x="209.0" y="193.0" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="8.8" fill="#4b5563" font-weight="normal" text-anchor="middle">进程守护重启，状态从 PG 恢复</text>
+<text x="66" y="226" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="10" fill="#0f766e" font-weight="bold" text-anchor="start">预期 RTO ≤ 30 秒</text>
+<rect x="382" y="144" width="314" height="72" rx="7" fill="#ccfbf1" stroke="#0d9488" stroke-width="1.1"/>
+<text x="539.0" y="175.0" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="11" fill="#111827" font-weight="bold" text-anchor="middle">Redis 不可用</text>
+<text x="539.0" y="193.0" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="8.8" fill="#4b5563" font-weight="normal" text-anchor="middle">从 runtime_item 补齐，BD-02 降级</text>
+<text x="396" y="226" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="10" fill="#0f766e" font-weight="bold" text-anchor="start">预期 RTO ≤ 1 分钟</text>
+<rect x="712" y="144" width="314" height="72" rx="7" fill="#ccfbf1" stroke="#0d9488" stroke-width="1.1"/>
+<text x="869.0" y="175.0" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="11" fill="#111827" font-weight="bold" text-anchor="middle">Broker 不可用</text>
+<text x="869.0" y="193.0" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="8.8" fill="#4b5563" font-weight="normal" text-anchor="middle">Outbox 堆积，Relay 下轮重投，BD-03 降级</text>
+<text x="726" y="226" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="10" fill="#0f766e" font-weight="bold" text-anchor="start">预期 RTO ≤ 5 分钟</text>
+<rect x="1042" y="144" width="314" height="72" rx="7" fill="#ccfbf1" stroke="#0d9488" stroke-width="1.1"/>
+<text x="1199.0" y="175.0" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="11" fill="#111827" font-weight="bold" text-anchor="middle">PostgreSQL 不可用</text>
+<text x="1199.0" y="193.0" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="8.8" fill="#4b5563" font-weight="normal" text-anchor="middle">停止接入，从备份恢复</text>
+<text x="1056" y="226" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="10" fill="#0f766e" font-weight="bold" text-anchor="start">预期 RTO ≤ 30 分钟</text>
+<rect x="40" y="262" width="1320" height="214" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.6"/>
+<rect x="40" y="262" width="8" height="214" rx="3" fill="#2563eb" stroke="#2563eb" stroke-width="0"/>
+<text x="66" y="292" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="17" fill="#111827" font-weight="bold" text-anchor="start">四层故障域划分（§3.3.1）</text>
+<text x="66" y="313" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="11.5" fill="#6b7280" font-weight="normal" text-anchor="start">对齐模板四层故障域要求；私有化单机下「单 AZ」与「单 Region」两层合并由冷备恢复承接，不虚构跨 AZ 自动切换能力</text>
+<rect x="1128" y="278" width="176" height="26" rx="13" fill="#2563eb" stroke="#2563eb" stroke-width="0"/>
+<text x="1216" y="296" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="11" fill="#ffffff" font-weight="bold" text-anchor="middle">4 层</text>
+<rect x="52" y="324" width="1296" height="34" rx="5" fill="#ffffff" stroke="#bfdbfe" stroke-width="0.8"/>
+<text x="66" y="346" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="11" fill="#1e3a8a" font-weight="bold" text-anchor="start">L1 单容器 / 单进程</text>
+<text x="330" y="346" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="10.6" fill="#334155" font-weight="normal" text-anchor="start">单实例</text>
+<text x="600" y="346" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="10.6" fill="#334155" font-weight="normal" text-anchor="start">compose healthcheck 加进程守护重启</text>
+<text x="1200" y="346" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="10.6" fill="#1d4ed8" font-weight="bold" text-anchor="middle">≤ 30 秒</text>
+<rect x="52" y="362" width="1296" height="34" rx="5" fill="#f8fafc" stroke="#bfdbfe" stroke-width="0.8"/>
+<text x="66" y="384" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="11" fill="#1e3a8a" font-weight="bold" text-anchor="start">L2 单中间件服务</text>
+<text x="330" y="384" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="10.6" fill="#334155" font-weight="normal" text-anchor="start">会话锁 / 事件流 / 异步骨干</text>
+<text x="600" y="384" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="10.6" fill="#334155" font-weight="normal" text-anchor="start">BD-02 与 BD-03 降级加 Outbox 重投</text>
+<text x="1200" y="384" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="10.6" fill="#1d4ed8" font-weight="bold" text-anchor="middle">≤ 5 分钟</text>
+<rect x="52" y="400" width="1296" height="34" rx="5" fill="#ffffff" stroke="#bfdbfe" stroke-width="0.8"/>
+<text x="66" y="422" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="11" fill="#1e3a8a" font-weight="bold" text-anchor="start">L3 单宿主机（等价单 AZ）</text>
+<text x="330" y="422" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="10.6" fill="#334155" font-weight="normal" text-anchor="start">全部主资源</text>
+<text x="600" y="422" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="10.6" fill="#334155" font-weight="normal" text-anchor="start">私有化冷备恢复，双实例 HA 属 P2 / L10</text>
+<text x="1200" y="422" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="10.6" fill="#1d4ed8" font-weight="bold" text-anchor="middle">≤ 30 分钟</text>
+<rect x="52" y="438" width="1296" height="34" rx="5" fill="#f8fafc" stroke="#bfdbfe" stroke-width="0.8"/>
+<text x="66" y="460" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="11" fill="#1e3a8a" font-weight="bold" text-anchor="start">L4 单站点（等价单 Region）</text>
+<text x="330" y="460" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="10.6" fill="#334155" font-weight="normal" text-anchor="start">全部主资源</text>
+<text x="600" y="460" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="10.6" fill="#334155" font-weight="normal" text-anchor="start">跨 Region 数据同步不适用，数据不出境（O6）</text>
+<text x="1200" y="460" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="10.6" fill="#1d4ed8" font-weight="bold" text-anchor="middle">≤ 30 分钟</text>
+<rect x="40" y="496" width="1320" height="214" rx="14" fill="#fff7ed" stroke="#ea580c" stroke-width="1.6"/>
+<rect x="40" y="496" width="8" height="214" rx="3" fill="#ea580c" stroke="#ea580c" stroke-width="0"/>
+<text x="66" y="526" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="17" fill="#111827" font-weight="bold" text-anchor="start">完整版演进路径（规划 · P2 / L10 与 O4 Out-of-Scope，本期不实现）</text>
+<text x="66" y="547" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="11.5" fill="#6b7280" font-weight="normal" text-anchor="start">三段依次为应用多副本、外部中间件集群化、跨 AZ 容灾；每段均需先完成 U-02 仓库外取证与用户裁决，G6 前不动代码</text>
+<rect x="1128" y="512" width="176" height="26" rx="13" fill="#ea580c" stroke="#ea580c" stroke-width="0"/>
+<text x="1216" y="530" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="11" fill="#ffffff" font-weight="bold" text-anchor="middle">演进</text>
+<rect x="52" y="558" width="420" height="60" rx="7" fill="#ffedd5" stroke="#ea580c" stroke-width="1.1"/>
+<text x="262.0" y="583.0" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="12" fill="#111827" font-weight="bold" text-anchor="middle">阶段 1 · 应用多副本</text>
+<text x="262.0" y="601.0" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="9.5" fill="#4b5563" font-weight="normal" text-anchor="middle">min 1 / max 3 副本</text>
+<text x="66" y="636" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="10.2" fill="#9a3412" font-weight="normal" text-anchor="start">粘性会话可选；取消与 Steer 按 sessionId 路由到租约节点</text>
+<text x="66" y="656" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="10.2" fill="#9a3412" font-weight="normal" text-anchor="start">OpsFacade 与 OutboxRelay 领导锁</text>
+<line x1="472" y1="588" x2="492" y2="588" stroke="#c2410c" stroke-width="1.6" marker-end="url(#aho)"/>
+<rect x="492" y="558" width="420" height="60" rx="7" fill="#ffedd5" stroke="#ea580c" stroke-width="1.1"/>
+<text x="702.0" y="583.0" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="12" fill="#111827" font-weight="bold" text-anchor="middle">阶段 2 · 外部中间件</text>
+<text x="702.0" y="601.0" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="9.5" fill="#4b5563" font-weight="normal" text-anchor="middle">外置 PG / Redis / RocketMQ</text>
+<text x="506" y="636" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="10.2" fill="#9a3412" font-weight="normal" text-anchor="start">PG 读写分离、Redis 升配、Broker 分区扩容</text>
+<text x="506" y="656" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="10.2" fill="#9a3412" font-weight="normal" text-anchor="start">需 U-02 非 mock 与双实例验收记录</text>
+<line x1="912" y1="588" x2="932" y2="588" stroke="#c2410c" stroke-width="1.6" marker-end="url(#aho)"/>
+<rect x="932" y="558" width="420" height="60" rx="7" fill="#ffedd5" stroke="#ea580c" stroke-width="1.1"/>
+<text x="1142.0" y="583.0" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="12" fill="#111827" font-weight="bold" text-anchor="middle">阶段 3 · 跨 AZ 容灾</text>
+<text x="1142.0" y="601.0" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="9.5" fill="#4b5563" font-weight="normal" text-anchor="middle">多 AZ 部署</text>
+<text x="946" y="636" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="10.2" fill="#9a3412" font-weight="normal" text-anchor="start">跨 AZ 自动切换、备份演练台账 RPO 与 RTO</text>
+<text x="946" y="656" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="10.2" fill="#9a3412" font-weight="normal" text-anchor="start">本期无跨 Region 同步，O6 数据不出境</text>
+<rect x="40" y="730" width="1320" height="96" rx="14" fill="#f5f3ff" stroke="#7c3aed" stroke-width="1.6"/>
+<rect x="40" y="730" width="8" height="96" rx="3" fill="#7c3aed" stroke="#7c3aed" stroke-width="0"/>
+<text x="66" y="760" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="17" fill="#111827" font-weight="bold" text-anchor="start">可用性来源拆分（G4 §5.2.4 冻结）</text>
+<text x="66" y="781" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="11.5" fill="#6b7280" font-weight="normal" text-anchor="start">基础设施兜底归运维与交付方；本系统自身保障归研发团队；强依赖外部故障策略 E-01 至 E-05 归研发团队</text>
+<rect x="1128" y="746" width="176" height="26" rx="13" fill="#7c3aed" stroke="#7c3aed" stroke-width="0"/>
+<text x="1216" y="764" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="11" fill="#ffffff" font-weight="bold" text-anchor="middle">责任方</text>
+<text x="60" y="790" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="10.6" fill="#5b21b6" font-weight="normal" text-anchor="start">基础设施兜底：私有化宿主机与 compose 6 个 service 进程（运维与交付方）</text>
+<text x="60" y="812" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="10.6" fill="#5b21b6" font-weight="normal" text-anchor="start">本系统自身保障：RedisThreadLock 会话锁、OutboxRelay 领导锁、SKIP LOCKED claim、SSE 四步重放、幂等消费（研发团队）</text>
+<rect x="40" y="838" width="1320" height="48" rx="8" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+<text x="58" y="862" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="10.6" fill="#475569" font-weight="normal" text-anchor="start">本期不把双 AZ 双活写为已实现或本期承诺；双实例 HA 与 Keycloak 非 mock 验收属 O4，由 G5 判定但不并入自动化绿灯（R-04）。</text>
+</svg>

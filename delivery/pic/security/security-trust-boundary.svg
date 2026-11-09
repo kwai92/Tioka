@@ -1,0 +1,116 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="1010" viewBox="0 0 1400 1010" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif">
+<defs><marker id="ah" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 Z" fill="#475569"/></marker><marker id="ahb" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 Z" fill="#1d4ed8"/></marker><marker id="ahg" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 Z" fill="#0f766e"/></marker><marker id="aho" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 Z" fill="#c2410c"/></marker></defs>
+<rect width="1400" height="1010" fill="#f8fafc"/>
+<text x="40" y="38" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="22" fill="#0f172a" font-weight="bold" text-anchor="start">Tioka 安全设计 · 图 1 信任边界图</text>
+<text x="40" y="61" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="11.5" fill="#64748b" font-weight="normal" text-anchor="start">实证映射（G5）：外部不可信域 / edge / app / data / devops 五域；虚线为信任边界；私有化 compose，无云资源</text>
+<rect x="40" y="80" width="1320" height="118" rx="14" fill="#fef2f2" stroke="#dc2626" stroke-width="1.6"/>
+<rect x="40" y="80" width="8" height="118" rx="3" fill="#dc2626" stroke="#dc2626" stroke-width="0"/>
+<text x="66" y="110" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="17" fill="#111827" font-weight="bold" text-anchor="start">① 外部不可信域（Internet）</text>
+<text x="66" y="131" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="11.5" fill="#6b7280" font-weight="normal" text-anchor="start">用户浏览器 tioka-ui（Vue 3）；外部依赖 E-01 至 E-05；HTTPS / TLS 1.2+ 入站</text>
+<rect x="1128" y="96" width="176" height="26" rx="13" fill="#dc2626" stroke="#dc2626" stroke-width="0"/>
+<text x="1216" y="114" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="11" fill="#ffffff" font-weight="bold" text-anchor="middle">不可信 · 需鉴权</text>
+<rect x="56" y="142" width="244" height="50" rx="7" fill="#fee2e2" stroke="#ef4444" stroke-width="1.1"/>
+<text x="178.0" y="162.0" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="11.5" fill="#111827" font-weight="bold" text-anchor="middle">用户浏览器 / tioka-ui</text>
+<text x="178.0" y="180.0" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="9.2" fill="#4b5563" font-weight="normal" text-anchor="middle">Vue 3 · HTTP 与 SSE</text>
+<rect x="318" y="142" width="244" height="50" rx="7" fill="#fee2e2" stroke="#ef4444" stroke-width="1.1"/>
+<text x="440.0" y="162.0" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="11.5" fill="#111827" font-weight="bold" text-anchor="middle">E-01 Keycloak 24 OIDC</text>
+<text x="440.0" y="180.0" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="9.2" fill="#4b5563" font-weight="normal" text-anchor="middle">登录与 SSO</text>
+<rect x="580" y="142" width="244" height="50" rx="7" fill="#fee2e2" stroke="#ef4444" stroke-width="1.1"/>
+<text x="702.0" y="162.0" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="11.5" fill="#111827" font-weight="bold" text-anchor="middle">E-02 飞书开放平台</text>
+<text x="702.0" y="180.0" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="9.2" fill="#4b5563" font-weight="normal" text-anchor="middle">IM 与 Webhook</text>
+<rect x="842" y="142" width="244" height="50" rx="7" fill="#fee2e2" stroke="#ef4444" stroke-width="1.1"/>
+<text x="964.0" y="162.0" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="11.5" fill="#111827" font-weight="bold" text-anchor="middle">E-03 Provider</text>
+<text x="964.0" y="180.0" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="9.2" fill="#4b5563" font-weight="normal" text-anchor="middle">模型 HTTPS 与 SSE</text>
+<rect x="1104" y="142" width="244" height="50" rx="7" fill="#fee2e2" stroke="#ef4444" stroke-width="1.1"/>
+<text x="1226.0" y="162.0" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="11.5" fill="#111827" font-weight="bold" text-anchor="middle">E-04 MCP over HTTP</text>
+<text x="1226.0" y="180.0" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="9.2" fill="#4b5563" font-weight="normal" text-anchor="middle">工具协议</text>
+<line x1="700" y1="198" x2="700" y2="232" stroke="#dc2626" stroke-width="1.4" stroke-dasharray="6,4" marker-end="url(#ah)"/>
+<text x="716" y="220" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="11" fill="#b91c1c" font-weight="normal" text-anchor="start">信任边界 ①：TLS 1.2+ 终结于反向代理；80 强制跳 443；无 DDoS 高防 / 无云 WAF（O7）</text>
+<rect x="40" y="238" width="1320" height="112" rx="14" fill="#fff7ed" stroke="#ea580c" stroke-width="1.6"/>
+<rect x="40" y="238" width="8" height="112" rx="3" fill="#ea580c" stroke="#ea580c" stroke-width="0"/>
+<text x="66" y="268" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="17" fill="#111827" font-weight="bold" text-anchor="start">② DMZ / tioka-edge（Docker bridge network）</text>
+<text x="66" y="289" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="11.5" fill="#6b7280" font-weight="normal" text-anchor="start">反向代理 / API 网关：TLS 终结、限流（替代 WAF 的入口管控）、X-Forwarded-For、EgressGuard 出网白名单</text>
+<rect x="1128" y="254" width="176" height="26" rx="13" fill="#ea580c" stroke="#ea580c" stroke-width="0"/>
+<text x="1216" y="272" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="11" fill="#ffffff" font-weight="bold" text-anchor="middle">边缘信任域</text>
+<rect x="120" y="298" width="360" height="46" rx="7" fill="#ffedd5" stroke="#f97316" stroke-width="1.1"/>
+<text x="300.0" y="316.0" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="12" fill="#111827" font-weight="bold" text-anchor="middle">反向代理 / Nginx</text>
+<text x="300.0" y="334.0" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="9.5" fill="#4b5563" font-weight="normal" text-anchor="middle">TLS 终结 · 443 · 限流</text>
+<rect x="520" y="298" width="360" height="46" rx="7" fill="#ffedd5" stroke="#f97316" stroke-width="1.1"/>
+<text x="700.0" y="316.0" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="12" fill="#111827" font-weight="bold" text-anchor="middle">EgressGuard</text>
+<text x="700.0" y="334.0" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="9.5" fill="#4b5563" font-weight="normal" text-anchor="middle">allow-hosts · deny-cidrs</text>
+<rect x="920" y="298" width="360" height="46" rx="7" fill="#ffedd5" stroke="#f97316" stroke-width="1.1"/>
+<text x="1100.0" y="316.0" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="12" fill="#111827" font-weight="bold" text-anchor="middle">入站校验</text>
+<text x="1100.0" y="334.0" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="9.5" fill="#4b5563" font-weight="normal" text-anchor="middle">Bearer 头 · 非法拒绝</text>
+<line x1="700" y1="350" x2="700" y2="384" stroke="#ea580c" stroke-width="1.4" stroke-dasharray="6,4" marker-end="url(#ah)"/>
+<text x="716" y="372" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="11" fill="#c2410c" font-weight="normal" text-anchor="start">信任边界 ②：BearerTokenFilter 业务细鉴权 + @RequirePermission 接口级拦截</text>
+<rect x="40" y="390" width="1320" height="176" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.6"/>
+<rect x="40" y="390" width="8" height="176" rx="3" fill="#2563eb" stroke="#2563eb" stroke-width="0"/>
+<text x="66" y="420" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="17" fill="#111827" font-weight="bold" text-anchor="start">③ 业务域 / tioka-app（Docker bridge network）</text>
+<text x="66" y="441" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="11.5" fill="#6b7280" font-weight="normal" text-anchor="start">tioka-server 启动面 + 15 业务域 api 与 biz 双子模块；全部无状态，权威状态外置</text>
+<rect x="1128" y="406" width="176" height="26" rx="13" fill="#2563eb" stroke="#2563eb" stroke-width="0"/>
+<text x="1216" y="424" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="11" fill="#ffffff" font-weight="bold" text-anchor="middle">应用信任域</text>
+<rect x="56" y="456" width="410" height="46" rx="7" fill="#dbeafe" stroke="#3b82f6" stroke-width="1.1"/>
+<text x="261.0" y="474.0" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="12" fill="#111827" font-weight="bold" text-anchor="middle">BearerTokenFilter</text>
+<text x="261.0" y="492.0" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="9.5" fill="#4b5563" font-weight="normal" text-anchor="middle">tka_ / tk_live_ / JWT</text>
+<rect x="496" y="456" width="410" height="46" rx="7" fill="#dbeafe" stroke="#3b82f6" stroke-width="1.1"/>
+<text x="701.0" y="474.0" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="12" fill="#111827" font-weight="bold" text-anchor="middle">Principal</text>
+<text x="701.0" y="492.0" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="9.5" fill="#4b5563" font-weight="normal" text-anchor="middle">不可变 · workspaceId</text>
+<rect x="936" y="456" width="410" height="46" rx="7" fill="#dbeafe" stroke="#3b82f6" stroke-width="1.1"/>
+<text x="1141.0" y="474.0" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="12" fill="#111827" font-weight="bold" text-anchor="middle">ResourceGuard</text>
+<text x="1141.0" y="492.0" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="9.5" fill="#4b5563" font-weight="normal" text-anchor="middle">IDOR · AccessLevel</text>
+<rect x="56" y="510" width="410" height="46" rx="7" fill="#dbeafe" stroke="#3b82f6" stroke-width="1.1"/>
+<text x="261.0" y="528.0" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="12" fill="#111827" font-weight="bold" text-anchor="middle">RestExceptionAdvice</text>
+<text x="261.0" y="546.0" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="9.5" fill="#4b5563" font-weight="normal" text-anchor="middle">统一错误码 · 无堆栈</text>
+<rect x="496" y="510" width="410" height="46" rx="7" fill="#dbeafe" stroke="#3b82f6" stroke-width="1.1"/>
+<text x="701.0" y="528.0" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="12" fill="#111827" font-weight="bold" text-anchor="middle">AuditApi / FileAuditSink</text>
+<text x="701.0" y="546.0" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="9.5" fill="#4b5563" font-weight="normal" text-anchor="middle">DENIED · 独立卷</text>
+<rect x="936" y="510" width="410" height="46" rx="7" fill="#dbeafe" stroke="#3b82f6" stroke-width="1.1"/>
+<text x="1141.0" y="528.0" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="12" fill="#111827" font-weight="bold" text-anchor="middle">@RequirePermission</text>
+<text x="1141.0" y="546.0" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="9.5" fill="#4b5563" font-weight="normal" text-anchor="middle">ArchUnit 门禁 ENG-10</text>
+<line x1="700" y1="566" x2="700" y2="600" stroke="#2563eb" stroke-width="1.4" stroke-dasharray="6,4" marker-end="url(#ah)"/>
+<text x="716" y="588" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="11" fill="#1d4ed8" font-weight="normal" text-anchor="start">信任边界 ③：compose network 隔离 + 宿主机 iptables；中间件不对公网暴露</text>
+<rect x="40" y="606" width="1320" height="150" rx="14" fill="#f0fdfa" stroke="#0d9488" stroke-width="1.6"/>
+<rect x="40" y="606" width="8" height="150" rx="3" fill="#0d9488" stroke="#0d9488" stroke-width="0"/>
+<text x="66" y="636" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="17" fill="#111827" font-weight="bold" text-anchor="start">④ 数据域 / tioka-data（Docker bridge network）</text>
+<text x="66" y="657" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="11.5" fill="#6b7280" font-weight="normal" text-anchor="start">compose 六服务（现状，含既有 jaeger）；凭证密文 AES-256-GCM（V145），无云 KMS / Vault / 对象存储</text>
+<rect x="1128" y="622" width="176" height="26" rx="13" fill="#0d9488" stroke="#0d9488" stroke-width="0"/>
+<text x="1216" y="640" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="11" fill="#ffffff" font-weight="bold" text-anchor="middle">数据信任域</text>
+<rect x="56" y="668" width="244" height="48" rx="7" fill="#ccfbf1" stroke="#14b8a6" stroke-width="1.1"/>
+<text x="178.0" y="687.0" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="11.2" fill="#111827" font-weight="bold" text-anchor="middle">PostgreSQL pgvector pg16</text>
+<text x="178.0" y="705.0" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="9" fill="#4b5563" font-weight="normal" text-anchor="middle">secret_store · audit_event</text>
+<rect x="318" y="668" width="244" height="48" rx="7" fill="#ccfbf1" stroke="#14b8a6" stroke-width="1.1"/>
+<text x="440.0" y="687.0" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="11.2" fill="#111827" font-weight="bold" text-anchor="middle">Redis 7</text>
+<text x="440.0" y="705.0" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="9" fill="#4b5563" font-weight="normal" text-anchor="middle">rt:lock · token 哈希</text>
+<rect x="580" y="668" width="244" height="48" rx="7" fill="#ccfbf1" stroke="#14b8a6" stroke-width="1.1"/>
+<text x="702.0" y="687.0" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="11.2" fill="#111827" font-weight="bold" text-anchor="middle">RocketMQ 5.3.1</text>
+<text x="702.0" y="705.0" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="9" fill="#4b5563" font-weight="normal" text-anchor="middle">namesrv 加 broker</text>
+<rect x="842" y="668" width="244" height="48" rx="7" fill="#ccfbf1" stroke="#14b8a6" stroke-width="1.1"/>
+<text x="964.0" y="687.0" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="11.2" fill="#111827" font-weight="bold" text-anchor="middle">Keycloak 24</text>
+<text x="964.0" y="705.0" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="9" fill="#4b5563" font-weight="normal" text-anchor="middle">realm · 用户口令托管</text>
+<rect x="1104" y="668" width="244" height="48" rx="7" fill="#ccfbf1" stroke="#14b8a6" stroke-width="1.1"/>
+<text x="1226.0" y="687.0" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="11.2" fill="#111827" font-weight="bold" text-anchor="middle">Jaeger 1.57</text>
+<text x="1226.0" y="705.0" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="9" fill="#4b5563" font-weight="normal" text-anchor="middle">OTel trace</text>
+<line x1="700" y1="756" x2="700" y2="790" stroke="#0d9488" stroke-width="1.4" stroke-dasharray="6,4" marker-end="url(#ah)"/>
+<text x="716" y="778" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="11" fill="#0f766e" font-weight="normal" text-anchor="start">信任边界 ④：运维通道与数据面分离；无堡垒机，由客户侧运维通道统一保障</text>
+<rect x="40" y="796" width="1320" height="130" rx="14" fill="#faf5ff" stroke="#7c3aed" stroke-width="1.6"/>
+<rect x="40" y="796" width="8" height="130" rx="3" fill="#7c3aed" stroke="#7c3aed" stroke-width="0"/>
+<text x="66" y="826" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="17" fill="#111827" font-weight="bold" text-anchor="start">⑤ 运维域 / devops（宿主机）</text>
+<text x="66" y="847" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="11.5" fill="#6b7280" font-weight="normal" text-anchor="start">本地运维账号与资源访问（模板 §2.3 云账号的本地等价）；数据不出境（S0 §1.1 至 1.2 / O6）</text>
+<rect x="1128" y="812" width="176" height="26" rx="13" fill="#7c3aed" stroke="#7c3aed" stroke-width="0"/>
+<text x="1216" y="830" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="11" fill="#ffffff" font-weight="bold" text-anchor="middle">运维信任域</text>
+<rect x="56" y="858" width="306" height="48" rx="7" fill="#ede9fe" stroke="#8b5cf6" stroke-width="1.1"/>
+<text x="209.0" y="877.0" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="11.2" fill="#111827" font-weight="bold" text-anchor="middle">宿主机账号 + sudo 白名单</text>
+<text x="209.0" y="895.0" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="9" fill="#4b5563" font-weight="normal" text-anchor="middle">禁 root 直登 · SSH 密钥</text>
+<rect x="386" y="858" width="306" height="48" rx="7" fill="#ede9fe" stroke="#8b5cf6" stroke-width="1.1"/>
+<text x="539.0" y="877.0" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="11.2" fill="#111827" font-weight="bold" text-anchor="middle">环境变量注入</text>
+<text x="539.0" y="895.0" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="9" fill="#4b5563" font-weight="normal" text-anchor="middle">TIOKA_*_MASTER_KEY</text>
+<rect x="716" y="858" width="306" height="48" rx="7" fill="#ede9fe" stroke="#8b5cf6" stroke-width="1.1"/>
+<text x="869.0" y="877.0" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="11.2" fill="#111827" font-weight="bold" text-anchor="middle">配置文件 0600</text>
+<text x="869.0" y="895.0" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="9" fill="#4b5563" font-weight="normal" text-anchor="middle">禁明文密钥入库</text>
+<rect x="1046" y="858" width="306" height="48" rx="7" fill="#ede9fe" stroke="#8b5cf6" stroke-width="1.1"/>
+<text x="1199.0" y="877.0" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="11.2" fill="#111827" font-weight="bold" text-anchor="middle">本地备份卷</text>
+<text x="1199.0" y="895.0" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="9" fill="#4b5563" font-weight="normal" text-anchor="middle">全量 + WAL · 无跨地域</text>
+<text x="56" y="962" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="10.5" fill="#64748b" font-weight="normal" text-anchor="start">图例：红色=不可信域；橙色=边缘；蓝色=应用；青色=数据；紫色=运维；虚线箭头=信任边界；实线=受控数据流。</text>
+<text x="56" y="978" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="10.5" fill="#64748b" font-weight="normal" text-anchor="start">证据：deploy/compose.yml；系统设计 §3.1.3 / §6 / §7；UserStory §6.4；主理人 G5 重叠区权威方分配表（tioka-edge / tioka-app / tioka-data）。</text>
+<text x="56" y="994" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans CJK SC, sans-serif" font-size="10.5" fill="#64748b" font-weight="normal" text-anchor="start">图注：443 / 80 跳 443 为设计层目标态，现状 compose 无 443 映射、应用由本地进程启动；三条 bridge 为设计层逻辑分区，现状 compose 未声明 networks 段、G6 前不落地；数据域 compose 六服务（含既有 jaeger）为现状事实。</text>
+</svg>
