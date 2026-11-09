@@ -19,9 +19,9 @@
         ]]>
     </update>
 
-    <update id="updateLogical">
+    <update id="updateAlias">
         <![CDATA[
-            UPDATE model_logical
+            UPDATE model_alias
                SET current_version_id = #{versionId}, current_version_no = #{versionNo}
              WHERE id = #{objectId}
         ]]>

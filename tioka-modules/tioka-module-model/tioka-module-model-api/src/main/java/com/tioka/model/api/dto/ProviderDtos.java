@@ -4,7 +4,18 @@ public final class ProviderDtos {
     private ProviderDtos() {}
     public record CreateProviderRequest(String name, String baseUrl, String apiKeyPlain) {}
     public record ProviderView(String id, String name, String baseUrl, String apiKeyRef) {}
+    /** 兼容 MH-08 之前的 logical model 创建（现为无指向别名）；新代码用 {@link CreateAliasRequest}。 */
     public record CreateLogicalModelRequest(String name, String capabilityTags) {}
+
+    /** MH-08：创建别名（ADR-041 §1：稳定名称、用途、指向）。 */
+    public record CreateAliasRequest(
+            String name, String capabilityTags, String purpose,
+            String targetType, String targetId) {}
+
+    /** MH-08：别名视图；{@code currentVersionNo} 为当前生效版本。 */
+    public record AliasView(
+            String id, String name, String capabilityTags, String purpose,
+            String targetType, String targetId, Integer currentVersionNo) {}
 
     /**
      * FE-03 / V117：创建 binding；短构造兼容旧调用方。
@@ -79,7 +90,15 @@ public final class ProviderDtos {
         }
     }
 
-    public record DefaultPlanView(String purpose, String routingPlanId, String bindingId) {}
+    /** GOV-12：保存草稿（expectedRevision 乐观锁；首存传 0）。 */
+    public record SaveConfigDraftRequest(com.fasterxml.jackson.databind.JsonNode spec, Long expectedRevision) {}
 
-    public record UpsertDefaultPlanRequest(String routingPlanId, String bindingId) {}
+    public record PublishConfigRequest(String note) {}
+
+    public record RollbackConfigRequest(Integer targetVersionNo, String reason) {}
+
+    /** GOV-12：当前生效版本视图（无版本时空对象）。 */
+    public record CurrentConfigView(
+            String objectType, String objectId, String versionId,
+            Integer versionNo, String status, com.fasterxml.jackson.databind.JsonNode spec) {}
 }

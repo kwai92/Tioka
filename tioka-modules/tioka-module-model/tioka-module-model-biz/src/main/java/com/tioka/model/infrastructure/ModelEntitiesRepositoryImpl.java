@@ -1,8 +1,17 @@
 package com.tioka.model.infrastructure;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.tioka.model.infrastructure.mapper.*;
-import com.tioka.model.infrastructure.persistence.*;
+import com.tioka.model.infrastructure.mapper.ModelAliasMapper;
+import com.tioka.model.infrastructure.mapper.ModelBindingMapper;
+import com.tioka.model.infrastructure.mapper.ModelProviderMapper;
+import com.tioka.model.infrastructure.mapper.ModelRoutingPlanLockMapper;
+import com.tioka.model.infrastructure.mapper.ModelRoutingPlanMapper;
+import com.tioka.model.infrastructure.mapper.ModelTurnFreezeMapper;
+import com.tioka.model.infrastructure.persistence.ModelAliasDO;
+import com.tioka.model.infrastructure.persistence.ModelBindingDO;
+import com.tioka.model.infrastructure.persistence.ModelProviderDO;
+import com.tioka.model.infrastructure.persistence.ModelRoutingPlanDO;
+import com.tioka.model.infrastructure.persistence.ModelTurnFreezeDO;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -11,18 +20,18 @@ import java.util.Optional;
 @Repository
 public class ModelEntitiesRepositoryImpl implements ModelEntitiesRepository {
     private final ModelProviderMapper providers;
-    private final ModelLogicalMapper logicals;
+    private final ModelAliasMapper aliases;
     private final ModelBindingMapper bindings;
     private final ModelRoutingPlanMapper plans;
     private final ModelRoutingPlanLockMapper planLocks;
     private final ModelTurnFreezeMapper freezes;
 
-    public ModelEntitiesRepositoryImpl(ModelProviderMapper providers, ModelLogicalMapper logicals,
+    public ModelEntitiesRepositoryImpl(ModelProviderMapper providers, ModelAliasMapper aliases,
                                        ModelBindingMapper bindings, ModelRoutingPlanMapper plans,
                                        ModelRoutingPlanLockMapper planLocks,
                                        ModelTurnFreezeMapper freezes) {
         this.providers = providers;
-        this.logicals = logicals;
+        this.aliases = aliases;
         this.bindings = bindings;
         this.plans = plans;
         this.planLocks = planLocks;
@@ -46,14 +55,29 @@ public class ModelEntitiesRepositoryImpl implements ModelEntitiesRepository {
     }
 
     @Override
-    public void putLogical(ModelLogicalDO row) {
-        if (logicals.selectById(row.getId()) == null) logicals.insert(row);
-        else logicals.updateById(row);
+    public void putAlias(ModelAliasDO row) {
+        if (aliases.selectById(row.getId()) == null) aliases.insert(row);
+        else aliases.updateById(row);
     }
 
     @Override
-    public boolean hasLogical(String id) {
-        return logicals.selectById(id) != null;
+    public boolean hasAlias(String id) {
+        return aliases.selectById(id) != null;
+    }
+
+    @Override
+    public Optional<ModelAliasDO> getAlias(String id) {
+        return Optional.ofNullable(aliases.selectById(id));
+    }
+
+    @Override
+    public List<ModelAliasDO> aliases() {
+        return aliases.selectList(null);
+    }
+
+    @Override
+    public Optional<ModelAliasDO> findAliasByName(String name) {
+        return Optional.ofNullable(aliases.findByName(name));
     }
 
     @Override

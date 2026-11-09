@@ -24,6 +24,9 @@ public class ModelBindingDO extends BaseDO {
     /** P2-L5（V218）：本月成本预算上限（微美分）；NULL = 不限。 */
     private Long budgetCostMonth;
     private Boolean enabled;
+    /** GOV-12（V150）：当前生效版本指针。 */
+    private String currentVersionId;
+    private Integer currentVersionNo;
 
     public String getId() { return id; }
     public void setId(String id) { this.id = id; }
@@ -53,4 +56,8 @@ public class ModelBindingDO extends BaseDO {
     public void setBudgetCostMonth(Long budgetCostMonth) { this.budgetCostMonth = budgetCostMonth; }
     public Boolean getEnabled() { return enabled; }
     public void setEnabled(Boolean enabled) { this.enabled = enabled; }
+    public String getCurrentVersionId() { return currentVersionId; }
+    public void setCurrentVersionId(String currentVersionId) { this.currentVersionId = currentVersionId; }
+    public Integer getCurrentVersionNo() { return currentVersionNo; }
+    public void setCurrentVersionNo(Integer currentVersionNo) { this.currentVersionNo = currentVersionNo; }
 }

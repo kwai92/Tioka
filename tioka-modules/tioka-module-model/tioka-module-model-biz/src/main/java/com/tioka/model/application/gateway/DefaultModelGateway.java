@@ -121,7 +121,7 @@ public class DefaultModelGateway implements ModelGateway {
                 String nextId = chain.remove(0);
                 failoverTo(ctx, sel, nextId, chain, "budget-exhausted", emitted, sink);
                 failovers++;
-                sel = resolver.ofBinding(nextId, chain, "budget-failover");
+                sel = carryContext(sel, nextId, chain, "budget-failover");
                 continue;
             }
             try {
@@ -150,7 +150,7 @@ public class DefaultModelGateway implements ModelGateway {
                 String reason = "http-" + e.statusCode();
                 failoverTo(ctx, sel, nextId, chain, reason, emitted, sink);
                 failovers++;
-                sel = resolver.ofBinding(nextId, chain, "failover");
+                sel = carryContext(sel, nextId, chain, "failover");
             } catch (Exception e) {
                 int latency = elapsedMs(t0);
                 cooldown.recordFailure(sel.bindingId());
@@ -164,7 +164,7 @@ public class DefaultModelGateway implements ModelGateway {
                 failoverTo(ctx, sel, nextId, chain, "error:" + e.getClass().getSimpleName(),
                         emitted, sink);
                 failovers++;
-                sel = resolver.ofBinding(nextId, chain, "failover");
+                sel = carryContext(sel, nextId, chain, "failover");
             }
         }
     }
@@ -311,7 +311,9 @@ public class DefaultModelGateway implements ModelGateway {
             entities.recordFailover(ctx.threadId(), ctx.turnId(), nextBindingId,
                     reason == null ? "failover" : reason);
         }
-        ModelBindingResolver.Resolution to = resolver.ofBinding(nextBindingId, remaining, "failover");
+        ModelBindingResolver.Resolution to =
+                resolver.ofBinding(nextBindingId, remaining, "failover",
+                        from.aliasId(), from.aliasVersionNo(), from.planVersionNo());
         events.publishEvent(new FailoverEvent(
                 ctx.threadId(), to.modelRef(),
                 reason == null ? "failover" : reason,
@@ -324,9 +326,19 @@ public class DefaultModelGateway implements ModelGateway {
         long out = sel.binding() == null ? 0L : sel.binding().outputPriceMicros();
         // P2-L5：供给侧分摊维度由绑定快照解析（binding → providerId）
         String providerId = sel.binding() == null ? null : sel.binding().providerId();
+        // MH-08（ADR-041 §2）：调用记录带当前生效版本号，统计按版本切片
+        Integer bindingVersionNo = sel.binding() == null ? null : sel.binding().currentVersionNo();
         usage.record(new UsageRecordCommand(ctx, sel.bindingId(), providerId, sel.modelRef(),
-                promptTokens, completionTokens, in, out, latencyMs, status));
+                promptTokens, completionTokens, in, out, latencyMs, status,
+                bindingVersionNo, sel.aliasVersionNo(), sel.planVersionNo()));
         consume(ctx, promptTokens, completionTokens);
+    }
+
+    /** 故障接力后保留别名/计划版本上下文（MH-08：同一调用的版本口径不变）。 */
+    private ModelBindingResolver.Resolution carryContext(ModelBindingResolver.Resolution from,
+                                                         String nextId, List<String> chain, String reason) {
+        return resolver.ofBinding(nextId, chain, reason,
+                from.aliasId(), from.aliasVersionNo(), from.planVersionNo());
     }
 
     private void precheck(ModelCallContext ctx) {
@@ -468,7 +480,8 @@ public class DefaultModelGateway implements ModelGateway {
         if (sel != null) {
             account(ctx, sel, 0, 0, latencyMs, "ERROR");
         } else {
-            usage.record(new UsageRecordCommand(ctx, forced, null, forced, 0, 0, 0L, 0L, latencyMs, "ERROR"));
+            usage.record(new UsageRecordCommand(ctx, forced, null, forced, 0, 0, 0L, 0L, latencyMs, "ERROR",
+                    null, null, null));
         }
     }
 }

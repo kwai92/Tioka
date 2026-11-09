@@ -17,7 +17,8 @@ public interface CfgProjectionPointerMapper {
             @Param("versionId") String versionId,
             @Param("versionNo") int versionNo);
 
-    int updateLogical(
+    /** MH-08（V151）：投影表已重命名为 model_alias。 */
+    int updateAlias(
             @Param("objectId") String objectId,
             @Param("versionId") String versionId,
             @Param("versionNo") int versionNo);

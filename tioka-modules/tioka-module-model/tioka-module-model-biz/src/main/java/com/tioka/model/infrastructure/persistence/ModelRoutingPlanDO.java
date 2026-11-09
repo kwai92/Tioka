@@ -17,6 +17,9 @@ public class ModelRoutingPlanDO extends ImmutableSnapshotDO {
     private String fallbackChain;
     private Boolean published;
     private String snapshotHash;
+    /** GOV-12（V150）：当前生效版本指针。 */
+    private String currentVersionId;
+    private Integer currentVersionNo;
 
     public String getId() { return id; }
     public void setId(String id) { this.id = id; }
@@ -36,4 +39,8 @@ public class ModelRoutingPlanDO extends ImmutableSnapshotDO {
     public void setPublished(Boolean published) { this.published = published; }
     public String getSnapshotHash() { return snapshotHash; }
     public void setSnapshotHash(String snapshotHash) { this.snapshotHash = snapshotHash; }
+    public String getCurrentVersionId() { return currentVersionId; }
+    public void setCurrentVersionId(String currentVersionId) { this.currentVersionId = currentVersionId; }
+    public Integer getCurrentVersionNo() { return currentVersionNo; }
+    public void setCurrentVersionNo(Integer currentVersionNo) { this.currentVersionNo = currentVersionNo; }
 }

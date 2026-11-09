@@ -128,6 +128,18 @@ actions:
     retentionClass: BIZ
     siemSeverity: LOW
     module: tioka-module-chat
+  - action: config.publish
+    category: CONFIG
+    resourceType: config_version
+    retentionClass: BIZ
+    siemSeverity: MEDIUM
+    module: tioka-module-model
+  - action: config.rollback
+    category: CONFIG
+    resourceType: config_version
+    retentionClass: BIZ
+    siemSeverity: MEDIUM
+    module: tioka-module-model
   - action: deadletter.discard
     category: EXECUTION
     resourceType: sys_dead_letter
@@ -278,6 +290,12 @@ actions:
     retentionClass: BIZ
     siemSeverity: LOW
     module: tioka-module-mcp
+  - action: model.alias.create
+    category: CONFIG
+    resourceType: model_alias
+    retentionClass: BIZ
+    siemSeverity: LOW
+    module: tioka-module-model
   - action: model.binding.create
     category: CONFIG
     resourceType: model_binding
@@ -287,12 +305,6 @@ actions:
   - action: model.binding.update
     category: CONFIG
     resourceType: model_binding
-    retentionClass: BIZ
-    siemSeverity: LOW
-    module: tioka-module-model
-  - action: model.default_plan.upsert
-    category: CONFIG
-    resourceType: default_plan
     retentionClass: BIZ
     siemSeverity: LOW
     module: tioka-module-model

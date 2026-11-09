@@ -1,8 +1,8 @@
 package com.tioka.model.domain;
 
 import com.tioka.model.infrastructure.ModelEntitiesRepository;
+import com.tioka.model.infrastructure.persistence.ModelAliasDO;
 import com.tioka.model.infrastructure.persistence.ModelBindingDO;
-import com.tioka.model.infrastructure.persistence.ModelLogicalDO;
 import com.tioka.model.infrastructure.persistence.ModelProviderDO;
 import com.tioka.model.infrastructure.persistence.ModelRoutingPlanDO;
 import org.springframework.stereotype.Repository;
@@ -37,16 +37,38 @@ public class ModelEntities {
                 .toList();
     }
 
-    public void putLogical(LogicalModel m) {
-        ModelLogicalDO row = new ModelLogicalDO();
+    /** MH-08：别名写入（原 logical model；V151 起表为 model_alias）。 */
+    public void putAlias(ModelAlias m) {
+        ModelAliasDO row = new ModelAliasDO();
         row.setId(m.id());
         row.setName(m.name());
         row.setCapabilityTags(m.capabilityTags());
-        repo.putLogical(row);
+        row.setPurpose(m.purpose());
+        row.setTargetType(m.targetType());
+        row.setTargetId(m.targetId());
+        row.setCurrentVersionNo(m.currentVersionNo());
+        repo.putAlias(row);
     }
 
-    public boolean hasLogical(String id) {
-        return repo.hasLogical(id);
+    public boolean hasAlias(String id) {
+        return repo.hasAlias(id);
+    }
+
+    public Optional<ModelAlias> getAlias(String id) {
+        return repo.getAlias(id).map(this::toAlias);
+    }
+
+    public List<ModelAlias> aliases() {
+        return repo.aliases().stream().map(this::toAlias).toList();
+    }
+
+    public Optional<ModelAlias> findAliasByName(String name) {
+        return repo.findAliasByName(name).map(this::toAlias);
+    }
+
+    private ModelAlias toAlias(ModelAliasDO r) {
+        return new ModelAlias(r.getId(), r.getName(), r.getCapabilityTags(),
+                r.getPurpose(), r.getTargetType(), r.getTargetId(), r.getCurrentVersionNo());
     }
 
     public void putBinding(ModelBinding b) {
@@ -81,7 +103,8 @@ public class ModelEntities {
                 r.getOutputPriceMicros() == null ? 0L : r.getOutputPriceMicros(),
                 r.getRpmLimit(), r.getTpmLimit(),
                 r.getEnabled() == null || r.getEnabled(),
-                r.getBudgetTokenMonth(), r.getBudgetCostMonth());
+                r.getBudgetTokenMonth(), r.getBudgetCostMonth(),
+                r.getCurrentVersionNo());
     }
 
     public boolean hasBinding(String id) {
@@ -153,11 +176,22 @@ public class ModelEntities {
                 r.getId(), r.getName(), r.getType(), r.getPrimaryBindingId(),
                 r.getFallbackBindingId(), r.getHardBindingId(),
                 Boolean.TRUE.equals(r.getPublished()), r.getSnapshotHash(),
-                r.getFallbackChain());
+                r.getFallbackChain(), r.getCurrentVersionNo());
     }
 
     public record Provider(String id, String name, String baseUrl, String apiKeyRef) {}
-    public record LogicalModel(String id, String name, String capabilityTags) {}
+
+    /**
+     * 模型别名（MH-08 / ADR-041 §1，由 LogicalModel 改名扩展）。
+     * 指向一个路由计划或一个 binding；{@code currentVersionNo} 为当前生效版本（GOV-12）。
+     */
+    public record ModelAlias(String id, String name, String capabilityTags,
+                             String purpose, String targetType, String targetId,
+                             Integer currentVersionNo) {
+        public ModelAlias(String id, String name, String capabilityTags) {
+            this(id, name, capabilityTags, null, null, null, null);
+        }
+    }
 
     /**
      * 模型绑定快照。预算字段（P2-L5 / V218）：NULL 表示不限；
@@ -167,10 +201,11 @@ public class ModelEntities {
                           String kind, Integer contextWindow, Integer embeddingDim,
                           long inputPriceMicros, long outputPriceMicros,
                           Integer rpmLimit, Integer tpmLimit, boolean enabled,
-                          Long budgetTokenMonth, Long budgetCostMonth) {
+                          Long budgetTokenMonth, Long budgetCostMonth,
+                          Integer currentVersionNo) {
         public ModelBinding(String id, String logicalModelId, String providerId, String modelName) {
             this(id, logicalModelId, providerId, modelName, "chat", null, null, 0L, 0L, null, null, true,
-                    null, null);
+                    null, null, null);
         }
         /** 兼容 V218 之前调用方的短构造：预算不限。 */
         public ModelBinding(String id, String logicalModelId, String providerId, String modelName,
@@ -178,18 +213,34 @@ public class ModelEntities {
                             long inputPriceMicros, long outputPriceMicros,
                             Integer rpmLimit, Integer tpmLimit, boolean enabled) {
             this(id, logicalModelId, providerId, modelName, kind, contextWindow, embeddingDim,
-                    inputPriceMicros, outputPriceMicros, rpmLimit, tpmLimit, enabled, null, null);
+                    inputPriceMicros, outputPriceMicros, rpmLimit, tpmLimit, enabled, null, null, null);
+        }
+        /** 兼容 V218 调用方：带预算、不带版本。 */
+        public ModelBinding(String id, String logicalModelId, String providerId, String modelName,
+                            String kind, Integer contextWindow, Integer embeddingDim,
+                            long inputPriceMicros, long outputPriceMicros,
+                            Integer rpmLimit, Integer tpmLimit, boolean enabled,
+                            Long budgetTokenMonth, Long budgetCostMonth) {
+            this(id, logicalModelId, providerId, modelName, kind, contextWindow, embeddingDim,
+                    inputPriceMicros, outputPriceMicros, rpmLimit, tpmLimit, enabled,
+                    budgetTokenMonth, budgetCostMonth, null);
         }
     }
 
     public record RoutingPlan(
             String id, String name, String type, String primaryBindingId,
             String fallbackBindingId, String hardBindingId, boolean published, String snapshotHash,
-            String fallbackChain) {
+            String fallbackChain, Integer currentVersionNo) {
         public RoutingPlan(String id, String name, String type, String primaryBindingId,
                            String fallbackBindingId, String hardBindingId, boolean published, String snapshotHash) {
             this(id, name, type, primaryBindingId, fallbackBindingId, hardBindingId, published, snapshotHash,
-                    fallbackBindingId);
+                    fallbackBindingId, null);
+        }
+        public RoutingPlan(String id, String name, String type, String primaryBindingId,
+                           String fallbackBindingId, String hardBindingId, boolean published, String snapshotHash,
+                           String fallbackChain) {
+            this(id, name, type, primaryBindingId, fallbackBindingId, hardBindingId, published, snapshotHash,
+                    fallbackChain, null);
         }
     }
 

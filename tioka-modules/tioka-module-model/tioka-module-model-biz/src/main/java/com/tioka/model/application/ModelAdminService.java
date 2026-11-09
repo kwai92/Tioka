@@ -7,16 +7,15 @@ import com.tioka.framework.error.ErrorCode;
 import com.tioka.framework.security.PrincipalHolder;
 import com.tioka.model.api.dto.ProviderDtos.*;
 import com.tioka.model.api.gateway.ModelPurpose;
+import com.tioka.model.application.versioning.ModelConfigVersionService;
+import com.tioka.model.api.versioning.ModelHubSpecs;
 import com.tioka.model.domain.ModelEntities;
 import com.tioka.model.domain.ModelEntities.*;
-import com.tioka.model.infrastructure.ModelDefaultPlanRepository;
-import com.tioka.model.infrastructure.persistence.ModelDefaultPlanDO;
 import com.tioka.system.api.spi.SecretStore;
 import org.springframework.stereotype.Service;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
-import java.time.OffsetDateTime;
 import java.util.Arrays;
 import java.util.HexFormat;
 import java.util.List;
@@ -27,16 +26,16 @@ import java.util.stream.Collectors;
 public class ModelAdminService {
     private final SecretStore secretStore;
     private final ModelEntities entities;
-    private final ModelDefaultPlanRepository defaultPlans;
     private final PrincipalHolder principals;
+    /** MH-08：版本化发布；版本框架未装配时为 no-op。 */
+    private final ModelConfigVersionService versioning;
 
     public ModelAdminService(SecretStore secretStore, ModelEntities entities,
-                             ModelDefaultPlanRepository defaultPlans,
-                             PrincipalHolder principals) {
+                             PrincipalHolder principals, ModelConfigVersionService versioning) {
         this.secretStore = secretStore;
         this.entities = entities;
-        this.defaultPlans = defaultPlans;
         this.principals = principals;
+        this.versioning = versioning;
     }
 
     public ProviderView createProvider(CreateProviderRequest req) {
@@ -44,18 +43,44 @@ public class ModelAdminService {
         String ref = secretStore.put("model-provider", id, req.apiKeyPlain() == null ? "" : req.apiKeyPlain());
         Provider p = new Provider(id, req.name(), req.baseUrl(), ref);
         entities.putProvider(p);
+        versioning.publishCurrent(ModelHubSpecs.OT_PROVIDER, id, "创建供应商登记第 1 版");
         return new ProviderView(id, p.name(), p.baseUrl(), p.apiKeyRef());
     }
 
+    /** 兼容 MH-08 之前的 logical model 创建（现为无指向别名）；新代码走 {@link #createAlias}。 */
+    @Deprecated
     public String createLogicalModel(CreateLogicalModelRequest req) {
-        String id = Ids.newId("lm");
-        entities.putLogical(new LogicalModel(id, req.name(), req.capabilityTags()));
+        return createAlias(new CreateAliasRequest(req.name(), req.capabilityTags(), null, null, null));
+    }
+
+    /** MH-08：创建别名（ADR-041 §1：稳定名称、用途、指向）。 */
+    public String createAlias(CreateAliasRequest req) {
+        if (req.name() == null || req.name().isBlank()) {
+            throw new BizException(ErrorCode.BAD_REQUEST, "别名 name 必填");
+        }
+        if (entities.findAliasByName(req.name()).isPresent()) {
+            throw new BizException(ErrorCode.CONFLICT, "别名已存在: " + req.name());
+        }
+        String purpose = normalizePurpose(req.purpose());
+        String targetType = blankToNull(req.targetType());
+        String targetId = blankToNull(req.targetId());
+        validateTarget(purpose, targetType, targetId);
+        String id = Ids.newId("alias");
+        entities.putAlias(new ModelAlias(id, req.name(), req.capabilityTags(), purpose, targetType, targetId, null));
+        versioning.publishCurrent(ModelHubSpecs.OT_ALIAS, id, "创建别名登记第 1 版");
         return id;
     }
 
+    public List<AliasView> listAliases() {
+        return entities.aliases().stream()
+                .map(a -> new AliasView(a.id(), a.name(), a.capabilityTags(), a.purpose(),
+                        a.targetType(), a.targetId(), a.currentVersionNo()))
+                .toList();
+    }
+
     public String createModelBinding(CreateModelBindingRequest req) {
-        if (!entities.hasLogical(req.logicalModelId()) || entities.getProvider(req.providerId()).isEmpty()) {
-            throw new BizException(ErrorCode.NOT_FOUND, "logicalModel 或 provider 不存在");
+        if (!entities.hasAlias(req.logicalModelId()) || entities.getProvider(req.providerId()).isEmpty()) {
+            throw new BizException(ErrorCode.NOT_FOUND, "alias 或 provider 不存在");
         }
         String kind = normalizeKind(req.kind());
         Integer embeddingDim = req.embeddingDim();
@@ -69,6 +94,7 @@ public class ModelAdminService {
                 req.rpmLimit(), req.tpmLimit(),
                 req.enabled() == null || req.enabled(),
                 req.budgetTokenMonth(), req.budgetCostMonth()));
+        versioning.publishCurrent(ModelHubSpecs.OT_BINDING, id, "创建 binding 登记第 1 版");
         return id;
     }
 
@@ -93,8 +119,10 @@ public class ModelAdminService {
                 req.tpmLimit() != null ? req.tpmLimit() : existing.tpmLimit(),
                 req.enabled() != null ? req.enabled() : existing.enabled(),
                 req.budgetTokenMonth() != null ? req.budgetTokenMonth() : existing.budgetTokenMonth(),
-                req.budgetCostMonth() != null ? req.budgetCostMonth() : existing.budgetCostMonth());
+                req.budgetCostMonth() != null ? req.budgetCostMonth() : existing.budgetCostMonth(),
+                existing.currentVersionNo());
         entities.putBinding(updated);
+        versioning.publishCurrent(ModelHubSpecs.OT_BINDING, id, "更新 binding 发布新版本");
         return toModelBindingView(updated);
     }
 
@@ -137,8 +165,10 @@ public class ModelAdminService {
                 + ":" + plan.fallbackChain());
         RoutingPlan published = new RoutingPlan(
                 plan.id(), plan.name(), plan.type(), plan.primaryBindingId(),
-                plan.fallbackBindingId(), plan.hardBindingId(), true, hash, plan.fallbackChain());
+                plan.fallbackBindingId(), plan.hardBindingId(), true, hash, plan.fallbackChain(),
+                plan.currentVersionNo());
         entities.putPlan(published);
+        versioning.publishCurrent(ModelHubSpecs.OT_ROUTING_PLAN, planId, "路由计划发布");
         return toView(published);
     }
 
@@ -150,32 +180,6 @@ public class ModelAdminService {
         return entities.providers().stream()
                 .map(p -> new ProviderView(p.id(), p.name(), p.baseUrl(), p.apiKeyRef()))
                 .toList();
-    }
-
-    public List<DefaultPlanView> listDefaultPlans() {
-        return defaultPlans.listAll().stream()
-                .map(r -> new DefaultPlanView(r.getPurpose(), r.getRoutingPlanId(), r.getBindingId()))
-                .toList();
-    }
-
-    public DefaultPlanView upsertDefaultPlan(String purpose, UpsertDefaultPlanRequest req) {
-        String normalized = normalizePurpose(purpose);
-        if (req.routingPlanId() != null && !req.routingPlanId().isBlank()
-                && entities.getPlan(req.routingPlanId()).isEmpty()) {
-            throw new BizException(ErrorCode.NOT_FOUND, "routing plan 不存在");
-        }
-        if (req.bindingId() != null && !req.bindingId().isBlank()
-                && !entities.hasBinding(req.bindingId())) {
-            throw new BizException(ErrorCode.NOT_FOUND, "binding 不存在");
-        }
-        ModelDefaultPlanDO row = new ModelDefaultPlanDO();
-        row.setPurpose(normalized);
-        row.setRoutingPlanId(blankToNull(req.routingPlanId()));
-        row.setBindingId(blankToNull(req.bindingId()));
-        row.setUpdateAt(OffsetDateTime.now());
-        row.setUpdateBy(principals.find().map(p -> p.userId()).orElse("system"));
-        defaultPlans.upsert(row);
-        return new DefaultPlanView(row.getPurpose(), row.getRoutingPlanId(), row.getBindingId());
     }
 
     private ModelBindingView toModelBindingView(ModelBinding b) {
@@ -194,6 +198,43 @@ public class ModelAdminService {
                 p.fallbackChain());
     }
 
+    /** MH-08（ADR-041 §2 校验）：别名指向的对象存在且用途匹配。 */
+    private void validateTarget(String purpose, String targetType, String targetId) {
+        if (targetType == null && targetId == null) {
+            return;
+        }
+        if (targetType == null || targetId == null) {
+            throw new BizException(ErrorCode.BAD_REQUEST, "targetType 与 targetId 必须成对");
+        }
+        switch (targetType) {
+            case ModelHubSpecs.TARGET_ROUTING_PLAN -> {
+                if (entities.getPlan(targetId).isEmpty()) {
+                    throw new BizException(ErrorCode.NOT_FOUND, "指向的路由计划不存在: " + targetId);
+                }
+            }
+            case ModelHubSpecs.TARGET_BINDING -> {
+                ModelBinding b = entities.getModelBinding(targetId)
+                        .orElseThrow(() -> new BizException(ErrorCode.NOT_FOUND, "指向的 binding 不存在: " + targetId));
+                if (purpose != null && !purposeKindMatches(purpose, b.kind())) {
+                    throw new BizException(ErrorCode.BAD_REQUEST,
+                            "别名用途 " + purpose + " 与 binding kind " + b.kind() + " 不匹配");
+                }
+            }
+            default -> throw new BizException(ErrorCode.BAD_REQUEST,
+                    "targetType 必须是 routing_plan 或 binding: " + targetType);
+        }
+    }
+
+    /** 用途 → 期望 kind：CHAT/FLOW/DECISION/COMPACTION/EVALUATION/EXTRACTION → chat；EMBEDDING/RERANK 同名。 */
+    static boolean purposeKindMatches(String purpose, String kind) {
+        String expected = switch (purpose) {
+            case "EMBEDDING" -> "embedding";
+            case "RERANK" -> "rerank";
+            default -> "chat";
+        };
+        return expected.equals(kind == null ? "chat" : kind);
+    }
+
     private static String normalizeKind(String kind) {
         String k = kind == null || kind.isBlank() ? "chat" : kind.trim().toLowerCase(Locale.ROOT);
         if (!k.equals("chat") && !k.equals("embedding") && !k.equals("rerank")) {
@@ -210,7 +251,7 @@ public class ModelAdminService {
 
     private static String normalizePurpose(String purpose) {
         if (purpose == null || purpose.isBlank()) {
-            throw new BizException(ErrorCode.BAD_REQUEST, "purpose 不能为空");
+            return null;
         }
         String upper = purpose.trim().toUpperCase(Locale.ROOT);
         try {

@@ -255,6 +255,14 @@ public class DefaultConfigVersionService implements ConfigVersionApi {
         return Optional.empty();
     }
 
+    @Override
+    public Optional<ConfigDraft> getDraft(ObjectRef ref) {
+        ObjectRef r = requireRef(ref);
+        return store.findDraft(r.objectType(), r.objectId())
+                .map(d -> new ConfigDraft(r, normalizer.readTree(d.getSpec()), d.getRevision(),
+                        d.getBasedOnVersion() == null ? null : d.getBasedOnVersion().intValue()));
+    }
+
     private void applyCurrent(
             ObjectRef ref, CfgVersionDO row, Integer oldNo, String action, String reason) {
         JsonNode spec = normalizer.readTree(row.getSpec());

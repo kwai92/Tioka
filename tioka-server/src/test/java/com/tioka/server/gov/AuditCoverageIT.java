@@ -113,7 +113,6 @@ class AuditCoverageIT {
             "com.tioka.model.api.ModelAdminController#createProvider",
             "com.tioka.model.api.ModelAdminController#publish",
             "com.tioka.model.api.ModelAdminController#updateModelBinding",
-            "com.tioka.model.api.ModelAdminController#upsertDefaultPlan",
             "com.tioka.orchestration.api.OrchRuleController#create",
             "com.tioka.orchestration.api.OrchRuleController#createVersion",
             "com.tioka.orchestration.api.OrchRuleController#publish",

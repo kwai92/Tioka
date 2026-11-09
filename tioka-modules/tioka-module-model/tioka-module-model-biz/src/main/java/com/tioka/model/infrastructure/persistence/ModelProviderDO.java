@@ -12,6 +12,9 @@ public class ModelProviderDO extends BaseDO {
     private String name;
     private String baseUrl;
     private String apiKeyRef;
+    /** GOV-12（V150）：当前生效版本指针。 */
+    private String currentVersionId;
+    private Integer currentVersionNo;
 
     public String getId() { return id; }
     public void setId(String id) { this.id = id; }
@@ -21,4 +24,8 @@ public class ModelProviderDO extends BaseDO {
     public void setBaseUrl(String baseUrl) { this.baseUrl = baseUrl; }
     public String getApiKeyRef() { return apiKeyRef; }
     public void setApiKeyRef(String apiKeyRef) { this.apiKeyRef = apiKeyRef; }
+    public String getCurrentVersionId() { return currentVersionId; }
+    public void setCurrentVersionId(String currentVersionId) { this.currentVersionId = currentVersionId; }
+    public Integer getCurrentVersionNo() { return currentVersionNo; }
+    public void setCurrentVersionNo(Integer currentVersionNo) { this.currentVersionNo = currentVersionNo; }
 }
