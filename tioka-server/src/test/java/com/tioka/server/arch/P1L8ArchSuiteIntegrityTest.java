@@ -22,7 +22,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * <p>目的：把「ArchUnit 套件 + 契约测试 + 15 模块基线 + 模块依赖文档」锁在同一处，
  * 防止后续重构静默删除测试类或回退模块树。真正的架构规则仍由
  * {@code TiokaArchitectureTest} / {@code M2ArchitectureTest} / {@code M3ArchitectureTest} /
- * {@code ModuleDependencyArchTest} / {@code PersistenceArchTest} / {@code SecretStoreArchTest} 执行。
+ * {@code LayeredDependencyArchTest} / {@code ModuleDependencyArchTest} /
+ * {@code PersistenceArchTest} / {@code SecretStoreArchTest} 执行。
  */
 class P1L8ArchSuiteIntegrityTest {
 
@@ -33,6 +34,7 @@ class P1L8ArchSuiteIntegrityTest {
             "TiokaArchitectureTest.java",
             "M2ArchitectureTest.java",
             "M3ArchitectureTest.java",
+            "LayeredDependencyArchTest.java",
             "ModuleDependencyArchTest.java",
             "PersistenceArchTest.java",
             "SecretStoreArchTest.java");
