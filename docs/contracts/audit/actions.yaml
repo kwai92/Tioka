@@ -356,9 +356,21 @@ actions:
     retentionClass: BIZ
     siemSeverity: LOW
     module: tioka-module-orchestration
+  - action: orch.rule.pause
+    category: CONFIG
+    resourceType: orch_rule
+    retentionClass: BIZ
+    siemSeverity: MEDIUM
+    module: tioka-module-orchestration
   - action: orch.rule.publish
     category: CONFIG
     resourceType: orch_rule_version
+    retentionClass: BIZ
+    siemSeverity: LOW
+    module: tioka-module-orchestration
+  - action: orch.rule.resume
+    category: CONFIG
+    resourceType: orch_rule
     retentionClass: BIZ
     siemSeverity: LOW
     module: tioka-module-orchestration

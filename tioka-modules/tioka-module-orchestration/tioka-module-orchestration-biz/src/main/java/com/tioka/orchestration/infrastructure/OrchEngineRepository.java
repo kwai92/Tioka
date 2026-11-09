@@ -222,6 +222,10 @@ public class OrchEngineRepository {
             if (rule == null) {
                 continue;
             }
+            // ORC-07 自动暂停：暂停期规则不参与派发
+            if (rule.getPausedAt() != null) {
+                continue;
+            }
             // 须至少有稳定或灰度指针指向匹配版本
             boolean active = false;
             if (rule.getStableVersionId() != null) {

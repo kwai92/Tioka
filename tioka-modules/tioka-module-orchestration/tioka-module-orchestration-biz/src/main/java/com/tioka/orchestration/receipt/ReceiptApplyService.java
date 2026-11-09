@@ -10,6 +10,7 @@ import com.tioka.orchestration.api.engine.OrchApi;
 import com.tioka.orchestration.api.engine.Receipt;
 import com.tioka.orchestration.api.mq.OrchestrationMqTopics;
 import com.tioka.orchestration.attention.OrchAttentionService;
+import com.tioka.orchestration.application.pause.RulePauseService;
 import com.tioka.orchestration.infrastructure.persistence.OrchRunDO;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -38,17 +39,20 @@ public class ReceiptApplyService {
     private final OrchApi orchApi;
     private final ObjectMapper mapper;
     private final OrchAttentionService attention;
+    private final RulePauseService rulePause;
 
     public ReceiptApplyService(OrchReceiptRepository repo,
                                EventPublisher publisher,
                                OrchApi orchApi,
                                ObjectMapper mapper,
-                               OrchAttentionService attention) {
+                               OrchAttentionService attention,
+                               RulePauseService rulePause) {
         this.repo = repo;
         this.publisher = publisher;
         this.orchApi = orchApi;
         this.mapper = mapper;
         this.attention = attention;
+        this.rulePause = rulePause;
     }
 
     public void apply(ReceiptApplyCommand cmd) {
@@ -224,6 +228,8 @@ public class ReceiptApplyService {
     }
 
     private void publishRunFinished(OrchRunDO run, OrchApi.RunStatus status) {
+        // ORC-07 自动暂停：Run 终态驱动规则失败计数（SUCCEEDED 清零 / FAILED +1 达阈值暂停）
+        rulePause.recordRunOutcome(run.getRuleVersionId(), status.name());
         publisher.publish(new DomainEvent(
                 OrchestrationMqTopics.RUN_FINISHED,
                 OrchestrationMqTopics.TOPIC,

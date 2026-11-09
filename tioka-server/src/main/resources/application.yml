@@ -133,6 +133,9 @@ tioka:
       max-attempts: 3
   orch:
     hops-limit: 8
+    rule:
+      # ORC-07 规则连续失败自动暂停阈值（ADR-020：连续 5 次 Run 失败则自动暂停）
+      pause-threshold: 5
     flow-action-enabled: false
     timer-poll-enabled: true
     timer-poll-interval-ms: 5000

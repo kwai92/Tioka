@@ -9,6 +9,7 @@ import com.tioka.orchestration.api.dispatch.OrchActionDispatcher;
 import com.tioka.orchestration.api.dispatch.OrchActionType;
 import com.tioka.orchestration.api.dispatch.OrchDispatchCommand;
 import com.tioka.orchestration.api.engine.OrchApi;
+import com.tioka.orchestration.application.pause.RulePauseService;
 import com.tioka.orchestration.infrastructure.OrchEngineRepository;
 import com.tioka.orchestration.infrastructure.persistence.OrchEventDO;
 import com.tioka.orchestration.infrastructure.persistence.OrchMandateDO;
@@ -39,12 +40,14 @@ public class OrchDispatchService {
     private final PrincipalHolder principals;
     private final ObjectMapper mapper;
     private final Map<OrchActionType, OrchActionDispatcher> dispatchers;
+    private final RulePauseService rulePause;
 
     public OrchDispatchService(OrchEngineRepository repo,
                                PrincipalLoaderApi principalLoader,
                                PrincipalHolder principals,
                                ObjectMapper mapper,
-                               List<OrchActionDispatcher> dispatcherList) {
+                               List<OrchActionDispatcher> dispatcherList,
+                               RulePauseService rulePause) {
         this.repo = repo;
         this.principalLoader = principalLoader;
         this.principals = principals;
@@ -53,6 +56,7 @@ public class OrchDispatchService {
         for (OrchActionDispatcher d : dispatcherList) {
             this.dispatchers.put(d.type(), d);
         }
+        this.rulePause = rulePause;
         // FLOW 占位由 config 注册 UnsupportedFlowActionDispatcher（禁止本包访问 OrchActionType.FLOW）
     }
 
@@ -171,6 +175,8 @@ public class OrchDispatchService {
         run.setEndedAt(LocalDateTime.now());
         run.setUpdateAt(LocalDateTime.now());
         repo.updateRun(run);
+        // ORC-07 自动暂停：Run FAILED 计入规则连续失败
+        rulePause.recordRunOutcome(run.getRuleVersionId(), OrchApi.RunStatus.FAILED.name());
         wi.setStatus("STOPPED");
         wi.setActiveRunId(null);
         wi.setUpdateAt(LocalDateTime.now());
@@ -184,6 +190,8 @@ public class OrchDispatchService {
         run.setEndedAt(LocalDateTime.now());
         run.setUpdateAt(LocalDateTime.now());
         repo.updateRun(run);
+        // ORC-07 自动暂停：Run FAILED 计入规则连续失败
+        rulePause.recordRunOutcome(run.getRuleVersionId(), OrchApi.RunStatus.FAILED.name());
         repo.appendFact(run.getId(), "dispatch_failed", json(Map.of("code", code)));
     }
 
