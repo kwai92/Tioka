@@ -22,6 +22,7 @@
 ## 非缺口说明（有意设计，勿误登）
 
 - retention-days=365 + `physicalPurgeEnabled=false`（AuditProperties.java:11,23；AuditForwarder.purgeExpired no-op）：OBS-01/GOV-09 前禁止物理删除，属设计暂缓，非缺口。
+  > **P3 进展（批次 4）**：GOV-09 审计哈希链已提前落地（V219 + `AuditChainService` 封印/校验 + `audit_seal` 锚表），`physicalPurgeEnabled` 守卫升级为防断链前置条件（`P3Gov09AuditChainContractTest` 守护）。外送与 purge 开窗策略见 `P3-GOV09-audit-chain.md`。
 
 ## 验收证据
 

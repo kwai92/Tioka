@@ -12,6 +12,8 @@ import com.tioka.framework.security.RequirePermission;
 import com.tioka.system.api.audit.AuditApi;
 import com.tioka.system.api.audit.AuditEvent;
 import com.tioka.system.api.audit.AuditOutcome;
+import com.tioka.system.application.audit.AuditChainService;
+import com.tioka.system.application.audit.AuditChainService.ChainVerifyResult;
 import com.tioka.system.application.audit.AuditService;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -40,11 +42,35 @@ public class AuditController {
     private static final int MAX_EXPORT_ROWS = 100_000;
 
     private final AuditService auditService;
+    private final AuditChainService auditChain;
     private final PrincipalHolder principals;
 
-    public AuditController(AuditService auditService, PrincipalHolder principals) {
+    public AuditController(AuditService auditService, AuditChainService auditChain,
+                           PrincipalHolder principals) {
         this.auditService = auditService;
+        this.auditChain = auditChain;
         this.principals = principals;
+    }
+
+    /**
+     * 审计哈希链完整性校验（GOV-09）：重算指定链并比对封印锚。
+     * 非管理员只能校验本 workspace 的链；系统级链（_system）仅管理员可见。
+     */
+    @RequirePermission(Permissions.AUDIT_READ)
+    @GetMapping("/chain/verify")
+    public ApiResponse<ChainVerifyResult> verifyChain(
+            @RequestParam(required = false) String workspaceKey) {
+        Principal p = principals.current();
+        boolean admin = p.hasPermission(Permissions.TENANT_ADMIN) || p.hasPermission("*")
+                || p.roles().contains(SystemRoles.SYSTEM_ADMIN);
+        String key = workspaceKey;
+        if (!admin) {
+            if (AuditChainService.SYSTEM_CHAIN.equals(key)) {
+                throw new BizException(ErrorCode.FORBIDDEN, "系统级审计链仅管理员可校验");
+            }
+            key = p.workspaceId();
+        }
+        return ApiResponse.ok(auditChain.verify(key));
     }
 
     @RequirePermission(Permissions.AUDIT_READ)
