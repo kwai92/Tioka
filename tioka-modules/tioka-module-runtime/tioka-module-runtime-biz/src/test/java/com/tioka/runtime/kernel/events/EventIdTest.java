@@ -3,7 +3,6 @@ package com.tioka.runtime.kernel.events;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class EventIdTest {
@@ -38,9 +37,17 @@ class EventIdTest {
         String replayKey = threadId + ":" + cursor.seq();
         assertEquals("thr_x:41", replayKey);
 
-        // 增量事件 id 必须严格 > 游标（单调递增），证明无第三套游标介入
-        assertTrue(EventId.of(41, 4).compareTo(cursor) > 0);
-        assertTrue(EventId.of(42).compareTo(cursor) > 0);
-        assertFalse(EventId.of(41).compareTo(cursor) > 0, "已完成事件(无小数)不得 > 同 seq 增量游标");
+        // 游标 seq 内单调递增：更晚的 seq / 更晚的同 seq 增量游标必须严格 > 当前游标
+        assertTrue(EventId.of(41, 4).compareTo(cursor) > 0, "更晚的同 seq 增量游标必须 > 游标");
+        assertTrue(EventId.of(42).compareTo(cursor) > 0, "更晚 seq 必须 > 游标");
+
+        // 同 seq 内，增量(有小数) 严格小于 完成(无小数) —— 这是 SSE 重放去重的排序基础：
+        // delta 先于 completion 投递（ThreadEventsService 用 eid.compareTo(sent)<=0 跳过已发项），
+        // 与 EventId.compareTo「同 seq 时 有小数 < 无小数」一致。该测试保护此排序不被改坏。
+        assertTrue(EventId.of(41, 3).compareTo(EventId.of(41)) < 0,
+                "同 seq 增量游标必须 < 完成事件（增量先于完成投递，去重基础）");
+
+        // 续传幂等键仅由 threadId + seq 构成，与 Last-Event-ID 同源，不引入第三套游标类型
+        assertEquals(cursor.seq(), EventId.parse("41.3").seq(), "Last-Event-ID 与重放游标同源(seq)");
     }
 }
