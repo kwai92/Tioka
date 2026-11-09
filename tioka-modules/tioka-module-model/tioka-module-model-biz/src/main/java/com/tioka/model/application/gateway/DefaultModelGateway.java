@@ -25,7 +25,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 
 /**
- * MH-04 骨架 + MH-01 冻结 + MH-02 故障接力 + MH-03 限流/同 binding 重试退避/冷却 + MH-05 用量 + GOV-03 配额。
+ * MH-04 骨架 + MH-01 冻结 + MH-02 故障接力 + MH-03 限流/同 binding 重试退避/冷却 + MH-05 用量 + GOV-03 配额
+ * + P2-L5 供给侧月度预算（超限熔断，沿接力链跳过耗尽候选）。
  */
 @Service
 public class DefaultModelGateway implements ModelGateway {
@@ -37,6 +38,7 @@ public class DefaultModelGateway implements ModelGateway {
     private final QuotaGuard quota;
     private final ModelRateLimiter rateLimiter;
     private final ModelBindingCooldownService cooldown;
+    private final ModelBudgetGuard budget;
     private final RetryBackoff backoff;
     private final int failoverMax;
 
@@ -48,6 +50,7 @@ public class DefaultModelGateway implements ModelGateway {
                                QuotaGuard quota,
                                ModelRateLimiter rateLimiter,
                                ModelBindingCooldownService cooldown,
+                               ModelBudgetGuard budget,
                                @Value("${tioka.model.failover-max:2}") int failoverMax,
                                @Value("${tioka.model.retry.max-attempts:2}") int retryMaxAttempts,
                                @Value("${tioka.model.retry.base-delay:500ms}") Duration retryBaseDelay,
@@ -60,6 +63,7 @@ public class DefaultModelGateway implements ModelGateway {
         this.quota = quota;
         this.rateLimiter = rateLimiter;
         this.cooldown = cooldown;
+        this.budget = budget;
         this.failoverMax = Math.max(0, failoverMax);
         this.backoff = new RetryBackoff(retryMaxAttempts, retryBaseDelay, retryBudget);
     }
@@ -108,6 +112,19 @@ public class DefaultModelGateway implements ModelGateway {
 
         while (true) {
             long t0 = System.nanoTime();
+            // P2-L5：供给侧预算预检——耗尽则沿接力链跳过该候选；链耗尽即熔断
+            if (budgetExhausted(sel, request)) {
+                account(ctx, sel, 0, 0, elapsedMs(t0), "FAILOVER");
+                if (failovers >= failoverMax || chain.isEmpty()) {
+                    throw new BizException(ErrorCode.MODEL_BUDGET_EXHAUSTED,
+                            "binding 月度预算耗尽且无可切换候选: " + sel.bindingId());
+                }
+                String nextId = chain.remove(0);
+                failoverTo(ctx, sel, nextId, chain, "budget-exhausted", emitted, sink);
+                failovers++;
+                sel = resolver.ofBinding(nextId, chain, "budget-failover");
+                continue;
+            }
             try {
                 ChatResult result = invokeChatWithRetry(sel, request, sink, failovers, emitted);
                 account(ctx, sel, result.promptTokens(), result.completionTokens(), elapsedMs(t0), "SUCCESS");
@@ -207,6 +224,19 @@ public class DefaultModelGateway implements ModelGateway {
         }
     }
 
+    /** P2-L5：供给侧预算预检；耗尽返回 true（由调用方决定跳过候选或熔断）。 */
+    private boolean budgetExhausted(ModelBindingResolver.Resolution sel, ChatRequest request) {
+        try {
+            budget.check(sel.binding(), estimateTokens(request));
+            return false;
+        } catch (BizException e) {
+            if (e.getErrorCode() == ErrorCode.MODEL_BUDGET_EXHAUSTED) {
+                return true;
+            }
+            throw e;
+        }
+    }
+
     private long acquireRateLimit(ModelBindingResolver.Resolution sel, ChatRequest request) {
         if (sel == null || sel.binding() == null) {
             return 0L;
@@ -293,7 +323,9 @@ public class DefaultModelGateway implements ModelGateway {
                          int promptTokens, int completionTokens, int latencyMs, String status) {
         long in = sel.binding() == null ? 0L : sel.binding().inputPriceMicros();
         long out = sel.binding() == null ? 0L : sel.binding().outputPriceMicros();
-        usage.record(new UsageRecordCommand(ctx, sel.bindingId(), sel.modelRef(),
+        // P2-L5：供给侧分摊维度由绑定快照解析（binding → providerId）
+        String providerId = sel.binding() == null ? null : sel.binding().providerId();
+        usage.record(new UsageRecordCommand(ctx, sel.bindingId(), providerId, sel.modelRef(),
                 promptTokens, completionTokens, in, out, latencyMs, status));
         consume(ctx, promptTokens, completionTokens);
     }
@@ -342,6 +374,8 @@ public class DefaultModelGateway implements ModelGateway {
             // KNW-01：不再回退本地哈希；必须经 ModelBindingResolver 选到真实/mock Provider
             sel = resolver.resolve(ctx, forced);
             long est = Math.max(1L, inputs.stream().mapToInt(s -> s == null ? 0 : s.length()).sum() / 3L);
+            // P2-L5：供给侧预算预检（无接力链，耗尽即熔断）
+            budget.check(sel.binding(), est);
             long reserved = rateLimiter.acquire(sel.bindingId(),
                     sel.binding().rpmLimit(), sel.binding().tpmLimit(), est);
             List<float[]> vectors = provider.embed(
@@ -377,7 +411,7 @@ public class DefaultModelGateway implements ModelGateway {
         if (sel != null) {
             account(ctx, sel, 0, 0, latencyMs, "ERROR");
         } else {
-            usage.record(new UsageRecordCommand(ctx, forced, forced, 0, 0, 0L, 0L, latencyMs, "ERROR"));
+            usage.record(new UsageRecordCommand(ctx, forced, null, forced, 0, 0, 0L, 0L, latencyMs, "ERROR"));
         }
     }
 

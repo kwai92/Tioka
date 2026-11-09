@@ -57,6 +57,7 @@ public class UsageRecorder implements SmartLifecycle {
             row.setPurpose(ctx.purpose() == null ? null : ctx.purpose().name());
         }
         row.setBindingId(cmd.bindingId());
+        row.setProviderId(cmd.providerId());
         row.setModelRef(cmd.modelRef());
         row.setPromptTokens(Math.max(0, cmd.promptTokens()));
         row.setCompletionTokens(Math.max(0, cmd.completionTokens()));

@@ -30,6 +30,7 @@ public class CostQueryService implements CostQueryApi {
             case "agent" -> usages.summaryByAgent(workspaceFilter, from, to);
             case "user" -> usages.summaryByUser(workspaceFilter, from, to);
             case "model" -> usages.summaryByModel(workspaceFilter, from, to);
+            case "provider" -> usages.summaryByProvider(workspaceFilter, from, to);
             default -> throw new BizException(ErrorCode.BAD_REQUEST, "groupBy 不支持: " + groupBy);
         };
         return rows.stream().map(this::toBucket).toList();
@@ -128,9 +129,9 @@ public class CostQueryService implements CostQueryApi {
             throw new BizException(ErrorCode.BAD_REQUEST, "groupBy/scopeType 必填");
         }
         return switch (groupBy.trim().toLowerCase()) {
-            case "workspace", "agent", "user", "model" -> groupBy.trim().toLowerCase();
+            case "workspace", "agent", "user", "model", "provider" -> groupBy.trim().toLowerCase();
             default -> throw new BizException(ErrorCode.BAD_REQUEST,
-                    "groupBy/scopeType 仅支持 workspace|agent|user|model");
+                    "groupBy/scopeType 仅支持 workspace|agent|user|model|provider");
         };
     }
 

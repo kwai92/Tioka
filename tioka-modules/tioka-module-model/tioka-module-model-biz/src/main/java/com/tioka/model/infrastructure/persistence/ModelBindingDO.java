@@ -19,6 +19,10 @@ public class ModelBindingDO extends BaseDO {
     private Long outputPriceMicros;
     private Integer rpmLimit;
     private Integer tpmLimit;
+    /** P2-L5（V218）：本月 token 预算上限；NULL = 不限。 */
+    private Long budgetTokenMonth;
+    /** P2-L5（V218）：本月成本预算上限（微美分）；NULL = 不限。 */
+    private Long budgetCostMonth;
     private Boolean enabled;
 
     public String getId() { return id; }
@@ -43,6 +47,10 @@ public class ModelBindingDO extends BaseDO {
     public void setRpmLimit(Integer rpmLimit) { this.rpmLimit = rpmLimit; }
     public Integer getTpmLimit() { return tpmLimit; }
     public void setTpmLimit(Integer tpmLimit) { this.tpmLimit = tpmLimit; }
+    public Long getBudgetTokenMonth() { return budgetTokenMonth; }
+    public void setBudgetTokenMonth(Long budgetTokenMonth) { this.budgetTokenMonth = budgetTokenMonth; }
+    public Long getBudgetCostMonth() { return budgetCostMonth; }
+    public void setBudgetCostMonth(Long budgetCostMonth) { this.budgetCostMonth = budgetCostMonth; }
     public Boolean getEnabled() { return enabled; }
     public void setEnabled(Boolean enabled) { this.enabled = enabled; }
 }

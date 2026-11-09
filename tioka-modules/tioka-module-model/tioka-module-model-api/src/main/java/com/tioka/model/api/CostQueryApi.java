@@ -9,13 +9,13 @@ import java.util.List;
 public interface CostQueryApi {
 
     /**
-     * @param groupBy          workspace | agent | user | model
+     * @param groupBy          workspace | agent | user | model | provider（P2-L5：供给侧分摊）
      * @param workspaceFilter  非空时仅汇总该空间；系统管理员可传 null 看全部
      */
     List<CostBucket> summary(String groupBy, Instant from, Instant to, String workspaceFilter);
 
     /**
-     * @param scopeType        workspace | agent | user | model
+     * @param scopeType        workspace | agent | user | model | provider（P2-L5：供给侧分摊）
      * @param interval         目前仅支持 day
      * @param workspaceFilter  非空时额外按空间过滤（非管理员强制当前空间）
      */
