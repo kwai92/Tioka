@@ -47,6 +47,8 @@ public final class Permissions {
     public static final String AUDIT_READ = "audit:read";
     public static final String WORKSPACE_MANAGE = "workspace:manage";
     public static final String TENANT_ADMIN = "tenant:admin";
+    /** 策略引擎管理：导入 / 模式切换 / 停用（GOV-07 / M3-05 §1.4）。 */
+    public static final String GOV_POLICY_ADMIN = "gov:policy:admin";
 
     /** 目录中的全部具体权限点（不含 {@link #ALL}）。 */
     public static final String[] ALL_CONCRETE = {
@@ -59,7 +61,7 @@ public final class Permissions {
             ORCH_READ, ORCH_WRITE, ORCH_OPERATE,
             MODEL_READ, MODEL_ADMIN,
             QUOTA_READ, QUOTA_ADMIN,
-            AUDIT_READ, WORKSPACE_MANAGE, TENANT_ADMIN
+            AUDIT_READ, WORKSPACE_MANAGE, TENANT_ADMIN, GOV_POLICY_ADMIN
     };
 
     private Permissions() {}

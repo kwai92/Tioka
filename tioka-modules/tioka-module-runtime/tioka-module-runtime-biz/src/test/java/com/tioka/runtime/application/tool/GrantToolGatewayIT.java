@@ -70,13 +70,15 @@ class GrantToolGatewayIT {
 
     @Test
     void nullGrantIdAllows() {
-        DelegationGrantCheck check = new DelegationGrantCheck(grantService(grant));
+        DelegationGrantCheck check = new DelegationGrantCheck(grantService(grant), new ToolRegistry(List.of()),
+                (ObjectProvider<com.tioka.agent.api.AgentSnapshotApi>) mock(ObjectProvider.class));
         assertNull(check.check(ctx(null), "echo", Map.of()));
     }
 
     @Test
     void childCannotUseParentOnlyTool() {
-        DelegationGrantCheck check = new DelegationGrantCheck(grantService(grant));
+        DelegationGrantCheck check = new DelegationGrantCheck(grantService(grant), new ToolRegistry(List.of()),
+                (ObjectProvider<com.tioka.agent.api.AgentSnapshotApi>) mock(ObjectProvider.class));
         String deny = check.check(ctx("grt_child"), "biz.erp.writeOff", Map.of());
         assertTrue(deny.contains("不在委派授予内"), deny);
     }
@@ -88,14 +90,16 @@ class GrantToolGatewayIT {
                 grant.actionClasses(), grant.skillVersionIds(), grant.resources(), grant.scope(),
                 grant.maxDataLabel(), grant.egressHosts(), grant.budget(), grant.expiresAt(),
                 GrantStatus.REAPED, grant.hash());
-        DelegationGrantCheck check = new DelegationGrantCheck(grantService(reaped));
+        DelegationGrantCheck check = new DelegationGrantCheck(grantService(reaped), new ToolRegistry(List.of()),
+                (ObjectProvider<com.tioka.agent.api.AgentSnapshotApi>) mock(ObjectProvider.class));
         String deny = check.check(ctx("grt_child"), "echo", Map.of());
         assertTrue(deny.startsWith("GRANT_INACTIVE"), deny);
     }
 
     @Test
     void scopeEnforced() {
-        DelegationGrantCheck check = new DelegationGrantCheck(grantService(grant));
+        DelegationGrantCheck check = new DelegationGrantCheck(grantService(grant), new ToolRegistry(List.of()),
+                (ObjectProvider<com.tioka.agent.api.AgentSnapshotApi>) mock(ObjectProvider.class));
         String deny = check.check(ctx("grt_child"), "echo", Map.of("contractId", "HT-2"));
         assertTrue(deny.contains("超出任务范围 contractId"), deny);
         assertNull(check.check(ctx("grt_child"), "echo", Map.of("contractId", "HT-1")));
@@ -103,7 +107,8 @@ class GrantToolGatewayIT {
 
     @Test
     void kbArgsFilteredToGrantIntersection() {
-        DelegationGrantCheck check = new DelegationGrantCheck(grantService(grant));
+        DelegationGrantCheck check = new DelegationGrantCheck(grantService(grant), new ToolRegistry(List.of()),
+                (ObjectProvider<com.tioka.agent.api.AgentSnapshotApi>) mock(ObjectProvider.class));
         // 交集剔除：kb_a 保留、kb_z 剔除
         Map<String, Object> args = new HashMap<>(Map.of("kbIds", new ArrayList<>(List.of("kb_a", "kb_z"))));
         assertNull(check.check(ctx("grt_child"), "kb.search", args));
@@ -123,7 +128,8 @@ class GrantToolGatewayIT {
                 grant.maxDataLabel(), grant.egressHosts(), grant.budget(), grant.expiresAt(),
                 grant.status(), grant.hash());
         GrantService gs = grantService(narrowGrant);
-        DelegationGrantCheck check = new DelegationGrantCheck(gs);
+        DelegationGrantCheck check = new DelegationGrantCheck(gs, new ToolRegistry(List.of()),
+                (ObjectProvider<com.tioka.agent.api.AgentSnapshotApi>) mock(ObjectProvider.class));
         ToolRegistry registry = new ToolRegistry(List.of(new EchoToolProvider()));
         PrincipalHolder holder = new PrincipalHolder() {
             @Override public Principal current() { return user; }
@@ -166,7 +172,8 @@ class GrantToolGatewayIT {
                 mock(com.tioka.runtime.application.gateway.PreparedCallStore.class),
                 mock(com.tioka.runtime.application.gateway.ChangeSetFactory.class),
                 mock(ApprovalPolicyResolver.class),
-                new com.tioka.runtime.application.pipeline.ToolPipelineStepRegistry(List.of()));
+                new com.tioka.runtime.application.pipeline.ToolPipelineStepRegistry(List.of()),
+                (ObjectProvider<com.tioka.runtime.application.tool.DailyCounterStore>) mock(ObjectProvider.class));
         List<ToolProvider.ToolDescriptor> tools = gw.listTools(ctx("grt_child"));
         assertTrue(tools.stream().anyMatch(d -> d.name().equals("echo")));
         assertFalse(tools.stream().anyMatch(d -> d.name().equals("biz.erp.writeOff")),
@@ -192,7 +199,8 @@ class GrantToolGatewayIT {
 
     private ToolCallPipeline mockPipeline() {
         GrantService gs = grantService(grant);
-        DelegationGrantCheck check = new DelegationGrantCheck(gs);
+        DelegationGrantCheck check = new DelegationGrantCheck(gs, new ToolRegistry(List.of()),
+                (ObjectProvider<com.tioka.agent.api.AgentSnapshotApi>) mock(ObjectProvider.class));
         ToolRegistry registry = new ToolRegistry(List.of(new EchoToolProvider()));
         PrincipalHolder holder = new PrincipalHolder() {
             @Override public Principal current() { return user; }

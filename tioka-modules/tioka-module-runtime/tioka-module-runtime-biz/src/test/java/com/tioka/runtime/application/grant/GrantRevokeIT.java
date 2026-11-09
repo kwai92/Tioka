@@ -47,7 +47,8 @@ class GrantRevokeIT {
     void setUp() {
         store = mock(GrantStore.class);
         cache = mock(GrantCacheStore.class);
-        service = new DefaultGrantService(store, cache, new KernelProperties(), mapper());
+        service = new DefaultGrantService(store, cache, new KernelProperties(), mapper(),
+                (org.springframework.beans.factory.ObjectProvider<com.tioka.agent.api.AgentSnapshotApi>) mock(org.springframework.beans.factory.ObjectProvider.class));
     }
 
     /** 与 Spring Boot 全局 mapper 同口径（Instant 需要 JavaTimeModule）。 */

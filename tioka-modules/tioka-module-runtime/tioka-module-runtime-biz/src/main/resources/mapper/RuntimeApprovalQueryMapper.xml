@@ -40,6 +40,16 @@
                 AND EXISTS (
                     SELECT 1 FROM runtime_approval_assignee s
                      WHERE s.approval_id = a.id AND s.user_id = #{userId})
+                <!-- TRU-02 四眼：fourEyes 审批对发起人 / 工单请求人不可见（M3-05 §3.4） -->
+                AND NOT (
+                    a.card_json LIKE '%"fourEyes":true%'
+                    AND (
+                        a.requested_by = #{userId}
+                        OR EXISTS (
+                            SELECT 1 FROM runtime_turn t
+                             WHERE t.id = a.subject_id
+                               AND t.run_as_json LIKE concat('%"userId":"', #{userId}, '"%'))
+                    ))
             </when>
             <when test="scope == 'REQUESTED_BY_ME'">
                 AND a.requested_by = #{userId}

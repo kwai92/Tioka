@@ -39,6 +39,25 @@
             <groupId>com.baomidou</groupId>
             <artifactId>mybatis-plus-spring-boot3-starter</artifactId>
         </dependency>
+        <!-- GOV-07（M3-05 §1.6 Q3）：uber 分类器含五平台本地库 jne/{os}/{arch}；运行时依赖
+             jne（本地库定位）/guava/jackson-datatype-jdk8 随 spring-boot 依赖树补齐（jne 除外） -->
+        <dependency>
+            <groupId>com.cedarpolicy</groupId>
+            <artifactId>cedar-java</artifactId>
+            <version>4.11.0</version>
+            <classifier>uber</classifier>
+        </dependency>
+        <dependency>
+            <groupId>com.fizzed</groupId>
+            <artifactId>jne</artifactId>
+            <version>4.5.3</version>
+        </dependency>
+        <!-- cedar-java 公共字段（AuthorizationResponse.errors）暴露 guava 类型，编译期需要 -->
+        <dependency>
+            <groupId>com.google.guava</groupId>
+            <artifactId>guava</artifactId>
+            <version>33.5.0-jre</version>
+        </dependency>
         <dependency>
             <groupId>org.postgresql</groupId>
             <artifactId>postgresql</artifactId>

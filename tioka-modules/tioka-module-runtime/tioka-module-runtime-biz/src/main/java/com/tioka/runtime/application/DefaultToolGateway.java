@@ -72,6 +72,7 @@ public class DefaultToolGateway implements ToolGateway {
     private final ChangeSetFactory changeSets;
     private final ApprovalPolicyResolver policies;
     private final ToolPipelineStepRegistry pipelineSteps;
+    private final ObjectProvider<com.tioka.runtime.application.tool.DailyCounterStore> dailyCounters;
 
     public DefaultToolGateway(ToolRegistry registry,
                               ToolCallPipeline pipeline,
@@ -82,7 +83,8 @@ public class DefaultToolGateway implements ToolGateway {
                               PreparedCallStore preparedCalls,
                               ChangeSetFactory changeSets,
                               ApprovalPolicyResolver policies,
-                              ToolPipelineStepRegistry pipelineSteps) {
+                              ToolPipelineStepRegistry pipelineSteps,
+                              ObjectProvider<com.tioka.runtime.application.tool.DailyCounterStore> dailyCounters) {
         this.registry = registry;
         this.pipeline = pipeline;
         this.grants = grants;
@@ -95,6 +97,7 @@ public class DefaultToolGateway implements ToolGateway {
         this.pipelineSteps = pipelineSteps == null
                 ? new ToolPipelineStepRegistry(List.of())
                 : pipelineSteps;
+        this.dailyCounters = dailyCounters;
     }
 
     @Override
@@ -168,14 +171,23 @@ public class DefaultToolGateway implements ToolGateway {
 
         // P3-00b / K1b：按序号跑已注册步骤；空注册表无副作用（行为 = 现状）
         ToolPipelineContext pipeCtx = new ToolPipelineContext(ctx, name, ac.args());
-        ToolPipelineVerdict pipeVerdict = pipelineSteps.run(pipeCtx);
+        ToolPipelineVerdict pipeVerdict;
+        try {
+            pipeVerdict = pipelineSteps.run(pipeCtx);
+        } catch (BizException e) {
+            // 第 9 步策略 DENY（POLICY_DENIED 40340）：审计拒绝原因（含策略 @id）后原样抛出
+            auditDenied(ctx, name, ac.args(), e.getMessage(), 9, 0);
+            throw e;
+        }
         if (pipeVerdict == ToolPipelineVerdict.ESCALATE) {
-            // 尚无步骤 bean 时不会走到；预留给 GOV-07 / TRU-09 转审批
+            // GOV-07 / TRU-02：第 9 步 Cedar ESCALATE（超额转审批）
             String stepName = pipeCtx.get("pipeline.step", String.class);
+            Boolean fourEyes = pipeCtx.get("policy.fourEyes", Boolean.class);
             ApprovalPolicy.Decision escalated = new ApprovalPolicy.RequireApproval(
                     new ApprovalPolicy.Assignee(List.of(), List.of()),
                     Duration.ofHours(24),
-                    "pipeline:" + (stepName == null ? "escalate" : stepName));
+                    (Boolean.TRUE.equals(fourEyes) ? "fourEyes:" : "pipeline:")
+                            + (stepName == null ? "escalate" : stepName));
             GateDecision gate = toGate(escalated);
             PolicyOutcome policy = toPolicy(escalated);
             ToolInvocation inv = new ToolInvocation(name, ac.args());
@@ -232,6 +244,7 @@ public class DefaultToolGateway implements ToolGateway {
             if (provider instanceof TransactionalTool tx) {
                 ChangeSet.ApplyReceipt receipt = tx.apply(inv, approved, row.getItemId());
                 preparedCalls.markApplied(row, receipt);
+                recordDailyUsage(row, approved);
                 ToolProvider.ToolResult ok = new ToolProvider.ToolResult(true, writeJson(receipt));
                 auditInvoke(ctx, ctx == null ? null : ctx.principal(), row.getToolName(),
                         inv.arguments(), ok, true, System.currentTimeMillis() - t0, null);
@@ -242,6 +255,7 @@ public class DefaultToolGateway implements ToolGateway {
             if (result.ok()) {
                 preparedCalls.markApplied(row, new ChangeSet.ApplyReceipt(
                         row.getItemId(), Map.of(), Instant.now()));
+                recordDailyUsage(row, approved);
             } else {
                 preparedCalls.markFailed(row, result.content());
             }
@@ -256,6 +270,25 @@ public class DefaultToolGateway implements ToolGateway {
             preparedCalls.markFailed(row, err);
             throw e;
         }
+    }
+
+    /**
+     * TRU-02 commit 第 4 步：Redis 当日累计加上变更单汇总（M3-05 §0/§3.3）。
+     * 撤销扣回归 TRU-07（本批不做）。计数失败不阻断 commit（重算兜底）。
+     */
+    private void recordDailyUsage(TrustActionDO row, ChangeSet approved) {
+        if (row.getActionClass() == null || row.getActionClass().isBlank()) {
+            return;
+        }
+        com.tioka.runtime.application.tool.DailyCounterStore counters = dailyCounters.getIfAvailable();
+        if (counters == null) {
+            return;
+        }
+        ChangeSet.Totals totals = approved == null ? null : approved.totals();
+        long amount = totals == null || totals.amountMicros() == null ? 0 : totals.amountMicros();
+        long records = totals == null ? 0 : totals.records();
+        counters.add(row.getAgentId(), row.getActionClass(),
+                java.time.LocalDate.now(java.time.ZoneId.of("Asia/Shanghai")), amount, records);
     }
 
     private ToolProvider.ToolResult callTracked(ToolCallContext ctx, String name, Map<String, Object> args) {

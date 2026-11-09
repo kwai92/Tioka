@@ -24,4 +24,10 @@ public interface TrustActionMapper {
                    @Param("undoDeadline") java.time.LocalDateTime undoDeadline);
 
     int nextSeq(@Param("turnId") String turnId);
+
+    /** TRU-02 当日累计重算：当天 APPLIED 且未撤销的动作（Redis 丢失时从 trust_action 重算）。 */
+    java.util.List<TrustActionDO> listAppliedInDay(@Param("agentId") String agentId,
+                                                   @Param("actionClass") String actionClass,
+                                                   @Param("fromUtc") java.time.LocalDateTime fromUtc,
+                                                   @Param("toUtc") java.time.LocalDateTime toUtc);
 }

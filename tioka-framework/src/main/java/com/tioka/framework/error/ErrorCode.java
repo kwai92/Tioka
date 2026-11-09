@@ -23,6 +23,10 @@ public enum ErrorCode {
     GRANT_NOT_NARROWER(40330, 403, "委派收窄校验失败"),
     /** 委派授予已失效（REAPED / REVOKED / 过期）（ADR-039 MAS-01），HTTP 403。 */
     GRANT_INACTIVE(40331, 403, "委派授予已失效"),
+    /** 策略引擎 DENY（GOV-07 管线第 9 步 / TRU-02 授权书编译），HTTP 403。 */
+    POLICY_DENIED(40340, 403, "策略拒绝"),
+    /** 策略求值失败且模式为 ENFORCE（GOV-07：ENFORCE→DENY、DRYRUN→放行），HTTP 403。 */
+    POLICY_EVAL_FAILED(40341, 403, "策略求值失败"),
     /** Agent 发布校验失败（AST-01/AST-02），HTTP 422。 */
     AGENT_PUBLISH_INVALID(42201, 422, "Agent 发布校验失败"),
     /** Agent 已停用，HTTP 423。 */

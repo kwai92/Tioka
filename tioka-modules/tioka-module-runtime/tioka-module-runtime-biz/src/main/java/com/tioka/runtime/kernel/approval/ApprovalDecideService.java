@@ -288,6 +288,18 @@ public class ApprovalDecideService {
     }
 
     private void guardAssignee(RuntimeApprovalDO a, Principal p) {
+        // TRU-02 四眼（M3-05 §3.4）：fourEyes=true 的审批，决定人不能是 Turn 发起人
+        // 或编排工单请求人；违规拒绝并写审计（服务端二次校验，绕过前端过滤也无效）
+        if (isFourEyes(a)) {
+            String requester = a.getRequestedBy();
+            String initiator = turnInitiator(a.getSubjectType(), a.getSubjectId());
+            if ((requester != null && requester.equals(p.userId()))
+                    || (initiator != null && initiator.equals(p.userId()))) {
+                auditFourEyesViolation(a, p, requester, initiator);
+                throw new BizException(ErrorCode.FORBIDDEN,
+                        "四眼审批：发起人与工单请求人不能审批");
+            }
+        }
         Map<String, Object> assignee = parseMap(a.getAssigneeJson());
         @SuppressWarnings("unchecked")
         List<String> userIds = assignee.get("userIds") instanceof List<?> l
@@ -317,6 +329,43 @@ public class ApprovalDecideService {
             }
         }
         throw new BizException(ErrorCode.FORBIDDEN, "非审批人");
+    }
+
+    /** 四眼标记：卡片 / 审批人 JSON 带 {@code fourEyes:true}（第 9 步 ESCALATE 写入）。 */
+    private boolean isFourEyes(RuntimeApprovalDO a) {
+        Map<String, Object> card = parseMap(a.getCardJson());
+        if (Boolean.TRUE.equals(card.get("fourEyes"))) {
+            return true;
+        }
+        return Boolean.TRUE.equals(parseMap(a.getAssigneeJson()).get("fourEyes"));
+    }
+
+    /** Turn 发起人（run_as 的 userId）；subjectId 不是 Turn 时返回 null。 */
+    private String turnInitiator(String subjectType, String subjectId) {
+        if (subjectType == null || !ApprovalSubjectType.TURN.wire().equalsIgnoreCase(subjectType)) {
+            return null;
+        }
+        return turns.findById(subjectId).map(turn -> extractRunAsUser(turn.getRunAsJson()))
+                .orElse(null);
+    }
+
+    /** 四眼违规审计（违规拒绝 + 审计，M3-05 §3.4）。 */
+    private void auditFourEyesViolation(RuntimeApprovalDO a, Principal p,
+                                        String requester, String initiator) {
+        AuditApi api = auditApi.getIfAvailable();
+        if (api == null) {
+            return;
+        }
+        try {
+            api.recordIndependent(new AuditEvent(null, Instant.now(), a.getWorkspaceId(),
+                    p.type().name().toLowerCase(Locale.ROOT), p.userId(), "approval.decide",
+                    "runtime_approval", a.getId(), AuditOutcome.DENIED, "FOUR_EYES_SELF_APPROVAL",
+                    null, null, null, null, null,
+                    Map.of("requester", requester == null ? "" : requester,
+                            "turnInitiator", initiator == null ? "" : initiator)));
+        } catch (RuntimeException e) {
+            log.warn("四眼违规审计写入失败: {}", e.toString());
+        }
     }
 
     private String extractRunAsUser(String runAsJson) {

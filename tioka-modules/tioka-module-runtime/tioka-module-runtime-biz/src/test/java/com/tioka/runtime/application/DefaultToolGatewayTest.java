@@ -90,7 +90,15 @@ class DefaultToolGatewayTest {
         when(policies.resolve(any(), any())).thenReturn(allow);
         gw = new DefaultToolGateway(registry, pipeline, mock(com.tioka.runtime.api.grant.GrantService.class),
                 audit, degraded, new ObjectMapper(),
-                preparedCalls, changeSets, policies, new ToolPipelineStepRegistry(List.of()));
+                preparedCalls, changeSets, policies, new ToolPipelineStepRegistry(List.of()),
+                dailyCountersNone());
+    }
+
+    @SuppressWarnings("unchecked")
+    private ObjectProvider<com.tioka.runtime.application.tool.DailyCounterStore> dailyCountersNone() {
+        ObjectProvider<com.tioka.runtime.application.tool.DailyCounterStore> p = mock(ObjectProvider.class);
+        when(p.getIfAvailable()).thenReturn(null);
+        return p;
     }
 
     private ToolGateway.ToolCallContext ctx(String agentVersionId) {

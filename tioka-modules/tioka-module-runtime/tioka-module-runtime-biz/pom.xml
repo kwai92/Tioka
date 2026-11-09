@@ -33,6 +33,10 @@
         </dependency>
         <dependency>
             <groupId>com.tioka</groupId>
+            <artifactId>tioka-module-governance-api</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.tioka</groupId>
             <artifactId>tioka-module-infra-api</artifactId>
         </dependency>
         <dependency>
