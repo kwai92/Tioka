@@ -3,10 +3,12 @@ package com.tioka.system.application.quota;
 import com.tioka.framework.error.BizException;
 import com.tioka.framework.error.ErrorCode;
 import com.tioka.system.api.spi.QuotaGuard;
+import com.tioka.system.api.spi.QuotaThresholdExceededEvent;
 import com.tioka.system.infrastructure.GovQuotaRepository;
 import com.tioka.system.infrastructure.persistence.GovQuotaDO;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Component;
@@ -19,7 +21,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Redis 配额计数 + {@code gov_quota} 上限（M1-03 GOV-03）。
+ * Redis 配额计数 + {@code gov_quota} 上限（M1-03 GOV-03）+ 月度阈值预警（P2 / GAP-L5-3）。
  */
 @Component
 public class DefaultQuotaGuard implements QuotaGuard {
@@ -27,6 +29,8 @@ public class DefaultQuotaGuard implements QuotaGuard {
 
     static final Duration LIMIT_TTL = Duration.ofSeconds(60);
     static final Duration TOKEN_TTL = Duration.ofDays(40);
+    /** 月度 token 预警阈值（百分比）；越过即发 {@link QuotaThresholdExceededEvent}。 */
+    static final int WARN_THRESHOLD_PCT = 80;
     private static final String LIM_MISS = "__none__";
 
     /**
@@ -53,10 +57,13 @@ public class DefaultQuotaGuard implements QuotaGuard {
 
     private final StringRedisTemplate redis;
     private final GovQuotaRepository quotas;
+    private final ApplicationEventPublisher events;
 
-    public DefaultQuotaGuard(StringRedisTemplate redis, GovQuotaRepository quotas) {
+    public DefaultQuotaGuard(StringRedisTemplate redis, GovQuotaRepository quotas,
+                             ApplicationEventPublisher events) {
         this.redis = redis;
         this.quotas = quotas;
+        this.events = events;
     }
 
     @Override
@@ -75,6 +82,49 @@ public class DefaultQuotaGuard implements QuotaGuard {
         incrTok(QuotaMetrics.SCOPE_WORKSPACE, workspaceId, ym, tokens);
         incrTok(QuotaMetrics.SCOPE_USER, userId, ym, tokens);
         incrTok(QuotaMetrics.SCOPE_AGENT, agentId, ym, tokens);
+        // P2（GAP-L5-3）：计数后对三个 scope 做月度阈值预警（首次越线才发）
+        warnIfCrossed(QuotaMetrics.SCOPE_WORKSPACE, workspaceId, ym);
+        warnIfCrossed(QuotaMetrics.SCOPE_USER, userId, ym);
+        warnIfCrossed(QuotaMetrics.SCOPE_AGENT, agentId, ym);
+    }
+
+    /**
+     * 月度阈值预警：已用量首次越过 {@link #WARN_THRESHOLD_PCT}% 上限时发布领域事件。
+     * 去重键走 Redis SETNX（TTL 同 token 计数，覆盖整月窗口）；
+     * 预警失败只记日志，不阻断计数主流程。
+     */
+    private void warnIfCrossed(String scopeType, String scopeId, String ym) {
+        if (blank(scopeId)) {
+            return;
+        }
+        Long lim = limitOf(scopeType, scopeId, QuotaMetrics.TOKENS_MONTH);
+        if (lim == null || lim <= 0) {
+            return;
+        }
+        long used = usedTokens(scopeType, scopeId);
+        if (used * 100 < lim * WARN_THRESHOLD_PCT) {
+            return;
+        }
+        String dedupKey = warnKey(scopeType, scopeId, ym);
+        try {
+            Boolean first = redis.opsForValue()
+                    .setIfAbsent(dedupKey, "1", TOKEN_TTL);
+            if (!Boolean.TRUE.equals(first)) {
+                return;
+            }
+            events.publishEvent(new QuotaThresholdExceededEvent(
+                    scopeType, scopeId, QuotaMetrics.TOKENS_MONTH,
+                    lim, used, WARN_THRESHOLD_PCT, ym));
+            log.info("quota warning published: {}/{}/{} used={} limit={} pct={}",
+                    scopeType, scopeId, ym, used, lim, WARN_THRESHOLD_PCT);
+        } catch (RuntimeException e) {
+            log.warn("quota warning failed (ignored): {}/{}: {}", scopeType, scopeId, e.toString());
+        }
+    }
+
+    /** 预警去重键：{@code q:warn:{scopeType}:{scopeId}:{yyyyMM}:80}。 */
+    public String warnKey(String scopeType, String scopeId, String yyyyMM) {
+        return "q:warn:" + scopeType + ":" + scopeId + ":" + yyyyMM + ":" + WARN_THRESHOLD_PCT;
     }
 
     @Override

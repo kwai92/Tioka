@@ -106,6 +106,77 @@ public class ProviderClient {
         return vectors;
     }
 
+    /**
+     * MH-04：rerank。真实模式走 Cohere 兼容 {@code POST /rerank} 端点
+     * （Cohere / Jina / SiliconFlow 等业界事实标准）；mock 模式用字符 bigram 重合度
+     * 打分（确定性，离线可测）。返回全部 {@code (index, score)}，排序与截断由网关完成。
+     */
+    public List<RerankHit> rerank(String baseUrl, String apiKeyRef, String model,
+                                  String query, List<String> documents) throws Exception {
+        List<String> docs = documents == null ? List.of() : documents;
+        if (isMockMode(baseUrl)) {
+            List<RerankHit> out = new ArrayList<>();
+            for (int i = 0; i < docs.size(); i++) {
+                out.add(new RerankHit(i, bigramOverlap(query, docs.get(i))));
+            }
+            return out;
+        }
+        String apiKey = resolveApiKey(apiKeyRef);
+        ObjectNode body = mapper.createObjectNode();
+        body.put("model", model);
+        body.put("query", query);
+        body.set("documents", mapper.valueToTree(docs));
+        HttpRequest req = HttpRequest.newBuilder()
+                .uri(URI.create(trimSlash(baseUrl) + "/rerank"))
+                .timeout(Duration.ofSeconds(60))
+                .header("Authorization", "Bearer " + apiKey)
+                .header("Content-Type", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString(mapper.writeValueAsString(body)))
+                .build();
+        HttpResponse<String> resp = egress.send(req);
+        if (resp.statusCode() >= 300) {
+            throw toHttpException(resp.statusCode(), resp.body(), retryAfterHeader(resp));
+        }
+        JsonNode results = mapper.readTree(resp.body()).path("results");
+        List<RerankHit> hits = new ArrayList<>();
+        if (results.isArray()) {
+            for (JsonNode item : results) {
+                int index = item.path("index").asInt(-1);
+                // relevance_score（Cohere）为主，score（部分实现）回退
+                double score = item.hasNonNull("relevance_score")
+                        ? item.path("relevance_score").asDouble()
+                        : item.path("score").asDouble();
+                if (index >= 0) {
+                    hits.add(new RerankHit(index, score));
+                }
+            }
+        }
+        return hits;
+    }
+
+    /**
+     * mock 打分：query 与 document 的字符 bigram 重合度（Jaccard，0.0~1.0）。
+     * 确定性、与真实语义无依赖，仅用于离线联调与测试排序。
+     */
+    static double bigramOverlap(String query, String document) {
+        if (query == null || document == null || query.length() < 2 || document.length() < 2) {
+            return 0.0d;
+        }
+        java.util.Set<String> q = new java.util.HashSet<>();
+        for (int i = 0; i + 1 < query.length(); i++) {
+            q.add(query.substring(i, i + 2));
+        }
+        java.util.Set<String> d = new java.util.HashSet<>();
+        for (int i = 0; i + 1 < document.length(); i++) {
+            d.add(document.substring(i, i + 2));
+        }
+        if (d.isEmpty()) {
+            return 0.0d;
+        }
+        long hit = q.stream().filter(d::contains).count();
+        return (double) hit / (q.size() + d.size() - hit);
+    }
+
     private boolean isMockMode(String baseUrl) {
         return mock || baseUrl == null || baseUrl.isBlank() || "mock://openai".equals(baseUrl);
     }
@@ -370,6 +441,9 @@ public class ProviderClient {
 
     public record CompletionResult(String content, List<ToolCall> toolCalls,
                                    int promptTokens, int completionTokens, String finishReason) {}
+
+    /** MH-04：rerank 单条结果——{@code index} 为文档下标，{@code score} 为相关度。 */
+    public record RerankHit(int index, double score) {}
 
     public record StreamDelta(String textDelta, List<ToolCall> toolCalls,
                               Integer promptTokens, Integer completionTokens) {

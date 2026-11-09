@@ -2,7 +2,6 @@ package com.tioka.model.application.gateway;
 
 import com.tioka.framework.error.BizException;
 import com.tioka.framework.error.ErrorCode;
-import com.tioka.framework.error.NotImplemented;
 import com.tioka.model.api.FailoverEvent;
 import com.tioka.model.api.gateway.ModelCallContext;
 import com.tioka.model.api.gateway.ModelGateway;
@@ -388,35 +387,88 @@ public class DefaultModelGateway implements ModelGateway {
             account(ctx, sel, promptTokens, 0, elapsedMs(t0), "SUCCESS");
             return new EmbeddingResult(vectors, dim, promptTokens, sel.bindingId());
         } catch (BizException e) {
-            accountEmbedError(ctx, sel, forced, elapsedMs(t0));
+            accountError(ctx, sel, forced, elapsedMs(t0));
             throw e;
         } catch (ProviderHttpException e) {
             if (sel != null) {
                 cooldown.recordFailure(sel.bindingId());
             }
-            accountEmbedError(ctx, sel, forced, elapsedMs(t0));
+            accountError(ctx, sel, forced, elapsedMs(t0));
             throw new BizException(e.switchable() ? ErrorCode.MODEL_UNAVAILABLE : ErrorCode.MODEL_ERROR,
                     upstreamMessage(e));
         } catch (Exception e) {
             if (sel != null) {
                 cooldown.recordFailure(sel.bindingId());
             }
-            accountEmbedError(ctx, sel, forced, elapsedMs(t0));
+            accountError(ctx, sel, forced, elapsedMs(t0));
             throw new BizException(ErrorCode.DEPENDENCY, "嵌入调用失败: " + e.getMessage());
         }
     }
 
-    private void accountEmbedError(ModelCallContext ctx, ModelBindingResolver.Resolution sel,
-                                   String forced, int latencyMs) {
+
+    @Override
+    public RerankResult rerank(ModelCallContext ctx, RerankRequest request) {
+        if (request == null || request.query() == null || request.query().isBlank()) {
+            throw new BizException(ErrorCode.BAD_REQUEST, "rerank query 必填");
+        }
+        if (request.documents() == null || request.documents().isEmpty()) {
+            throw new BizException(ErrorCode.BAD_REQUEST, "rerank documents 不能为空");
+        }
+        precheck(ctx);
+        String forced = request.bindingId();
+        long t0 = System.nanoTime();
+        ModelBindingResolver.Resolution sel = null;
+        try {
+            sel = resolver.resolve(ctx, forced);
+            // 估算 token：query + 全部文档字符 / 3，与 embed 口径一致
+            int chars = request.query().length();
+            for (String d : request.documents()) {
+                chars += d == null ? 0 : d.length();
+            }
+            long est = Math.max(1L, chars / 3L);
+            budget.check(sel.binding(), est);
+            long reserved = rateLimiter.acquire(sel.bindingId(),
+                    sel.binding().rpmLimit(), sel.binding().tpmLimit(), est);
+            List<ProviderClient.RerankHit> hits = provider.rerank(
+                    sel.baseUrl(), sel.apiKeyRef(), sel.modelName(),
+                    request.query(), request.documents());
+            rateLimiter.reconcileTpm(sel.bindingId(), sel.binding().tpmLimit(), reserved, est);
+            List<RerankResult.Ranked> ranked = new ArrayList<>(hits.stream()
+                    .map(h -> new RerankResult.Ranked(h.index(), h.score()))
+                    .toList());
+            ranked.sort((a, b) -> Double.compare(b.score(), a.score()));
+            int topN = request.topN();
+            if (topN > 0 && ranked.size() > topN) {
+                ranked = ranked.subList(0, topN);
+            }
+            account(ctx, sel, (int) Math.min(Integer.MAX_VALUE, est), 0, elapsedMs(t0), "SUCCESS");
+            return new RerankResult(List.copyOf(ranked), sel.bindingId());
+        } catch (BizException e) {
+            accountError(ctx, sel, forced, elapsedMs(t0));
+            throw e;
+        } catch (ProviderHttpException e) {
+            if (sel != null) {
+                cooldown.recordFailure(sel.bindingId());
+            }
+            accountError(ctx, sel, forced, elapsedMs(t0));
+            throw new BizException(e.switchable() ? ErrorCode.MODEL_UNAVAILABLE : ErrorCode.MODEL_ERROR,
+                    upstreamMessage(e));
+        } catch (Exception e) {
+            if (sel != null) {
+                cooldown.recordFailure(sel.bindingId());
+            }
+            accountError(ctx, sel, forced, elapsedMs(t0));
+            throw new BizException(ErrorCode.DEPENDENCY, "rerank 调用失败: " + e.getMessage());
+        }
+    }
+
+    /** 非成功调用统一错误记账（embed / rerank 共用）：ERROR / 0 token。 */
+    private void accountError(ModelCallContext ctx, ModelBindingResolver.Resolution sel,
+                              String forced, int latencyMs) {
         if (sel != null) {
             account(ctx, sel, 0, 0, latencyMs, "ERROR");
         } else {
             usage.record(new UsageRecordCommand(ctx, forced, null, forced, 0, 0, 0L, 0L, latencyMs, "ERROR"));
         }
-    }
-
-    @Override
-    public RerankResult rerank(ModelCallContext ctx, RerankRequest request) {
-        throw NotImplemented.of("ModelGateway.rerank", "MH-04");
     }
 }
