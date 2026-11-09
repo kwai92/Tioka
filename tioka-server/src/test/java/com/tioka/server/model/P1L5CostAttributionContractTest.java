@@ -17,10 +17,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * P1 / L5（模型网关配额与成本归集）离线契约测试：纯 JUnit5 + 反射，不启 Spring、
  * 不依赖 Redis / PostgreSQL（离线验收）。
  *
- * <p>本类只固化「代码现状与 L5 验收准则一致」的部分；供给侧月度预算与 provider 分摊
- * 已在 P2 落地（见 {@code P2L5SupplyBudgetContractTest} 与 V218 迁移）；
- * 成本 80% 预警、rerank 实现（MH-04）等缺口见
- * {@code docs/architecture/design-notes/P1-L5-gap-ledger.md}。
+ * <p>本类只固化「代码现状与 L5 验收准则一致」的部分；供给侧月度预算与 provider 分摊、
+ * 成本 80% 预警、rerank（MH-04）均已随 P2 批次落地（V218 / 预警事件 / rerank 全链，
+ * 见 {@code P2L5SupplyBudgetContractTest} 与 design-notes 覆盖文档）。
  */
 class P1L5CostAttributionContractTest {
 
@@ -93,12 +92,13 @@ class P1L5CostAttributionContractTest {
 
     /**
      * 只断言接口层面存在 rerank 契约，不触发真实模型调用。
-     * 实现 {@code DefaultModelGateway.rerank} 抛 {@code NotImplemented.of("ModelGateway.rerank","MH-04")}
-     * 为已知缺口（DefaultModelGateway.java:385-386），登记于 P1-L5-gap-ledger.md，归 P2。
+     * 实现已随 P2（GAP-L5-4 解冻）落地：{@code DefaultModelGateway.rerank} 全链
+     * （选模 → 预算 → 限流 → ProviderClient.rerank → 记账），见
+     * {@code docs/architecture/design-notes/P2-L5b-warn-rerank.md}。
      */
     @Test
-    @DisplayName("rerank 契约在接口层存在（实现为 MH-04 已知缺口，归 P2）")
-    void rerankIsKnownGapMH04() throws Exception {
+    @DisplayName("rerank 契约在接口层存在（实现已随 P2 落地）")
+    void rerankContractExists() throws Exception {
         Class<?> gateway = Class.forName(MODEL_GATEWAY);
         long rerankCount = Arrays.stream(gateway.getDeclaredMethods())
                 .filter(m -> "rerank".equals(m.getName())).count();
