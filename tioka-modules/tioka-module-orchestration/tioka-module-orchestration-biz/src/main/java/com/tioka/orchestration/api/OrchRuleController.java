@@ -79,4 +79,13 @@ public class OrchRuleController {
                 : body;
         return ApiResponse.ok(rules.dryRun(id, vid, event));
     }
+
+    /** 显式恢复（ORC-07 / FE-17）：清自动暂停标记，规则重新参与派发。 */
+    @PostMapping("/{id}/resume")
+    @RequirePermission(Permissions.ORCH_WRITE)
+    @Audited(action = "orch.rule.resume", resourceType = "orch_rule", resourceIdArg = "#id")
+    public ApiResponse<Void> resume(@PathVariable String id) {
+        rules.resumeRule(id);
+        return ApiResponse.ok(null);
+    }
 }

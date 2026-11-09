@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tioka.orchestration.api.engine.OrchApi;
 import com.tioka.orchestration.api.engine.OrchTools;
 import com.tioka.orchestration.application.decide.OrchStateMachine;
+import com.tioka.orchestration.application.pause.RulePauseService;
 import com.tioka.orchestration.infrastructure.OrchEngineRepository;
 import com.tioka.orchestration.infrastructure.persistence.OrchMandateDO;
 import com.tioka.orchestration.infrastructure.persistence.OrchRuleVersionDO;
@@ -38,15 +39,18 @@ public class OrchApprovalHandler implements ApprovalSubjectHandler {
     private final ObjectProvider<RuntimeApi> runtime;
     private final PrincipalLoaderApi principalLoader;
     private final ObjectMapper mapper;
+    private final RulePauseService rulePause;
 
     public OrchApprovalHandler(OrchEngineRepository repo,
                                ObjectProvider<RuntimeApi> runtime,
                                PrincipalLoaderApi principalLoader,
-                               ObjectMapper mapper) {
+                               ObjectMapper mapper,
+                               RulePauseService rulePause) {
         this.repo = repo;
         this.runtime = runtime;
         this.principalLoader = principalLoader;
         this.mapper = mapper;
+        this.rulePause = rulePause;
     }
 
     @Override
@@ -147,6 +151,8 @@ public class OrchApprovalHandler implements ApprovalSubjectHandler {
         run.setEndedAt(LocalDateTime.now());
         run.setUpdateAt(LocalDateTime.now());
         repo.updateRun(run);
+        // ORC-07 自动暂停：Run FAILED 计入规则连续失败
+        rulePause.recordRunOutcome(run.getRuleVersionId(), OrchApi.RunStatus.FAILED.name());
         if (wi != null) {
             wi.setActiveRunId(null);
             wi.setUpdateAt(LocalDateTime.now());

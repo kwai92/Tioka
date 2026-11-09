@@ -10,6 +10,7 @@ import com.tioka.orchestration.infrastructure.persistence.OrchRunDO;
 import com.tioka.orchestration.receipt.OrchReceiptRepository;
 import com.tioka.orchestration.receipt.ReceiptApplyCommand;
 import com.tioka.orchestration.receipt.ReceiptApplyService;
+import com.tioka.orchestration.application.pause.RulePauseService;
 import com.tioka.orchestration.receipt.ReceiptFactKinds;
 import com.tioka.orchestration.receipt.ReceiptLimits;
 import com.tioka.orchestration.receipt.ReceiptValidationResult;
@@ -50,6 +51,7 @@ public class TurnResultWritebackService {
     private final RuntimeApi runtime;
     private final List<ToolProvider> toolProviders;
     private final ObjectMapper mapper;
+    private final RulePauseService rulePause;
 
     public TurnResultWritebackService(OrchReceiptRepository repo,
                                       ReceiptExtractor extractor,
@@ -57,7 +59,8 @@ public class TurnResultWritebackService {
                                       ReceiptApplyService applyService,
                                       RuntimeApi runtime,
                                       List<ToolProvider> toolProviders,
-                                      ObjectMapper mapper) {
+                                      ObjectMapper mapper,
+                                      RulePauseService rulePause) {
         this.repo = repo;
         this.extractor = extractor;
         this.validator = validator;
@@ -65,6 +68,7 @@ public class TurnResultWritebackService {
         this.runtime = runtime;
         this.toolProviders = toolProviders;
         this.mapper = mapper;
+        this.rulePause = rulePause;
     }
 
     @Transactional
@@ -192,6 +196,8 @@ public class TurnResultWritebackService {
         run.setStatus(OrchApi.RunStatus.FAILED.name());
         run.setErrorCode(msg.errorCode() == null ? "TURN_FAILED" : msg.errorCode());
         repo.updateRun(run);
+        // ORC-07 自动暂停：Turn 重试耗尽 → Run FAILED，计入规则连续失败
+        rulePause.recordRunOutcome(run.getRuleVersionId(), OrchApi.RunStatus.FAILED.name());
         repo.appendFact(run.getId(), ReceiptFactKinds.TURN_FAILED, Map.of(
                 "exhausted", true,
                 "turnId", msg.turnId()));

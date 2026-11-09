@@ -7,6 +7,7 @@ import com.tioka.framework.error.ErrorCode;
 import com.tioka.framework.id.Ids;
 import com.tioka.framework.security.Principal;
 import com.tioka.framework.security.PrincipalHolder;
+import com.tioka.orchestration.application.pause.RulePauseService;
 import com.tioka.orchestration.infrastructure.OrchRuleRepository;
 import com.tioka.orchestration.infrastructure.persistence.OrchRuleDO;
 import com.tioka.orchestration.infrastructure.persistence.OrchRuleVersionDO;
@@ -29,19 +30,22 @@ public class OrchRuleAppService {
     private final RuleEvalService evalService;
     private final PrincipalHolder principals;
     private final ObjectMapper mapper;
+    private final RulePauseService rulePause;
 
     public OrchRuleAppService(OrchRuleRepository repo,
                               CelRuleCondition cel,
                               RuleActionValidator actionValidator,
                               RuleEvalService evalService,
                               PrincipalHolder principals,
-                              ObjectMapper mapper) {
+                              ObjectMapper mapper,
+                              RulePauseService rulePause) {
         this.repo = repo;
         this.cel = cel;
         this.actionValidator = actionValidator;
         this.evalService = evalService;
         this.principals = principals;
         this.mapper = mapper;
+        this.rulePause = rulePause;
     }
 
     @Transactional
@@ -155,6 +159,12 @@ public class OrchRuleAppService {
     public RuleView getRule(String ruleId) {
         OrchRuleDO rule = requireRule(ruleId);
         return toRuleView(rule, repo.listVersions(ruleId));
+    }
+
+    /** 显式恢复（ORC-07 / FE-17）：清自动暂停标记，规则重新参与派发。 */
+    public void resumeRule(String ruleId) {
+        requireRule(ruleId);
+        rulePause.resume(ruleId);
     }
 
     private void retire(String versionId) {
