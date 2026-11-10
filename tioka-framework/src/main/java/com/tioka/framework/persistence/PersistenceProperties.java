@@ -82,7 +82,11 @@ public class PersistenceProperties {
             "trust_autonomy_event",
             "trust_autonomy_stats",
             // DAT-01 / V163：行列策略（PK dataset_id+version，随数据集归属，无 workspace_id）
-            "data_dataset_policy"
+            "data_dataset_policy",
+            // ONT-02 / V172：实例投影（实例级只读数据，实例键/门店键维度，无 workspace_id）
+            "ont_draft",
+            "ont_instance_version",
+            "ont_value_index"
     ));
 
     public List<String> getWorkspaceScopeExemptTables() {

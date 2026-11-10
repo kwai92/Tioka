@@ -14,6 +14,14 @@ public final class OntologyMqTopics {
     public static final String SCHEMA_PUBLISHED = "tioka.schema.published.v1";
     public static final String DOCUMENT_PARSED = "tioka.docparse.document_parsed.v1";
 
+    /**
+     * ONT-02 入站：业务系统确认事件（M3-03 §7 / contract-model-confirmed-v1.json）。
+     * 业务系统经 RocketMQ 直投 {@code tioka-biz-{system}} 主题（M3-03 §16）；
+     * 消费侧 {@code ConfirmIngestor} 按 tag 过滤。
+     */
+    public static final String BIZ_LEASE_TOPIC = "tioka-biz-lease";
+    public static final String BIZ_EVENT_MODEL_CONFIRMED = "contract.model.confirmed";
+
     private OntologyMqTopics() {
     }
 }

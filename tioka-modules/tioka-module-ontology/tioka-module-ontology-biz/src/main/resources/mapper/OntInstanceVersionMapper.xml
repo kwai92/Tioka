@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tioka.ontology.infrastructure.mapper.OntInstanceVersionMapper">
+
+    <resultMap id="versionMap" type="com.tioka.ontology.infrastructure.persistence.OntInstanceVersionDO">
+        <id property="instanceKey" column="instance_key"/>
+        <id property="version" column="version"/>
+        <result property="status" column="status"/>
+        <result property="defKey" column="def_key"/>
+        <result property="defVersion" column="def_version"/>
+        <result property="storeKey" column="store_key"/>
+        <result property="modelJson" column="model_json"/>
+        <result property="contentHash" column="content_hash"/>
+        <result property="diffPrev" column="diff_prev"/>
+        <result property="diffDraft" column="diff_draft"/>
+        <result property="refsJson" column="refs_json"/>
+        <result property="confirmedBy" column="confirmed_by"/>
+        <result property="confirmedAt" column="confirmed_at"/>
+        <result property="aclPrincipals" column="acl_principals"
+                typeHandler="com.tioka.ontology.infrastructure.PgTextArrayTypeHandler"/>
+        <result property="dataLabel" column="data_label"/>
+    </resultMap>
+
+    <sql id="columns">
+        instance_key, version, status, def_key, def_version, store_key, model_json, content_hash,
+        diff_prev, diff_draft, refs_json, confirmed_by, confirmed_at, acl_principals, data_label
+    </sql>
+
+    <insert id="insertVersion">
+        INSERT INTO ont_instance_version (
+            instance_key, version, status, def_key, def_version, store_key, model_json, content_hash,
+            diff_prev, diff_draft, refs_json, confirmed_by, confirmed_at, acl_principals, data_label
+        ) VALUES (
+            #{row.instanceKey}, #{row.version}, #{row.status}, #{row.defKey}, #{row.defVersion},
+            #{row.storeKey}, #{row.modelJson}::jsonb, #{row.contentHash},
+            #{row.diffPrev}::jsonb, #{row.diffDraft}::jsonb, #{row.refsJson}::jsonb,
+            #{row.confirmedBy}, #{row.confirmedAt},
+            #{row.aclPrincipals,typeHandler=com.tioka.ontology.infrastructure.PgTextArrayTypeHandler}::varchar[],
+            #{row.dataLabel}
+        )
+    </insert>
+
+    <select id="findByKey" resultMap="versionMap">
+        SELECT <include refid="columns"/>
+        FROM ont_instance_version
+        WHERE instance_key = #{instanceKey} AND version = #{version}
+    </select>
+
+    <select id="findLatestConfirmed" resultMap="versionMap">
+        SELECT <include refid="columns"/>
+        FROM ont_instance_version
+        WHERE instance_key = #{instanceKey} AND status = 'CONFIRMED'
+        ORDER BY confirmed_at DESC, version DESC
+        LIMIT 1
+    </select>
+
+    <select id="listConfirmedByStore" resultMap="versionMap">
+        SELECT <include refid="columns"/>
+        FROM ont_instance_version
+        WHERE store_key = #{storeKey} AND status = 'CONFIRMED'
+        ORDER BY confirmed_at DESC
+    </select>
+
+    <update id="supersedeOthers">
+        UPDATE ont_instance_version
+        SET status = 'SUPERSEDED'
+        WHERE instance_key = #{instanceKey} AND version != #{keepVersion} AND status = 'CONFIRMED'
+    </update>
+</mapper>
