@@ -126,6 +126,12 @@ final class KnowledgeInMemorySupport {
                 throw new UnsupportedOperationException();
             }
 
+
+            @Override
+            public com.tioka.model.api.capability.OcrResult ocr(ModelCallContext ctx,
+                    com.tioka.model.api.capability.OcrRequest request) {
+                throw new UnsupportedOperationException();
+            }
             @Override
             public EmbeddingResult embed(ModelCallContext ctx, EmbeddingRequest request) {
                 List<String> inputs = request.inputs() == null ? List.of() : request.inputs();

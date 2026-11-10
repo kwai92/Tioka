@@ -3,10 +3,13 @@ package com.tioka.model.application.gateway;
 import com.tioka.framework.error.BizException;
 import com.tioka.framework.error.ErrorCode;
 import com.tioka.model.api.FailoverEvent;
+import com.tioka.model.api.capability.OcrRequest;
+import com.tioka.model.api.capability.OcrResult;
 import com.tioka.model.api.gateway.ModelCallContext;
 import com.tioka.model.api.gateway.ModelGateway;
 import com.tioka.model.application.routing.RoutingPlanExecutor;
 import com.tioka.model.domain.ModelEntities;
+import com.tioka.model.infrastructure.provider.OcrEngine;
 import com.tioka.model.infrastructure.provider.ProviderClient;
 import com.tioka.model.infrastructure.provider.ProviderHttpException;
 import com.tioka.system.api.spi.QuotaGuard;
@@ -33,6 +36,7 @@ import java.util.function.Consumer;
 public class DefaultModelGateway implements ModelGateway {
     private final ModelBindingResolver resolver;
     private final ProviderClient provider;
+    private final OcrEngine ocrEngine;
     private final ModelEntities entities;
     private final ApplicationEventPublisher events;
     private final UsageRecorder usage;
@@ -46,6 +50,7 @@ public class DefaultModelGateway implements ModelGateway {
 
     public DefaultModelGateway(ModelBindingResolver resolver,
                                ProviderClient provider,
+                               OcrEngine ocrEngine,
                                ModelEntities entities,
                                ApplicationEventPublisher events,
                                UsageRecorder usage,
@@ -60,6 +65,7 @@ public class DefaultModelGateway implements ModelGateway {
                                ObjectProvider<RoutingPlanExecutor> routing) {
         this.resolver = resolver;
         this.provider = provider;
+        this.ocrEngine = ocrEngine;
         this.entities = entities;
         this.events = events;
         this.usage = usage;
@@ -504,7 +510,60 @@ public class DefaultModelGateway implements ModelGateway {
         }
     }
 
-    /** 非成功调用统一错误记账（embed / rerank 共用）：ERROR / 0 token。 */
+    /**
+     * DOC-02：OCR 能力。与 chat/embed/rerank 同走配额预检 → 绑定解析 → 预算 → 限流 →
+     * 适配器调用 → 记账。绑定解析以空间为作用域（数据标签随请求传递；ADR-040 去向许可
+     * 未建，登记偏差）。endpoint 未配置时适配器抛 {@code ocr_unavailable} 原因，
+     * 此处按 DEPENDENCY 透传（文档层据此把 OCR 队列任务标 FAILED）。
+     */
+    @Override
+    public OcrResult ocr(ModelCallContext ctx, OcrRequest request) {
+        if (request == null || request.imagePng() == null || request.imagePng().length == 0) {
+            throw new BizException(ErrorCode.BAD_REQUEST, "ocr image 必填");
+        }
+        precheck(ctx);
+        String forced = request.bindingId();
+        long t0 = System.nanoTime();
+        ModelBindingResolver.Resolution sel = null;
+        try {
+            sel = resolver.resolve(ctx, forced);
+            // 估算 token：页图像素量按 1/1024 字符折算，口径与 embed 一致（1 token ≈ 3 chars）
+            long est = Math.max(1L, request.imagePng().length / 1024L / 3L);
+            budget.check(sel.binding(), est);
+            long reserved = rateLimiter.acquire(sel.bindingId(),
+                    sel.binding().rpmLimit(), sel.binding().tpmLimit(), est);
+            if (ocrEngine == null) {
+                throw new BizException(ErrorCode.DEPENDENCY,
+                        "ocr_unavailable: 未装配 OCR 引擎");
+            }
+            OcrResult result = ocrEngine.recognize(
+                    sel.baseUrl(), sel.apiKeyRef(), sel.modelName(), request);
+            rateLimiter.reconcileTpm(sel.bindingId(), sel.binding().tpmLimit(), reserved, est);
+            account(ctx, sel, (int) Math.min(Integer.MAX_VALUE, est), 0, elapsedMs(t0), "SUCCESS");
+            return new OcrResult(result.lines(), sel.bindingId(),
+                    result.modelRef() == null ? sel.modelRef() : result.modelRef());
+        } catch (BizException e) {
+            accountError(ctx, sel, forced, elapsedMs(t0));
+            throw e;
+        } catch (ProviderHttpException e) {
+            if (sel != null) {
+                cooldown.recordFailure(sel.bindingId());
+            }
+            accountError(ctx, sel, forced, elapsedMs(t0));
+            throw new BizException(e.switchable() ? ErrorCode.MODEL_UNAVAILABLE : ErrorCode.MODEL_ERROR,
+                    upstreamMessage(e));
+        } catch (Exception e) {
+            if (sel != null) {
+                cooldown.recordFailure(sel.bindingId());
+            }
+            accountError(ctx, sel, forced, elapsedMs(t0));
+            // ocr_unavailable 等适配器原因原样透传，供文档层 FAILED 原因归因
+            throw new BizException(ErrorCode.DEPENDENCY, e.getMessage() == null
+                    ? "ocr 调用失败" : e.getMessage());
+        }
+    }
+
+    /** 非成功调用统一错误记账（embed / rerank / ocr 共用）：ERROR / 0 token。 */
     private void accountError(ModelCallContext ctx, ModelBindingResolver.Resolution sel,
                               String forced, int latencyMs) {
         if (sel != null) {

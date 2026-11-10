@@ -225,11 +225,12 @@ public class ModelAdminService {
         }
     }
 
-    /** 用途 → 期望 kind：CHAT/FLOW/DECISION/COMPACTION/EVALUATION/EXTRACTION → chat；EMBEDDING/RERANK 同名。 */
+    /** 用途 → 期望 kind：CHAT/FLOW/DECISION/COMPACTION/EVALUATION/EXTRACTION → chat；EMBEDDING/RERANK/OCR 同名。 */
     static boolean purposeKindMatches(String purpose, String kind) {
         String expected = switch (purpose) {
             case "EMBEDDING" -> "embedding";
             case "RERANK" -> "rerank";
+            case "OCR" -> "ocr";
             default -> "chat";
         };
         return expected.equals(kind == null ? "chat" : kind);
@@ -237,8 +238,8 @@ public class ModelAdminService {
 
     private static String normalizeKind(String kind) {
         String k = kind == null || kind.isBlank() ? "chat" : kind.trim().toLowerCase(Locale.ROOT);
-        if (!k.equals("chat") && !k.equals("embedding") && !k.equals("rerank")) {
-            throw new BizException(ErrorCode.BAD_REQUEST, "binding.kind 必须是 chat/embedding/rerank");
+        if (!k.equals("chat") && !k.equals("embedding") && !k.equals("rerank") && !k.equals("ocr")) {
+            throw new BizException(ErrorCode.BAD_REQUEST, "binding.kind 必须是 chat/embedding/rerank/ocr");
         }
         return k;
     }

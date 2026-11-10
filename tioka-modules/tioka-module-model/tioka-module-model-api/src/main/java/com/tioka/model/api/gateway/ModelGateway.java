@@ -1,5 +1,8 @@
 package com.tioka.model.api.gateway;
 
+import com.tioka.model.api.capability.OcrRequest;
+import com.tioka.model.api.capability.OcrResult;
+
 import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
@@ -20,6 +23,13 @@ public interface ModelGateway {
     EmbeddingResult embed(ModelCallContext ctx, EmbeddingRequest request);
 
     RerankResult rerank(ModelCallContext ctx, RerankRequest request);
+
+    /**
+     * OCR 能力（DOC-02 / ADR-061）：与 chat 同走配额、用量、审计与绑定路由。
+     * 输入页渲染 PNG（200 DPI）；OCR endpoint/模型未配置时抛 {@code MODEL_UNAVAILABLE}
+     * （原因 {@code ocr_unavailable}），由调用方（文档层解析队列）标 FAILED。
+     */
+    OcrResult ocr(ModelCallContext ctx, OcrRequest request);
 
     // ---- chat ----
 
