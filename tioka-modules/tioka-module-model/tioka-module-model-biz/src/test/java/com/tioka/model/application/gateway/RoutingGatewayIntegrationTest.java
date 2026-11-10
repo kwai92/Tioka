@@ -100,6 +100,7 @@ class RoutingGatewayIntegrationTest {
         return new DefaultModelGateway(
                 new ModelBindingResolver(entities, List.of()),
                 new ProviderClient(new MemorySecretStore(), mock(EgressClient.class), true, 8, new ObjectMapper()),
+                (com.tioka.model.infrastructure.provider.OcrEngine) (base, key, model, req) -> new com.tioka.model.api.capability.OcrResult(java.util.List.of(), null, "mock"),
                 entities,
                 mock(ApplicationEventPublisher.class),
                 new UsageRecorder(usageRepo),

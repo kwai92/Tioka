@@ -1,2 +1,3 @@
 com.tioka.ontology.config.OntologyAutoConfiguration
 com.tioka.ontology.config.OntologyDefinitionAutoConfiguration
+com.tioka.ontology.config.OntologyDocAutoConfiguration

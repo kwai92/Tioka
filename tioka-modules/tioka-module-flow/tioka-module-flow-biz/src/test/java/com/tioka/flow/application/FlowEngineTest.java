@@ -37,6 +37,12 @@ class FlowEngineTest {
             public RerankResult rerank(ModelCallContext ctx, RerankRequest request) {
                 return new RerankResult(List.of(), "bnd_mock");
             }
+
+            @Override
+            public com.tioka.model.api.capability.OcrResult ocr(ModelCallContext ctx,
+                    com.tioka.model.api.capability.OcrRequest request) {
+                throw new UnsupportedOperationException();
+            }
         };
         ObjectProvider<ModelGateway> gwProvider = provider(mockGw);
         List<NodeExecutor> executors = List.of(
