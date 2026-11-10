@@ -27,6 +27,7 @@ import java.util.regex.Pattern;
  *   <li>非 READ 写工具必须落入某个动作类别的 toolPatterns</li>
  *   <li>{@code actingAs=SERVICE} 时发布者对 serviceAccountId 有 USE</li>
  *   <li>动作类别 ceiling &gt; L2 时发布者须为空间管理员</li>
+ *   <li>MAS-02：delegable ⊆ 本授权书动作类别 ∪ subAgents 成员授权书动作类别</li>
  * </ul>
  */
 @Component
@@ -37,6 +38,7 @@ public class CharterPublishCheck implements PublishCheck {
     static final String CODE_UNCLASSIFIED = "CHARTER_TOOL_UNCLASSIFIED";
     static final String CODE_SA_FORBIDDEN = "CHARTER_SERVICE_ACCOUNT_FORBIDDEN";
     static final String CODE_CEILING_ADMIN = "CHARTER_CEILING_REQUIRES_ADMIN";
+    static final String CODE_DELEGABLE_INVALID = "CHARTER_DELEGABLE_INVALID";
     static final String CODE_INVALID = "CHARTER_INVALID";
 
     /** L2 及以下可由普通发布者发布；高于此须空间管理员（M3 用角色代替 GOV-06）。 */
@@ -75,6 +77,7 @@ public class CharterPublishCheck implements PublishCheck {
         checkWriteToolsClassified(spec, charter, errors);
         checkServiceAccountUse(charter, errors);
         checkCeilingRequiresAdmin(charter, errors);
+        checkDelegableScope(spec, charter, errors);
         return errors;
     }
 
@@ -157,6 +160,103 @@ public class CharterPublishCheck implements PublishCheck {
                         "动作类别等级上限高于 L2 须由空间管理员发布: " + ceiling));
             }
         }
+    }
+
+    /**
+     * MAS-02：可下放类别 ⊆ 本授权书动作类别 ∪ subAgents 成员授权书动作类别。
+     * 顶层 {@code delegable} 数组优先；缺省按 {@code actionClasses[].delegable=true} 派生（C-2b 兼容口径）。
+     * subAgents 为预留 JsonNode：null/空时仅本授权书类别即可；非空时尽力解析成员授权书
+     * （成员形态未定，解析失败不阻断——登记：成员类别并集完整校验待 subAgents 解冻后启用）。
+     */
+    private void checkDelegableScope(AgentSpec spec, JsonNode charter, List<PublishError> errors) {
+        List<String> requested = requestedDelegable(charter);
+        if (requested.isEmpty()) {
+            return;
+        }
+        Set<String> allowed = allowedDelegableScope(charter, spec.subAgents());
+        List<String> violations = new ArrayList<>();
+        for (String c : requested) {
+            if (!allowed.contains(c)) {
+                violations.add(c);
+            }
+        }
+        if (!violations.isEmpty()) {
+            errors.add(new PublishError(
+                    "/charter/delegable",
+                    CODE_DELEGABLE_INVALID,
+                    "delegable 含越界动作类别（须为本授权书类别 ∪ subAgents 成员授权书类别）: "
+                            + String.join(", ", violations)));
+        }
+    }
+
+    /** 待校验的可下放类别：顶层 delegable 数组优先，缺省按 delegable=true 标志派生。 */
+    private static List<String> requestedDelegable(JsonNode charter) {
+        JsonNode delegable = charter.get("delegable");
+        if (delegable != null && delegable.isArray()) {
+            List<String> out = new ArrayList<>();
+            for (JsonNode v : delegable) {
+                if (v != null && v.isTextual() && !v.asText().isBlank()) {
+                    out.add(v.asText().trim());
+                }
+            }
+            return out;
+        }
+        List<String> out = new ArrayList<>();
+        JsonNode classes = charter.get("actionClasses");
+        if (classes != null && classes.isArray()) {
+            for (JsonNode ac : classes) {
+                if (ac.path("delegable").asBoolean(false)) {
+                    String code = text(ac, "code");
+                    if (code != null && !code.isBlank()) {
+                        out.add(code);
+                    }
+                }
+            }
+        }
+        return out;
+    }
+
+    /** allowed = 本授权书 actionClasses codes ∪ subAgents 成员授权书 actionClasses codes（尽力解析）。 */
+    private static Set<String> allowedDelegableScope(JsonNode charter, JsonNode subAgents) {
+        Set<String> allowed = new HashSet<>();
+        JsonNode classes = charter.get("actionClasses");
+        if (classes != null && classes.isArray()) {
+            for (JsonNode ac : classes) {
+                String code = text(ac, "code");
+                if (code != null && !code.isBlank()) {
+                    allowed.add(code);
+                }
+            }
+        }
+        if (subAgents != null && subAgents.isArray()) {
+            for (JsonNode member : subAgents) {
+                if (member == null || !member.isObject()) {
+                    continue;
+                }
+                JsonNode memberCharter = member.get("charter");
+                if (memberCharter == null) {
+                    JsonNode innerSpec = member.get("spec");
+                    memberCharter = innerSpec == null ? null : innerSpec.get("charter");
+                }
+                if (memberCharter == null || !memberCharter.isObject()) {
+                    continue;
+                }
+                try {
+                    com.tioka.agent.api.spec.Charter parsed =
+                            com.tioka.agent.api.spec.Charter.parse(memberCharter);
+                    if (parsed != null && parsed.actionClasses() != null) {
+                        for (com.tioka.agent.api.spec.Charter.ActionClass ac : parsed.actionClasses()) {
+                            if (ac.code() != null && !ac.code().isBlank()) {
+                                allowed.add(ac.code());
+                            }
+                        }
+                    }
+                } catch (RuntimeException ignored) {
+                    // 尽力解析：subAgents 成员形态未定（预留段），解析失败不阻断发布
+                }
+            }
+        }
+        return allowed;
     }
 
     /**

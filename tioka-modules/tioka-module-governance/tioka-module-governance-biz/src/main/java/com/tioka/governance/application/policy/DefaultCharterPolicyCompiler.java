@@ -111,11 +111,13 @@ public class DefaultCharterPolicyCompiler implements CharterPolicyCompilerApi {
                 PolicyStore.SOURCE_CHARTER_PREFIX + agentVersionId, PolicyMode.ENFORCE.name());
     }
 
-    /** 禁区策略按委派链编写（供 MAS-02 让祖先禁区生效）：chain.contains 条件口径照 M3-01 L146。 */
+    /** 禁区策略按委派链编写（供 MAS-02 让祖先禁区生效）：chain.contains 条件口径照 M3-01 L146。
+     * 实体列表字面量必须用完整类型 {@code Tioka::Action::"..."}——短写 {@code Action::"..."}
+     * 解析通过但静默不匹配（实测登记，C-2c 修正）。 */
     private PolicyStore.CedarPolicySpec forbiddenToolSpec(String agv, String classCode,
                                                           List<String> forbiddenTools, String agvCond) {
         String tools = forbiddenTools.stream()
-                .map(t -> "Action::\"" + CedarSchemaProvider.sanitize(t) + "\"")
+                .map(t -> "Tioka::Action::\"" + CedarSchemaProvider.sanitize(t) + "\"")
                 .reduce((a, b) -> a + ", " + b).orElse("");
         String text = "@id(\"%s\")\n@effect(\"DENY\")\nforbid(principal, action in Tioka::Action::\"%s\", resource)\nwhen { %s && action in [%s] };"
                 .formatted(id(agv, classCode, "forbidden-tool"),

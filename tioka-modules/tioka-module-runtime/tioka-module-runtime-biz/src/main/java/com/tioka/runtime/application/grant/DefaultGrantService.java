@@ -161,6 +161,8 @@ public class DefaultGrantService implements GrantService {
 
     /**
      * 父授权书 delegable 类别（MAS-02）：取父授予链当前 hop 版本的类型化 Charter。
+     * 授权书解析成功 → 顶层 delegable（缺省按标志派生），可为空集——delegable=[]
+     * 意味着父授权书不可下放，子授予动作类别收窄为空（子 Agent 写类操作全 DENY）；
      * 快照缺失 / 无授权书 / 解析失败 → 父授予 actionClasses（兼容回退）。
      */
     private Set<String> parentCharterClasses(DelegationGrant parent) {
@@ -178,8 +180,7 @@ public class DefaultGrantService implements GrantService {
             if (charter == null) {
                 return fallback;
             }
-            Set<String> delegable = Set.copyOf(charter.delegableClasses());
-            return delegable.isEmpty() ? fallback : delegable;
+            return Set.copyOf(charter.delegableClasses());
         } catch (RuntimeException e) {
             log.debug("父授权书 delegable 解析失败 version={}: {}", parentVersionId, e.toString());
             return fallback;
