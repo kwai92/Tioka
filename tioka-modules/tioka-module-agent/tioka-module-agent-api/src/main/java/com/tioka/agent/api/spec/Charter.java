@@ -20,9 +20,16 @@ public record Charter(
         String serviceAccountId,
         List<ActionClass> actionClasses,
         List<String> forbiddenTools,
+        List<String> delegable,
         JsonNode escalation,
         JsonNode kpis,
         String reviewEvery) {
+
+    public Charter {
+        if (delegable == null) {
+            delegable = List.of();
+        }
+    }
 
     /** 按工具名解析动作类别（toolPatterns glob 匹配；READ 未归类工具返回 null）。 */
     public ActionClass classify(String toolName) {
@@ -39,8 +46,14 @@ public record Charter(
         return null;
     }
 
-    /** delegable = true 的动作类别代码（MAS-02：父授权书可下放类别）。 */
+    /**
+     * 可下放动作类别代码（MAS-02：父授权书可下放类别）。
+     * 顶层 {@code delegable} 列表非空时优先；缺省按 {@link ActionClass#delegable()} 标志派生（C-2b 兼容口径）。
+     */
     public List<String> delegableClasses() {
+        if (delegable != null && !delegable.isEmpty()) {
+            return delegable;
+        }
         List<String> out = new ArrayList<>();
         if (actionClasses != null) {
             for (ActionClass ac : actionClasses) {
@@ -85,6 +98,7 @@ public record Charter(
                 text(node, "serviceAccountId"),
                 parseClasses(node.get("actionClasses")),
                 parseStrings(node.get("forbiddenTools")),
+                parseStrings(node.get("delegable")),
                 node.get("escalation"),
                 node.get("kpis"),
                 text(node, "reviewEvery"));

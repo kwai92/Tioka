@@ -106,7 +106,8 @@ class CharterCompilerTest {
     void forbiddenToolTextShape() {
         PolicyStore.CedarPolicySpec s = specOf(
                 compiler.compileToSpecs(cmd(List.of(fullPayClass()), List.of("mcp.drop.table"))), "forbidden-tool");
-        assertTrue(s.cedarText().contains("action in [Action::\"mcp.drop.table\"]"), s.cedarText());
+        // 实体列表字面量须完整类型 Tioka::Action::"..."（短写 Action::"..." 静默不匹配，C-2c 修正）
+        assertTrue(s.cedarText().contains("action in [Tioka::Action::\"mcp.drop.table\"]"), s.cedarText());
     }
 
     @Test
