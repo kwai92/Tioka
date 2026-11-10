@@ -95,7 +95,7 @@ class PolicyEvalStepTest {
             """;
 
     private static AgentSnapshotApi.AgentSnapshot snapshot(AgentSpec spec) {
-        return new AgentSnapshotApi.AgentSnapshot("av1", "ag1", 1, "ws1", "u1", "hash", spec);
+        return new AgentSnapshotApi.AgentSnapshot("av1", "ag1", 1, "ws1", "u1", "hash", spec, null);
     }
 
     private static ToolGateway.ToolCallContext call(String grantId) {

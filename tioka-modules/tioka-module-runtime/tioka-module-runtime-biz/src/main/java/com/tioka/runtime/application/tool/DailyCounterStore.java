@@ -21,6 +21,16 @@ public interface DailyCounterStore {
     DailyUsage add(String agentId, String actionClass, LocalDate day,
                    long amountMicros, long records);
 
+    /**
+     * 撤销成功后扣回当日累计（TRU-07 补偿链，明确语义：减法而非负数 add）。
+     * 扣减下限为 0（不出现负累计）；异常不阻断补偿主链（Redis 丢失由重算兜底，
+     * 重算口径为「APPLIED 且未撤销」，COMPENSATED 动作天然不计入）。
+     *
+     * @return 扣回后的当日用量
+     */
+    DailyUsage deduct(String agentId, String actionClass, LocalDate day,
+                      long amountMicros, long records);
+
     /** 读当日用量；Redis 不可用时返回 {@code DailyUsage.unknownUsage()}（按已用满处理）。 */
     DailyUsage get(String agentId, String actionClass, LocalDate day);
 

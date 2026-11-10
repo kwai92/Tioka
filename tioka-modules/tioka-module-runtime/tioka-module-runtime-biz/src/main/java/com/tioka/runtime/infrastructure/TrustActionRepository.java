@@ -1,6 +1,7 @@
 package com.tioka.runtime.infrastructure;
 
 import com.tioka.runtime.infrastructure.mapper.TrustActionMapper;
+import com.tioka.runtime.application.trust.TrustActionStore;
 import com.tioka.runtime.infrastructure.persistence.TrustActionDO;
 import org.springframework.stereotype.Repository;
 
@@ -10,7 +11,7 @@ import java.time.LocalDateTime;
  * trust_action 仓储（V144 / TRU-05）。application 经本类访问，禁止直持 Mapper。
  */
 @Repository
-public class TrustActionRepository {
+public class TrustActionRepository implements TrustActionStore {
     private final TrustActionMapper mapper;
 
     public TrustActionRepository(TrustActionMapper mapper) {
@@ -50,5 +51,32 @@ public class TrustActionRepository {
     public java.util.List<TrustActionDO> listAppliedInDay(String agentId, String actionClass,
                                                           LocalDateTime fromUtc, LocalDateTime toUtc) {
         return mapper.listAppliedInDay(agentId, actionClass, fromUtc, toUtc);
+    }
+
+    // ---------- TRU-07 撤销 / 补偿 ----------
+
+    /** 范围内的 APPLIED 动作按 seq 倒序（撤销流程选动作）。 */
+    public java.util.List<TrustActionDO> listAppliedInScope(String scopeType, String scopeId) {
+        return mapper.listAppliedInScope(scopeType, scopeId);
+    }
+
+    /** 同组全部 COMPENSATING 动作按 seq 正序（失败停组 / 展示）。 */
+    public java.util.List<TrustActionDO> listCompensatingInScope(String scopeType, String scopeId) {
+        return mapper.listCompensatingInScope(scopeType, scopeId);
+    }
+
+    /** 标 COMPENSATING 时回填范围与补偿顺序号。 */
+    public void markCompensatingMeta(String id, String scopeType, String scopeId, int seq) {
+        mapper.markCompensatingMeta(id, scopeType, scopeId, seq);
+    }
+
+    /** 补偿重试计数 +1，返回累计次数。 */
+    public int bumpUndoAttempts(String id) {
+        return mapper.bumpUndoAttempts(id);
+    }
+
+    /** 熔断计数查询：1h 窗口内同 Agent 被撤销次数（V202 口径由调用方判定）。 */
+    public int countCompensatedInWindow(String agentId, LocalDateTime fromUtc, LocalDateTime toUtc) {
+        return mapper.countCompensatedInWindow(agentId, fromUtc, toUtc);
     }
 }

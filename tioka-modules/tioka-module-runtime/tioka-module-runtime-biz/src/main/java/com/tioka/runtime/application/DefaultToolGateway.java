@@ -5,6 +5,7 @@ import com.tioka.framework.error.BizException;
 import com.tioka.framework.error.ErrorCode;
 import com.tioka.framework.id.Ids;
 import com.tioka.framework.security.Principal;
+import com.tioka.governance.api.autonomy.AutonomyDecision;
 import com.tioka.runtime.api.approval.ApprovalPolicy;
 import com.tioka.runtime.api.approval.ApprovalRequestContexts;
 import com.tioka.runtime.api.approval.ToolRisk;
@@ -73,6 +74,7 @@ public class DefaultToolGateway implements ToolGateway {
     private final ApprovalPolicyResolver policies;
     private final ToolPipelineStepRegistry pipelineSteps;
     private final ObjectProvider<com.tioka.runtime.application.tool.DailyCounterStore> dailyCounters;
+    private final ObjectProvider<com.tioka.governance.api.autonomy.AutonomyApi> autonomyApi;
 
     public DefaultToolGateway(ToolRegistry registry,
                               ToolCallPipeline pipeline,
@@ -84,7 +86,8 @@ public class DefaultToolGateway implements ToolGateway {
                               ChangeSetFactory changeSets,
                               ApprovalPolicyResolver policies,
                               ToolPipelineStepRegistry pipelineSteps,
-                              ObjectProvider<com.tioka.runtime.application.tool.DailyCounterStore> dailyCounters) {
+                              ObjectProvider<com.tioka.runtime.application.tool.DailyCounterStore> dailyCounters,
+                              ObjectProvider<com.tioka.governance.api.autonomy.AutonomyApi> autonomyApi) {
         this.registry = registry;
         this.pipeline = pipeline;
         this.grants = grants;
@@ -98,6 +101,7 @@ public class DefaultToolGateway implements ToolGateway {
                 ? new ToolPipelineStepRegistry(List.of())
                 : pipelineSteps;
         this.dailyCounters = dailyCounters;
+        this.autonomyApi = autonomyApi;
     }
 
     @Override
@@ -169,13 +173,24 @@ public class DefaultToolGateway implements ToolGateway {
                 ? (risk == ToolRisk.READ ? Reversibility.NONE : Reversibility.IRREVERSIBLE)
                 : desc.reversibility();
 
+        ToolInvocation inv = new ToolInvocation(name, ac.args());
+        ChangeSet changeSet;
+        if (ac.provider() instanceof TransactionalTool tx) {
+            changeSet = tx.preview(inv);
+        } else {
+            changeSet = changeSets.estimatedFromArgs(name, inv);
+        }
+
         // P3-00b / K1b：按序号跑已注册步骤；空注册表无副作用（行为 = 现状）
         ToolPipelineContext pipeCtx = new ToolPipelineContext(ctx, name, ac.args());
+        pipeCtx.put("pipeline.risk", risk.name());
+        pipeCtx.put("pipeline.reversibility", rev.name());
+        pipeCtx.put("pipeline.estimated", changeSet != null && changeSet.estimated());
         ToolPipelineVerdict pipeVerdict;
         try {
             pipeVerdict = pipelineSteps.run(pipeCtx);
         } catch (BizException e) {
-            // 第 9 步策略 DENY（POLICY_DENIED 40340）：审计拒绝原因（含策略 @id）后原样抛出
+            // 第 9/10 步 DENY（POLICY_DENIED 40340 / 自治判定拒绝）：审计拒绝原因后原样抛出
             auditDenied(ctx, name, ac.args(), e.getMessage(), 9, 0);
             throw e;
         }
@@ -190,32 +205,67 @@ public class DefaultToolGateway implements ToolGateway {
                             + (stepName == null ? "escalate" : stepName));
             GateDecision gate = toGate(escalated);
             PolicyOutcome policy = toPolicy(escalated);
-            ToolInvocation inv = new ToolInvocation(name, ac.args());
-            ChangeSet changeSet = changeSets.estimatedFromArgs(name, inv);
             String itemId = Ids.newId("itm");
             String agentId = ctx.agentVersionId() == null ? "" : ctx.agentVersionId();
             TrustActionDO row = preparedCalls.insertProposed(
-                    ctx, agentId, name, name, risk, rev, gate, inv, changeSet, itemId);
+                    ctx, agentId, name, name, risk, rev, gate, inv, changeSet, itemId, null);
             return new PreparedCall(row.getId(), row.getActionClass(), changeSet, policy, gate);
         }
 
-        ToolInvocation inv = new ToolInvocation(name, ac.args());
-        ChangeSet changeSet;
-        if (ac.provider() instanceof TransactionalTool tx) {
-            changeSet = tx.preview(inv);
+        // TRU-09：第 10 步自治判定结果驱动 gate；步骤缺失（特性关闭）退回 agent-config
+        // 审批策略（ADR-033 L116：ApprovalPolicy SPI 不删除，由 autonomy 承接，登记切换口径）
+        GateDecision gate;
+        PolicyOutcome policy;
+        String autonomyLevel = autonomyLevelOf(pipeCtx);
+        AutonomyDecision auto = readAutonomyDecision(pipeCtx);
+        if (auto != null) {
+            gate = toGate(auto);
+            policy = toPolicy(auto);
         } else {
-            changeSet = changeSets.estimatedFromArgs(name, inv);
+            ApprovalPolicy.Decision decision = evaluatePolicy(ctx, name, ac.args(), desc);
+            gate = toGate(decision);
+            policy = toPolicy(decision);
         }
-
-        ApprovalPolicy.Decision decision = evaluatePolicy(ctx, name, ac.args(), desc);
-        GateDecision gate = toGate(decision);
-        PolicyOutcome policy = toPolicy(decision);
 
         String itemId = Ids.newId("itm");
         String agentId = ctx.agentVersionId() == null ? "" : ctx.agentVersionId();
         TrustActionDO row = preparedCalls.insertProposed(
-                ctx, agentId, name, name, risk, rev, gate, inv, changeSet, itemId);
+                ctx, agentId, name, name, risk, rev, gate, inv, changeSet, itemId, autonomyLevel);
         return new PreparedCall(row.getId(), row.getActionClass(), changeSet, policy, gate);
+    }
+
+    private static AutonomyDecision readAutonomyDecision(ToolPipelineContext pipeCtx) {
+        String name = pipeCtx.get("autonomy.decision", String.class);
+        if (name == null || name.isBlank()) {
+            return null;
+        }
+        try {
+            return AutonomyDecision.valueOf(name);
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
+    }
+
+    private static String autonomyLevelOf(ToolPipelineContext pipeCtx) {
+        Integer level = pipeCtx.get("autonomy.level", Integer.class);
+        return level == null ? null : "L" + level;
+    }
+
+    private static GateDecision toGate(AutonomyDecision d) {
+        return switch (d) {
+            case AUTO_COMMIT -> GateDecision.AUTO_COMMIT;
+            case REQUIRE_APPROVAL -> GateDecision.REQUIRE_APPROVAL;
+            case SHADOW_ONLY -> GateDecision.SHADOW_ONLY;
+            case DENIED -> GateDecision.DENIED;
+        };
+    }
+
+    private static PolicyOutcome toPolicy(AutonomyDecision d) {
+        return switch (d) {
+            case AUTO_COMMIT, SHADOW_ONLY -> PolicyOutcome.ALLOW;
+            case REQUIRE_APPROVAL -> PolicyOutcome.ESCALATE;
+            case DENIED -> PolicyOutcome.DENY;
+        };
     }
 
     @Override
@@ -245,6 +295,7 @@ public class DefaultToolGateway implements ToolGateway {
                 ChangeSet.ApplyReceipt receipt = tx.apply(inv, approved, row.getItemId());
                 preparedCalls.markApplied(row, receipt);
                 recordDailyUsage(row, approved);
+                recordAutoCommitForSampling(row);
                 ToolProvider.ToolResult ok = new ToolProvider.ToolResult(true, writeJson(receipt));
                 auditInvoke(ctx, ctx == null ? null : ctx.principal(), row.getToolName(),
                         inv.arguments(), ok, true, System.currentTimeMillis() - t0, null);
@@ -256,6 +307,7 @@ public class DefaultToolGateway implements ToolGateway {
                 preparedCalls.markApplied(row, new ChangeSet.ApplyReceipt(
                         row.getItemId(), Map.of(), Instant.now()));
                 recordDailyUsage(row, approved);
+                recordAutoCommitForSampling(row);
             } else {
                 preparedCalls.markFailed(row, result.content());
             }
@@ -289,6 +341,34 @@ public class DefaultToolGateway implements ToolGateway {
         long records = totals == null ? 0 : totals.records();
         counters.add(row.getAgentId(), row.getActionClass(),
                 java.time.LocalDate.now(java.time.ZoneId.of("Asia/Shanghai")), amount, records);
+    }
+
+    /**
+     * TRU-09：L3/L4 自动提交动作登记（stats + 事后抽检采样，ADR-034「事后抽检」）。
+     * 失败不阻断 commit。
+     */
+    private void recordAutoCommitForSampling(TrustActionDO row) {
+        if (row.getAutonomyLevel() == null
+                || !GateDecision.AUTO_COMMIT.name().equals(row.getGate())) {
+            return;
+        }
+        int level;
+        try {
+            level = Integer.parseInt(row.getAutonomyLevel().trim().replace("L", ""));
+        } catch (NumberFormatException e) {
+            return;
+        }
+        com.tioka.governance.api.autonomy.AutonomyApi api = autonomyApi.getIfAvailable();
+        if (api == null) {
+            return;
+        }
+        try {
+            api.recordAutoCommit(row.getAgentId(), row.getAgentVersionId(), row.getActionClass(),
+                    level, row.getId(),
+                    row.getWorkspaceId());
+        } catch (RuntimeException e) {
+            log.warn("recordAutoCommit 登记失败: {}", e.toString());
+        }
     }
 
     private ToolProvider.ToolResult callTracked(ToolCallContext ctx, String name, Map<String, Object> args) {

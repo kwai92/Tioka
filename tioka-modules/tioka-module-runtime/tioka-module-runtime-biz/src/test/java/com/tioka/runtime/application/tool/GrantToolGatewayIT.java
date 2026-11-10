@@ -173,7 +173,8 @@ class GrantToolGatewayIT {
                 mock(com.tioka.runtime.application.gateway.ChangeSetFactory.class),
                 mock(ApprovalPolicyResolver.class),
                 new com.tioka.runtime.application.pipeline.ToolPipelineStepRegistry(List.of()),
-                (ObjectProvider<com.tioka.runtime.application.tool.DailyCounterStore>) mock(ObjectProvider.class));
+                (ObjectProvider<com.tioka.runtime.application.tool.DailyCounterStore>) mock(ObjectProvider.class),
+                (ObjectProvider<com.tioka.governance.api.autonomy.AutonomyApi>) mock(ObjectProvider.class));
         List<ToolProvider.ToolDescriptor> tools = gw.listTools(ctx("grt_child"));
         assertTrue(tools.stream().anyMatch(d -> d.name().equals("echo")));
         assertFalse(tools.stream().anyMatch(d -> d.name().equals("biz.erp.writeOff")),

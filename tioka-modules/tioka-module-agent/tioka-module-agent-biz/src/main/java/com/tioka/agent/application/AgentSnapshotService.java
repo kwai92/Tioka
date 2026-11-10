@@ -91,6 +91,7 @@ public class AgentSnapshotService implements AgentSnapshotApi {
                 agent.workspaceId(),
                 owner,
                 row.getSnapshotHash(),
-                spec);
+                spec,
+                row.getPublishedAt() == null ? null : row.getPublishedAt().toInstant(java.time.ZoneOffset.UTC));
     }
 }
