@@ -23,6 +23,8 @@ public enum ErrorCode {
     GRANT_NOT_NARROWER(40330, 403, "委派收窄校验失败"),
     /** 委派授予已失效（REAPED / REVOKED / 过期）（ADR-039 MAS-01），HTTP 403。 */
     GRANT_INACTIVE(40331, 403, "委派授予已失效"),
+    /** 数据标签超出 binding 所属去向许可，单 binding 剔除事件（DAT-03 / ADR-040），HTTP 403。 */
+    DATA_LABEL_EXCEEDED(40332, 403, "数据标签超出模型去向许可"),
     /** 撤销期已过（TRU-07 / ADR-033），HTTP 409。 */
     UNDO_WINDOW_CLOSED(40910, 409, "撤销期已过"),
     /** 策略引擎 DENY（GOV-07 管线第 9 步 / TRU-02 授权书编译），HTTP 403。 */
@@ -31,6 +33,8 @@ public enum ErrorCode {
     POLICY_EVAL_FAILED(40341, 403, "策略求值失败"),
     /** Agent 发布校验失败（AST-01/AST-02），HTTP 422。 */
     AGENT_PUBLISH_INVALID(42201, 422, "Agent 发布校验失败"),
+    /** Turn 当前数据标签下无获准的模型路由计划（DAT-03 / ADR-040），HTTP 422。 */
+    NO_ELIGIBLE_MODEL(42210, 422, "当前对话数据标签下没有获准的模型"),
     /** Agent 已停用，HTTP 423。 */
     AGENT_DISABLED(42300, 423, "Agent 已停用"),
     RATE_LIMITED(42900, 429, "请求过于频繁"),

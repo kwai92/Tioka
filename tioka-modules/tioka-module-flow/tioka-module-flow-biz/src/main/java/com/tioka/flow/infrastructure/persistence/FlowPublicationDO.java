@@ -13,9 +13,13 @@ public class FlowPublicationDO extends BaseDO {
     @TableId(type = IdType.INPUT)
     private String toolName;
     private String versionId;
+    /** DAT-04（V165）：发布时计算的 requiredCapabilities。 */
+    private String requiredCapabilitiesJson;
 
     public String getToolName() { return toolName; }
     public void setToolName(String toolName) { this.toolName = toolName; }
     public String getVersionId() { return versionId; }
     public void setVersionId(String versionId) { this.versionId = versionId; }
+    public String getRequiredCapabilitiesJson() { return requiredCapabilitiesJson; }
+    public void setRequiredCapabilitiesJson(String requiredCapabilitiesJson) { this.requiredCapabilitiesJson = requiredCapabilitiesJson; }
 }

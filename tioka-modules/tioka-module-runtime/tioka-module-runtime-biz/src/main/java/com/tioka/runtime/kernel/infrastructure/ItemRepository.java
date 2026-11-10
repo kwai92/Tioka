@@ -32,7 +32,8 @@ public class ItemRepository {
     public RuntimeItemDO appendWithoutLease(ItemWrite write) {
         ItemWrite w = write.leaseVersion() == null ? write
                 : new ItemWrite(write.threadId(), write.turnId(), null, write.seq(),
-                write.step(), write.type(), write.role(), write.contentJson(), write.tokenCount());
+                write.step(), write.type(), write.role(), write.contentJson(), write.tokenCount(),
+                write.dataLabel());
         return write(w);
     }
 
@@ -90,6 +91,7 @@ public class ItemRepository {
         item.setRole(w.role());
         item.setContentJson(w.contentJson());
         item.setTokenCount(w.tokenCount());
+        item.setDataLabel(w.dataLabel());
         item.setDiscarded(false);
         return item;
     }

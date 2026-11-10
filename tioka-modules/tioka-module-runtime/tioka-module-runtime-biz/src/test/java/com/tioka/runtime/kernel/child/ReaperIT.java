@@ -74,7 +74,21 @@ class ReaperIT {
                 new com.tioka.runtime.config.KernelProperties(), mapper(),
                 (org.springframework.beans.factory.ObjectProvider<com.tioka.agent.api.AgentSnapshotApi>) mock(org.springframework.beans.factory.ObjectProvider.class));
         reaper = new SubAgentReaper(threads, turns, items, approvals, grantStore, grantService,
-                registry, router, mapper(), appEvents);
+                registry, router, mapper(), appEvents,
+                new com.tioka.runtime.application.label.TurnLabelTracker(
+                        new com.tioka.runtime.application.label.ThreadLabelStore() {
+                            private final java.util.Map<String, String> labels = new java.util.HashMap<>();
+
+                            @Override
+                            public String current(String threadId) {
+                                return labels.get(threadId);
+                            }
+
+                            @Override
+                            public void update(String threadId, com.tioka.framework.label.DataLabel label) {
+                                labels.put(threadId, label.name());
+                            }
+                        }));
         when(grantStore.casBody(anyString(), any(GrantBody.class), any(GrantBody.class))).thenReturn(true);
 
         child = new GrantBody(grant("grt_child", "grt_parent",

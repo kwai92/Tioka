@@ -39,6 +39,13 @@ public class ToolRegistry {
         return Optional.empty();
     }
 
+    /** 工具所属 MCP serverId（DAT-02 SinkGuard sink_ref 用）；非 MCP 工具为空。 */
+    public Optional<String> mcpServerIdOf(String agentVersionId, String toolName,
+                                          Map<String, Object> agentToolConfig) {
+        return resolve(agentVersionId, agentToolConfig, toolName)
+                .flatMap(r -> r.provider().mcpServerId(agentVersionId, toolName, agentToolConfig));
+    }
+
     public List<ToolProvider.ToolDescriptor> listAll(String agentVersionId) {
         return listAll(agentVersionId, Map.of());
     }

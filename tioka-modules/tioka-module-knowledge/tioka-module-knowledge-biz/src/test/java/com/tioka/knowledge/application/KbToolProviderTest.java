@@ -22,7 +22,10 @@ class KbToolProviderTest {
         var kb = knowledge.createBase("ws", "tools");
         var doc = knowledge.ingest(kb.id(), "doc", "citationId must appear in kb.search results for Tioka", "upload");
 
-        KbToolProvider provider = new KbToolProvider(knowledge, mapper);
+        KbToolProvider provider = new KbToolProvider(knowledge,
+                (org.springframework.beans.factory.ObjectProvider<com.tioka.runtime.api.grant.GrantService>)
+                        org.mockito.Mockito.mock(org.springframework.beans.factory.ObjectProvider.class),
+                mapper);
         // ToolRegistry 聚合 ToolProvider；此处直接验证 SPI 契约（Echo 之外）
         List<String> names = provider.listTools("agent_v1").stream().map(ToolProvider.ToolDescriptor::name).toList();
         assertTrue(names.contains("kb.search"));

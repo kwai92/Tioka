@@ -11,6 +11,7 @@ import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 /** AST-02 #10：JSON Schema + 预留字段必须为 null。回滚跳过。 */
 @Component
@@ -42,11 +43,25 @@ public class SchemaPublishCheck implements PublishCheck {
         if (isSet(spec.subAgents())) {
             errors.add(new PublishError("/subAgents", "RESERVED_FIELD", "M1 预留字段 subAgents 必须为 null"));
         }
-        if (spec.dataClearance() != null) {
-            errors.add(new PublishError("/dataClearance", "RESERVED_FIELD", "M1 预留字段 dataClearance 必须为 null"));
+        // DAT-01 解冻（M3-02）：dataClearance 校验合法枚举值（null = 缺省 INTERNAL）
+        if (spec.dataClearance() != null && !VALID_CLEARANCE.contains(spec.dataClearance())) {
+            errors.add(new PublishError("/dataClearance", "SCHEMA_INVALID",
+                    "dataClearance 须为 PUBLIC/INTERNAL/CONFIDENTIAL/SECRET 之一"));
+        }
+        if (spec.datasets() != null) {
+            for (int i = 0; i < spec.datasets().size(); i++) {
+                String d = spec.datasets().get(i);
+                if (d == null || d.isBlank()) {
+                    errors.add(new PublishError("/datasets/" + i, "SCHEMA_INVALID",
+                            "datasets 条目不得为空"));
+                }
+            }
         }
         return errors;
     }
+
+    private static final Set<String> VALID_CLEARANCE =
+            Set.of("PUBLIC", "INTERNAL", "CONFIDENTIAL", "SECRET");
 
     private static boolean isSet(JsonNode node) {
         return node != null && !node.isNull() && !node.isMissingNode();

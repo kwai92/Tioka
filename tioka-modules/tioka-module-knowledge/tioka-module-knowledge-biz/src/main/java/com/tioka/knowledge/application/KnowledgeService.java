@@ -244,6 +244,12 @@ public class KnowledgeService implements KnowledgeSearchApi {
      * KNW-02：权限过滤 → 向量召回（下推 ACL）。{@code kbIds == null} 表示当前空间内全部可见知识库。
      */
     public List<RetrievalHit> retrieve(List<String> kbIds, String query, int topK) {
+        return retrieve(kbIds, query, topK, null);
+    }
+
+    /** DAT-02：带 maxDataLabel 的检索——有效标签（kb/doc 最大值）超限的文档被过滤掉（ADR-040）。 */
+    public List<RetrievalHit> retrieve(List<String> kbIds, String query, int topK,
+                                       com.tioka.framework.label.DataLabel maxDataLabel) {
         VisibilityFilter vf = guard.filter("kb", AccessLevel.USE);
         List<String> allowed = null;
         if (kbIds != null) {
@@ -313,8 +319,17 @@ public class KnowledgeService implements KnowledgeSearchApi {
             byKey.putIfAbsent(sc.chunkId(), sc);
         }
 
+        final com.tioka.framework.label.DataLabel labelCeiling = maxDataLabel;
         return fused.entrySet().stream()
                 .sorted(Map.Entry.<String, Double>comparingByValue().reversed())
+                // DAT-02：标签过滤在 limit 之前（可返回少于 topK，登记口径）
+                .filter(e -> {
+                    if (labelCeiling == null) {
+                        return true;
+                    }
+                    ScoredChunk sc0 = byKey.get(e.getKey());
+                    return KbLabels.readable(effectiveLabel(sc0.kbId(), sc0.docId()), labelCeiling);
+                })
                 .limit(limit)
                 .map(e -> {
                     ScoredChunk sc = byKey.get(e.getKey());
@@ -331,6 +346,21 @@ public class KnowledgeService implements KnowledgeSearchApi {
                             sc.title(), citationId);
                 })
                 .toList();
+    }
+
+    /** DAT-02：hit 的有效数据标签 = max(kb_base.data_label, kb_document.data_label)。 */
+    public com.tioka.framework.label.DataLabel effectiveLabel(String kbId, String docId) {
+        String kbLabel = null;
+        String docLabel = null;
+        if (kbId != null) {
+            KbBaseDO base = repo.findBase(kbId);
+            kbLabel = base == null ? null : base.getDataLabel();
+        }
+        if (docId != null) {
+            KbDocumentDO doc = repo.findDocument(docId);
+            docLabel = doc == null ? null : doc.getDataLabel();
+        }
+        return KbLabels.effective(kbLabel, docLabel);
     }
 
     public Citation resolveCitation(String citationId) {

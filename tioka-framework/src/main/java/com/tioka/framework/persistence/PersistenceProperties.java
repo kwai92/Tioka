@@ -80,7 +80,9 @@ public class PersistenceProperties {
             // TRU-09 / V203：自治等级（等级 per Agent×类别，Agent 全局唯一，无 workspace_id）
             "trust_autonomy",
             "trust_autonomy_event",
-            "trust_autonomy_stats"
+            "trust_autonomy_stats",
+            // DAT-01 / V163：行列策略（PK dataset_id+version，随数据集归属，无 workspace_id）
+            "data_dataset_policy"
     ));
 
     public List<String> getWorkspaceScopeExemptTables() {

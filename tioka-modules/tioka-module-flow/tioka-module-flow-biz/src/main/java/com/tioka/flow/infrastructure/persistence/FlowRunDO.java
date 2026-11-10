@@ -10,6 +10,8 @@ public class FlowRunDO extends BaseDO {
     private String versionId;
     private String status;
     private String traceJson;
+    /** DAT-04（V165）：Agent 工具形态携带的调用方授予 ID。 */
+    private String grantId;
     public String getId() { return id; }
     public void setId(String id) { this.id = id; }
     public String getVersionId() { return versionId; }
@@ -18,4 +20,6 @@ public class FlowRunDO extends BaseDO {
     public void setStatus(String status) { this.status = status; }
     public String getTraceJson() { return traceJson; }
     public void setTraceJson(String traceJson) { this.traceJson = traceJson; }
+    public String getGrantId() { return grantId; }
+    public void setGrantId(String grantId) { this.grantId = grantId; }
 }

@@ -112,7 +112,7 @@ public final class RoutingTestHarness {
             }
         };
         return new RoutingPlanExecutor(resolver, entities, telemetry, source, registry,
-                List.of(), Duration.ofMillis(1500));
+                List.of(), Duration.ofMillis(1500), (com.tioka.model.application.routing.PlanLabelGate) null);
     }
 
     String newBinding(String name) {

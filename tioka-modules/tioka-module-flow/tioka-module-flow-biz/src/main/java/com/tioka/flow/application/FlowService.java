@@ -64,6 +64,11 @@ public class FlowService {
     }
 
     public FlowRun run(String versionId, Map<String, Object> input) {
+        return run(versionId, input, null);
+    }
+
+    /** DAT-04：Agent 工具形态携带调用方 grantId（flow_run.grant_id，V165）。 */
+    public FlowRun run(String versionId, Map<String, Object> input, String grantId) {
         FlowVersionDO ver = repo.findVersion(versionId);
         if (ver == null || !Boolean.TRUE.equals(ver.getPublished())) {
             throw new BizException(ErrorCode.BAD_REQUEST, "Flow 未发布");
@@ -71,7 +76,7 @@ public class FlowService {
         // FLW-02：加载版本快照时剥离 LLM 直连字段 → routingPlanId（空=FLOW 默认）
         Map<String, Object> graph = LlmNodeConfigMigrator.migrate(fromMap(ver.getGraphJson()));
         String id = Ids.newId("fr");
-        FlowEngine.EngineResult result = engine.run(id, graph, input == null ? Map.of() : input);
+        FlowEngine.EngineResult result = engine.run(id, graph, input == null ? Map.of() : input, grantId);
 
         FlowRun run = new FlowRun(id, versionId, result.status(), result.output(), result.trace());
         FlowRunDO row = new FlowRunDO();
@@ -79,6 +84,7 @@ public class FlowService {
         row.setVersionId(versionId);
         row.setStatus(result.status());
         row.setTraceJson(toJsonList(result.trace()));
+        row.setGrantId(grantId);
         repo.insertRun(row);
         return run;
     }

@@ -47,6 +47,11 @@
             <groupId>com.tioka</groupId>
             <artifactId>tioka-module-knowledge-api</artifactId>
         </dependency>
+        <!-- DAT-01：数据集发布校验（DatasetPolicyQueryApi 仅依赖 framework，无环） -->
+        <dependency>
+            <groupId>com.tioka</groupId>
+            <artifactId>tioka-module-connector-api</artifactId>
+        </dependency>
         <dependency>
             <groupId>com.tioka</groupId>
             <artifactId>tioka-module-ontology-api</artifactId>

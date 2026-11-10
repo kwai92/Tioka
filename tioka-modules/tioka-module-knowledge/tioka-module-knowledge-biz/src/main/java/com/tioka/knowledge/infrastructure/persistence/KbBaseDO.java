@@ -11,6 +11,8 @@ public class KbBaseDO extends WorkspaceAwareDO {
     private String id;
     private String name;
     private String embeddingBindingId;
+    /** DAT-02（V164）：知识库数据标签，缺省 INTERNAL。 */
+    private String dataLabel;
 
     public String getId() { return id; }
     public void setId(String id) { this.id = id; }
@@ -18,4 +20,6 @@ public class KbBaseDO extends WorkspaceAwareDO {
     public void setName(String name) { this.name = name; }
     public String getEmbeddingBindingId() { return embeddingBindingId; }
     public void setEmbeddingBindingId(String embeddingBindingId) { this.embeddingBindingId = embeddingBindingId; }
+    public String getDataLabel() { return dataLabel; }
+    public void setDataLabel(String dataLabel) { this.dataLabel = dataLabel; }
 }

@@ -1,6 +1,7 @@
 package com.tioka.flow.application;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.tioka.flow.application.publish.CapabilityCollector;
 import com.tioka.flow.api.FlowInvokeApi;
 import com.tioka.flow.infrastructure.FlowRepository;
 import com.tioka.flow.infrastructure.FlowSecretBridge;
@@ -25,6 +26,8 @@ public class FlowPublicationService implements ToolProvider, FlowInvokeApi {
     private final FlowService flowService;
     private final FlowRepository repo;
     private final ObjectProvider<FlowSecretBridge> secretBridge;
+    /** DAT-04：启动前授予检查（runtime-api GrantService；缺失 = 旧路径不过滤）。 */
+    private final ObjectProvider<com.tioka.runtime.api.grant.GrantService> grants;
     private final ObjectMapper mapper;
     private final String webhookSecretRef;
     private final String webhookSecretFallback;
@@ -32,6 +35,7 @@ public class FlowPublicationService implements ToolProvider, FlowInvokeApi {
     public FlowPublicationService(FlowService flowService,
                                   FlowRepository repo,
                                   ObjectProvider<FlowSecretBridge> secretBridge,
+                                  ObjectProvider<com.tioka.runtime.api.grant.GrantService> grants,
                                   @Value("${tioka.flow.webhook.secret-ref:flow-webhook::hmac}") String webhookSecretRef,
                                   @Value("${tioka.flow.webhook.secret:gate-test-secret}") String webhookSecretFallback,
                                   ObjectMapper mapper) {
@@ -39,6 +43,7 @@ public class FlowPublicationService implements ToolProvider, FlowInvokeApi {
         this.flowService = flowService;
         this.repo = repo;
         this.secretBridge = secretBridge;
+        this.grants = grants;
         this.webhookSecretRef = webhookSecretRef;
         this.webhookSecretFallback = webhookSecretFallback;
     }
@@ -47,7 +52,12 @@ public class FlowPublicationService implements ToolProvider, FlowInvokeApi {
         String name = (toolName == null || toolName.isBlank())
                 ? "flow.run:" + versionId
                 : toolName;
-        repo.upsertToolPub(name, versionId);
+        // DAT-04：发布时计算 requiredCapabilities 写入发布记录（ADR-029 第 47 条）
+        com.tioka.flow.infrastructure.persistence.FlowVersionDO ver = repo.findVersion(versionId);
+        CapabilityCollector.RequiredCapabilities caps = ver == null
+                ? new CapabilityCollector.RequiredCapabilities(List.of(), List.of(), List.of(), List.of())
+                : CapabilityCollector.collect(parseGraph(ver.getGraphJson()));
+        repo.upsertToolPub(name, versionId, CapabilityCollector.toJson(caps, mapper));
         return name;
     }
 
@@ -150,6 +160,52 @@ public class FlowPublicationService implements ToolProvider, FlowInvokeApi {
             return new ToolResult(true, mapper.writeValueAsString(toRunPayload(run)));
         } catch (Exception e) {
             return new ToolResult(true, run.id() + ":" + run.status());
+        }
+    }
+
+    /**
+     * DAT-04：Agent 工具形态调用（带 ToolCallContext）——启动前检查
+     * requiredCapabilities ⊆ 调用方 root grant，超授予启动即拒；Flow Run 写 grant_id。
+     */
+    @Override
+    public ToolResult invoke(com.tioka.runtime.api.spi.ToolGateway.ToolCallContext ctx,
+                             String agentVersionId, String toolName, Map<String, Object> arguments,
+                             Map<String, Object> agentToolConfig) {
+        FlowPublicationDO pub = repo.findToolPub(toolName == null ? "" : toolName);
+        if (pub == null) {
+            return new ToolResult(false, "unknown flow tool");
+        }
+        String grantId = ctx == null ? null : ctx.grantId();
+        if (grantId != null && !grantId.isBlank()) {
+            var grantService = this.grants.getIfAvailable();
+            if (grantService != null) {
+                try {
+                    var grant = grantService.get(grantId);
+                    CapabilityCollector.RequiredCapabilities caps =
+                            CapabilityCollector.fromJson(pub.getRequiredCapabilitiesJson(), mapper);
+                    com.tioka.flow.application.publish.FlowCapabilityChecker.assertWithinGrant(caps, grant);
+                } catch (com.tioka.framework.error.BizException e) {
+                    return new ToolResult(false, e.getMessage());
+                } catch (RuntimeException e) {
+                    return new ToolResult(false, "授予不可用: " + e.getMessage());
+                }
+            }
+        }
+        var run = flowService.run(pub.getVersionId(), arguments == null ? Map.of() : arguments, grantId);
+        try {
+            return new ToolResult(true, mapper.writeValueAsString(toRunPayload(run)));
+        } catch (Exception e) {
+            return new ToolResult(true, run.id() + ":" + run.status());
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> parseGraph(String graphJson) {
+        try {
+            return mapper.readValue(graphJson == null ? "{}" : graphJson,
+                    new com.fasterxml.jackson.core.type.TypeReference<Map<String, Object>>() {});
+        } catch (Exception e) {
+            return Map.of();
         }
     }
 }

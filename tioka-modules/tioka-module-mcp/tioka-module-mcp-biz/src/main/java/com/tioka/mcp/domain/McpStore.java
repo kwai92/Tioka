@@ -42,6 +42,20 @@ public class McpStore {
         repo.upsertServer(row);
     }
 
+    /** DAT-02：server 数据标签（V164 mcp_server.data_label；null/非法按 INTERNAL）。 */
+    public String dataLabelOf(String id) {
+        McpServerDO row = repo.findServer(id);
+        if (row == null || row.getDataLabel() == null || row.getDataLabel().isBlank()) {
+            return com.tioka.framework.label.DataLabel.INTERNAL.name();
+        }
+        try {
+            return com.tioka.framework.label.DataLabel.valueOf(row.getDataLabel().trim()
+                    .toUpperCase(java.util.Locale.ROOT)).name();
+        } catch (IllegalArgumentException e) {
+            return com.tioka.framework.label.DataLabel.INTERNAL.name();
+        }
+    }
+
     public Optional<McpServer> getServer(String id) {
         McpServerDO row = repo.findServer(id);
         return row == null ? Optional.empty()

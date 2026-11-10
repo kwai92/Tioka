@@ -47,6 +47,8 @@ public class RoutingPlanExecutor {
     private final List<ModelBindingFilter> filters;
     private final ExecutorService decidePool;
     private final int defaultTimeoutMs;
+    /** DAT-03：plan 级去向许可闸（非会话调用 / 组件缺失时不过滤）。 */
+    private final PlanLabelGate planLabelGate;
 
     public RoutingPlanExecutor(ModelBindingResolver resolver,
                                ModelEntities entities,
@@ -54,13 +56,16 @@ public class RoutingPlanExecutor {
                                RoutingPlanSpecSource specSource,
                                RoutingDeciderRegistry registry,
                                List<ModelBindingFilter> filters,
-                               @Value("${tioka.model.routing.decide-timeout:1500ms}") java.time.Duration decideTimeout) {
+                               @Value("${tioka.model.routing.decide-timeout:1500ms}") java.time.Duration decideTimeout,
+                               PlanLabelGate planLabelGate) {
         this.resolver = resolver;
         this.entities = entities;
         this.telemetry = telemetry;
         this.specSource = specSource;
         this.registry = registry;
         this.filters = filters == null ? List.of() : List.copyOf(filters);
+        this.planLabelGate = planLabelGate == null
+                ? new PlanLabelGate(null, null) : planLabelGate;
         this.defaultTimeoutMs = decideTimeout == null || decideTimeout.isZero() || decideTimeout.isNegative()
                 ? RoutingPlanSpecParser.DEFAULT_DECIDE_TIMEOUT_MS : (int) decideTimeout.toMillis();
         this.decidePool = Executors.newSingleThreadExecutor(r -> {
@@ -93,6 +98,10 @@ public class RoutingPlanExecutor {
         String planId = selection.plan().id();
         Integer planVersionNo = selection.planVersionNo();
         String workspaceId = workspaceId(ctx);
+
+        // DAT-03：Turn 标签超出 MODEL_PLAN 去向许可 → NO_ELIGIBLE_MODEL(42210)
+        com.tioka.framework.label.DataLabel turnLabel = planLabelGate.currentLabel(ctx);
+        planLabelGate.assertPlanAllowed(ctx, planId, turnLabel);
 
         if (spec.mode() == RoutingMode.FIXED) {
             String main = spec.mainGroup();

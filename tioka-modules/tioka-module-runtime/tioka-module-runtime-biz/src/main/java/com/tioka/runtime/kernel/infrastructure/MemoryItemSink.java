@@ -23,16 +23,19 @@ public class MemoryItemSink implements LoopPorts.ItemSink {
     private final ObjectMapper mapper;
     private final EventStream streams;
     private final RuntimeEventFactory events;
+    private final com.tioka.runtime.application.label.TurnLabelTracker labelTracker;
     private final ConcurrentHashMap<String, StreamState> streaming = new ConcurrentHashMap<>();
 
     public MemoryItemSink(ItemRepository items,
                           ObjectMapper mapper,
                           EventStream streams,
-                          RuntimeEventFactory events) {
+                          RuntimeEventFactory events,
+                          com.tioka.runtime.application.label.TurnLabelTracker labelTracker) {
         this.items = items;
         this.mapper = mapper;
         this.streams = streams;
         this.events = events;
+        this.labelTracker = labelTracker;
     }
 
     @Override
@@ -164,8 +167,13 @@ public class MemoryItemSink implements LoopPorts.ItemSink {
             pending.put("timeoutAt", java.time.Instant.now().plus(timeout).toString());
             content.put("pending", pending);
         }
-        RuntimeItemDO item = items.append(ItemWrite.append(ctx.threadId(), ctx.turnId(), ctx.leaseVersion(), step,
-                ItemType.TOOL_RESULT.wire(), "tool", json(content), null));
+        RuntimeItemDO item = items.append(com.tioka.runtime.kernel.infrastructure.ItemWrite.appendLabeled(
+                ctx.threadId(), ctx.turnId(), ctx.leaseVersion(), step,
+                ItemType.TOOL_RESULT.wire(), "tool", json(content), null, outcome.dataLabel()));
+        // DAT-02：工具结果携带标签 → thread 标签随写随升（MONOTONIC）
+        if (outcome.dataLabel() != null && !outcome.dataLabel().isBlank()) {
+            labelTracker.record(ctx.threadId(), outcome.dataLabel());
+        }
         streams.publish(ctx.threadId(), EventId.of(item.getSeq()).toString(),
                 RuntimeEventType.ITEM_COMPLETED.wire(),
                 events.itemCompleted(ctx.threadId(), item));

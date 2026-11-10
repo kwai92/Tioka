@@ -166,11 +166,27 @@ public interface ToolProvider {
     }
 
     /**
-     * @param pending 非空表示工具已受理、异步完成（RT-09）；Turn 进入 {@code WAITING_CHILD}
+     * @param pending   非空表示工具已受理、异步完成（RT-09）；Turn 进入 {@code WAITING_CHILD}
+     * @param dataLabel 工具结果数据标签（DAT-02 / ADR-040）；null 表示本结果不携带标签
+     *                  （不参与 Turn 标签传播）
      */
-    record ToolResult(boolean ok, String content, PendingJob pending) {
+    record ToolResult(boolean ok, String content, PendingJob pending, String dataLabel) {
         public ToolResult(boolean ok, String content) {
-            this(ok, content, null);
+            this(ok, content, null, null);
+        }
+
+        public ToolResult(boolean ok, String content, PendingJob pending) {
+            this(ok, content, pending, null);
+        }
+
+        /** DAT-02：带数据标签的结果。 */
+        public ToolResult(boolean ok, String content, String dataLabel) {
+            this(ok, content, null, dataLabel);
+        }
+
+        /** DAT-02：派生带标签结果（其余字段不变）。 */
+        public ToolResult withDataLabel(String label) {
+            return new ToolResult(ok, content, pending, label);
         }
     }
 

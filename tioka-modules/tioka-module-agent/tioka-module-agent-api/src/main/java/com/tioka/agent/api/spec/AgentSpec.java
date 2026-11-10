@@ -9,7 +9,8 @@ import java.util.Map;
  * Agent 配置快照（schemaVersion=1）。
  * M3（P3-00b / K9）：一次加齐可空段 {@code output}、{@code charter}、{@code prompt}、
  * {@code context}、{@code memory}、{@code execution}；缺省 null = 行为等于现状。
- * {@code subAgents} / {@code dataClearance} 仍为预留（须 null，直至对应工作项解冻）。
+ * M3 DAT-01 解冻：{@code datasets}（绑定的数据集名列表）、{@code dataClearance}（读标签上限，
+ * 缺省 INTERNAL）；{@code subAgents} 仍为预留（须 null，直至对应工作项解冻）。
  */
 public record AgentSpec(
         int schemaVersion,
@@ -29,16 +30,32 @@ public record AgentSpec(
         MemorySettings memory,
         ExecutionSettings execution,
         JsonNode subAgents,
-        String dataClearance
+        String dataClearance,
+        List<String> datasets
 ) {
-    public AgentSpec {
-        if (skills == null) skills = List.of();
-        if (tools == null) tools = ToolSet.empty();
-        if (knowledge == null) knowledge = KnowledgeBinding.empty();
-        if (sandbox == null) sandbox = SandboxPolicy.defaults();
-        if (approval == null) approval = ApprovalSettings.empty();
-        if (limits == null) limits = Limits.defaults();
-    }
+        public AgentSpec {
+            if (skills == null) skills = List.of();
+            if (tools == null) tools = ToolSet.empty();
+            if (knowledge == null) knowledge = KnowledgeBinding.empty();
+            if (sandbox == null) sandbox = SandboxPolicy.defaults();
+            if (approval == null) approval = ApprovalSettings.empty();
+            if (limits == null) limits = Limits.defaults();
+            if (datasets == null) datasets = List.of();
+            else datasets = List.copyOf(datasets);
+        }
+
+        /** 兼容 18 参口径（DAT-01 解冻前）；datasets = 空列表。 */
+        public AgentSpec(int schemaVersion, Profile profile, Instructions instructions,
+                         ModelPolicy model, ToolSet tools, List<SkillRef> skills,
+                         KnowledgeBinding knowledge, SandboxPolicy sandbox,
+                         ApprovalSettings approval, Limits limits, JsonNode charter,
+                         OutputContract output, PromptRef prompt, ContextSettings context,
+                         MemorySettings memory, ExecutionSettings execution,
+                         JsonNode subAgents, String dataClearance) {
+            this(schemaVersion, profile, instructions, model, tools, skills, knowledge, sandbox,
+                    approval, limits, charter, output, prompt, context, memory, execution,
+                    subAgents, dataClearance, List.of());
+        }
 
     public record Profile(String name, String description, String icon, List<String> tags, String kind) {
         public Profile {

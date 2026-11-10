@@ -19,6 +19,14 @@ public record SinkCheckResult(
         return new SinkCheckResult(SinkVerdict.PASS, null, null);
     }
 
+    public static SinkCheckResult redacted(Object payload, String reason) {
+        return new SinkCheckResult(SinkVerdict.REDACTED, payload, reason);
+    }
+
+    public static SinkCheckResult requireApproval(String reason) {
+        return new SinkCheckResult(SinkVerdict.REQUIRE_APPROVAL, null, reason);
+    }
+
     public static SinkCheckResult deny(String reason) {
         return new SinkCheckResult(SinkVerdict.DENY, null, reason);
     }

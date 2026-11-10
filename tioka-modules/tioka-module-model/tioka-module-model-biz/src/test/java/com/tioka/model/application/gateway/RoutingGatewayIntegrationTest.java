@@ -136,7 +136,7 @@ class RoutingGatewayIntegrationTest {
                                 new RoutingDecider.Decision("general", Difficulty.HARD, 0.9, "长文"));
                     }
                 },
-                List.of(), Duration.ofMillis(1500));
+                List.of(), Duration.ofMillis(1500), (com.tioka.model.application.routing.PlanLabelGate) null);
 
         gateway = newGateway(executor);
         ModelGateway.ChatResult result = gateway.chat(ctx(planId), chatRequest("很长的任务"), null);

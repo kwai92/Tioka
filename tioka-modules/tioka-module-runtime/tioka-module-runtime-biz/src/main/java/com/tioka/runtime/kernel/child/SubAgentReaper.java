@@ -54,6 +54,7 @@ public class SubAgentReaper {
     private final RuntimeChildRouterConsumer childRouter;
     private final ObjectMapper mapper;
     private final ApplicationEventPublisher appEvents;
+    private final com.tioka.runtime.application.label.TurnLabelTracker labelTracker;
 
     public SubAgentReaper(RuntimeThreadRepository threads,
                           TurnRepository turns,
@@ -64,7 +65,8 @@ public class SubAgentReaper {
                           ChildPendingRegistry pendingRegistry,
                           RuntimeChildRouterConsumer childRouter,
                           ObjectMapper mapper,
-                          ApplicationEventPublisher appEvents) {
+                          ApplicationEventPublisher appEvents,
+                          com.tioka.runtime.application.label.TurnLabelTracker labelTracker) {
         this.threads = threads;
         this.turns = turns;
         this.items = items;
@@ -75,6 +77,7 @@ public class SubAgentReaper {
         this.childRouter = childRouter;
         this.mapper = mapper;
         this.appEvents = appEvents;
+        this.labelTracker = labelTracker;
     }
 
     /**
@@ -97,6 +100,13 @@ public class SubAgentReaper {
             // 2. 子用量计入 + 预算回拨父授予
             long used = grantStore.sumThreadTokens(childThreadId);
             grantService.accrueAndReturnToParent(grantId, used);
+        }
+        // DAT-02：子 thread 终态标签回流父 thread（agent.delegate；MONOTONIC 只升不降）
+        if (thread.getDataLabel() != null) {
+            var parentTurn = turns.findById(thread.getParentTurnId()).orElse(null);
+            if (parentTurn != null) {
+                labelTracker.record(parentTurn.getThreadId(), thread.getDataLabel());
+            }
         }
         // 3. 子 thread 全部 Turn 的未决审批 → EXPIRED(reason=reaped)
         for (RuntimeTurnDO t : turns.listByThread(childThreadId, 0, 500)) {

@@ -33,14 +33,21 @@ public class FlowRepository {
     public FlowVersionDO findVersion(String id) { return versions.selectById(id); }
     public void insertRun(FlowRunDO row) { runs.insert(row); }
     public void upsertToolPub(String toolName, String versionId) {
+        upsertToolPub(toolName, versionId, null);
+    }
+
+    /** DAT-04：发布记录写入 requiredCapabilities。 */
+    public void upsertToolPub(String toolName, String versionId, String requiredCapabilitiesJson) {
         FlowPublicationDO row = pubs.selectById(toolName);
         if (row == null) {
             row = new FlowPublicationDO();
             row.setToolName(toolName);
             row.setVersionId(versionId);
+            row.setRequiredCapabilitiesJson(requiredCapabilitiesJson);
             pubs.insert(row);
         } else {
             row.setVersionId(versionId);
+            row.setRequiredCapabilitiesJson(requiredCapabilitiesJson);
             pubs.updateById(row);
         }
     }

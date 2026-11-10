@@ -66,7 +66,8 @@ public class McpNodeExecutor implements NodeExecutor {
                 "flow-mcp",
                 "flow",
                 List.of(toolName),
-                agentToolConfig);
+                agentToolConfig,
+                ctx.grantId());
         ToolProvider.ToolResult result = gateway.call(toolCtx, toolName, args);
         Map<String, Object> out = new LinkedHashMap<>();
         out.put("ok", result.ok());
