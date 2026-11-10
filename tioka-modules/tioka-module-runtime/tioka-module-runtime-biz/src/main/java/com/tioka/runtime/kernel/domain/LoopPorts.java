@@ -11,6 +11,15 @@ public final class LoopPorts {
         Result chat(LoopContext ctx, List<Map<String, Object>> messages, List<Map<String, Object>> tools,
                     Consumer<Delta> onDelta);
 
+        /**
+         * SCH-02：携带结构化输出需求的调用（ADR-037 / ADR-066）；缺省降级为无约束调用，
+         * 便于既有桩实现无须感知。
+         */
+        default Result chat(LoopContext ctx, List<Map<String, Object>> messages, List<Map<String, Object>> tools,
+                            Consumer<Delta> onDelta, com.tioka.model.api.constraint.StructuredDemand structured) {
+            return chat(ctx, messages, tools, onDelta);
+        }
+
         /** {@code discarded=true} 表示本步已流出增量作废（MH-02）。 */
         record Delta(String text, String reasoning, boolean discarded) {
             public Delta(String text, String reasoning) {

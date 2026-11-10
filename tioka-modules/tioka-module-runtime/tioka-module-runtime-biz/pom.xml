@@ -31,6 +31,11 @@
             <groupId>com.tioka</groupId>
             <artifactId>tioka-module-agent-api</artifactId>
         </dependency>
+        <!-- SCH-03：OutputStage 经 SchemaApi 做结构化校验与证据绑定（M3-03 §5 改动清单） -->
+        <dependency>
+            <groupId>com.tioka</groupId>
+            <artifactId>tioka-module-ontology-api</artifactId>
+        </dependency>
         <dependency>
             <groupId>com.tioka</groupId>
             <artifactId>tioka-module-governance-api</artifactId>
@@ -71,6 +76,12 @@
         <dependency>
             <groupId>com.tioka</groupId>
             <artifactId>tioka-testkit</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <!-- OutputStageIT：真实 SchemaRegistry + EvidenceBinder（InMemory 仓储，离线） -->
+        <dependency>
+            <groupId>com.tioka</groupId>
+            <artifactId>tioka-module-ontology-biz</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>

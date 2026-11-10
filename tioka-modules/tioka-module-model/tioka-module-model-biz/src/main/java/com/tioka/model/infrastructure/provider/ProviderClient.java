@@ -51,18 +51,27 @@ public class ProviderClient {
         if (isMockMode(baseUrl)) {
             return mockComplete(messages, tools);
         }
-        return httpComplete(baseUrl, apiKeyRef, model, messages, tools, false, null);
+        return httpComplete(baseUrl, apiKeyRef, model, messages, tools, null, false, null);
     }
 
     public CompletionResult streamComplete(String baseUrl, String apiKeyRef, String model,
                                            List<Map<String, Object>> messages,
                                            List<Map<String, Object>> tools,
                                            Consumer<StreamDelta> onDelta) throws Exception {
+        return streamComplete(baseUrl, apiKeyRef, model, messages, tools, null, onDelta);
+    }
+
+    /** SCH-02：带 response_format（结构化输出方言）；responseFormat 为 null 时行为与原先一致。 */
+    public CompletionResult streamComplete(String baseUrl, String apiKeyRef, String model,
+                                           List<Map<String, Object>> messages,
+                                           List<Map<String, Object>> tools,
+                                           Map<String, Object> responseFormat,
+                                           Consumer<StreamDelta> onDelta) throws Exception {
         Consumer<StreamDelta> sink = onDelta == null ? d -> {} : onDelta;
         if (isMockMode(baseUrl)) {
             return mockStreamComplete(messages, tools, sink);
         }
-        return httpComplete(baseUrl, apiKeyRef, model, messages, tools, true, sink);
+        return httpComplete(baseUrl, apiKeyRef, model, messages, tools, responseFormat, true, sink);
     }
 
     public List<float[]> embed(String baseUrl, String apiKeyRef, String model, Integer embeddingDim,
@@ -217,6 +226,7 @@ public class ProviderClient {
     private CompletionResult httpComplete(String baseUrl, String apiKeyRef, String model,
                                           List<Map<String, Object>> messages,
                                           List<Map<String, Object>> tools,
+                                          Map<String, Object> responseFormat,
                                           boolean stream,
                                           Consumer<StreamDelta> onDelta) throws Exception {
         String apiKey = resolveApiKey(apiKeyRef);
@@ -225,6 +235,9 @@ public class ProviderClient {
         body.put("model", model);
         body.set("messages", mapper.valueToTree(messages));
         if (tools != null && !tools.isEmpty()) body.set("tools", mapper.valueToTree(tools));
+        if (responseFormat != null && !responseFormat.isEmpty()) {
+            body.set("response_format", mapper.valueToTree(responseFormat));
+        }
         if (stream) body.put("stream", true);
 
         HttpRequest.Builder reqBuilder = HttpRequest.newBuilder()

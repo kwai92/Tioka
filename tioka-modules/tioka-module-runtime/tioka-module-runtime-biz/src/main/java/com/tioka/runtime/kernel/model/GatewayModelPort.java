@@ -38,6 +38,12 @@ public class GatewayModelPort implements LoopPorts.ModelPort {
     @Override
     public Result chat(LoopContext ctx, List<Map<String, Object>> messages, List<Map<String, Object>> tools,
                        Consumer<Delta> onDelta) {
+        return chat(ctx, messages, tools, onDelta, null);
+    }
+
+    @Override
+    public Result chat(LoopContext ctx, List<Map<String, Object>> messages, List<Map<String, Object>> tools,
+                       Consumer<Delta> onDelta, com.tioka.model.api.constraint.StructuredDemand structured) {
         Principal principal = principals.find().orElse(SystemPrincipals.system());
         String planId = ctx.routingPlanId();
         ModelCallContext callCtx = new ModelCallContext(
@@ -45,7 +51,8 @@ public class GatewayModelPort implements LoopPorts.ModelPort {
         try {
             ModelGateway.ChatResult r = gateway.chat(
                     callCtx,
-                    new ModelGateway.ChatRequest(messages, tools == null ? List.of() : tools, null, null),
+                    new ModelGateway.ChatRequest(messages, tools == null ? List.of() : tools, null, null,
+                            structured),
                     d -> {
                         if (signals.isCancelFlag(ctx.turnId())) {
                             throw new CancelledSignal();
