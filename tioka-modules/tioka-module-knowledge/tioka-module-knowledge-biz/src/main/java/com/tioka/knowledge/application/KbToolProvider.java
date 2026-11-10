@@ -2,7 +2,9 @@ package com.tioka.knowledge.application;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tioka.framework.security.Permissions;
+import com.tioka.runtime.api.grant.GrantService;
 import com.tioka.runtime.api.spi.ToolProvider;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -13,11 +15,15 @@ import java.util.Map;
 @Component
 public class KbToolProvider implements ToolProvider {
     private final KnowledgeService knowledgeService;
+    private final ObjectProvider<GrantService> grants;
     private final ObjectMapper mapper;
 
-    public KbToolProvider(KnowledgeService knowledgeService, ObjectMapper mapper) {
+    public KbToolProvider(KnowledgeService knowledgeService,
+                          ObjectProvider<GrantService> grants,
+                          ObjectMapper mapper) {
         this.mapper = mapper;
         this.knowledgeService = knowledgeService;
+        this.grants = grants;
     }
 
     @Override
@@ -64,9 +70,34 @@ public class KbToolProvider implements ToolProvider {
 
     @Override
     public ToolResult invoke(String toolName, Map<String, Object> arguments) {
+        return invoke(null, null, toolName, arguments, Map.of());
+    }
+
+    /**
+     * DAT-02：kb.search 带调用方授予（grantId → maxDataLabel）做标签过滤；
+     * 结果 ToolResult 携带命中最大有效标签（thread 标签随检索提升）。
+     */
+    @Override
+    public ToolResult invoke(com.tioka.runtime.api.spi.ToolGateway.ToolCallContext ctx,
+                             String agentVersionId, String toolName, Map<String, Object> arguments,
+                             Map<String, Object> agentToolConfig) {
+        com.tioka.framework.label.DataLabel maxLabel = null;
+        if (ctx != null && ctx.grantId() != null && !ctx.grantId().isBlank()) {
+            GrantService gs = grants.getIfAvailable();
+            if (gs != null) {
+                try {
+                    var grant = gs.get(ctx.grantId());
+                    if (grant != null) {
+                        maxLabel = grant.maxDataLabel();
+                    }
+                } catch (RuntimeException ignored) {
+                    // 授予不可用 = 不过滤（旧口径）
+                }
+            }
+        }
         try {
             return switch (toolName) {
-                case "kb.search" -> invokeSearch(arguments);
+                case "kb.search" -> invokeSearch(arguments, maxLabel);
                 case "kb.read_chunk" -> invokeReadChunk(arguments);
                 case "kb.read_document" -> invokeReadDocument(arguments);
                 default -> new ToolResult(false, "unknown tool");
@@ -77,7 +108,8 @@ public class KbToolProvider implements ToolProvider {
     }
 
     @SuppressWarnings("unchecked")
-    private ToolResult invokeSearch(Map<String, Object> arguments) throws Exception {
+    private ToolResult invokeSearch(Map<String, Object> arguments,
+                                    com.tioka.framework.label.DataLabel maxLabel) throws Exception {
         String query = String.valueOf(arguments.get("query"));
         int topK = arguments.get("topK") == null ? 3 : Integer.parseInt(String.valueOf(arguments.get("topK")));
         List<String> kbIds = new ArrayList<>();
@@ -97,8 +129,9 @@ public class KbToolProvider implements ToolProvider {
         }
         // kbIds 空：检索当前主体全部可见知识库（KNW-02 / ADR-018）
         List<KnowledgeService.RetrievalHit> hits = knowledgeService.retrieve(
-                kbIds.isEmpty() ? null : kbIds, query, topK);
+                kbIds.isEmpty() ? null : kbIds, query, topK, maxLabel);
         List<Map<String, Object>> out = new ArrayList<>();
+        com.tioka.framework.label.DataLabel resultLabel = null;
         for (var h : hits) {
             Map<String, Object> m = new LinkedHashMap<>();
             m.put("citationId", h.citationId());
@@ -109,8 +142,11 @@ public class KbToolProvider implements ToolProvider {
             m.put("score", h.score());
             m.put("title", h.title());
             out.add(m);
+            com.tioka.framework.label.DataLabel eff = knowledgeService.effectiveLabel(h.kbId(), h.docId());
+            resultLabel = eff == null ? resultLabel : com.tioka.framework.label.DataLabel.max(resultLabel, eff);
         }
-        return new ToolResult(true, mapper.writeValueAsString(out));
+        return new ToolResult(true, mapper.writeValueAsString(out),
+                resultLabel == null ? null : resultLabel.name());
     }
 
     private ToolResult invokeReadChunk(Map<String, Object> arguments) throws Exception {

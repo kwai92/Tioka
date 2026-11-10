@@ -35,6 +35,12 @@ public class FlowEngine {
     }
 
     public EngineResult run(String runId, Map<String, Object> graph, Map<String, Object> input) {
+        return run(runId, graph, input, null);
+    }
+
+    /** DAT-04：grantId 透传节点执行上下文（flow_run.grant_id）。 */
+    public EngineResult run(String runId, Map<String, Object> graph, Map<String, Object> input,
+                            String grantId) {
         FlowGraphValidator.validate(graph, FlowService.NODE_TYPES);
         CredentialPolicy.assertNoWildKeys(graph);
 
@@ -48,7 +54,7 @@ public class FlowEngine {
             byId.put(String.valueOf(node.get("id")), node);
         }
 
-        NodeExecContext ctx = new NodeExecContext(runId, resolveRunAs(), input);
+        NodeExecContext ctx = new NodeExecContext(runId, resolveRunAs(), input, grantId);
         List<Map<String, Object>> trace = Collections.synchronizedList(new ArrayList<>());
 
         try {

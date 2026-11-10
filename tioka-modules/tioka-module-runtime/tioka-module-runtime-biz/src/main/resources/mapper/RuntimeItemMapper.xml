@@ -25,12 +25,12 @@
     <insert id="insert">
         <![CDATA[
             INSERT INTO runtime_item (
-              thread_id, seq, id, turn_id, step, type, role, content_json, token_count, discarded, create_at, create_by
+              thread_id, seq, id, turn_id, step, type, role, content_json, token_count, data_label, discarded, create_at, create_by
             ) VALUES (
               #{threadId}, #{seq}, #{id}, #{turnId}, #{step}, #{type}, #{role}, #{contentJson},
-              #{tokenCount}, COALESCE(#{discarded}, FALSE), now(), 'system'
+              #{tokenCount}, #{dataLabel}, COALESCE(#{discarded}, FALSE), now(), 'system'
             )
-            
+
 ]]>
     </insert>
 

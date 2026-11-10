@@ -13,6 +13,8 @@ public class McpServerDO extends WorkspaceAwareDO {
     private String baseUrl;
     private String headerSecretRef;
     private String status;
+    /** DAT-02（V164）：MCP Server 数据标签，缺省 INTERNAL。 */
+    private String dataLabel;
 
     public String getId() { return id; }
     public void setId(String id) { this.id = id; }
@@ -24,4 +26,6 @@ public class McpServerDO extends WorkspaceAwareDO {
     public void setHeaderSecretRef(String headerSecretRef) { this.headerSecretRef = headerSecretRef; }
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }
+    public String getDataLabel() { return dataLabel; }
+    public void setDataLabel(String dataLabel) { this.dataLabel = dataLabel; }
 }

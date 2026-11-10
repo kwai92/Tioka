@@ -190,9 +190,16 @@ public class DefaultToolGateway implements ToolGateway {
         try {
             pipeVerdict = pipelineSteps.run(pipeCtx);
         } catch (BizException e) {
-            // 第 9/10 步 DENY（POLICY_DENIED 40340 / 自治判定拒绝）：审计拒绝原因后原样抛出
+            // 第 9/10/12.5 步 DENY（POLICY_DENIED 40340 / 自治判定拒绝 / 去向许可 40332）：
+            // 审计拒绝原因后原样抛出
             auditDenied(ctx, name, ac.args(), e.getMessage(), 9, 0);
             throw e;
+        }
+        // DAT-02：去向许可 REDACTED → 脱敏后的参数换用（inv / changeSet 以脱敏后口径重建）
+        Map<String, Object> redactedArgs = pipeCtx.get("egress.redactedArgs", Map.class);
+        if (redactedArgs != null && !redactedArgs.isEmpty()) {
+            inv = new ToolInvocation(name, redactedArgs);
+            changeSet = changeSets.estimatedFromArgs(name, inv);
         }
         if (pipeVerdict == ToolPipelineVerdict.ESCALATE) {
             // GOV-07 / TRU-02：第 9 步 Cedar ESCALATE（超额转审批）

@@ -17,6 +17,8 @@ public class KbDocumentDO extends BaseDO {
     private String errorMessage;
     /** V118：文档级 ACL JSON；M1 建列不启用（ADR-029 第 23 条）。 */
     private String aclPrincipals;
+    /** DAT-02（V164）：文档数据标签；null = 继承知识库标签。 */
+    private String dataLabel;
 
     public String getId() { return id; }
     public void setId(String id) { this.id = id; }
@@ -32,6 +34,8 @@ public class KbDocumentDO extends BaseDO {
     public void setFormat(String format) { this.format = format; }
     public String getErrorMessage() { return errorMessage; }
     public void setErrorMessage(String errorMessage) { this.errorMessage = errorMessage; }
+    public String getDataLabel() { return dataLabel; }
+    public void setDataLabel(String dataLabel) { this.dataLabel = dataLabel; }
     public String getAclPrincipals() { return aclPrincipals; }
     public void setAclPrincipals(String aclPrincipals) { this.aclPrincipals = aclPrincipals; }
 }

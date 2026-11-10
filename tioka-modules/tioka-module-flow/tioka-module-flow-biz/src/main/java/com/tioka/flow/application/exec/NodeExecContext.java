@@ -16,6 +16,8 @@ public final class NodeExecContext {
     private final String runId;
     private final Principal runAs;
     private final Map<String, Object> runInput;
+    /** DAT-04：Flow Run 携带的调用方授予 ID（ADR-029 第 47 条）。 */
+    private final String grantId;
     private final Map<String, Object> outputsByNode = new ConcurrentHashMap<>();
     private volatile String currentNodeRunId;
     private volatile Object terminalOutput;
@@ -23,19 +25,27 @@ public final class NodeExecContext {
     private volatile String attentionId;
 
     public NodeExecContext(String runId, Map<String, Object> runInput) {
-        this(runId, SystemPrincipals.system(), runInput);
+        this(runId, SystemPrincipals.system(), runInput, null);
     }
 
     public NodeExecContext(String runId, Principal runAs, Map<String, Object> runInput) {
+        this(runId, runAs, runInput, null);
+    }
+
+    public NodeExecContext(String runId, Principal runAs, Map<String, Object> runInput, String grantId) {
         this.runId = runId;
         this.runAs = runAs == null ? SystemPrincipals.system() : runAs;
         this.runInput = runInput == null ? Map.of() : runInput;
+        this.grantId = grantId;
     }
 
     public String runId() { return runId; }
 
     /** 本 run 发起人（配额 / usage 归属）。 */
     public Principal runAs() { return runAs; }
+
+    /** DAT-04：调用方授予 ID；API 形态为服务账号根授予，null = 旧路径。 */
+    public String grantId() { return grantId; }
 
     public Map<String, Object> runInput() { return runInput; }
 

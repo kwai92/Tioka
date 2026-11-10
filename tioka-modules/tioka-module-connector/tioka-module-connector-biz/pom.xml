@@ -31,6 +31,21 @@
             <groupId>com.tioka</groupId>
             <artifactId>tioka-module-knowledge-api</artifactId>
         </dependency>
+        <!-- DAT-02：ImSendConsumer 前置 SinkGuard（governance-api 仅依赖 framework，无环） -->
+        <dependency>
+            <groupId>com.tioka</groupId>
+            <artifactId>tioka-module-governance-api</artifactId>
+        </dependency>
+        <!-- DAT-01：data.query 内置工具（ToolProvider SPI 在 runtime-api，仅依赖 framework） -->
+        <dependency>
+            <groupId>com.tioka</groupId>
+            <artifactId>tioka-module-runtime-api</artifactId>
+        </dependency>
+        <!-- DAT-01：CEL 子集（行谓词）；biz→biz 不建立依赖（CelRuleCondition 在 orchestration-biz），自带 dev.cel -->
+        <dependency>
+            <groupId>dev.cel</groupId>
+            <artifactId>cel</artifactId>
+        </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>

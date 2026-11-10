@@ -119,7 +119,7 @@ public class GatewayToolPort implements LoopPorts.ToolPort {
                     c.argumentsJson() == null ? "{}" : c.argumentsJson(), new TypeReference<>() {});
             ToolProvider.ToolResult r = gateway.call(toolCtx, c.name(), args);
             return new LoopPorts.ToolOutcome(c.callId(), c.name(), r.ok(), r.content(),
-                    System.currentTimeMillis() - t0, null, r.pending());
+                    System.currentTimeMillis() - t0, null, r.pending(), r.dataLabel());
         } catch (RuntimeTestHooks.CrashFrozenAbort e) {
             throw e;
         } catch (com.fasterxml.jackson.core.JsonProcessingException e) {

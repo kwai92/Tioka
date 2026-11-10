@@ -95,6 +95,18 @@ public class McpToolProvider implements ToolProvider {
         return new ToolResult(r.ok(), r.content());
     }
 
+    /** DAT-02：MCP 工具结果标签取 mcp_server.data_label（ADR-040 标签来源）。 */
+    @Override
+    public ToolResult invoke(com.tioka.runtime.api.spi.ToolGateway.ToolCallContext ctx,
+                             String agentVersionId, String toolName, Map<String, Object> arguments,
+                             Map<String, Object> agentToolConfig) {
+        ToolResult base = invoke(agentVersionId, toolName, arguments, agentToolConfig);
+        return mcpServerId(agentVersionId, toolName, agentToolConfig)
+                .map(store::dataLabelOf)
+                .map(base::withDataLabel)
+                .orElse(base);
+    }
+
     @Override
     public Optional<String> mcpServerId(String agentVersionId, String toolName) {
         return Optional.empty();

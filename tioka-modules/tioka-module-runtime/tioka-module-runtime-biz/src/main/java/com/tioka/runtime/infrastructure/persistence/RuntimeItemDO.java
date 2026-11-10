@@ -14,6 +14,8 @@ public class RuntimeItemDO extends AppendOnlyDO {
     private String role;
     private String contentJson;
     private Integer tokenCount;
+    /** DAT-02（V164）：工具结果携带的数据标签（M3-02）；null = 未打标。 */
+    private String dataLabel;
     private Boolean discarded;
 
     public String getThreadId() { return threadId; }
@@ -34,6 +36,8 @@ public class RuntimeItemDO extends AppendOnlyDO {
     public void setContentJson(String contentJson) { this.contentJson = contentJson; }
     public Integer getTokenCount() { return tokenCount; }
     public void setTokenCount(Integer tokenCount) { this.tokenCount = tokenCount; }
+    public String getDataLabel() { return dataLabel; }
+    public void setDataLabel(String dataLabel) { this.dataLabel = dataLabel; }
     public Boolean getDiscarded() { return discarded; }
     public void setDiscarded(Boolean discarded) { this.discarded = discarded; }
 }

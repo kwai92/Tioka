@@ -71,14 +71,18 @@ public final class GrantAgentViews {
                 budget);
     }
 
+    /**
+     * dataClearance 解析；null = 缺省 INTERNAL（M3-02 DAT-01 解冻口径，2026-11-07 修订节）。
+     * 非法值回退 INTERNAL（保守缺省）。
+     */
     public static DataLabel parseLabel(String raw) {
         if (raw == null || raw.isBlank()) {
-            return DataLabel.PUBLIC;
+            return DataLabel.INTERNAL;
         }
         try {
             return DataLabel.valueOf(raw.trim().toUpperCase(java.util.Locale.ROOT));
         } catch (IllegalArgumentException e) {
-            return DataLabel.PUBLIC;
+            return DataLabel.INTERNAL;
         }
     }
 

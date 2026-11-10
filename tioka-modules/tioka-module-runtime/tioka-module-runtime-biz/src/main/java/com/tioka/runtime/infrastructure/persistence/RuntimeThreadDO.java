@@ -30,6 +30,8 @@ public class RuntimeThreadDO extends WorkspaceAwareDO {
     private Integer depth;
     /** MAS-01：当前生效的委派授予 ID（V160）。 */
     private String grantId;
+    /** DAT-02（V164）：Turn 级数据标签，MONOTONIC 只升不降（ADR-040）。 */
+    private String dataLabel;
 
     public String getId() { return id; }
     public void setId(String id) { this.id = id; }
@@ -61,4 +63,6 @@ public class RuntimeThreadDO extends WorkspaceAwareDO {
     public void setDepth(Integer depth) { this.depth = depth; }
     public String getGrantId() { return grantId; }
     public void setGrantId(String grantId) { this.grantId = grantId; }
+    public String getDataLabel() { return dataLabel; }
+    public void setDataLabel(String dataLabel) { this.dataLabel = dataLabel; }
 }
