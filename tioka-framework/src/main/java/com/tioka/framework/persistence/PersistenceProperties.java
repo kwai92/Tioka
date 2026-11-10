@@ -76,7 +76,11 @@ public class PersistenceProperties {
             "cfg_draft",
             "cfg_version",
             // FND-08 / V141：代用户令牌保管（用户个人凭证，无 workspace_id）
-            "sys_user_credential"
+            "sys_user_credential",
+            // TRU-09 / V203：自治等级（等级 per Agent×类别，Agent 全局唯一，无 workspace_id）
+            "trust_autonomy",
+            "trust_autonomy_event",
+            "trust_autonomy_stats"
     ));
 
     public List<String> getWorkspaceScopeExemptTables() {

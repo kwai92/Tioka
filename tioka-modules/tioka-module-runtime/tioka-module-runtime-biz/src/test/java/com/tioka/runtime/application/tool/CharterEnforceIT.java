@@ -66,7 +66,7 @@ class CharterEnforceIT {
             """;
 
     private static AgentSnapshotApi.AgentSnapshot snapshot(AgentSpec spec) {
-        return new AgentSnapshotApi.AgentSnapshot("av1", "ag1", 1, "ws1", "u1", "hash", spec);
+        return new AgentSnapshotApi.AgentSnapshot("av1", "ag1", 1, "ws1", "u1", "hash", spec, null);
     }
 
     @SuppressWarnings("unchecked")

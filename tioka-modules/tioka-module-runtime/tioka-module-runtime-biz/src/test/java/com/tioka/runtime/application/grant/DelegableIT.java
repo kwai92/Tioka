@@ -82,7 +82,7 @@ class DelegableIT {
         AgentSpec spec = new AgentSpec(1, null, null, null, null, null, null, null, null, null,
                 (JsonNode) MAPPER.readTree(charterJson), null, null, null, null, null, null, null);
         when(snapshots.get("av_parent"))
-                .thenReturn(new AgentSnapshotApi.AgentSnapshot("av_parent", "ag_parent", 1, "ws", "1", "h", spec));
+                .thenReturn(new AgentSnapshotApi.AgentSnapshot("av_parent", "ag_parent", 1, "ws", "1", "h", spec, null));
     }
 
     /** 子快照：类别 pay 归类 erp.write（分类路径所需）。 */
@@ -93,7 +93,7 @@ class DelegableIT {
         AgentSpec spec = new AgentSpec(1, null, null, null, null, null, null, null, null, null,
                 charter, null, null, null, null, null, null, null);
         when(snapshots.get("av_child"))
-                .thenReturn(new AgentSnapshotApi.AgentSnapshot("av_child", "ag_child", 1, "ws", "1", "h", spec));
+                .thenReturn(new AgentSnapshotApi.AgentSnapshot("av_child", "ag_child", 1, "ws", "1", "h", spec, null));
     }
 
     private GrantAgentView childView() {

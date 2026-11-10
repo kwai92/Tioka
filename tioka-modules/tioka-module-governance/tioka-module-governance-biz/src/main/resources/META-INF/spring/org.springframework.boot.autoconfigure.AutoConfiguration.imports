@@ -1,3 +1,4 @@
 com.tioka.governance.config.GovernanceAutoConfiguration
 com.tioka.governance.config.CharterAutoConfiguration
 com.tioka.governance.config.PolicyAutoConfiguration
+com.tioka.governance.config.AutonomyAutoConfiguration

@@ -72,7 +72,8 @@ public record Charter(
             Limits limits,
             boolean fourEyes,
             String ceiling,
-            boolean delegable) {}
+            boolean delegable,
+            Long undoWindowHours) {}
 
     public record Limits(
             Long perCallAmountMicros,
@@ -122,7 +123,8 @@ public record Charter(
                                 scope),
                         boolOf(ac, "fourEyes"),
                         text(ac, "ceiling"),
-                        boolOf(ac, "delegable")));
+                        boolOf(ac, "delegable"),
+                        longOf(ac, "undoWindowHours")));
             }
         }
         return List.copyOf(out);

@@ -60,6 +60,23 @@ public class RedisDailyCounterStore implements DailyCounterStore {
     }
 
     @Override
+    public DailyUsage deduct(String agentId, String actionClass, LocalDate day,
+                             long amountMicros, long records) {
+        String key = keyOf(agentId, actionClass, day);
+        try {
+            DailyUsage current = read(key, false);
+            // 扣减下限为 0（不出现负累计；负数差额由重算兜底校正）
+            DailyUsage next = new DailyUsage(
+                    Math.max(0, current.amountMicros() - amountMicros),
+                    Math.max(0, current.records() - records), false);
+            redis.opsForValue().set(key, writeJson(next), ttlUntilTomorrow(day));
+            return next;
+        } catch (RuntimeException e) {
+            return DailyUsage.unknownUsage();
+        }
+    }
+
+    @Override
     public DailyUsage rebuild(String agentId, String actionClass, LocalDate day) {
         long amount = 0;
         long records = 0;

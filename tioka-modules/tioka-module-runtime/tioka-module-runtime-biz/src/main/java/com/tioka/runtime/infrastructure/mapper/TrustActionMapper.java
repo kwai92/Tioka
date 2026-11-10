@@ -30,4 +30,28 @@ public interface TrustActionMapper {
                                                    @Param("actionClass") String actionClass,
                                                    @Param("fromUtc") java.time.LocalDateTime fromUtc,
                                                    @Param("toUtc") java.time.LocalDateTime toUtc);
+
+    // ---------- TRU-07 撤销 / 补偿 ----------
+
+    /** 范围内 APPLIED 动作按 seq 倒序（撤销选动作）。 */
+    java.util.List<TrustActionDO> listAppliedInScope(@Param("scopeType") String scopeType,
+                                                     @Param("scopeId") String scopeId);
+
+    /** 同组 COMPENSATING 动作按 seq 正序。 */
+    java.util.List<TrustActionDO> listCompensatingInScope(@Param("scopeType") String scopeType,
+                                                          @Param("scopeId") String scopeId);
+
+    /** 标 COMPENSATING 回填范围与补偿顺序号。 */
+    void markCompensatingMeta(@Param("id") String id,
+                              @Param("scopeType") String scopeType,
+                              @Param("scopeId") String scopeId,
+                              @Param("seq") int seq);
+
+    /** 补偿重试计数 +1，返回累计次数。 */
+    int bumpUndoAttempts(@Param("id") String id);
+
+    /** 窗口内 COMPENSATED 动作数（撤销熔断计数数据源）。 */
+    int countCompensatedInWindow(@Param("agentId") String agentId,
+                                 @Param("fromUtc") java.time.LocalDateTime fromUtc,
+                                 @Param("toUtc") java.time.LocalDateTime toUtc);
 }

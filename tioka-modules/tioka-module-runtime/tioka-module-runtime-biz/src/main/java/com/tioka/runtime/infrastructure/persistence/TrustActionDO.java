@@ -33,6 +33,15 @@ public class TrustActionDO {
     private LocalDateTime undoDeadline;
     private String undoneBy;
     private String undoReason;
+    /** 第 10 步判定的自治等级（V203；抽检与统计取数）。 */
+    private String autonomyLevel;
+    /** TRU-07 撤销范围（V202）。 */
+    private String undoScopeType;
+    private String undoScopeId;
+    /** 同组补偿顺序号（倒序补偿编号）。 */
+    private Integer compensateSeq;
+    /** 补偿重试次数（V202；3 次失败 → COMPENSATION_FAILED）。 */
+    private Integer undoAttempts;
     private LocalDateTime createAt;
     private LocalDateTime updateAt;
 
@@ -90,6 +99,16 @@ public class TrustActionDO {
     public void setUndoneBy(String undoneBy) { this.undoneBy = undoneBy; }
     public String getUndoReason() { return undoReason; }
     public void setUndoReason(String undoReason) { this.undoReason = undoReason; }
+    public String getAutonomyLevel() { return autonomyLevel; }
+    public void setAutonomyLevel(String autonomyLevel) { this.autonomyLevel = autonomyLevel; }
+    public String getUndoScopeType() { return undoScopeType; }
+    public void setUndoScopeType(String undoScopeType) { this.undoScopeType = undoScopeType; }
+    public String getUndoScopeId() { return undoScopeId; }
+    public void setUndoScopeId(String undoScopeId) { this.undoScopeId = undoScopeId; }
+    public Integer getCompensateSeq() { return compensateSeq; }
+    public void setCompensateSeq(Integer compensateSeq) { this.compensateSeq = compensateSeq; }
+    public Integer getUndoAttempts() { return undoAttempts; }
+    public void setUndoAttempts(Integer undoAttempts) { this.undoAttempts = undoAttempts; }
     public LocalDateTime getCreateAt() { return createAt; }
     public void setCreateAt(LocalDateTime createAt) { this.createAt = createAt; }
     public LocalDateTime getUpdateAt() { return updateAt; }

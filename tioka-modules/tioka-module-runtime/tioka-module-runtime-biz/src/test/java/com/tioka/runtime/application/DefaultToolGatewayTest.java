@@ -91,12 +91,19 @@ class DefaultToolGatewayTest {
         gw = new DefaultToolGateway(registry, pipeline, mock(com.tioka.runtime.api.grant.GrantService.class),
                 audit, degraded, new ObjectMapper(),
                 preparedCalls, changeSets, policies, new ToolPipelineStepRegistry(List.of()),
-                dailyCountersNone());
+                dailyCountersNone(), autonomyNone());
     }
 
     @SuppressWarnings("unchecked")
     private ObjectProvider<com.tioka.runtime.application.tool.DailyCounterStore> dailyCountersNone() {
         ObjectProvider<com.tioka.runtime.application.tool.DailyCounterStore> p = mock(ObjectProvider.class);
+        when(p.getIfAvailable()).thenReturn(null);
+        return p;
+    }
+
+    @SuppressWarnings("unchecked")
+    private ObjectProvider<com.tioka.governance.api.autonomy.AutonomyApi> autonomyNone() {
+        ObjectProvider<com.tioka.governance.api.autonomy.AutonomyApi> p = mock(ObjectProvider.class);
         when(p.getIfAvailable()).thenReturn(null);
         return p;
     }

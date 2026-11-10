@@ -11,7 +11,10 @@
                    args_json AS argsJson, change_set_json AS changeSetJson, fingerprint, estimated,
                    valid_until AS validUntil, records, amount_micros AS amountMicros, approval_id AS approvalId,
                    receipt_json AS receiptJson, undo_deadline AS undoDeadline, undone_by AS undoneBy,
-                   undo_reason AS undoReason, create_at AS createAt, update_at AS updateAt
+                   undo_reason AS undoReason, autonomy_level AS autonomyLevel,
+                   undo_scope_type AS undoScopeType, undo_scope_id AS undoScopeId,
+                   compensate_seq AS compensateSeq, undo_attempts AS undoAttempts,
+                   create_at AS createAt, update_at AS updateAt
               FROM trust_action WHERE id = #{id}
         ]]>
     </select>
@@ -24,7 +27,10 @@
                    args_json AS argsJson, change_set_json AS changeSetJson, fingerprint, estimated,
                    valid_until AS validUntil, records, amount_micros AS amountMicros, approval_id AS approvalId,
                    receipt_json AS receiptJson, undo_deadline AS undoDeadline, undone_by AS undoneBy,
-                   undo_reason AS undoReason, create_at AS createAt, update_at AS updateAt
+                   undo_reason AS undoReason, autonomy_level AS autonomyLevel,
+                   undo_scope_type AS undoScopeType, undo_scope_id AS undoScopeId,
+                   compensate_seq AS compensateSeq, undo_attempts AS undoAttempts,
+                   create_at AS createAt, update_at AS updateAt
               FROM trust_action WHERE approval_id = #{approvalId}
             ORDER BY create_at DESC
             LIMIT 1
@@ -47,7 +53,10 @@
                    args_json AS argsJson, change_set_json AS changeSetJson, fingerprint, estimated,
                    valid_until AS validUntil, records, amount_micros AS amountMicros, approval_id AS approvalId,
                    receipt_json AS receiptJson, undo_deadline AS undoDeadline, undone_by AS undoneBy,
-                   undo_reason AS undoReason, create_at AS createAt, update_at AS updateAt
+                   undo_reason AS undoReason, autonomy_level AS autonomyLevel,
+                   undo_scope_type AS undoScopeType, undo_scope_id AS undoScopeId,
+                   compensate_seq AS compensateSeq, undo_attempts AS undoAttempts,
+                   create_at AS createAt, update_at AS updateAt
               FROM trust_action WHERE id = #{id} FOR UPDATE
         ]]>
     </select>
@@ -58,13 +67,15 @@
               id, workspace_id, agent_id, agent_version_id, thread_id, turn_id, orch_run_id, item_id, seq,
               tool_name, action_class, risk, reversibility, status, gate,
               args_json, change_set_json, fingerprint, estimated, valid_until,
-              records, amount_micros, approval_id, receipt_json,
+              records, amount_micros, approval_id, receipt_json, autonomy_level,
+              undo_scope_type, undo_scope_id, compensate_seq, undo_attempts,
               create_at, update_at
             ) VALUES (
               #{id}, #{workspaceId}, #{agentId}, #{agentVersionId}, #{threadId}, #{turnId}, #{orchRunId}, #{itemId}, #{seq},
               #{toolName}, #{actionClass}, #{risk}, #{reversibility}, #{status}, #{gate},
               #{argsJson}, #{changeSetJson}, #{fingerprint}, #{estimated}, #{validUntil},
-              COALESCE(#{records}, 0), #{amountMicros}, #{approvalId}, #{receiptJson},
+              COALESCE(#{records}, 0), #{amountMicros}, #{approvalId}, #{receiptJson}, #{autonomyLevel},
+              #{undoScopeType}, #{undoScopeId}, #{compensateSeq}, COALESCE(#{undoAttempts}, 0),
               now(), now()
             )
         ]]>
@@ -95,13 +106,87 @@
                    args_json AS argsJson, change_set_json AS changeSetJson, fingerprint, estimated,
                    valid_until AS validUntil, records, amount_micros AS amountMicros, approval_id AS approvalId,
                    receipt_json AS receiptJson, undo_deadline AS undoDeadline, undone_by AS undoneBy,
-                   undo_reason AS undoReason, create_at AS createAt, update_at AS updateAt
+                   undo_reason AS undoReason, autonomy_level AS autonomyLevel,
+                   undo_scope_type AS undoScopeType, undo_scope_id AS undoScopeId,
+                   compensate_seq AS compensateSeq, undo_attempts AS undoAttempts,
+                   create_at AS createAt, update_at AS updateAt
               FROM trust_action
              WHERE agent_id = #{agentId}
                AND status = 'APPLIED'
                AND undone_by IS NULL
                AND COALESCE(update_at, create_at) >= #{fromUtc}
                AND COALESCE(update_at, create_at) < #{toUtc}
+        ]]>
+    </select>
+
+    <select id="listAppliedInScope" resultType="com.tioka.runtime.infrastructure.persistence.TrustActionDO">
+        <![CDATA[
+            SELECT id, workspace_id AS workspaceId, agent_id AS agentId, agent_version_id AS agentVersionId,
+                   thread_id AS threadId, turn_id AS turnId, orch_run_id AS orchRunId, item_id AS itemId, seq,
+                   tool_name AS toolName, action_class AS actionClass, risk, reversibility, status, gate,
+                   args_json AS argsJson, change_set_json AS changeSetJson, fingerprint, estimated,
+                   valid_until AS validUntil, records, amount_micros AS amountMicros, approval_id AS approvalId,
+                   receipt_json AS receiptJson, undo_deadline AS undoDeadline, undone_by AS undoneBy,
+                   undo_reason AS undoReason, autonomy_level AS autonomyLevel,
+                   undo_scope_type AS undoScopeType, undo_scope_id AS undoScopeId,
+                   compensate_seq AS compensateSeq, undo_attempts AS undoAttempts,
+                   create_at AS createAt, update_at AS updateAt
+              FROM trust_action
+             WHERE (#{scopeType} = 'turn' AND turn_id = #{scopeId})
+                OR (#{scopeType} = 'run' AND orch_run_id = #{scopeId})
+                OR (#{scopeType} = 'action' AND id = #{scopeId})
+             ORDER BY seq DESC
+        ]]>
+    </select>
+
+    <select id="listCompensatingInScope" resultType="com.tioka.runtime.infrastructure.persistence.TrustActionDO">
+        <![CDATA[
+            SELECT id, workspace_id AS workspaceId, agent_id AS agentId, agent_version_id AS agentVersionId,
+                   thread_id AS threadId, turn_id AS turnId, orch_run_id AS orchRunId, item_id AS itemId, seq,
+                   tool_name AS toolName, action_class AS actionClass, risk, reversibility, status, gate,
+                   args_json AS argsJson, change_set_json AS changeSetJson, fingerprint, estimated,
+                   valid_until AS validUntil, records, amount_micros AS amountMicros, approval_id AS approvalId,
+                   receipt_json AS receiptJson, undo_deadline AS undoDeadline, undone_by AS undoneBy,
+                   undo_reason AS undoReason, autonomy_level AS autonomyLevel,
+                   undo_scope_type AS undoScopeType, undo_scope_id AS undoScopeId,
+                   compensate_seq AS compensateSeq, undo_attempts AS undoAttempts,
+                   create_at AS createAt, update_at AS updateAt
+              FROM trust_action
+             WHERE ( (#{scopeType} = 'turn' AND turn_id = #{scopeId})
+                OR (#{scopeType} = 'run' AND orch_run_id = #{scopeId})
+                OR (#{scopeType} = 'action' AND id = #{scopeId}) )
+               AND status = 'COMPENSATING'
+             ORDER BY seq ASC
+        ]]>
+    </select>
+
+    <update id="markCompensatingMeta">
+        <![CDATA[
+            UPDATE trust_action
+               SET undo_scope_type = #{scopeType},
+                   undo_scope_id = #{scopeId},
+                   compensate_seq = #{seq},
+                   update_at = now()
+             WHERE id = #{id}
+        ]]>
+    </update>
+
+    <update id="bumpUndoAttempts">
+        <![CDATA[
+            UPDATE trust_action
+               SET undo_attempts = COALESCE(undo_attempts, 0) + 1,
+                   update_at = now()
+             WHERE id = #{id}
+        ]]>
+    </update>
+
+    <select id="countCompensatedInWindow" resultType="int">
+        <![CDATA[
+            SELECT COUNT(*) FROM trust_action
+             WHERE agent_id = #{agentId}
+               AND status = 'COMPENSATED'
+               AND update_at >= #{fromUtc}
+               AND update_at < #{toUtc}
         ]]>
     </select>
 </mapper>

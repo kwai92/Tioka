@@ -20,6 +20,7 @@ public interface AgentSnapshotApi {
             String workspaceId,
             String ownerId,
             String contentHash,
-            AgentSpec spec
+            AgentSpec spec,
+            java.time.Instant publishedAt
     ) {}
 }

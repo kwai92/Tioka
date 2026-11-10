@@ -88,9 +88,9 @@ class DelegateIT {
 
         // 父快照：subAgents.allowed = [agv_child]（预留 JsonNode，委派解冻后的形态）
         AgentSpec parentSpec = spec(Map.of("allowed", List.of("agv_child")));
-        parentSnap = new AgentSnapshotApi.AgentSnapshot("av_parent", "agv_parent", 3, "ws", "1", "h", parentSpec);
+        parentSnap = new AgentSnapshotApi.AgentSnapshot("av_parent", "agv_parent", 3, "ws", "1", "h", parentSpec, null);
         AgentSpec childSpec = spec(null);
-        childSnap = new AgentSnapshotApi.AgentSnapshot("av_child", "agv_child", 2, "ws", "1", "h", childSpec);
+        childSnap = new AgentSnapshotApi.AgentSnapshot("av_child", "agv_child", 2, "ws", "1", "h", childSpec, null);
         parentGrant = grant("grt_parent", null);
         childGrant = grant("grt_child", "grt_parent");
         when(agents.get("av_parent")).thenReturn(parentSnap);
