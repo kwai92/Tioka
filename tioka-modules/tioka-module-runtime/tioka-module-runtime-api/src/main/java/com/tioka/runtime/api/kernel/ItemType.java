@@ -19,7 +19,9 @@ public enum ItemType {
     STATUS("status"),
     ERROR("error"),
     /** TRU-05 变更单（ADR-033）。 */
-    CHANGE_SET("change_set");
+    CHANGE_SET("change_set"),
+    /** SCH-03 结构化输出（ADR-037 / ADR-066）。 */
+    DATA("data");
 
     private final String wire;
 

@@ -2,6 +2,7 @@ package com.tioka.model.api.gateway;
 
 import com.tioka.model.api.capability.OcrRequest;
 import com.tioka.model.api.capability.OcrResult;
+import com.tioka.model.api.constraint.StructuredDemand;
 
 import java.util.List;
 import java.util.Map;
@@ -38,9 +39,18 @@ public interface ModelGateway {
      * @param tools       OpenAI 兼容工具定义
      * @param temperature 可空
      * @param maxTokens   可空
+     * @param structured  结构化输出需求（SCH-02）；null = 自由文本调用。方言按实际路由到的
+     *                    模型能力经 {@code StructuredRequestBuilder} 编译（ADR-066 §2）
      */
     record ChatRequest(List<Map<String, Object>> messages, List<Map<String, Object>> tools,
-                       Double temperature, Integer maxTokens) {}
+                       Double temperature, Integer maxTokens, StructuredDemand structured) {
+
+        /** 兼容四参口径（SCH-02 之前的调用方）；structured = null。 */
+        public ChatRequest(List<Map<String, Object>> messages, List<Map<String, Object>> tools,
+                           Double temperature, Integer maxTokens) {
+            this(messages, tools, temperature, maxTokens, null);
+        }
+    }
 
     record ToolCall(String id, String name, String argumentsJson) {}
 

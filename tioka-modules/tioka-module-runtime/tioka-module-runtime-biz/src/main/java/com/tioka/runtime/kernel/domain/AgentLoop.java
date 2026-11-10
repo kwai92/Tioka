@@ -23,6 +23,7 @@ import java.util.function.Function;
 
 /**
  * 多步工具循环（纯编排；依赖端口与仓储）。RT-07 审批挂起；RT-09 WAITING_CHILD / maxDuration。
+ * SCH-03：OutputStage 可选挂接（无 output 契约的 Agent 行为不变）。
  */
 public final class AgentLoop {
     private final LoopPorts.ModelPort modelPort;
@@ -34,6 +35,7 @@ public final class AgentLoop {
     private final ObjectMapper mapper;
     private final ToolApprovalCoordinator approvals;
     private final ChildWaitService childWait;
+    private final com.tioka.runtime.kernel.application.loop.OutputStage outputStage;
 
     public AgentLoop(LoopPorts.ModelPort modelPort,
                      LoopPorts.ToolPort toolPort,
@@ -65,6 +67,20 @@ public final class AgentLoop {
                      ObjectMapper mapper,
                      ToolApprovalCoordinator approvals,
                      ChildWaitService childWait) {
+        this(modelPort, toolPort, sink, contextBuilder, turns, itemLoader, mapper, approvals, childWait, null);
+    }
+
+    /** SCH-03：带输出阶段（OutputStage）的完整构造（KernelLoopConfiguration 唯一调用点）。 */
+    public AgentLoop(LoopPorts.ModelPort modelPort,
+                     LoopPorts.ToolPort toolPort,
+                     LoopPorts.ItemSink sink,
+                     ContextBuilder contextBuilder,
+                     TurnRepository turns,
+                     Function<String, List<RuntimeItemDO>> itemLoader,
+                     ObjectMapper mapper,
+                     ToolApprovalCoordinator approvals,
+                     ChildWaitService childWait,
+                     com.tioka.runtime.kernel.application.loop.OutputStage outputStage) {
         this.modelPort = modelPort;
         this.toolPort = toolPort;
         this.sink = sink;
@@ -74,6 +90,7 @@ public final class AgentLoop {
         this.mapper = mapper;
         this.approvals = approvals;
         this.childWait = childWait;
+        this.outputStage = outputStage;
     }
 
     public LoopResult run(LoopContext ctx) {
@@ -103,6 +120,9 @@ public final class AgentLoop {
                     TurnCallScope.open(ctx, sink, step);
                     LoopPorts.ModelPort.Result r;
                     try {
+                        // SCH-02：结构化契约经 StructuredDemand 进请求体（OutputStage 不适用时为 null）
+                        com.tioka.model.api.constraint.StructuredDemand demand =
+                                outputStage == null ? null : outputStage.structuredDemand(ctx);
                         r = modelPort.chat(ctx, messages, last ? List.of() : tools,
                                 delta -> {
                                     ctx.checkpoint();
@@ -111,7 +131,8 @@ public final class AgentLoop {
                                         return;
                                     }
                                     sink.delta(ctx, delta);
-                                });
+                                },
+                                demand);
                     } finally {
                         TurnCallScope.close();
                     }
@@ -126,10 +147,26 @@ public final class AgentLoop {
                     }
                     turns.incrementStep(ctx.turnId(), ctx.leaseVersion());
                     if (r.toolCalls().isEmpty()) {
+                        // SCH-03：M3-03 §5 —— 「无 toolCalls → COMPLETED」之前插入输出阶段
+                        if (outputStage != null) {
+                            LoopResult out = outputStage.onLoopExit(ctx, step, r,
+                                    promptTokens, completionTokens);
+                            if (out != null) {
+                                return out;
+                            }
+                        }
                         return LoopResult.completed(promptTokens, completionTokens);
                     }
                     if (last) {
                         sink.status(ctx, step, "max_steps_reached");
+                        // SCH-03：TOOL 模式在正常退出点汇总 emit_output 提交
+                        if (outputStage != null) {
+                            LoopResult out = outputStage.onLoopExit(ctx, step, r,
+                                    promptTokens, completionTokens);
+                            if (out != null) {
+                                return out;
+                            }
+                        }
                         return LoopResult.completed(promptTokens, completionTokens);
                     }
                     if (wouldRepeat(recentCalls, r.toolCalls(), ctx.repeatLimit())) {
@@ -137,8 +174,26 @@ public final class AgentLoop {
                         ctx.forceFinalAnswer();
                         continue;
                     }
+                    // SCH-03：TOOL 模式拦截 emit_output——校验后以 tool_result 交回模型自修
+                    List<LoopPorts.ToolCall> pendingCalls = r.toolCalls();
+                    if (outputStage != null && outputStage.toolMode(ctx)) {
+                        List<LoopPorts.ToolCall> emit = new ArrayList<>();
+                        List<LoopPorts.ToolCall> rest = new ArrayList<>();
+                        for (LoopPorts.ToolCall c : pendingCalls) {
+                            (com.tioka.runtime.kernel.application.loop.OutputStage.EMIT_OUTPUT
+                                    .equals(c.name()) ? emit : rest).add(c);
+                        }
+                        for (LoopPorts.ToolCall c : emit) {
+                            sink.toolCall(ctx, step, c);
+                            sink.toolResult(ctx, step, outputStage.handleEmit(ctx, step, c));
+                        }
+                        pendingCalls = rest;
+                        if (pendingCalls.isEmpty()) {
+                            continue;
+                        }
+                    }
                     List<ToolApprovalCoordinator.CallBinding> bindings = new ArrayList<>();
-                    for (LoopPorts.ToolCall c : r.toolCalls()) {
+                    for (LoopPorts.ToolCall c : pendingCalls) {
                         String itemId = sink.toolCall(ctx, step, c);
                         bindings.add(new ToolApprovalCoordinator.CallBinding(itemId, c));
                         recentCalls.addLast(keyOf(c));

@@ -9,6 +9,14 @@ public record LoopResult(TurnStatus status, int promptTokens, int completionToke
         return new LoopResult(TurnStatus.COMPLETED, promptTokens, completionTokens, null, null);
     }
 
+    /**
+     * SCH-03：COMPLETED 且带原因码（复用 error_code 列承载，如 {@code output_invalid}；
+     * ADR-037 §生成、校验与修复 第 5 步，不新增 TurnStatus）。
+     */
+    public static LoopResult completedWithReason(String reason, int promptTokens, int completionTokens) {
+        return new LoopResult(TurnStatus.COMPLETED, promptTokens, completionTokens, reason, null);
+    }
+
     public static LoopResult failed(String code, String message, int promptTokens, int completionTokens) {
         return new LoopResult(TurnStatus.FAILED, promptTokens, completionTokens, code, message);
     }

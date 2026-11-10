@@ -5,8 +5,12 @@ import com.tioka.framework.error.ErrorCode;
 import com.tioka.model.api.FailoverEvent;
 import com.tioka.model.api.capability.OcrRequest;
 import com.tioka.model.api.capability.OcrResult;
+import com.tioka.model.api.constraint.StructuredConstraintRequest;
+import com.tioka.model.api.constraint.StructuredDemand;
 import com.tioka.model.api.gateway.ModelCallContext;
 import com.tioka.model.api.gateway.ModelGateway;
+import com.tioka.model.api.profile.ModelProfile;
+import com.tioka.model.api.profile.StructuredOutputCapability;
 import com.tioka.model.application.routing.RoutingPlanExecutor;
 import com.tioka.model.domain.ModelEntities;
 import com.tioka.model.infrastructure.provider.OcrEngine;
@@ -46,6 +50,7 @@ public class DefaultModelGateway implements ModelGateway {
     private final ModelBudgetGuard budget;
     private final RetryBackoff backoff;
     private final ObjectProvider<RoutingPlanExecutor> routing;
+    private final StructuredRequestBuilder structuredRequestBuilder;
     private final int failoverMax;
 
     public DefaultModelGateway(ModelBindingResolver resolver,
@@ -63,6 +68,29 @@ public class DefaultModelGateway implements ModelGateway {
                                @Value("${tioka.model.retry.base-delay:500ms}") Duration retryBaseDelay,
                                @Value("${tioka.model.retry.budget:20s}") Duration retryBudget,
                                ObjectProvider<RoutingPlanExecutor> routing) {
+        // ENG-05：不得 new ObjectMapper；兼容构造不接方言编译器（structured 调用只在 Spring 装配生效）
+        this(resolver, provider, ocrEngine, entities, events, usage, quota, rateLimiter,
+                cooldown, budget, failoverMax, retryMaxAttempts, retryBaseDelay, retryBudget,
+                routing, null);
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public DefaultModelGateway(ModelBindingResolver resolver,
+                               ProviderClient provider,
+                               OcrEngine ocrEngine,
+                               ModelEntities entities,
+                               ApplicationEventPublisher events,
+                               UsageRecorder usage,
+                               QuotaGuard quota,
+                               ModelRateLimiter rateLimiter,
+                               ModelBindingCooldownService cooldown,
+                               ModelBudgetGuard budget,
+                               @Value("${tioka.model.failover-max:2}") int failoverMax,
+                               @Value("${tioka.model.retry.max-attempts:2}") int retryMaxAttempts,
+                               @Value("${tioka.model.retry.base-delay:500ms}") Duration retryBaseDelay,
+                               @Value("${tioka.model.retry.budget:20s}") Duration retryBudget,
+                               ObjectProvider<RoutingPlanExecutor> routing,
+                               StructuredRequestBuilder structuredRequestBuilder) {
         this.resolver = resolver;
         this.provider = provider;
         this.ocrEngine = ocrEngine;
@@ -76,6 +104,7 @@ public class DefaultModelGateway implements ModelGateway {
         this.failoverMax = Math.max(0, failoverMax);
         this.backoff = new RetryBackoff(retryMaxAttempts, retryBaseDelay, retryBudget);
         this.routing = routing;
+        this.structuredRequestBuilder = structuredRequestBuilder;
     }
 
     @Override
@@ -314,10 +343,36 @@ public class DefaultModelGateway implements ModelGateway {
                 sink.accept(StreamDelta.text(d.textDelta()));
             }
         };
+        // SCH-02：结构化需求按实际路由到的模型能力编译方言并进请求体（ADR-066 §2/§4.1）。
+        // 本批能力记录未接线（SCH-06），按 legacy("schema"/"tool") 缺省能力编译（登记偏差）。
+        List<Map<String, Object>> messages = request == null ? null : request.messages();
+        List<Map<String, Object>> tools = request == null ? null : request.tools();
+        Map<String, Object> responseFormat = null;
+        StructuredDemand demand = request == null ? null : request.structured();
+        if (demand != null && demand.authoritativeSchema() != null && structuredRequestBuilder != null) {
+            ModelProfile profile = new ModelProfile(sel.modelRef(),
+                    StructuredOutputCapability.legacy(demand.emitAsTool() ? "tool" : "schema"));
+            StructuredConstraintRequest scr =
+                    structuredRequestBuilder.build(profile, demand.authoritativeSchema(), false);
+            if (scr.responseFormat() != null) {
+                responseFormat = scr.responseFormat();
+            }
+            if (scr.systemPromptSuffix() != null && !scr.systemPromptSuffix().isBlank()) {
+                List<Map<String, Object>> withSystem = new ArrayList<>(messages == null ? List.of() : messages);
+                withSystem.add(0, Map.of("role", "system", "content", scr.systemPromptSuffix()));
+                messages = withSystem;
+            }
+            if (!scr.tools().isEmpty()) {
+                List<Map<String, Object>> withTools = new ArrayList<>(tools == null ? List.of() : tools);
+                withTools.addAll(scr.tools());
+                tools = withTools;
+            }
+        }
         ProviderClient.CompletionResult r = provider.streamComplete(
                 sel.baseUrl(), sel.apiKeyRef(), sel.modelName(),
-                request == null || request.messages() == null ? List.of() : request.messages(),
-                request == null || request.tools() == null ? List.of() : request.tools(),
+                messages == null ? List.of() : messages,
+                tools == null ? List.of() : tools,
+                responseFormat,
                 providerSink);
         if ("content_filter".equalsIgnoreCase(r.finishReason())) {
             throw new BizException(ErrorCode.MODEL_ERROR, "内容安全拦截（content_filter）");
