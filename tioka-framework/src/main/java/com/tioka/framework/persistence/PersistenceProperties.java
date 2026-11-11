@@ -98,7 +98,10 @@ public class PersistenceProperties {
             // KNW-05 / V211：入库任务（doc_id 关联 kb_document，ADR-018 设计原文无 workspace_id）
             "kb_ingest_job",
             // EVO-01 / V212：用户反馈（PK turn_id+user_id，ADR-031 设计原文无 workspace_id）
-            "eval_feedback"
+            "eval_feedback",
+            // EVO-02 / V176：评测用例与评测结果（随 dataset_id / run_id 归属，ADR-031 设计原文无 workspace_id）
+            "eval_case",
+            "eval_result"
     ));
 
     public List<String> getWorkspaceScopeExemptTables() {
