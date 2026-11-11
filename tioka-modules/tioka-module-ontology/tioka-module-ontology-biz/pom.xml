@@ -46,6 +46,17 @@
             <groupId>dev.cel</groupId>
             <artifactId>cel</artifactId>
         </dependency>
+        <!-- ONT-03：ontology.instance 数据集登记（DatasetStore / DatasetPolicyModel，DAT-01 治理面）；
+             查询执行不走 DatasetGateway（ModelQueryService 内行过滤），无 Maven 环（connector 不依赖 ontology） -->
+        <dependency>
+            <groupId>com.tioka</groupId>
+            <artifactId>tioka-module-connector-biz</artifactId>
+        </dependency>
+        <!-- ONT-07：折叠互斥锁 ont:fold:{storeKey}（RedisFoldLock，StringRedisTemplate） -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-redis</artifactId>
+        </dependency>
         <!-- DOC 解析：版本与 knowledge-biz 现有写法一致（父 pom 未管理，登记偏差） -->
         <dependency>
             <groupId>org.apache.pdfbox</groupId>
@@ -60,6 +71,22 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <!-- ONT-03/07 集成测试：PG 容器（PolicyModeIT 同口径；版本由 tioka-dependencies BOM 管理） -->
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>postgresql</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>

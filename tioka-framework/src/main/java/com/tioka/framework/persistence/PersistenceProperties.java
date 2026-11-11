@@ -86,7 +86,9 @@ public class PersistenceProperties {
             // ONT-02 / V172：实例投影（实例级只读数据，实例键/门店键维度，无 workspace_id）
             "ont_draft",
             "ont_instance_version",
-            "ont_value_index"
+            "ont_value_index",
+            // ONT-07 / V173：折叠状态（门店级折叠态，store_key 主键，无 workspace_id）
+            "ont_state"
     ));
 
     public List<String> getWorkspaceScopeExemptTables() {

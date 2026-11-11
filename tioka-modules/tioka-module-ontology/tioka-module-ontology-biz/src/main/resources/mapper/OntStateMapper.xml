@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tioka.ontology.infrastructure.mapper.OntStateMapper">
+
+    <resultMap id="stateMap" type="com.tioka.ontology.infrastructure.persistence.OntStateDO">
+        <id property="storeKey" column="store_key"/>
+        <result property="packKey" column="pack_key"/>
+        <result property="inputHash" column="input_hash"/>
+        <result property="stateJson" column="state_json"/>
+        <result property="reviewItems" column="review_items"/>
+        <result property="foldedAt" column="folded_at"/>
+        <result property="writtenBack" column="written_back"/>
+    </resultMap>
+
+    <sql id="columns">
+        store_key, pack_key, input_hash, state_json, review_items, folded_at, written_back
+    </sql>
+
+    <insert id="upsert">
+        INSERT INTO ont_state (store_key, pack_key, input_hash, state_json, review_items, folded_at, written_back)
+        VALUES (
+            #{row.storeKey}, #{row.packKey}, #{row.inputHash},
+            #{row.stateJson}::jsonb, #{row.reviewItems}::jsonb,
+            #{row.foldedAt}, #{row.writtenBack}
+        )
+        ON CONFLICT (store_key) DO UPDATE SET
+            pack_key = EXCLUDED.pack_key,
+            input_hash = EXCLUDED.input_hash,
+            state_json = EXCLUDED.state_json,
+            review_items = EXCLUDED.review_items,
+            folded_at = EXCLUDED.folded_at,
+            written_back = EXCLUDED.written_back
+    </insert>
+
+    <select id="findByStoreKey" resultMap="stateMap">
+        SELECT <include refid="columns"/>
+        FROM ont_state
+        WHERE store_key = #{storeKey}
+    </select>
+
+    <update id="markWrittenBack">
+        UPDATE ont_state SET written_back = true WHERE store_key = #{storeKey}
+    </update>
+</mapper>
