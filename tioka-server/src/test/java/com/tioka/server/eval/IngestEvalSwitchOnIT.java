@@ -54,8 +54,8 @@ class IngestEvalSwitchOnIT {
     void datasetAndSpiReadyButBatchExecutorAbsentWhenSubSwitchOff() {
         assertNotNull(ctx.getBean(DatasetService.class));
         assertNotNull(ctx.getBean(EvaluatorRegistry.class));
-        assertEquals(4, ctx.getBean(EvaluatorRegistry.class).byTypeMapSize(),
-                "内置四个评估器注册");
+        assertEquals(6, ctx.getBean(EvaluatorRegistry.class).byTypeMapSize(),
+                "内置六个评估器注册（C-16 起含 recall_at_5 / mrr）");
         assertFalse(ctx.containsBean("batchEvalService"),
                 "tioka.eval.batch.enabled=false 时 BatchEvalService 不得注册");
         assertFalse(ctx.containsBean("evalRunController"),

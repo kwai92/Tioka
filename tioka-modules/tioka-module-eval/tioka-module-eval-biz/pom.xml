@@ -34,6 +34,11 @@
             <groupId>com.tioka</groupId>
             <artifactId>tioka-module-model-api</artifactId>
         </dependency>
+        <!-- C-16（KNW-07）：召回评测执行器经 KnowledgeSearchApi 检索（仅 api，运行时弱依赖） -->
+        <dependency>
+            <groupId>com.tioka</groupId>
+            <artifactId>tioka-module-knowledge-api</artifactId>
+        </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter</artifactId>
