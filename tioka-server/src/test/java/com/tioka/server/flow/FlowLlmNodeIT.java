@@ -5,6 +5,7 @@ import com.tioka.framework.id.Ids;
 import com.tioka.framework.security.Principal;
 import com.tioka.framework.security.PrincipalHolder;
 import com.tioka.framework.security.PrincipalType;
+import com.tioka.model.api.dto.ProviderDtos.CreateAliasRequest;
 import com.tioka.model.api.dto.ProviderDtos.CreateModelBindingRequest;
 import com.tioka.model.api.dto.ProviderDtos.CreateLogicalModelRequest;
 import com.tioka.model.api.dto.ProviderDtos.CreateProviderRequest;
@@ -110,7 +111,7 @@ class FlowLlmNodeIT {
         String ws = Ids.newId("ws");
         principals.runAs(user("1", ws), () -> {
             String planId = seedChatPlan();
-            upsertFlowDefaultPlan(planId);
+            seedSysFlowAlias(planId);
 
             String versionId = Ids.newId("fv");
             String graphJson = """
@@ -135,17 +136,16 @@ class FlowLlmNodeIT {
         });
     }
 
-    private void upsertFlowDefaultPlan(String planId) {
-        Integer exists = jdbc.queryForObject(
-                "SELECT COUNT(*) FROM model_default_plan WHERE purpose = 'FLOW'", Integer.class);
-        if (exists != null && exists > 0) {
-            jdbc.update(
-                    "UPDATE model_default_plan SET routing_plan_id = ?, update_at = now(), update_by = 'test' WHERE purpose = 'FLOW'",
-                    planId);
-        } else {
-            jdbc.update(
-                    "INSERT INTO model_default_plan(purpose, routing_plan_id, update_at, update_by) VALUES ('FLOW', ?, now(), 'test')",
-                    planId);
+    /**
+     * V156 起默认方案由 sys.* 系统别名承担（ADR-041 §1；model_default_plan 已删表）。
+     * ModelBindingResolver.planSelectionFor 按 purpose 解析 sys.flow → routing_plan。
+     */
+    private void seedSysFlowAlias(String planId) {
+        boolean exists = models.listAliases().stream()
+                .anyMatch(a -> "sys.flow".equals(a.name()));
+        if (!exists) {
+            models.createAlias(new CreateAliasRequest(
+                    "sys.flow", null, "FLOW", "routing_plan", planId));
         }
     }
 

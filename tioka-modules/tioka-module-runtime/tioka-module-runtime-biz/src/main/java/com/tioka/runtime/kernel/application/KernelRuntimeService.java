@@ -34,6 +34,8 @@ import com.tioka.runtime.infrastructure.persistence.RuntimeItemDO;
 import com.tioka.runtime.infrastructure.persistence.RuntimeTurnDO;
 import com.tioka.runtime.application.ToolRegistry;
 import com.tioka.runtime.kernel.infrastructure.redis.TurnDispatchQueue;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -52,6 +54,8 @@ import java.util.Set;
 
 @Service
 public class KernelRuntimeService implements RuntimeApi {
+    private static final Logger log = LoggerFactory.getLogger(KernelRuntimeService.class);
+
     private final RuntimeThreadRepository threads;
     private final TurnRepository turns;
     private final ItemRepository items;
@@ -322,6 +326,13 @@ public class KernelRuntimeService implements RuntimeApi {
             patch.setGrantId(grant.grantId());
             threads.upsert(patch);
         } catch (BizException e) {
+            if (e.getErrorCode() == ErrorCode.NOT_FOUND) {
+                // 根授予签发失败不阻断 Turn（design-notes/M3-C2a-delegation.md §二「startTurn 根授予」：
+                // grant_id 保持空，2.5 步 DelegationGrantCheck 对 null 放行），登记告警
+                log.warn("root grant issuance failed for thread {}, grant_id stays empty: {}",
+                        threadId, e.getMessage());
+                return;
+            }
             throw e;
         } catch (RuntimeException e) {
             // 根授予签发失败不阻断 Turn（thread.grant_id 保持空，2.5 步放行），登记告警

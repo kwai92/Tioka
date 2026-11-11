@@ -2,6 +2,8 @@ package com.tioka.server.orch;
 
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.tioka.agent.api.spec.AgentSpec;
+import com.tioka.agent.application.AgentService;
 import com.tioka.framework.id.Ids;
 import com.tioka.framework.messaging.EventEnvelope;
 import com.tioka.framework.security.Principal;
@@ -10,6 +12,11 @@ import com.tioka.framework.security.PrincipalType;
 import com.tioka.framework.security.SystemPrincipals;
 import com.tioka.framework.security.TiokaAuthentication;
 import com.tioka.infra.messaging.IdempotentDeliveryService;
+import com.tioka.model.api.dto.ProviderDtos.CreateLogicalModelRequest;
+import com.tioka.model.api.dto.ProviderDtos.CreateModelBindingRequest;
+import com.tioka.model.api.dto.ProviderDtos.CreateProviderRequest;
+import com.tioka.model.api.dto.ProviderDtos.CreateRoutingPlanRequest;
+import com.tioka.model.application.ModelAdminService;
 import com.tioka.orchestration.api.engine.OrchTools;
 import com.tioka.orchestration.api.watcher.OrchWatcherConsumers;
 import com.tioka.orchestration.api.watcher.TurnFinishedMessage;
@@ -45,6 +52,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -72,11 +80,14 @@ class ReceiptIT {
     @Autowired ItemRepository items;
     @Autowired ObjectMapper objectMapper;
     @Autowired PrincipalHolder principals;
+    @Autowired AgentService agents;
+    @Autowired ModelAdminService models;
 
     private String workspaceId;
     private String workItemId;
     private String ruleVersionId;
     private String threadId;
+    private String agentVersionId;
 
     @BeforeEach
     void setUp() {
@@ -85,13 +96,14 @@ class ReceiptIT {
         workItemId = Ids.newId("wi");
         ruleVersionId = Ids.newId("rv");
         threadId = Ids.newId("thr");
+        agentVersionId = seedAgentVersion();
 
         OrchRuleVersionDO ver = new OrchRuleVersionDO();
         ver.setId(ruleVersionId);
         ver.setRuleId(Ids.newId("rule"));
         ver.setVersion(1);
         ver.setEventType("demo.receipt");
-        ver.setActionsJson("[{\"type\":\"agent\",\"agentVersionId\":\"av_demo\"}]");
+        ver.setActionsJson("[{\"type\":\"agent\",\"agentVersionId\":\"" + agentVersionId + "\"}]");
         ver.setConcurrency("serial");
         ver.setAcceptMode("auto");
         ver.setTell("needed");
@@ -103,7 +115,7 @@ class ReceiptIT {
         RuntimeThreadDO thr = new RuntimeThreadDO();
         thr.setId(threadId);
         thr.setStatus("OPEN");
-        thr.setAgentVersionId("av_demo");
+        thr.setAgentVersionId(agentVersionId);
         thr.setWorkspaceId(workspaceId);
         thr.setOwnerId("sa_receipt");
         thr.setLastItemSeq(0L);
@@ -204,6 +216,36 @@ class ReceiptIT {
         List<OrchFactDO> facts = facts(fx.runId());
         assertTrue(facts.stream().anyMatch(f -> ReceiptFactKinds.MISSING_RECEIPT.equals(f.getKind())),
                 "应记 missing_receipt: " + facts);
+    }
+
+    /** 播种真实 agent version（rewriteThenSucceed 走 startTurn → ensureRootGrant 需要可读快照）。 */
+    private String seedAgentVersion() {
+        String tag = "rcpt" + UUID.randomUUID().toString().substring(0, 8);
+        return principals.runAs(new Principal("sa_receipt", workspaceId, PrincipalType.SERVICE,
+                Set.of("system_admin"), Set.of("*"), "api_key"), () -> {
+            var provider = models.createProvider(new CreateProviderRequest(tag + "-p", "mock://x", "k"));
+            String lm = models.createLogicalModel(new CreateLogicalModelRequest(tag + "-m", "tool"));
+            String binding = models.createModelBinding(new CreateModelBindingRequest(lm, provider.id(), "gpt"));
+            String planId = models.createPlan(new CreateRoutingPlanRequest(tag + "-rp", "FIXED", binding)).id();
+            models.publish(planId);
+            var agent = agents.create("receipt-it-" + tag, workspaceId);
+            return agents.publishSpec(agent.id(), baseSpec(agent.name(), planId)).versionId();
+        });
+    }
+
+    private static AgentSpec baseSpec(String name, String planId) {
+        return new AgentSpec(
+                1,
+                new AgentSpec.Profile(name, null, null, List.of(), "CHAT"),
+                new AgentSpec.Instructions(List.of(new AgentSpec.Instructions.Section("main", "hi"))),
+                new AgentSpec.ModelPolicy(planId, false),
+                AgentSpec.ToolSet.empty(),
+                List.of(),
+                AgentSpec.KnowledgeBinding.empty(),
+                AgentSpec.SandboxPolicy.defaults(),
+                AgentSpec.ApprovalSettings.empty(),
+                AgentSpec.Limits.defaults(),
+                null, null, null, null, null, null, null, null);
     }
 
     private Fixture seedRun(String status, int rewriteCount) {

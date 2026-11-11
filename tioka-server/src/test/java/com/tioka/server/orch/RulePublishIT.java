@@ -30,6 +30,7 @@ import org.springframework.test.web.servlet.MvcResult;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -121,7 +122,9 @@ class RulePublishIT {
     @Test
     void publishStableSucceeds() throws Exception {
         TestFixtures.Actor actor = fixtures.newActor("workspace_admin");
-        String agentVersionId = principals.runAs(principal(actor), () -> publishAgent(actor.workspaceId(), "ok"));
+        // tag 唯一化：别名 name（tag + "-m"）全局查重，固定 "ok" 会与其他测试类冲突
+        String tag = "ok-" + UUID.randomUUID().toString().substring(0, 8);
+        String agentVersionId = principals.runAs(principal(actor), () -> publishAgent(actor.workspaceId(), tag));
 
         String ruleId = objectMapper.readTree(mockMvc.perform(actor.auth(post("/api/orch/rules"))
                         .contentType(MediaType.APPLICATION_JSON)
