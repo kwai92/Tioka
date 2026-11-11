@@ -93,3 +93,10 @@ CREATE TABLE runtime_job (id VARCHAR(32) PRIMARY KEY, thread_id VARCHAR(64) NOT 
 - **上下文组装与压缩（RT-10）的组装顺序、压缩阈值与工具结果规则由 [ADR-048](ADR-048-context-engineering.md) 取代**：四区组装（稳定前缀 → 会话快照 → 历史 → 本轮尾部），用户记忆、经验、知识自动检索结果移到本轮尾部；有效预算取模型上下文 75% 与 AgentSpec 上限（默认 100K）的较小值；削减分卸载、清理、摘要、失败四级；摘要为结构化栏目且摘要时不提供工具。新增工作项 CTX-01（M3，与 RT-10 一起做）。
 - **子 Agent（RT-12）**：`agent.delegate` 的 `context` 参数改为结构化任务简报与显式引用；默认 `ISOLATED`，不继承父历史；回传结果默认上限 2000 token，超出部分转为产物引用（ADR-048 第 3.1 节，CTX-02，M4）。
 - 提示缓存的五条规则见 [ADR-049](ADR-049-prompt-caching.md)。
+
+## 修订：施工设计评审（2026-11-11，ADR-029 第 79、81 条）
+
+见 [36 号评审](../implementation/36-M3M4施工设计多维度评审.md)。本 ADR 原文与以下各条冲突时，以下列为准：
+
+- RT-11：生产环境只用 Kubernetes 加 RuntimeClass（gVisor 或 Kata），Docker 后端只用于演示。生产配置检测到 Docker 后端或其他运行时时，启动时告警，并自动关闭 `shell.exec` 与联网沙箱，需显式写入风险接受配置才能打开。
+- 沙箱命名空间启用 PSA `restricted` 与准入策略（镜像摘要白名单、禁 hostPath 与特权模式）。联网沙箱工具缺省标 `injectionSensitive`，产物继承 Turn 的标签与污点；stdio MCP 与 Skill 脚本在沙箱 Pod 内运行（M4-06 修订节）。

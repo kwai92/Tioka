@@ -202,3 +202,11 @@ PRS-03〜08 见 ADR-061、ADR-062；PRS-10〜12、FE-38 在 M4 之后。原计�
 - **方案是装配出来的，不是安装要求**：系统按客户已登记的引擎实例自动生成推荐方案，缺失能力按 ADR-063 第 5 节降级并在 `capabilityReport` 中报告；下表与本条所说的默认方案都只是推荐配方。PRS-02 由 3 人日增至 4 人日。
 - **默认方案**（第 4 节表格）：`standard-private` 的版面、文字、表格主引擎改为 MinerU 4.x（standard 档；CPU 12 核以上可用），印章与手写专项为 PaddleOCR；`standard-cloud` 在此基础上可把 TextIn xParse 放在各链首位（采购评估通过后），第二意见仍为 `qwen-vl-ocr`。最终以 ADR-062 评测集上 MinerU 4.x 与 PaddleOCR 的对比结果定稿（PRS-03）。
 - 文档层 `doc_clause` 改由 `tree` 生成（第 6 节映射表相应修订）。
+
+## 修订：施工设计评审（2026-11-11，ADR-029 第 79、81 条）
+
+见 [36 号评审](../implementation/36-M3M4施工设计多维度评审.md)。本 ADR 原文与以下各条冲突时，以下列为准：
+
+- M3 实际把解析契约放在 `ontology-api` 的 doc 子包（接口 `DocumentApi`）。M4 的 PRS-01 新建 `docparse-api` 与 `DocParseApi`，旧接口弃用并委托给新接口，保留到 M4 结束。
+- DOC-01/02 分四步迁入（M4-03 第 1.2 节）。缓存键为文件哈希 + 方案版本 + 空间，「用途」不进键。
+- LibreOffice 渲染在无网络 sidecar 中执行；页图与结果 JSON 继承文档标签，随文档级联删除。

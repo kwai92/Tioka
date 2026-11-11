@@ -230,3 +230,13 @@
 | GRD-12 | 人名、地址等命名实体的识别与假名化 | M4 之后 | P2 | 后端 4 | GRD-04 | — |
 
 GRD-05、GRD-08、GRD-10、FE-41 见 [ADR-067](ADR-067-output-safety-guardrail-eval.md)；SCH-06〜SCH-12、FE-43 见 [ADR-066](ADR-066-structured-output-reliability.md)。
+
+## 修订：施工设计评审（2026-11-11，ADR-029 第 79、81 条）
+
+见 [36 号评审](../implementation/36-M3M4施工设计多维度评审.md)。本 ADR 原文与以下各条冲突时，以下列为准：
+
+- `SINK` 检查点经 M3 DAT-02 已有的 `governance-api` `SinkGuard` 扩展落地，不新建门面；`ContentSafetyHook` 删除。`gov_safety_policy` 从未建表，不做第 1.4 节的数据迁移。
+- 工具管线中的 `TOOL` 检查步骤序号为 8.5（预演之后、Cedar 之前）。
+- 污点按组装完成后上下文中的 `EXTERNAL` 段计算，包括历史区；子 Turn、交接、压缩摘要继承污点（M4-04、M4-05 修订节）。
+- 第 2.1 节补充：个人记忆与经验库条目按 `INTERNAL` 注入并带来源标注，不得升为 `PRINCIPAL`。
+- `IN` 未出结论前，工具调用在管线入口等待。
