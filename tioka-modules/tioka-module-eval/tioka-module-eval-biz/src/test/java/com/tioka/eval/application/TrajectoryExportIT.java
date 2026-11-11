@@ -77,24 +77,28 @@ class TrajectoryExportIT {
     }
 
     private void seed(String threadId, String label) {
+        seed(threadId, label, "turn_a");
+    }
+
+    private void seed(String threadId, String label, String turnId) {
         threadLabels.put(threadId, label);
-        RuntimeApi.ItemView message = new RuntimeApi.ItemView("itm_1", threadId, "turn_a", 1L, 0,
+        RuntimeApi.ItemView message = new RuntimeApi.ItemView("itm_1", threadId, turnId, 1L, 0,
                 ItemType.MESSAGE, "assistant", Map.of("text", "已为您更新订单"), T0);
-        RuntimeApi.ItemView toolCall = new RuntimeApi.ItemView("itm_2", threadId, "turn_a", 2L, 1,
+        RuntimeApi.ItemView toolCall = new RuntimeApi.ItemView("itm_2", threadId, turnId, 2L, 1,
                 ItemType.TOOL_CALL, "assistant", Map.of("toolName", "order.update"), T0);
-        RuntimeApi.ItemView toolResult = new RuntimeApi.ItemView("itm_3", threadId, "turn_a", 3L, 1,
+        RuntimeApi.ItemView toolResult = new RuntimeApi.ItemView("itm_3", threadId, turnId, 3L, 1,
                 ItemType.TOOL_RESULT, "tool", Map.of("ok", true), T0);
         TrajectoryApi.Trajectory a = new TrajectoryApi.Trajectory(
-                new RuntimeApi.TurnView("turn_a", threadId, 1, TurnStatus.COMPLETED, "chat", null,
+                new RuntimeApi.TurnView(turnId, threadId, 1, TurnStatus.COMPLETED, "chat", null,
                         2, null, null, 100, 50, T0, T0, T1),
                 List.of(
                         new TrajectoryApi.Step(0, List.of(message), "model-x", 100, 50, 1200L, 3000L, false),
                         new TrajectoryApi.Step(1, List.of(toolCall, toolResult), "model-x",
                                 null, null, 300L, 0L, false)),
                 "http://trace/local");
-        trajectories.byTurn.put("turn_a", a);
+        trajectories.byTurn.put(turnId, a);
         trajectories.byThread.put(threadId, List.of(
-                new TrajectoryApi.TurnSummary("turn_a", 1, TurnStatus.COMPLETED, "chat", 2,
+                new TrajectoryApi.TurnSummary(turnId, 1, TurnStatus.COMPLETED, "chat", 2,
                         100, 50, 3000L, T0, T1)));
     }
 
@@ -148,5 +152,30 @@ class TrajectoryExportIT {
         // 时间范围命中
         String hit = svc.export(new TrajectoryExportApi.ExportRequest(THREAD, null, T0, T1));
         assertTrue(hit.contains("turn_a"));
+    }
+
+    @Test
+    void crossThreadExportRejectsConfidential() {
+        seed(THREAD, "INTERNAL");
+        seed("thr_c13_sec", "CONFIDENTIAL", "turn_b");
+        TrajectoryExportService normal = serviceFor(principalWith(Set.of(Permissions.CHAT_USE)));
+        TrajectoryExportService admin = serviceFor(principalWith(Set.of(
+                Permissions.CHAT_USE, Permissions.WORKSPACE_MANAGE)));
+
+        // 跨 thread turnIds 导出：首个 thread 是 INTERNAL、CONFIDENTIAL 内容混入其中 → 必须逐 thread 判定并拒绝
+        BizException denied = assertThrows(BizException.class, () -> normal.export(
+                new TrajectoryExportApi.ExportRequest(null, List.of("turn_a", "turn_b"), null, null)));
+        assertEquals(com.tioka.framework.error.ErrorCode.FORBIDDEN, denied.getErrorCode());
+
+        // 反序（首个即 CONFIDENTIAL）同样拒绝
+        BizException denied2 = assertThrows(BizException.class, () -> normal.export(
+                new TrajectoryExportApi.ExportRequest(null, List.of("turn_b", "turn_a"), null, null)));
+        assertEquals(com.tioka.framework.error.ErrorCode.FORBIDDEN, denied2.getErrorCode());
+
+        // 空间管理员跨 thread 导出放行
+        String json = admin.export(new TrajectoryExportApi.ExportRequest(null, List.of("turn_a", "turn_b"), null, null));
+        assertTrue(json.contains("turn_a"));
+        assertTrue(json.contains("turn_b"));
+        assertTrue(json.contains("thr_c13_sec"));
     }
 }

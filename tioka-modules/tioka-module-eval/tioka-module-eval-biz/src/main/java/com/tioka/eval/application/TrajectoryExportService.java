@@ -16,9 +16,11 @@ import org.springframework.stereotype.Service;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * EVO-01：轨迹导出（M3-06 §4.1）。复用 HCI-07b {@link TrajectoryApi} 查询；
@@ -70,7 +72,19 @@ public class TrajectoryExportService implements TrajectoryExportApi {
             collectTurnsByRange(request, trajectoriesOut);
         }
 
-        requireLabelClearance(threadId);
+        // DAT-02 / M3-06 §4.1：对导出涉及的每个 thread 逐个判定数据标签。turnIds 可以
+        // 混入多个 thread 的内容，仅按首个 thread 校验会被绕过（fail-closed：一律拒绝，
+        // 与单 thread 路径既有语义一致）；时间范围空导出时仍校验请求的 threadId。
+        Set<String> involvedThreads = new LinkedHashSet<>();
+        if (threadId != null && !threadId.isBlank()) {
+            involvedThreads.add(threadId);
+        }
+        for (TrajectoryApi.Trajectory t : trajectoriesOut) {
+            involvedThreads.add(t.turn().threadId());
+        }
+        for (String involved : involvedThreads) {
+            requireLabelClearance(involved);
+        }
 
         Map<String, Object> out = new LinkedHashMap<>();
         out.put("exportVersion", EXPORT_VERSION);
