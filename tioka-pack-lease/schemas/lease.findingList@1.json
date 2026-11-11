@@ -1,0 +1,8 @@
+{
+  "type": "array",
+  "x-tioka-evidence": "required",
+  "description": "一轮审查的草稿结论清单（LSE-05 第 7 步 submitReviewDraft 入参，M3-04 §4）",
+  "items": {
+    "$ref": "tioka://schema/lease.finding@1"
+  }
+}

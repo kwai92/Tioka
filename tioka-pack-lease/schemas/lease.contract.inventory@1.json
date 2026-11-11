@@ -1,0 +1,63 @@
+{
+  "type": "object",
+  "description": "@model.build 第 2 步对象清点输出：只含身份键，不含属性（M3-04 §1 / ADR-036 建模预设）",
+  "required": [
+    "instanceKey",
+    "defKey",
+    "objects"
+  ],
+  "properties": {
+    "instanceKey": {
+      "type": "string"
+    },
+    "defKey": {
+      "type": "string",
+      "enum": ["lease.contract"]
+    },
+    "defVersion": {
+      "type": "integer"
+    },
+    "storeCode": {
+      "type": "string"
+    },
+    "contractNo": {
+      "type": "string"
+    },
+    "objects": {
+      "type": "array",
+      "x-tioka-identity": [
+        "typeKey",
+        "identity"
+      ],
+      "items": {
+        "type": "object",
+        "required": [
+          "typeKey",
+          "identity"
+        ],
+        "properties": {
+          "typeKey": {
+            "type": "string",
+            "enum": [
+              "subject",
+              "party",
+              "feeItem",
+              "deposit",
+              "crossRule"
+            ]
+          },
+          "identity": {
+            "type": "object",
+            "description": "身份键键值，如 feeItem: {feeCode: RENT, subject: S1}"
+          },
+          "evidence": {
+            "type": "array",
+            "items": {
+              "$ref": "tioka://schema/platform.citation@1"
+            }
+          }
+        }
+      }
+    }
+  }
+}

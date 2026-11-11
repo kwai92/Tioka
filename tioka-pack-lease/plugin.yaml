@@ -1,0 +1,19 @@
+# LSE-01 租赁领域包清单（M3-04 §1 文档口径）。
+# 加载器实际读取 jar 根的 tioka-plugin.json（FND-12 清单 + ONT-05 扩展），两份内容同源：
+# 修改任一份必须同步另一份（M3C9LeasePackContractTest 守护）。
+pluginKey: lease
+packKey: lease
+version: 1.0.0
+spiType: DOMAIN_PACK
+spiVersion: 1
+permissions:
+  - cpu
+entryClass: tioka.pack.lease.LeaseDomainPack
+definitions:
+  - definitions/lease.contract.yaml
+  - definitions/topic-checkpoint-map.yaml
+schemas:
+  - schemas/lease.finding@1.json
+  - schemas/lease.findingList@1.json
+  - schemas/lease.contract.inventory@1.json
+prompts: prompts/

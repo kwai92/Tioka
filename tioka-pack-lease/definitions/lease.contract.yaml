@@ -1,0 +1,201 @@
+# LSE-01 模型定义（M3-04 §1 / ADR-036 ModelDefinition；规格五支，第一期范围全列）。
+# 本 YAML 是领域包静态资产；运行时 ModelDefinition 由 LeaseDomainPack.definition() 以同一口径给出
+# （DomainPackLoader 登记 ONT-01 草稿走 Java 对象，本文件为发布物与审阅口径，M3C9LeasePackContractTest 守护要点一致）。
+schemaVersion: 1
+defKey: lease.contract
+entityType: "@contract.model"
+businessKey:
+  parts: [storeCode, contractNo]      # 门店编码 × 合同号
+  fallback: fileHash                  # 缺合同号时用首份文件哈希（确认后由业务系统发更名事件）
+
+# ── 第一支：骨架 ──────────────────────────────────────────────
+# 对象：合同（种类、编号、签署日、生效日）、当事方、合同关系（主合同、补充、续约、变更、终止、转让）——全部
+objectTypes:
+  - typeKey: contract
+    identityKeys: [contractNo]
+    attrs:
+      kind:        { kind: ENUM, vocabulary: contractKinds }   # 主合同/补充/续约/变更/终止/转让/回购/甲方变更
+      signDate:    { kind: DATE }
+      effectiveDate: { kind: DATE }
+  - typeKey: party
+    collectionKey: parties
+    identityKeys: [name, role]
+    attrs:
+      role:      { kind: ENUM, vocabulary: partyRoles }         # 甲方（出租方）/乙方（承租方）
+      name:      { kind: TEXT }
+      region:    { kind: TEXT }
+  - typeKey: relation
+    collectionKey: relations
+    identityKeys: [target]
+    attrs:
+      relationType: { kind: ENUM, vocabulary: relationTypes }   # 主合同/补充/续约/变更/终止/转让
+
+# ── 第二支：标的与期限 ────────────────────────────────────────
+# 标的（铺位、面积及口径）、租期、关键日期（交付、装修、开业、计租起始）——全部
+  - typeKey: subject
+    identityKeys: [code]
+    attrs:
+      code:      { kind: TEXT }                       # S1 / S2 …
+      name:      { kind: TEXT }
+      area:      { kind: AMOUNT, unit: "㎡", role: 事实 }   # 面积不从租金反推（V04）
+      areaBasis: { kind: ENUM, vocabulary: areaBases }   # 建筑面积/使用面积/计租口径
+      termStart: { kind: DATE }
+      termEnd:   { kind: DATE }
+      deliveryDate: { kind: DATE }                      # 交付
+      fitoutStart:  { kind: DATE }                      # 装修
+      openingDate:  { kind: DATE }                      # 开业
+      rentStartDate: { kind: DATE }                     # 计租起始
+
+# ── 第三支：商务对象 ─────────────────────────────────────────
+# 费用项（CALC/SCHED/PAY/TAX/ABATE）、押金（32 类）、跨项规则（孰高、孰低、抵扣）、营业额口径——全部
+  - typeKey: feeItem
+    collectionKey: feeItems
+    identityKeys: [feeCode, subject]                  # 实例键形如 RENT@S1
+    groups:
+      CALC:
+        baseAmount:  { kind: AMOUNT, unit: CNY }      # 月额；0 元不是免租、一次性金额不是月额（V01/V02）
+      SCHED:
+        segments:
+          - amount:    { kind: AMOUNT, unit: CNY }
+            start:     { kind: DATE }
+            end:       { kind: DATE }
+            freeMonths: { kind: AMOUNT, unit: month } # 0 元不是免租（V01）
+      PAY:
+        payDay:      { kind: TEXT }
+        payCycle:    { kind: ENUM, vocabulary: payCycles }
+        payAmount:   { kind: AMOUNT, unit: CNY }
+      TAX:
+        rate:        { kind: AMOUNT, unit: ratio }    # 提成比例不是税率（V03）
+      ABATE:
+        freeMonths:  { kind: AMOUNT, unit: month }
+        condition:   { kind: TEXT }                   # 附条件减免进复核（R-5）
+    refs:
+      - field: subject
+        targetTypeKey: subject
+  - typeKey: deposit
+    collectionKey: deposits
+    identityKeys: [subject, depositType, originalName]
+    attrs:
+      depositType: { kind: ENUM, vocabulary: depositTypes }  # 押金 32 类（保证金/押金/履约金…，词表见 vocabulary）
+      amount:      { kind: AMOUNT, unit: CNY }    # 违约金和滞纳金不是押金（V08 兜底）
+      refundTerm:  { kind: TEXT }
+    refs:
+      - field: subject
+        targetTypeKey: subject
+  - typeKey: crossRule
+    collectionKey: crossRules
+    identityKeys: [ruleType, targets]
+    attrs:
+      ruleType: { kind: ENUM, vocabulary: crossRuleTypes }  # 孰高/孰低/抵扣
+      targets:  { kind: TEXT }                              # 参与的费用项键列表
+
+# ── 第四支：权利义务（第一期只抽 56 个必备要点涉及的主题；19 主题覆盖仍全部输出）──
+statementTypes:
+  - typeKey: OBLIGATION
+    params:
+      - { name: action,  kind: ENUM, vocabulary: actions }
+      - { name: object,  kind: TEXT }
+      - { name: period,  kind: TEXT }
+  - typeKey: RIGHT
+    params:
+      - { name: rightType, kind: ENUM, vocabulary: rightTypes }
+      - { name: condition, kind: TEXT }
+  - typeKey: CONSEQUENCE
+    params:
+      - { name: consequenceType, kind: ENUM, vocabulary: consequenceTypes }
+      - { name: liabilityReason, kind: ENUM, vocabulary: liabilityReasons }
+      - { name: trigger,  kind: TEXT }
+      - { name: quantum,  kind: TEXT }        # 违约金/滞纳金表述，不是押金（V08）
+  - typeKey: CONDITION
+    params:
+      - { name: condition, kind: TEXT }
+      - { name: appliesTo, kind: TEXT }
+  - typeKey: PROCEDURE
+    params:
+      - { name: step,     kind: TEXT }
+      - { name: deadline, kind: TEXT }
+
+# ── 第五支：修改声明 ─────────────────────────────────────────
+# 修改类型、新内容、生效期、去向（变更操作）——全部
+modifications:
+  typeToOps:
+    续约:     ["@TERM_RENEW"]
+    调价:     ["@ITEM_ADJUST"]
+    免租调整: ["@ITEM_ADJUST"]
+    新增费用: ["@ITEM_ADD"]
+    终止费用: ["@ITEM_REMOVE"]
+    主体变更: ["@PARTY_CHANGE"]
+    交付日期调整: ["@DATE_ADJUST"]
+    计租起始调整: ["@DATE_ADJUST"]
+    提前终止: ["@TERM_TERMINATE"]
+    转让:     ["@PARTY_TRANSFER"]
+    回购:     ["@PARTY_TRANSFER"]
+    迁址:     ["@SUBJECT_ADD", "@ARCHIVE_REBUILD"]
+
+# ── 主题（19 个，多标签；期望对象/陈述）────────────────────
+topics:
+  - { topicKey: rent.base,        expect: { objects: [feeItem], statements: [OBLIGATION] } }
+  - { topicKey: rent.abatement,   expect: { objects: [feeItem], statements: [CONDITION] } }
+  - { topicKey: rent.escalation,  expect: { objects: [feeItem], statements: [] } }
+  - { topicKey: rent.payment,     expect: { objects: [feeItem], statements: [OBLIGATION, CONSEQUENCE] } }
+  - { topicKey: rent.freeMonths,  expect: { objects: [feeItem], statements: [] } }
+  - { topicKey: deposit.security, expect: { objects: [deposit], statements: [OBLIGATION, CONSEQUENCE] } }
+  - { topicKey: fee.management,   expect: { objects: [feeItem], statements: [OBLIGATION] } }
+  - { topicKey: fee.utility,      expect: { objects: [feeItem], statements: [OBLIGATION] } }
+  - { topicKey: fee.promotion,    expect: { objects: [feeItem], statements: [OBLIGATION] } }
+  - { topicKey: fee.tax,          expect: { objects: [feeItem], statements: [OBLIGATION] } }
+  - { topicKey: crossRule.offset, expect: { objects: [crossRule], statements: [] } }
+  - { topicKey: term.delivery,    expect: { objects: [subject], statements: [OBLIGATION] } }
+  - { topicKey: term.fitout,      expect: { objects: [subject], statements: [RIGHT, CONDITION] } }
+  - { topicKey: term.opening,     expect: { objects: [subject], statements: [OBLIGATION] } }
+  - { topicKey: termination.tenant_default, expect: { objects: [], statements: [RIGHT, CONSEQUENCE] } }
+  - { topicKey: termination.landlord,       expect: { objects: [], statements: [RIGHT, CONSEQUENCE] } }
+  - { topicKey: termination.early,          expect: { objects: [], statements: [RIGHT, CONSEQUENCE] } }
+  - { topicKey: renewal.renew,    expect: { objects: [], statements: [RIGHT, PROCEDURE] } }
+  - { topicKey: transfer.assign,  expect: { objects: [party], statements: [OBLIGATION, PROCEDURE] } }
+
+vocabularies:
+  contractKinds:   [主合同, 补充, 续约, 变更, 终止, 转让, 回购, 甲方变更]
+  partyRoles:      [甲方, 乙方]
+  relationTypes:   [主合同, 补充, 续约, 变更, 终止, 转让]
+  areaBases:       [建筑面积, 使用面积, 计租口径]
+  payCycles:       [月付, 季付, 半年付, 年付]
+  depositTypes:    [履约保证金, 租金押金, 装修押金, 水电押金, 物业押金, 卫生押金, 安全押金, 经营保证金,
+                    品牌保证金, 商誉保证金, 改造保证金, 广告位押金, 停车押金, 设备押金, 钥匙押金, 证照押金,
+                    消防押金, 电梯押金, 空调押金, 电话押金, 网络押金, 燃气押金, 垃圾清运押金, 保洁押金,
+                    恢复原状保证金, 违约保证金, 计量押金, 临时押金, 延期保证金, 复业保证金, 免押金, 其他押金]
+  crossRuleTypes:  [孰高, 孰低, 抵扣]
+  actions:         [支付, 交付, 装修, 开业, 维修, 保险, 通知, 配合, 恢复原状, 接受检查]
+  rightTypes:      [解除权, 续租权, 优先承租权, 转租权, 免租权, 减免权, 补救权, 抗辩权]
+  consequenceTypes: [违约金, 滞纳金, 没收押金, 解除合同, 赔偿损失, 停业整顿]
+  liabilityReasons: [逾期付款, 逾期交付, 擅自转租, 擅自改动, 违规经营, 安全事故, 提前退租]
+  # 枚举、码表来自词表；Prompt 模板用占位符引用（${vocab:contractKinds}），不手抄
+
+validatorIds:
+  - lease.V01.zero-not-free
+  - lease.V02.oneoff-not-monthly
+  - lease.V03.commission-not-tax
+  - lease.V04.area-not-derived
+  - lease.V05.amount-traceable
+  - lease.V06.blank-not-zero
+  - lease.V07.one-fact-one-item
+  - lease.V08.fee-identity
+  - lease.V09.subject-scope
+  - lease.V10.period-complete
+  - lease.V11.add-vs-adjust
+  - lease.V12.renewal-amount-complete
+  - lease.V13.deposit-not-copied
+  - lease.V14.party-change-legal
+  - lease.V15.effective-date-grounded
+  - lease.V16.coverage
+
+baseViews:
+  - viewKey: contract.summary
+    fields:
+      - { fieldKey: 合同号,    path: "contracts[0].contractNo" }
+      - { fieldKey: 种类,      path: "contracts[0].kind" }
+      - { fieldKey: 签署日,    path: "contracts[0].signDate" }
+      - { fieldKey: 生效日,    path: "contracts[0].effectiveDate" }
+      - { fieldKey: 月租金,    path: "feeItems[RENT@S1].calc.baseAmount" }
+      - { fieldKey: 免租月数,  path: "feeItems[RENT@S1].abate.freeMonths" }
+      - { fieldKey: 押金,      path: "deposits" }

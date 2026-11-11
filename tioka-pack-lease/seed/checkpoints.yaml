@@ -1,0 +1,93 @@
+# LSE-04 初始导入文件：D 类 70 个 + H 类 16 个要点（J 类 24 个由判断员按主题组判断，
+# 表达式部分同样适用本文件函数）。导入目标：业务系统要点库（BIZ-04），
+# 发布时业务系统调用 Tioka POST /ontology/rules:validate 编译校验（ONT-04）。
+# 阈值一律来自业务系统阈值配置（cfg.*，带配置版本），本文件不写死数值口径。
+# applies / requires / check 结构见 ADR-036「规则求值」；三值语义：未知 → 缺失、空白 → onBlank。
+version: 1
+checkpoints:
+  - { code: D-001, topic: rent.base, mode: D, mandatory: true, applies: has(m.feeItems.RENT), requires: [m.feeItems.RENT.calc.baseAmount], check: m.feeItems.RENT.calc.baseAmount.value > 0, onBlank: NOT_SATISFIED, params: [] }
+  - { code: D-002, topic: rent.base, mode: D, mandatory: true, applies: has(m.feeItems.RENT), requires: [m.feeItems.RENT.calc.baseAmount], check: m.feeItems.RENT.calc.baseAmount.status == 'KNOWN', params: [] }
+  - { code: D-003, topic: rent.base, mode: D, mandatory: true, applies: has(m.subjects.S1), requires: [m.subjects.S1.rentStartDate], check: m.subjects.S1.rentStartDate.value != null, params: [] }
+  - { code: D-004, topic: rent.base, mode: D, mandatory: false, applies: size(m.feeItems.RENT.sched.segments) > 1, requires: [m.feeItems.RENT.sched.segments], check: segments(m.feeItems.RENT) >= 1, params: [] }
+  - { code: D-005, topic: rent.base, mode: D, mandatory: false, applies: true, requires: [m.feeItems.RENT.pay.payCycle], check: m.feeItems.RENT.pay.payCycle.value != null, params: [] }
+  - { code: D-006, topic: rent.base, mode: D, mandatory: false, applies: has(m.feeItems.MGMT), requires: [m.feeItems.MGMT.calc.baseAmount], check: m.feeItems.MGMT.calc.baseAmount.value >= 0, params: [] }
+  - { code: D-007, topic: rent.base, mode: D, mandatory: false, applies: true, requires: [m.subjects.S1.termStart], check: isKnown(m.subjects.S1.termStart), params: [] }
+  - { code: D-008, topic: rent.base, mode: D, mandatory: false, applies: true, requires: [m.subjects.S1.termEnd], check: isKnown(m.subjects.S1.termEnd), params: [] }
+  - { code: D-009, topic: rent.base, mode: D, mandatory: false, applies: true, requires: [m.subjects.S1.area], check: m.subjects.S1.area.value > 0, params: [] }
+  - { code: D-010, topic: rent.base, mode: D, mandatory: false, applies: true, requires: [m.subjects.S1.areaBasis], check: m.subjects.S1.areaBasis.value != null, params: [] }
+  - { code: D-011, topic: rent.freeMonths, mode: D, mandatory: false, applies: has(m.feeItems.RENT), requires: [m.feeItems.RENT.abate.freeMonths], check: freeMonths(m.feeItems.RENT) <= 12, params: [] }
+  - { code: D-012, topic: rent.freeMonths, mode: D, mandatory: false, applies: has(m.feeItems.RENT), requires: [m.feeItems.RENT.abate], check: freeMonths(m.feeItems.RENT) != 0, params: [] }
+  - { code: D-013, topic: rent.freeMonths, mode: D, mandatory: false, applies: has(m.feeItems.RENT), requires: [m.feeItems.RENT.abate.start], check: isKnown(m.feeItems.RENT.abate.start), params: [] }
+  - { code: D-014, topic: rent.freeMonths, mode: D, mandatory: false, applies: has(m.feeItems.RENT), requires: [m.feeItems.RENT.abate.end], check: isKnown(m.feeItems.RENT.abate.end), params: [] }
+  - { code: D-015, topic: rent.freeMonths, mode: D, mandatory: false, applies: has(m.feeItems.RENT), requires: [m.feeItems.RENT.abate.freeMonths], check: m.feeItems.RENT.abate.freeMonths.status == 'KNOWN', params: [] }
+  - { code: D-016, topic: rent.freeMonths, mode: D, mandatory: false, applies: has(m.feeItems.RENT), requires: [m.feeItems.RENT.abate.condition], check: m.feeItems.RENT.abate.condition.value == null, params: [] }
+  - { code: D-017, topic: rent.abatement, mode: D, mandatory: true, applies: has(m.feeItems.RENT), requires: [m.feeItems.RENT.abate], check: freeMonths(m.feeItems.RENT) >= cfg.minFreeMonths, params: [minFreeMonths] }
+  - { code: D-018, topic: rent.abatement, mode: D, mandatory: true, applies: has(m.feeItems.RENT), requires: [m.feeItems.RENT.abate.freeMonths], check: freeMonths(m.feeItems.RENT) > 0, params: [] }
+  - { code: D-019, topic: rent.abatement, mode: D, mandatory: false, applies: has(m.feeItems.RENT), requires: [m.feeItems.RENT.abate.condition], check: m.feeItems.RENT.abate.condition.value == null, params: [] }
+  - { code: D-020, topic: rent.abatement, mode: D, mandatory: false, applies: true, requires: [m.feeItems.RENT.abate.start], check: isKnown(m.feeItems.RENT.abate.start), params: [] }
+  - { code: D-021, topic: rent.abatement, mode: D, mandatory: false, applies: has(m.feeItems.RENT), requires: [m.feeItems.RENT.abate.freeMonths], check: m.feeItems.RENT.abate.freeMonths.value != 0, params: [] }
+  - { code: D-022, topic: rent.abatement, mode: D, mandatory: false, applies: true, requires: [m.subjects.S1.rentStartDate], check: isKnown(m.subjects.S1.rentStartDate), params: [] }
+  - { code: D-023, topic: rent.escalation, mode: D, mandatory: true, applies: size(m.feeItems.RENT.sched.segments) > 1, requires: [m.feeItems.RENT.sched.segments], check: escalationRate(m.feeItems.RENT) <= cfg.maxEscalation, params: [maxEscalation] }
+  - { code: D-024, topic: rent.escalation, mode: D, mandatory: true, applies: size(m.feeItems.RENT.sched.segments) > 1, requires: [m.feeItems.RENT.sched.segments], check: escalationRate(m.feeItems.RENT) >= 0, params: [] }
+  - { code: D-025, topic: rent.escalation, mode: D, mandatory: false, applies: size(m.feeItems.RENT.sched.segments) > 1, requires: [m.feeItems.RENT.sched.segments], check: escalationRate(m.feeItems.RENT) != null, params: [] }
+  - { code: D-026, topic: rent.escalation, mode: D, mandatory: false, applies: size(m.feeItems.RENT.sched.segments) > 1, requires: [m.feeItems.RENT.sched.segments], check: annualRate(m.feeItems.RENT.sched.segments) <= cfg.maxEscalation, params: [maxEscalation] }
+  - { code: D-027, topic: rent.escalation, mode: D, mandatory: false, applies: size(m.feeItems.RENT.sched.segments) > 1, requires: [m.feeItems.RENT.sched.segments], check: size(m.feeItems.RENT.sched.segments) >= 2, params: [] }
+  - { code: D-028, topic: rent.escalation, mode: D, mandatory: false, applies: true, requires: [m.feeItems.RENT.calc.baseAmount], check: isKnown(m.feeItems.RENT.calc.baseAmount), params: [] }
+  - { code: D-029, topic: rent.escalation, mode: D, mandatory: false, applies: size(m.feeItems.RENT.sched.segments) > 1, requires: [m.feeItems.RENT.sched.segments], check: sum(m.feeItems.RENT.sched.segments) > 0, params: [] }
+  - { code: D-030, topic: rent.payment, mode: D, mandatory: true, applies: has(m.feeItems.RENT), requires: [m.feeItems.RENT.pay], check: m.feeItems.RENT.pay.payAmount.value == m.feeItems.RENT.calc.baseAmount.value, params: [] }
+  - { code: D-031, topic: rent.payment, mode: D, mandatory: true, applies: has(m.feeItems.RENT), requires: [m.feeItems.RENT.pay.payDay], check: m.feeItems.RENT.pay.payDay.value != null, params: [] }
+  - { code: D-032, topic: rent.payment, mode: D, mandatory: false, applies: true, requires: [m.statements.OBLIGATION.where(topic == 'rent.payment')], check: size(m.statements.OBLIGATION.where(topic == 'rent.payment')) >= 1, params: [] }
+  - { code: D-033, topic: rent.payment, mode: D, mandatory: false, applies: has(m.feeItems.RENT), requires: [m.feeItems.RENT.pay.payCycle], check: m.feeItems.RENT.pay.payCycle.value != null, params: [] }
+  - { code: D-034, topic: rent.payment, mode: D, mandatory: false, applies: has(m.feeItems.RENT), requires: [m.feeItems.RENT.pay.payAmount], check: m.feeItems.RENT.pay.payAmount.status == 'KNOWN', params: [] }
+  - { code: D-035, topic: rent.payment, mode: D, mandatory: false, applies: true, requires: [m.statements.CONSEQUENCE.where(liabilityReason == '逾期付款')], check: size(m.statements.CONSEQUENCE.where(liabilityReason == '逾期付款')) >= 1, params: [] }
+  - { code: D-036, topic: rent.payment, mode: D, mandatory: false, applies: has(m.feeItems.RENT), requires: [m.feeItems.RENT.pay], check: m.feeItems.RENT.pay.payCycle.value == '月付' || m.feeItems.RENT.pay.payCycle.value == '季付', params: [] }
+  - { code: D-037, topic: rent.payment, mode: D, mandatory: false, applies: true, requires: [m.statements.OBLIGATION.where(topic == 'rent.payment')], check: size(m.statements.OBLIGATION.where(topic == 'rent.payment')) <= 5, params: [] }
+  - { code: D-038, topic: rent.payment, mode: D, mandatory: false, applies: has(m.feeItems.RENT), requires: [m.feeItems.RENT.calc.baseAmount], check: m.feeItems.RENT.calc.baseAmount.value >= cfg.minRentAmount, params: [minRentAmount] }
+  - { code: D-039, topic: rent.payment, mode: D, mandatory: false, applies: has(m.feeItems.RENT), requires: [m.feeItems.RENT.pay], check: isKnown(m.feeItems.RENT.pay.payAmount), params: [] }
+  - { code: D-040, topic: deposit.security, mode: D, mandatory: true, applies: size(m.deposits) > 0, requires: [m.deposits], check: depositMonths(m.deposits) >= cfg.minDepositMonths, params: [minDepositMonths] }
+  - { code: D-041, topic: deposit.security, mode: D, mandatory: true, applies: size(m.deposits) > 0, requires: [m.deposits], check: m.deposits.amount.value > 0, params: [] }
+  - { code: D-042, topic: deposit.security, mode: D, mandatory: true, applies: size(m.deposits) > 0, requires: [m.deposits.refundTerm], check: m.deposits.refundTerm.value != null, params: [] }
+  - { code: D-043, topic: deposit.security, mode: D, mandatory: false, applies: size(m.deposits) > 0, requires: [m.deposits.depositType], check: m.deposits.depositType.value != '违约保证金', params: [] }
+  - { code: D-044, topic: deposit.security, mode: D, mandatory: false, applies: size(m.deposits) > 0, requires: [m.deposits], check: depositMonths(m.deposits) <= cfg.maxDepositMonths, params: [maxDepositMonths] }
+  - { code: D-045, topic: fee.management, mode: D, mandatory: true, applies: has(m.feeItems.MGMT), requires: [m.feeItems.MGMT.calc.baseAmount], check: m.feeItems.MGMT.calc.baseAmount.value > 0, params: [] }
+  - { code: D-046, topic: fee.management, mode: D, mandatory: true, applies: has(m.feeItems.MGMT), requires: [m.feeItems.MGMT.calc.baseAmount], check: m.feeItems.MGMT.calc.baseAmount.status == 'KNOWN', params: [] }
+  - { code: D-047, topic: fee.management, mode: D, mandatory: false, applies: has(m.feeItems.MGMT), requires: [m.feeItems.MGMT.pay.payCycle], check: m.feeItems.MGMT.pay.payCycle.value != null, params: [] }
+  - { code: D-048, topic: fee.utility, mode: D, mandatory: true, applies: has(m.feeItems.UTL), requires: [m.feeItems.UTL.calc.baseAmount], check: isKnown(m.feeItems.UTL.calc.baseAmount), params: [] }
+  - { code: D-049, topic: fee.utility, mode: D, mandatory: false, applies: true, requires: [m.feeItems.UTL.pay], check: m.feeItems.UTL.pay.payCycle.value != null, params: [] }
+  - { code: D-050, topic: fee.utility, mode: D, mandatory: false, applies: has(m.feeItems.UTL), requires: [m.feeItems.UTL.calc.baseAmount], check: m.feeItems.UTL.calc.baseAmount.value >= 0, params: [] }
+  - { code: D-051, topic: fee.promotion, mode: D, mandatory: true, applies: has(m.feeItems.PROMO), requires: [m.feeItems.PROMO.calc.baseAmount], check: m.feeItems.PROMO.calc.baseAmount.status != 'BLANK', params: [] }
+  - { code: D-052, topic: fee.promotion, mode: D, mandatory: false, applies: has(m.feeItems.PROMO), requires: [m.feeItems.PROMO.calc.baseAmount], check: m.feeItems.PROMO.calc.baseAmount.value >= 0, params: [] }
+  - { code: D-053, topic: fee.tax, mode: D, mandatory: true, applies: has(m.feeItems.RENT), requires: [m.feeItems.RENT.tax.rate], check: m.feeItems.RENT.tax.rate.value < 1, params: [] }
+  - { code: D-054, topic: fee.tax, mode: D, mandatory: false, applies: has(m.feeItems.RENT), requires: [m.feeItems.RENT.tax.rate], check: m.feeItems.RENT.tax.rate.status == 'KNOWN', params: [] }
+  - { code: D-055, topic: crossRule.offset, mode: D, mandatory: true, applies: size(m.crossRules) > 0, requires: [m.crossRules], check: m.crossRules.targets.value != null, params: [] }
+  - { code: D-056, topic: crossRule.offset, mode: D, mandatory: false, applies: size(m.crossRules) > 0, requires: [m.crossRules.ruleType], check: m.crossRules.ruleType.value == '孰高' || m.crossRules.ruleType.value == '孰低' || m.crossRules.ruleType.value == '抵扣', params: [] }
+  - { code: D-057, topic: term.delivery, mode: D, mandatory: true, applies: true, requires: [m.subjects.S1.deliveryDate], check: isKnown(m.subjects.S1.deliveryDate), params: [] }
+  - { code: D-058, topic: term.delivery, mode: D, mandatory: true, applies: true, requires: [m.subjects.S1.termStart], check: m.subjects.S1.deliveryDate.value <= m.subjects.S1.termStart.value, params: [] }
+  - { code: D-059, topic: term.delivery, mode: D, mandatory: false, applies: true, requires: [m.subjects.S1.deliveryDate], check: m.subjects.S1.deliveryDate.status == 'KNOWN', params: [] }
+  - { code: D-060, topic: term.fitout, mode: D, mandatory: true, applies: true, requires: [m.subjects.S1.fitoutStart], check: isKnown(m.subjects.S1.fitoutStart), params: [] }
+  - { code: D-061, topic: term.fitout, mode: D, mandatory: false, applies: true, requires: [m.subjects.S1], check: m.subjects.S1.fitoutStart.value < m.subjects.S1.openingDate.value, params: [] }
+  - { code: D-062, topic: term.fitout, mode: D, mandatory: false, applies: true, requires: [m.subjects.S1.fitoutStart], check: m.subjects.S1.fitoutStart.status == 'KNOWN', params: [] }
+  - { code: D-063, topic: term.opening, mode: D, mandatory: true, applies: true, requires: [m.subjects.S1.openingDate], check: isKnown(m.subjects.S1.openingDate), params: [] }
+  - { code: D-064, topic: term.opening, mode: D, mandatory: false, applies: true, requires: [m.subjects.S1.openingDate], check: m.subjects.S1.openingDate.value <= m.subjects.S1.rentStartDate.value, params: [] }
+  - { code: D-065, topic: term.opening, mode: D, mandatory: false, applies: true, requires: [m.subjects.S1.rentStartDate], check: isKnown(m.subjects.S1.rentStartDate), params: [] }
+  - { code: D-066, topic: term.delivery, mode: D, mandatory: false, applies: true, requires: [m.subjects.S1.rentStartDate], check: m.subjects.S1.rentStartDate.value >= m.subjects.S1.deliveryDate.value, params: [] }
+  - { code: D-067, topic: rent.base, mode: D, mandatory: false, applies: true, requires: ["m.contracts[0].signDate"], check: "isKnown(m.contracts[0].signDate)", params: [] }
+  - { code: D-068, topic: rent.base, mode: D, mandatory: false, applies: true, requires: ["m.contracts[0].effectiveDate"], check: "isKnown(m.contracts[0].effectiveDate)", params: [] }
+  - { code: D-069, topic: rent.base, mode: D, mandatory: false, applies: has(m.feeItems.RENT), requires: [m.feeItems.RENT.subject], check: m.feeItems.RENT.subject.value != null, params: [] }
+  - { code: D-070, topic: rent.base, mode: D, mandatory: false, applies: true, requires: [m.subjects.S1.termEnd], check: m.subjects.S1.termStart.value < m.subjects.S1.termEnd.value, params: [] }
+  - { code: H-001, topic: termination.tenant_default, mode: H, mandatory: true, applies: true, requires: [m.statements.RIGHT.where(topic == 'termination.landlord')], check: overdueDaysToTerminate(m) > cfg.minOverdueDays, params: [minOverdueDays] }
+  - { code: H-002, topic: termination.tenant_default, mode: H, mandatory: true, applies: true, requires: [m.statements.RIGHT.where(topic == 'termination.landlord')], check: overdueTimesToTerminate(m) >= cfg.minOverdueTimes, params: [minOverdueTimes] }
+  - { code: H-003, topic: termination.tenant_default, mode: H, mandatory: false, applies: true, requires: [m.statements.CONSEQUENCE.where(liabilityReason == '逾期付款')], check: size(m.statements.CONSEQUENCE.where(liabilityReason == '逾期付款')) >= 1, params: [] }
+  - { code: H-004, topic: termination.landlord, mode: H, mandatory: true, applies: true, requires: [m.statements.RIGHT.where(topic == 'termination.landlord')], check: overdueDaysToTerminate(m) > cfg.minOverdueDays || overdueTimesToTerminate(m) >= cfg.minOverdueTimes, params: [minOverdueDays, minOverdueTimes] }
+  - { code: H-005, topic: termination.landlord, mode: H, mandatory: true, applies: true, requires: [m.statements.RIGHT.where(topic == 'termination.landlord')], check: hasStatement('termination.landlord:RIGHT'), params: [] }
+  - { code: H-006, topic: termination.landlord, mode: H, mandatory: false, applies: true, requires: [m.statements.CONSEQUENCE], check: penaltyCap(m.statements.CONSEQUENCE.where(consequenceType == '违约金').first()) <= cfg.maxPenaltyMonths, params: [maxPenaltyMonths] }
+  - { code: H-007, topic: termination.early, mode: H, mandatory: true, applies: true, requires: [m.statements.RIGHT.where(topic == 'termination.early')], check: hasStatement('termination.early:RIGHT'), params: [] }
+  - { code: H-008, topic: termination.early, mode: H, mandatory: false, applies: true, requires: [m.statements.CONSEQUENCE.where(topic == 'termination.early')], check: size(m.statements.CONSEQUENCE.where(topic == 'termination.early')) >= 1, params: [] }
+  - { code: H-009, topic: termination.early, mode: H, mandatory: false, applies: size(m.deposits) > 0, requires: [m.deposits], check: depositMonths(m.deposits) <= cfg.maxDepositMonths, params: [maxDepositMonths] }
+  - { code: H-010, topic: renewal.renew, mode: H, mandatory: true, applies: true, requires: [m.statements.RIGHT.where(topic == 'renewal.renew')], check: hasStatement('renewal.renew:RIGHT'), params: [] }
+  - { code: H-011, topic: renewal.renew, mode: H, mandatory: false, applies: true, requires: [m.statements.PROCEDURE.where(topic == 'renewal.renew')], check: size(m.statements.PROCEDURE.where(topic == 'renewal.renew')) >= 1, params: [] }
+  - { code: H-012, topic: renewal.renew, mode: H, mandatory: false, applies: size(m.feeItems.RENT.sched.segments) > 1, requires: [m.feeItems.RENT.sched.segments], check: escalationRate(m.feeItems.RENT) <= cfg.maxEscalation, params: [maxEscalation] }
+  - { code: H-013, topic: transfer.assign, mode: H, mandatory: true, applies: true, requires: [m.statements.OBLIGATION.where(topic == 'transfer.assign')], check: hasStatement('transfer.assign:OBLIGATION'), params: [] }
+  - { code: H-014, topic: transfer.assign, mode: H, mandatory: false, applies: size(m.deposits) > 0, requires: [m.deposits], check: m.deposits.amount.status == 'KNOWN', params: [] }
+  - { code: H-015, topic: transfer.assign, mode: H, mandatory: false, applies: true, requires: [m.statements.PROCEDURE.where(topic == 'transfer.assign')], check: size(m.statements.PROCEDURE.where(topic == 'transfer.assign')) >= 1, params: [] }
+  - { code: H-016, topic: rent.abatement, mode: H, mandatory: false, applies: has(m.feeItems.RENT), requires: [m.feeItems.RENT.abate], check: cureDays(m.statements.PROCEDURE.first()) >= cfg.minCureDays, params: [minCureDays] }

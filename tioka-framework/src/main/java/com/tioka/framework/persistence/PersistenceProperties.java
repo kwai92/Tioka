@@ -88,7 +88,9 @@ public class PersistenceProperties {
             "ont_instance_version",
             "ont_value_index",
             // ONT-07 / V173：折叠状态（门店级折叠态，store_key 主键，无 workspace_id）
-            "ont_state"
+            "ont_state",
+            // LSE-06 / V175：审查轮次（review_run_id+round 复合主键，无 workspace_id）
+            "lease_review_round"
     ));
 
     public List<String> getWorkspaceScopeExemptTables() {

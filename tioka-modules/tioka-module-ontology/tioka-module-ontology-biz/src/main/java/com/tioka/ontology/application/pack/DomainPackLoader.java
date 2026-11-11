@@ -145,14 +145,17 @@ public class DomainPackLoader {
         if (manifest.entryClass() == null || manifest.entryClass().isBlank()) {
             throw new IllegalArgumentException("entryClass required");
         }
-        try (IsolatedPackClassLoader classLoader = IsolatedPackClassLoader.forPack(jarPath, ontologyApiCodeSource)) {
-            Class<?> entry = Class.forName(manifest.entryClass(), true, classLoader);
-            Object instance = entry.getDeclaredConstructor().newInstance();
-            if (!(instance instanceof DomainPack pack)) {
-                throw new IllegalArgumentException("entryClass is not DomainPack: " + manifest.entryClass());
-            }
-            return pack;
+        // 类加载器与 pack 实例同生命周期：入口类方法体内的引用（validators/folding 等
+        // 包内类）是懒解析的，提前 close 会导致后续调用 NoClassDefFoundError。
+        // 加载器随 DomainPackLoader 生命周期存在（进程级宿主，不单独 close）。
+        IsolatedPackClassLoader classLoader = IsolatedPackClassLoader.forPack(jarPath, ontologyApiCodeSource);
+        Class<?> entry = Class.forName(manifest.entryClass(), true, classLoader);
+        Object instance = entry.getDeclaredConstructor().newInstance();
+        if (!(instance instanceof DomainPack pack)) {
+            classLoader.close();
+            throw new IllegalArgumentException("entryClass is not DomainPack: " + manifest.entryClass());
         }
+        return pack;
     }
 
     /** 进程内登记（内置包 / 测试 / 宿主已实例化后的入口）。多版本按 packKey@version 并存。 */

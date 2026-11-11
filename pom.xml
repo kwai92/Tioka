@@ -15,6 +15,7 @@
         <module>tioka-dependencies</module>
         <module>tioka-framework</module>
         <module>tioka-modules</module>
+        <module>tioka-pack-lease</module>
         <module>tioka-testkit</module>
         <module>tioka-server</module>
     </modules>

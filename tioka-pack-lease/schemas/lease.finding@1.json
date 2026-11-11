@@ -1,0 +1,140 @@
+{
+  "type": "object",
+  "x-tioka-compare": {
+    "key": [
+      "checkpointCode"
+    ],
+    "value": [
+      "conclusion"
+    ]
+  },
+  "x-tioka-evidence": "required",
+  "required": [
+    "findingId",
+    "checkpointCode",
+    "mode",
+    "mandatory",
+    "conclusion",
+    "modelVersion",
+    "reason",
+    "modelRefs",
+    "producedBy"
+  ],
+  "properties": {
+    "findingId": {
+      "type": "string"
+    },
+    "checkpointCode": {
+      "type": "string",
+      "pattern": "^[DHJ]-\\d{3}$"
+    },
+    "topic": {
+      "type": "string"
+    },
+    "mode": {
+      "enum": [
+        "D",
+        "H",
+        "J"
+      ]
+    },
+    "mandatory": {
+      "type": "boolean"
+    },
+    "conclusion": {
+      "enum": [
+        "SATISFIED",
+        "NOT_SATISFIED",
+        "MISSING",
+        "NOT_APPLICABLE",
+        "UNCERTAIN"
+      ]
+    },
+    "modelVersion": {
+      "type": "string"
+    },
+    "thresholds": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "name",
+          "value",
+          "configVersion"
+        ]
+      }
+    },
+    "modelRefs": {
+      "type": "array",
+      "x-tioka-identity": [
+        "path"
+      ],
+      "items": {
+        "type": "object",
+        "required": [
+          "path",
+          "valueStatus"
+        ],
+        "properties": {
+          "path": {
+            "type": "string",
+            "x-tioka-path": true
+          },
+          "value": {},
+          "valueStatus": {
+            "type": "string"
+          },
+          "evidence": {
+            "type": "array",
+            "items": {
+              "$ref": "tioka://schema/platform.citation@1"
+            }
+          }
+        }
+      }
+    },
+    "reason": {
+      "type": "string",
+      "maxLength": 1000
+    },
+    "suggestion": {
+      "type": "string",
+      "maxLength": 2000
+    },
+    "references": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "enum": [
+              "revision_case",
+              "example"
+            ]
+          },
+          "id": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "needsReview": {
+      "type": "boolean"
+    },
+    "producedBy": {
+      "type": "object",
+      "required": [
+        "agent",
+        "turnId"
+      ],
+      "properties": {
+        "agent": {},
+        "turnId": {},
+        "secondOpinion": {}
+      }
+    },
+    "reviewRound": {
+      "type": "integer"
+    }
+  }
+}

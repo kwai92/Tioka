@@ -26,7 +26,9 @@ public class IsolatedPackClassLoader extends URLClassLoader {
             FoldingEngine.class.getName(),
             ProjectionHook.class.getName(),
             CelFunction.class.getName(),
-            Violation.class.getName());
+            Violation.class.getName(),
+            // 白名单类的嵌套类型（如 Violation$Severity、PromptBundle 内嵌记录）随宿主直通
+            Violation.class.getName() + "$Severity");
 
     private static final String ONT_API_PACKAGE = "com.tioka.ontology.api.";
 

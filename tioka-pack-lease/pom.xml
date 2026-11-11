@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.tioka</groupId>
+        <artifactId>tioka</artifactId>
+        <version>${revision}</version>
+    </parent>
+
+    <artifactId>tioka-pack-lease</artifactId>
+    <packaging>jar</packaging>
+    <name>tioka-pack-lease</name>
+    <description>LSE-01〜04 租赁领域包：模型定义、校验器、折叠引擎、CEL 函数（ADR-036 domain-pack，权限仅 cpu）</description>
+
+    <dependencies>
+        <!-- SPI 契约（DomainPack/ModelValidator/FoldingEngine/CelFunction）与 ontology-api；
+             加载期经 IsolatedPackClassLoader 直通白名单 + ontology-api 委派，宿主提供，不打包 -->
+        <dependency>
+            <groupId>com.tioka</groupId>
+            <artifactId>tioka-module-ontology-biz</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <!-- 加载验证 IT：Testcontainers PG（FoldSchedulerIT 同口径） -->
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>postgresql</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <resources>
+            <resource>
+                <directory>src/main/resources</directory>
+            </resource>
+            <!-- M3-04 §1 目录口径：静态资产放模块根，随 jar 打包供 DomainPackLoader / 隔离类加载器读取 -->
+            <resource>
+                <directory>${project.basedir}</directory>
+                <includes>
+                    <include>plugin.yaml</include>
+                    <include>tioka-plugin.json</include>
+                    <include>definitions/**</include>
+                    <include>schemas/**</include>
+                    <include>prompts/**</include>
+                    <include>seed/**</include>
+                    <include>config/**</include>
+                </includes>
+            </resource>
+        </resources>
+    </build>
+</project>
