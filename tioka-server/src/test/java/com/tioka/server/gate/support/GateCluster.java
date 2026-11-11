@@ -1,7 +1,11 @@
 package com.tioka.server.gate.support;
 
+import io.lettuce.core.RedisURI;
+import io.lettuce.core.RedisClient;
+import io.lettuce.core.api.StatefulRedisConnection;
 import com.tioka.runtime.config.KernelProperties;
 import com.tioka.runtime.kernel.application.RuntimeTestHooks;
+import com.tioka.runtime.kernel.infrastructure.redis.TurnDispatchQueue;
 import com.tioka.server.TiokaServerApplication;
 import com.tioka.server.support.IntegrationTestSupport;
 import com.tioka.server.support.TestContainers;
@@ -9,12 +13,18 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.core.env.MapPropertySource;
 import org.springframework.core.env.StandardEnvironment;
+import org.springframework.data.redis.connection.stream.StreamInfo;
+import org.springframework.data.redis.core.RedisCallback;
+import org.springframework.data.redis.core.StringRedisTemplate;
 
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
 /**
  * ENG-04b / ENG-04c：同一 JVM 内 N 个 Spring 上下文，共享 Testcontainers PG/Redis（可选 Keycloak）与 LLM/MCP 桩。
@@ -67,7 +77,18 @@ public final class GateCluster implements AutoCloseable {
             String id = Character.toString((char) ('A' + i));
             ctxs.add(run(withInstance(shared, id)));
         }
-        return new GateCluster(ctxs, Map.copyOf(shared), llm, mcp, keycloak, withKeycloak);
+        GateCluster cluster = new GateCluster(ctxs, Map.copyOf(shared), llm, mcp, keycloak, withKeycloak);
+        // C-12 启动哨兵：fail-fast 发现游离 dispatcher（僵尸 @SpringBootTest 上下文抢消费 rt:turns）。
+        // 抛出前必须先关停本集群，否则刚启动的实例自身泄漏成新僵尸，产生级联误伤。
+        List<String> rogues = cluster.detectRogueConsumers();
+        if (!rogues.isEmpty()) {
+            cluster.close();
+            throw new IllegalStateException("GateCluster 哨兵：发现游离 dispatcher 消费者（僵尸上下文在抢消费 "
+                    + TurnDispatchQueue.STREAM_KEY + "/" + TurnDispatchQueue.GROUP + "）" + rogues
+                    + "；期望消费者 ⊆ " + cluster.expectedConsumers()
+                    + "；存在游离 dispatcher 上下文，请排查缓存未关闭的 @SpringBootTest/集群实例");
+        }
+        return cluster;
     }
 
     public ConfigurableApplicationContext instance(int i) {
@@ -122,6 +143,7 @@ public final class GateCluster implements AutoCloseable {
         ctx.getBean(KernelProperties.class).setReleaseOnShutdown(false);
         ctx.close();
         instances.set(i, null);
+        removeConsumers(List.of(slotId(i)));
     }
 
     /** 按槽位优雅停止（释放租约），槽位置空；可用 {@link #startInstance(int)} 复活。 */
@@ -132,6 +154,7 @@ public final class GateCluster implements AutoCloseable {
         }
         ctx.close();
         instances.set(i, null);
+        removeConsumers(List.of(slotId(i)));
     }
 
     /** 按 {@code tioka.runtime.instance-id}（A/B/…）优雅停止。 */
@@ -149,6 +172,13 @@ public final class GateCluster implements AutoCloseable {
         }
         String id = Character.toString((char) ('A' + i));
         instances.set(i, run(withInstance(sharedProps, id)));
+        List<String> rogues = detectRogueConsumers();
+        if (!rogues.isEmpty()) {
+            // 本集群由调用方 try-with-resources 持有，会随用例失败关闭，这里直接 fail-fast
+            throw new IllegalStateException("GateCluster 哨兵：发现游离 dispatcher 消费者（僵尸上下文在抢消费 "
+                    + TurnDispatchQueue.STREAM_KEY + "/" + TurnDispatchQueue.GROUP + "）" + rogues
+                    + "；期望消费者 ⊆ " + expectedConsumers());
+        }
     }
 
     /** 按名称启动已停止的实例。 */
@@ -192,6 +222,13 @@ public final class GateCluster implements AutoCloseable {
                 instances.set(i, null);
             }
         }
+        // C-12：全部上下文关闭后再注销 consumer——若在关闭前删，存活的 dispatcher 线程
+        // 会在下一轮 XREADGROUP（≤2s 阻塞读）把 consumer 重新注册回去
+        List<String> ids = new ArrayList<>();
+        for (int i = 0; i < instances.size(); i++) {
+            ids.add(slotId(i));
+        }
+        removeConsumers(ids);
         try {
             mcp.close();
         } finally {
@@ -282,5 +319,83 @@ public final class GateCluster implements AutoCloseable {
         m.put("tioka.runtime.instance-id", id);
         m.put("spring.application.name", "tioka-" + id);
         return m;
+    }
+
+    private static String slotId(int i) {
+        return Character.toString((char) ('A' + i));
+    }
+
+    private Set<String> expectedConsumers() {
+        Set<String> expected = new HashSet<>();
+        for (int i = 0; i < instances.size(); i++) {
+            expected.add(slotId(i));
+        }
+        return expected;
+    }
+
+    /**
+     * C-12 启动哨兵：XINFO CONSUMERS 校验 {@code rt:turns}/{@code rt-workers} 内没有本集群之外的消费者。
+     * 游离 dispatcher 上下文（@SpringBootTest 缓存的僵尸上下文，instance-id=local/HOSTNAME）
+     * 若在本次 GateCluster 启动前已存在，则返回其名单（空 = 通过）。
+     * 已知边界：僵尸若在本集群启动之后才被缓存创建，哨兵无法覆盖（由 G2 覆写治理兜底）。
+     */
+    private List<String> detectRogueConsumers() {
+        ConfigurableApplicationContext ctx = instances.stream().filter(Objects::nonNull).findFirst().orElse(null);
+        if (ctx == null) {
+            return List.of();
+        }
+        try {
+            StringRedisTemplate redis = ctx.getBean(StringRedisTemplate.class);
+            byte[] key = TurnDispatchQueue.STREAM_KEY.getBytes(StandardCharsets.UTF_8);
+            StreamInfo.XInfoConsumers info = redis.execute((RedisCallback<StreamInfo.XInfoConsumers>) connection ->
+                    connection.streamCommands().xInfoConsumers(key, TurnDispatchQueue.GROUP));
+            Set<String> expected = expectedConsumers();
+            List<String> all = new ArrayList<>();
+            List<String> rogues = new ArrayList<>();
+            for (StreamInfo.XInfoConsumer c : info) {
+                all.add(c.consumerName());
+                if (!expected.contains(c.consumerName())) {
+                    rogues.add(c.consumerName() + "(idle=" + c.idleTimeMs() + "ms)");
+                }
+            }
+            if (!rogues.isEmpty()) {
+                System.err.println("[GateCluster] 当前全部消费者 " + all + "，期望 ⊆ " + expected);
+            }
+            return rogues;
+        } catch (Exception e) {
+            // 哨兵自身故障不应阻塞测试启动（如消费组尚未创建的瞬时态）
+            System.err.println("[GateCluster] 启动哨兵跳过: " + e);
+            return List.of();
+        }
+    }
+
+    /**
+     * C-12：经独立 Lettuce 连接注销 consumer（必须在对应上下文 {@code close()} 之后调用——
+     * 关闭前删会被存活的 dispatcher 线程在下一轮 XREADGROUP 重新注册回去）。
+     * 不复用实例的连接工厂：上下文关闭后其连接工厂随之销毁，无法再执行清理。
+     */
+    private static void removeConsumers(List<String> consumerNames) {
+        if (consumerNames.isEmpty()) {
+            return;
+        }
+        try {
+            RedisURI uri = RedisURI.builder()
+                    .withHost(TestContainers.REDIS.getHost())
+                    .withPort(TestContainers.REDIS.getMappedPort(6379))
+                    .build();
+            try (RedisClient client = RedisClient.create(uri);
+                 StatefulRedisConnection<String, String> conn = client.connect()) {
+                for (String name : consumerNames) {
+                    try {
+                        conn.sync().xgroupDelconsumer(TurnDispatchQueue.STREAM_KEY,
+                                io.lettuce.core.Consumer.from(TurnDispatchQueue.GROUP, name));
+                    } catch (Exception e) {
+                        System.err.println("[GateCluster] 注销 consumer " + name + " 失败（忽略）: " + e);
+                    }
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("[GateCluster] 独立 Redis 清理连接失败（忽略）: " + e);
+        }
     }
 }
