@@ -1,1 +1,2 @@
 com.tioka.infra.config.InfraAutoConfiguration
+com.tioka.infra.config.InfraNotifyAutoConfiguration

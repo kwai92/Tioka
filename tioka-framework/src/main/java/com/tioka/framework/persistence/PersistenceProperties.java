@@ -90,7 +90,11 @@ public class PersistenceProperties {
             // ONT-07 / V173：折叠状态（门店级折叠态，store_key 主键，无 workspace_id）
             "ont_state",
             // LSE-06 / V175：审查轮次（review_run_id+round 复合主键，无 workspace_id）
-            "lease_review_round"
+            "lease_review_round",
+            // NTF-01 / V174：通知投递状态机（dedup_key 主维度，无 workspace_id）
+            "ntf_delivery",
+            // FND-09 / V140：外部身份映射（PK source+external_id，无 workspace_id）
+            "sys_external_identity"
     ));
 
     public List<String> getWorkspaceScopeExemptTables() {
