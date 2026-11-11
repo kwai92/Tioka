@@ -12,7 +12,7 @@ import org.junit.jupiter.api.Test;
  * 2. 结论篡改漏检率 = 0；Turn 污点置位
  */
 @Tag("gate")
-@Disabled("P3-00b skeleton — enable when owning package turns green")
+@Disabled("G3 blocked: GRD-00/GRD-08a not started")
 class G3InjectionGateIT {
 
     @Test

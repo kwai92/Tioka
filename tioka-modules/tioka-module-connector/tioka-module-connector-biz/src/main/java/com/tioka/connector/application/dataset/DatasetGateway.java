@@ -127,7 +127,10 @@ public class DatasetGateway {
             } else if (e.getValue() == ColumnSpec.Mask.NULLIFY) {
                 row.put(e.getKey(), null);
             }
-            maskedColumns.add(e.getKey());
+            // C-17 修复：NONE = 策略命中但无需掩码，不应计入「被掩码列」
+            if (e.getValue() != ColumnSpec.Mask.NONE) {
+                maskedColumns.add(e.getKey());
+            }
         }
         return row;
     }

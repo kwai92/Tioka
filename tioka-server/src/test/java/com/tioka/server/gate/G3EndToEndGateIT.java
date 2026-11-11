@@ -14,7 +14,7 @@ import org.junit.jupiter.api.Test;
  * 4. 审计链、跨区域数据权限、结构化结局与注入、影子期时间线
  */
 @Tag("gate")
-@Disabled("P3-00b skeleton — enable when owning package turns green")
+@Disabled("G3 blocked: G3-E2E not started (depends on all P0 incl. suspended Flow chain)")
 class G3EndToEndGateIT {
 
     @Test

@@ -14,7 +14,7 @@ import org.junit.jupiter.api.Test;
  * 4. 负责人禁用后新 Turn 423
  */
 @Tag("gate")
-@Disabled("P3-00b skeleton — enable when owning package turns green")
+@Disabled("G3 blocked: TRU-03 (owner invalidation auto-pause and handover) not started")
 class G3CharterGateIT {
 
     @Test

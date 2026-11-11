@@ -12,7 +12,7 @@ import org.junit.jupiter.api.Test;
  * 2. 观测指标可抓取
  */
 @Tag("gate")
-@Disabled("P3-00b skeleton — enable when owning package turns green")
+@Disabled("G3 blocked: FLW-14a/FLW-14b suspended")
 class G3FlowObservabilityGateIT {
 
     @Test

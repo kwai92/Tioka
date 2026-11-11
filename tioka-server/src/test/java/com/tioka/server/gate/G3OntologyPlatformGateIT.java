@@ -13,7 +13,7 @@ import org.junit.jupiter.api.Test;
  * 3. 通知投递与业务连接器
  */
 @Tag("gate")
-@Disabled("P3-00b skeleton — enable when owning package turns green")
+@Disabled("G3 blocked: FLW-08 suspended, ONT-06 (chained), CON-07a and NTF-02 not started")
 class G3OntologyPlatformGateIT {
 
     @Test

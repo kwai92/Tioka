@@ -13,7 +13,7 @@ import org.junit.jupiter.api.Test;
  * 3. 取消沿子节点传播
  */
 @Tag("gate")
-@Disabled("P3-00b skeleton — enable when owning package turns green")
+@Disabled("G3 blocked: FLW-09 deferred, FLW-11a not started, FLW-04 suspended (ADR-043 2026-11-10 Flow domain descoping)")
 class G3FlowEngineGateIT {
 
     @Test

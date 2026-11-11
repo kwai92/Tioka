@@ -68,9 +68,14 @@ public class GrantStore {
         return mapper.updateBodyCas(grantId, oldJson, newJson, sha256(newJson)) > 0;
     }
 
-    /** 级联置终态；返回受影响授予 ID。 */
+    /** 级联置终态；返回受影响授予 ID（C-17 修复：select 查 ACTIVE 后代 + update 置终态两步）。 */
     public List<String> reap(String grantId, String status) {
-        return mapper.reapRecursive(grantId, status);
+        List<String> ids = mapper.findReapDescendants(grantId);
+        if (ids == null || ids.isEmpty()) {
+            return List.of();
+        }
+        mapper.reapRecursive(ids, status);
+        return ids;
     }
 
     public long sumThreadTokens(String threadId) {

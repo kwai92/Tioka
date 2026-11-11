@@ -118,16 +118,58 @@ public class SubAgentReaper {
         afterCommit(() -> {
             // 4. sandbox 释放事件（简化：结构化事件，sandboxProvider 于后续批次接入）
             appEvents.publishEvent(new SubAgentSandboxReleased(childThreadId, st.name()));
-            // 6. 唤醒父 Turn（agent.delegate 挂起登记；无登记 = 非 delegate 路径）
+            // 6. 唤醒父 Turn（agent.delegate 挂起登记）
+            boolean ok = st == TurnStatus.COMPLETED;
             ChildPendingRegistry.Entry pending = pendingRegistry.take(childTurn).orElse(null);
             if (pending != null) {
-                boolean ok = st == TurnStatus.COMPLETED;
                 childRouter.routeLocally(pending.turnId(), pending.callId(),
                         ok, finalAnswer(threadId), ok ? null : st.name());
+            } else {
+                // C-17 修复：子 Turn 可能由另一实例执行（双实例部署），而挂起登记
+                // pendingRegistry 是执行 delegate 的实例的进程内存 —— 本进程 take 不中
+                // 不代表「非 delegate 路径」。经 DB 反查恢复：子 thread.parent_turn_id
+                // → 父 Turn → 带 pending.jobId=子 Turn 的 tool_result 占位（callId 在内），
+                // 再走 routeLocally（ChildResumeService 本身 DB/Redis 层跨实例安全）。
+                resumeFromDb(thread, childTurn, ok, st);
             }
         });
         log.info("subagent reaped thread={} turn={} status={} grant={}",
                 childThreadId, childTurnId, st, grantId);
+    }
+
+    /** 跨实例唤醒：按 pending.jobId=子 Turn 反查父 Turn 的挂起占位并续跑（C-17）。 */
+    private void resumeFromDb(RuntimeThreadDO childThread, String childTurnId,
+                              boolean ok, TurnStatus st) {
+        String parentTurnId = childThread.getParentTurnId();
+        if (parentTurnId == null || parentTurnId.isBlank()) {
+            return;
+        }
+        if (turns.findById(parentTurnId).orElse(null) == null) {
+            return;
+        }
+        for (RuntimeItemDO i : items.listByTurn(parentTurnId)) {
+            if (!ItemType.TOOL_RESULT.wire().equals(i.getType())) {
+                continue;
+            }
+            JsonNode root = readNode(i.getContentJson());
+            if (root == null || !childTurnId.equals(root.path("pending").path("jobId").asText(null))) {
+                continue;
+            }
+            String callId = root.path("callId").asText(null);
+            if (callId != null && !callId.isBlank()) {
+                childRouter.routeLocally(parentTurnId, callId,
+                        ok, finalAnswer(childThread.getId()), ok ? null : st.name());
+            }
+            return;
+        }
+    }
+
+    private JsonNode readNode(String contentJson) {
+        try {
+            return mapper.readTree(contentJson == null ? "{}" : contentJson);
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     /** 子 thread 最终回答：最后一条 assistant message 的 text（截断同 RT-10）。 */

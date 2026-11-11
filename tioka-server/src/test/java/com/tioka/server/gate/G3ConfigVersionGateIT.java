@@ -13,7 +13,7 @@ import org.junit.jupiter.api.Test;
  * 3. Prompt 模板发布后 Agent 可钉版本引用
  */
 @Tag("gate")
-@Disabled("P3-00b skeleton — enable when owning package turns green")
+@Disabled("G3 blocked: MH-09/MH-10/GOV-13/AST-07 not started (GOV-12 merged, closure confirmation pending)")
 class G3ConfigVersionGateIT {
 
     @Test

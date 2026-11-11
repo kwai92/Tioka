@@ -12,7 +12,7 @@ import org.junit.jupiter.api.Test;
  * 2. 参数覆盖与故障转移时参数接力翻译
  */
 @Tag("gate")
-@Disabled("P3-00b skeleton — enable when owning package turns green")
+@Disabled("G3 blocked: MH-12/MH-14 not started")
 class G3CredentialGateIT {
 
     @Test

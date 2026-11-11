@@ -12,7 +12,7 @@ import org.junit.jupiter.api.Test;
  * 2. 未连 failed 端口的 Flow 发布被拒
  */
 @Tag("gate")
-@Disabled("P3-00b skeleton — enable when owning package turns green")
+@Disabled("G3 blocked: SCH-06..10 not started")
 class G3StructuredOutputGateIT {
 
     @Test

@@ -33,16 +33,30 @@
         ]]>
     </update>
 
-    <update id="reapRecursive">
+    <!-- C-17 修复：原单条 UPDATE...RETURNING 直接映射 List 返回类型，
+         MyBatis 对 update 语句不支持集合返回（BindingException），拆为 select+update 两步 -->
+    <select id="findReapDescendants" resultType="string">
         <![CDATA[
             WITH RECURSIVE descendants AS (
                 SELECT id, parent_id FROM rt_grant WHERE id = #{grantId}
                 UNION ALL
                 SELECT g.id, g.parent_id FROM rt_grant g JOIN descendants d ON g.parent_id = d.id
             )
+            SELECT d.id FROM descendants d JOIN rt_grant r ON r.id = d.id
+                WHERE r.status = 'ACTIVE'
+        ]]>
+    </select>
+
+    <update id="reapRecursive">
+        <![CDATA[
             UPDATE rt_grant SET status = #{status}, ended_at = now()
-            WHERE id IN (SELECT id FROM descendants) AND status = 'ACTIVE'
-            RETURNING id
+            WHERE id IN (
+        ]]>
+        <foreach collection="ids" item="gid" open="" separator="," close="">
+            #{gid}
+        </foreach>
+        <![CDATA[
+            ) AND status = 'ACTIVE'
         ]]>
     </update>
 

@@ -368,7 +368,12 @@ public class TurnRunner {
             return;
         }
         try {
-            r.onChildTerminal(threadId, turnId, status);
+            // C-17 修复：reap 由 Turn 终态后台路径触发，此处已退出 runAs(runAsJson) 块，
+            // 线程无 Principal —— SubAgentReaper 访问 runtime_approval（带 workspace_id，
+            // 非 scope-exempt）会被租户行拦截器以「无 Principal 的数据访问」拒绝，导致
+            // 授予永不 REAPED、父 Turn 永久 WAITING_CHILD。按框架「无 workspace 的 SYSTEM
+            // Principal 整表旁路（后台扫表）」口径以 SYSTEM 身份执行回收。
+            principals.runAs(SystemPrincipals.system(), () -> r.onChildTerminal(threadId, turnId, status));
         } catch (RuntimeException e) {
             log.warn("subagent reap failed thread={} turn={}: {}", threadId, turnId, e.toString());
         }
