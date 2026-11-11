@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tioka.infra.infrastructure.mapper.NtfDeliveryMapper">
+
+    <insert id="insertIfAbsent">
+        INSERT INTO ntf_delivery
+            (delivery_id, dedup_key, channel, recipient, notice_json, status, attempts)
+        VALUES
+            (#{deliveryId}, #{dedupKey}, #{channel}, #{recipient}, CAST(#{noticeJson} AS jsonb), #{status}, #{attempts})
+        ON CONFLICT (dedup_key) DO NOTHING
+    </insert>
+
+    <select id="findById" resultType="com.tioka.infra.infrastructure.persistence.NtfDeliveryDO">
+        SELECT delivery_id AS deliveryId, dedup_key AS dedupKey, channel, recipient,
+               notice_json AS noticeJson, status, external_ref AS externalRef,
+               attempts, last_error AS lastError, created_at AS createdAt, sent_at AS sentAt
+        FROM ntf_delivery
+        WHERE delivery_id = #{deliveryId}
+    </select>
+
+    <update id="markSent">
+        UPDATE ntf_delivery
+        SET status = 'SENT', external_ref = #{externalRef}, sent_at = #{sentAt}
+        WHERE delivery_id = #{deliveryId} AND status = 'PENDING'
+    </update>
+
+    <update id="markFailed">
+        UPDATE ntf_delivery
+        SET status = 'FAILED', last_error = #{lastError}
+        WHERE delivery_id = #{deliveryId} AND status = 'PENDING'
+    </update>
+
+    <update id="recordAttempt">
+        UPDATE ntf_delivery
+        SET attempts = attempts + 1, last_error = #{lastError}
+        WHERE delivery_id = #{deliveryId}
+    </update>
+</mapper>

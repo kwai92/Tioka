@@ -118,6 +118,14 @@ tioka:
   # P3-00b：评测模块（默认关闭，不改变 M2 行为）
   eval:
     enabled: false
+  # NTF-01：通知渠道平台（默认关闭，不改变 M2 行为；渠道实现随 NTF-02 接入）
+  notify:
+    enabled: false
+    noop-channel:
+      enabled: false
+    bridge:
+      enabled: false
+      channels: noop
 
   # —— M2 配置键（PK-00c；实现包只追加自己的子键）——
   messaging:
