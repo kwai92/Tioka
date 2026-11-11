@@ -7,10 +7,10 @@ import com.tioka.framework.security.PrincipalHolder;
 import com.tioka.framework.security.PrincipalType;
 import com.tioka.framework.security.ResourceGuard;
 import com.tioka.framework.security.VisibilityFilter;
+import com.tioka.knowledge.application.parse.ParserPort;
 import com.tioka.knowledge.infrastructure.ChunkInsertCommand;
 import com.tioka.knowledge.infrastructure.KnowledgeRepository;
 import com.tioka.knowledge.infrastructure.embedding.HashEmbeddingClient;
-import com.tioka.knowledge.infrastructure.parse.DocumentParser;
 import com.tioka.model.api.ModelBindingQueryApi;
 import com.tioka.model.api.gateway.ModelCallContext;
 import com.tioka.model.api.gateway.ModelGateway;
@@ -23,8 +23,10 @@ import com.tioka.system.api.authz.ResourceAclApi;
 import org.springframework.beans.factory.ObjectProvider;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -32,9 +34,23 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
-/** 单测用内存 Repository 替身（不碰 DB）。 */
+/** 单测用内存 Repository 替身（不碰 DB）。KNW-11：DocumentParser 换 ParserPort 桩。 */
 final class KnowledgeInMemorySupport {
     private KnowledgeInMemorySupport() {}
+
+    /** KNW-11：空 ParserPort（ObjectProvider 缺席语义，触发本地结构化降级路径）。 */
+    static ObjectProvider<ParserPort> noParserPort() {
+        return new ObjectProvider<>() {
+            @Override public ParserPort getIfAvailable() { return null; }
+            @Override public ParserPort getIfUnique() { return null; }
+            @Override public ParserPort getObject() {
+                throw new IllegalStateException("ParserPort 未装配");
+            }
+            @Override public ParserPort getObject(Object... args) {
+                throw new IllegalStateException("ParserPort 未装配");
+            }
+        };
+    }
 
     static KnowledgeRepository repo() {
         Map<String, KbBaseDO> bases = new ConcurrentHashMap<>();
@@ -44,10 +60,25 @@ final class KnowledgeInMemorySupport {
         Map<String, KbDatasourceDO> datasources = new ConcurrentHashMap<>();
         Map<String, com.tioka.knowledge.infrastructure.persistence.KbIngestJobDO> jobs = new ConcurrentHashMap<>();
 
-        return new KnowledgeRepository(null, null, null, null, null, null, null, null) {
+        return new KnowledgeRepository(null, null, null, null, null, null, null, null,
+                new com.fasterxml.jackson.databind.ObjectMapper()) {
             @Override public void insertBase(KbBaseDO row) { bases.put(row.getId(), row); }
             @Override public boolean hasBase(String id) { return bases.containsKey(id); }
             @Override public KbBaseDO findBase(String id) { return bases.get(id); }
+            @Override public void updateBaseChunkPolicy(String kbId, String chunkPolicyJson, Boolean ctxEnh) {
+                KbBaseDO row = bases.get(kbId);
+                if (row == null) {
+                    throw new com.tioka.framework.error.BizException(
+                            com.tioka.framework.error.ErrorCode.NOT_FOUND, "知识库不存在");
+                }
+                row.setChunkPolicyJson(chunkPolicyJson);
+                if (ctxEnh != null) {
+                    row.setContextEnhancement(ctxEnh);
+                }
+            }
+            @Override public java.util.List<KbDocumentDO> listDocumentsByKb(String kbId) {
+                return docs.values().stream().filter(d -> kbId.equals(d.getKbId())).toList();
+            }
             @Override public boolean lockBaseExists(String id) { return bases.containsKey(id); }
             @Override public void insertDocument(KbDocumentDO row) { docs.put(row.getId(), row); }
             @Override public void updateDocument(KbDocumentDO row) { docs.put(row.getId(), row); }
@@ -76,7 +107,24 @@ final class KnowledgeInMemorySupport {
                 row.setText(cmd.text());
                 row.setOrdinal(cmd.ordinal());
                 row.setDocVersion(cmd.docVersion());
+                row.setChunkType(cmd.chunkType());
+                row.setParentChunkId(cmd.parentChunkId());
+                row.setPageStart(cmd.pageStart());
+                row.setPageEnd(cmd.pageEnd());
+                row.setContextPrefix(cmd.contextPrefix());
+                if (cmd.blockIds() != null) {
+                    row.setBlockIdsJson(toJson(cmd.blockIds()));
+                }
                 chunks.put(cmd.id(), row);
+            }
+            private static final com.fasterxml.jackson.databind.ObjectMapper JSON =
+                    new com.fasterxml.jackson.databind.ObjectMapper();
+            private static String toJson(Object value) {
+                try { return JSON.writeValueAsString(value); }
+                catch (Exception e) { throw new IllegalStateException(e); }
+            }
+            @Override public java.util.List<KbChunkDO> listChunksByIds(Collection<String> ids) {
+                return ids.stream().map(chunks::get).filter(java.util.Objects::nonNull).toList();
             }
             @Override public void updateChunkVector(String id, String vectorLiteral) { /* no-op in memory */ }
             @Override public KbChunkDO findChunk(String id) { return chunks.get(id); }
@@ -100,13 +148,22 @@ final class KnowledgeInMemorySupport {
                     if (kbIds != null && !kbIds.isEmpty() && !kbIds.contains(c.getKbId())) {
                         continue;
                     }
+                    if (c.getChunkType() != null && ChunkInsertCommand.TYPE_PARENT.equals(c.getChunkType())) {
+                        continue; // 父块无向量，检索天然不可见
+                    }
                     KbDocumentDO d = docs.get(c.getDocId());
-                    Map<String, Object> m = new HashMap<>();
+                    Map<String, Object> m = new LinkedHashMap<>();
                     m.put("chunk_id", c.getId());
                     m.put("doc_id", c.getDocId());
                     m.put("kb_id", c.getKbId());
                     m.put("text", c.getText());
                     m.put("ordinal", c.getOrdinal());
+                    m.put("chunk_type", c.getChunkType());
+                    m.put("parent_chunk_id", c.getParentChunkId());
+                    m.put("page_start", c.getPageStart());
+                    m.put("page_end", c.getPageEnd());
+                    m.put("block_ids_json", c.getBlockIdsJson());
+                    m.put("context_prefix", c.getContextPrefix());
                     m.put("title", d == null ? "" : d.getTitle());
                     m.put("distance", 0.1);
                     out.add(m);
@@ -209,14 +266,16 @@ final class KnowledgeInMemorySupport {
             @Override public List<AclEntry> list(String resourceType, String resourceId) { return List.of(); }
             @Override public void replace(String resourceType, String resourceId, List<AclEntry> entries) {}
         };
-        return new KnowledgeService(repo, gateway, bindings, holder, guard, acls, new DocumentParser(), 32,
+        return new KnowledgeService(repo, gateway, bindings, holder, guard, acls, noParserPort(),
+                new com.fasterxml.jackson.databind.ObjectMapper(), 32,
                 new PassthroughTxManager(), null);
     }
 
     /** KNW-05：异步开关打开场景（ObjectProvider 返回给定任务服务）。 */
     static KnowledgeService asyncService(KnowledgeRepository repo, KnowledgeIngestJobService jobService) {
         return new KnowledgeService(repo, gateway(repo), bindings(), holder(), guard(), acls(),
-                new DocumentParser(), 32, new PassthroughTxManager(),
+                noParserPort(), new com.fasterxml.jackson.databind.ObjectMapper(), 32,
+                new PassthroughTxManager(),
                 new ObjectProvider<>() {
                     @Override public KnowledgeIngestJobService getIfAvailable() { return jobService; }
                     @Override public KnowledgeIngestJobService getIfUnique() { return jobService; }
@@ -225,12 +284,27 @@ final class KnowledgeInMemorySupport {
                 });
     }
 
-    /** KNW-05：入库任务服务（哈希嵌入 + 捕获事件）。 */
+    /** KNW-05：入库任务服务（哈希嵌入 + 捕获事件；ParserPort 桩可注入）。 */
     static KnowledgeIngestJobService jobService(KnowledgeRepository repo, EventPublisher publisher,
                                                 ModelGateway gatewayOverride) {
         return new KnowledgeIngestJobService(repo,
                 gatewayOverride != null ? gatewayOverride : gateway(repo),
-                bindings(), holder(), new DocumentParser(), publisher,
+                bindings(), holder(), noParserPort(), publisher,
+                new com.fasterxml.jackson.databind.ObjectMapper(), 32, new PassthroughTxManager());
+    }
+
+    /** KNW-11：入库任务服务（注入指定 ParserPort 桩）。 */
+    static KnowledgeIngestJobService jobService(KnowledgeRepository repo, EventPublisher publisher,
+                                                ModelGateway gatewayOverride, ParserPort port) {
+        ObjectProvider<ParserPort> portProvider = port == null ? noParserPort() : new ObjectProvider<>() {
+            @Override public ParserPort getIfAvailable() { return port; }
+            @Override public ParserPort getIfUnique() { return port; }
+            @Override public ParserPort getObject() { return port; }
+            @Override public ParserPort getObject(Object... args) { return port; }
+        };
+        return new KnowledgeIngestJobService(repo,
+                gatewayOverride != null ? gatewayOverride : gateway(repo),
+                bindings(), holder(), portProvider, publisher,
                 new com.fasterxml.jackson.databind.ObjectMapper(), 32, new PassthroughTxManager());
     }
 

@@ -1,0 +1,28 @@
+[ {
+  "chunkType" : "PARENT",
+  "parentOrdinal" : -1,
+  "text" : "这是一篇小文档。全文不超过父块上限。\n因此整篇作为一个父块。",
+  "contextPrefix" : "小文档",
+  "headingPath" : "",
+  "pageStart" : 1,
+  "pageEnd" : 1,
+  "blockIds" : [ "doc_sample_small:1:1", "doc_sample_small:1:2" ]
+}, {
+  "chunkType" : "CHILD",
+  "parentOrdinal" : 0,
+  "text" : "这是一篇小文档。全文不超过父块上限。",
+  "contextPrefix" : "小文档",
+  "headingPath" : "",
+  "pageStart" : 1,
+  "pageEnd" : 1,
+  "blockIds" : [ "doc_sample_small:1:1" ]
+}, {
+  "chunkType" : "CHILD",
+  "parentOrdinal" : 0,
+  "text" : "因此整篇作为一个父块。",
+  "contextPrefix" : "小文档",
+  "headingPath" : "",
+  "pageStart" : 1,
+  "pageEnd" : 1,
+  "blockIds" : [ "doc_sample_small:1:2" ]
+} ]

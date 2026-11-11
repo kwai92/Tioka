@@ -1,0 +1,55 @@
+[ {
+  "chunkType" : "PARENT",
+  "parentOrdinal" : -1,
+  "text" : "Tioka 平台采用模块化单体架构。所有领域模块通过 API 门面互联。运行时内核统一调度任务。",
+  "contextPrefix" : "平台架构白皮书 > 架构总览",
+  "headingPath" : "架构总览",
+  "pageStart" : 1,
+  "pageEnd" : 1,
+  "blockIds" : [ "doc_sample_md:1:2" ]
+}, {
+  "chunkType" : "CHILD",
+  "parentOrdinal" : 0,
+  "text" : "Tioka 平台采用模块化单体架构。所有领域模块通过 API 门面互联。运行时内核统一调度任务。",
+  "contextPrefix" : "平台架构白皮书 > 架构总览",
+  "headingPath" : "",
+  "pageStart" : 1,
+  "pageEnd" : 1,
+  "blockIds" : [ "doc_sample_md:1:2" ]
+}, {
+  "chunkType" : "PARENT",
+  "parentOrdinal" : -1,
+  "text" : "数据面负责文档解析与知识检索。解析服务由文档域统一提供。检索返回子块引用与父块上下文。",
+  "contextPrefix" : "平台架构白皮书 > 架构总览 > 数据面",
+  "headingPath" : "架构总览 > 数据面",
+  "pageStart" : 1,
+  "pageEnd" : 1,
+  "blockIds" : [ "doc_sample_md:1:4" ]
+}, {
+  "chunkType" : "CHILD",
+  "parentOrdinal" : 2,
+  "text" : "数据面负责文档解析与知识检索。解析服务由文档域统一提供。检索返回子块引用与父块上下文。",
+  "contextPrefix" : "平台架构白皮书 > 架构总览 > 数据面",
+  "headingPath" : "",
+  "pageStart" : 1,
+  "pageEnd" : 1,
+  "blockIds" : [ "doc_sample_md:1:4" ]
+}, {
+  "chunkType" : "PARENT",
+  "parentOrdinal" : -1,
+  "text" : "控制面负责权限与审计。策略配置存于知识库。",
+  "contextPrefix" : "平台架构白皮书 > 架构总览 > 控制面",
+  "headingPath" : "架构总览 > 控制面",
+  "pageStart" : 1,
+  "pageEnd" : 1,
+  "blockIds" : [ "doc_sample_md:1:7" ]
+}, {
+  "chunkType" : "CHILD",
+  "parentOrdinal" : 4,
+  "text" : "控制面负责权限与审计。策略配置存于知识库。",
+  "contextPrefix" : "平台架构白皮书 > 架构总览 > 控制面",
+  "headingPath" : "",
+  "pageStart" : 1,
+  "pageEnd" : 1,
+  "blockIds" : [ "doc_sample_md:1:7" ]
+} ]

@@ -1,0 +1,22 @@
+{
+  "contract": "tioka.parse/v1",
+  "parseId": "doc_sample_tbl",
+  "fileHash": "a2",
+  "parserVersion": "1.0.0",
+  "status": "READY",
+  "pageCount": 3,
+  "language": null,
+  "units": [
+    {"blockId": "doc_sample_tbl:2:1", "seq": 1, "type": "HEADING", "role": "BODY", "parentId": null, "level": 1, "listLabel": null, "text": "报价明细", "regions": [{"pageNo": 2, "x0": 0, "y0": 0, "x1": 0, "y1": 0}], "source": null, "confidence": null, "flags": [], "tableRef": null, "section": null},
+    {"blockId": "doc_sample_tbl:2:2", "seq": 2, "type": "PARAGRAPH", "role": "BODY", "parentId": null, "level": 0, "listLabel": null, "text": "下表列出各项目报价。", "regions": [{"pageNo": 2, "x0": 0, "y0": 0, "x1": 0, "y1": 0}], "source": null, "confidence": null, "flags": [], "tableRef": null, "section": null},
+    {"blockId": "doc_sample_tbl:2:3", "seq": 3, "type": "CELL", "role": "BODY", "parentId": null, "level": 0, "listLabel": null, "text": "项目", "regions": [{"pageNo": 2, "x0": 0, "y0": 0, "x1": 0, "y1": 0}], "source": null, "confidence": null, "flags": [], "tableRef": {"tableId": 7, "row": 0, "col": 0}, "section": null},
+    {"blockId": "doc_sample_tbl:2:4", "seq": 4, "type": "CELL", "role": "BODY", "parentId": null, "level": 0, "listLabel": null, "text": "金额", "regions": [{"pageNo": 2, "x0": 0, "y0": 0, "x1": 0, "y1": 0}], "source": null, "confidence": null, "flags": [], "tableRef": {"tableId": 7, "row": 0, "col": 1}, "section": null},
+    {"blockId": "doc_sample_tbl:2:5", "seq": 5, "type": "CELL", "role": "BODY", "parentId": null, "level": 0, "listLabel": null, "text": "实施", "regions": [{"pageNo": 2, "x0": 0, "y0": 0, "x1": 0, "y1": 0}], "source": null, "confidence": null, "flags": [], "tableRef": {"tableId": 7, "row": 1, "col": 0}, "section": null},
+    {"blockId": "doc_sample_tbl:2:6", "seq": 6, "type": "CELL", "role": "BODY", "parentId": null, "level": 0, "listLabel": null, "text": "120 万", "regions": [{"pageNo": 2, "x0": 0, "y0": 0, "x1": 0, "y1": 0}], "source": null, "confidence": null, "flags": [], "tableRef": {"tableId": 7, "row": 1, "col": 1}, "section": null},
+    {"blockId": "doc_sample_tbl:2:7", "seq": 7, "type": "CELL", "role": "BODY", "parentId": null, "level": 0, "listLabel": null, "text": "运维", "regions": [{"pageNo": 3, "x0": 0, "y0": 0, "x1": 0, "y1": 0}], "source": null, "confidence": null, "flags": [], "tableRef": {"tableId": 7, "row": 2, "col": 0}, "section": null},
+    {"blockId": "doc_sample_tbl:2:8", "seq": 8, "type": "CELL", "role": "BODY", "parentId": null, "level": 0, "listLabel": null, "text": "40 万", "regions": [{"pageNo": 3, "x0": 0, "y0": 0, "x1": 0, "y1": 0}], "source": null, "confidence": null, "flags": [], "tableRef": {"tableId": 7, "row": 2, "col": 1}, "section": null},
+    {"blockId": "doc_sample_tbl:3:9", "seq": 9, "type": "PARAGRAPH", "role": "BODY", "parentId": null, "level": 0, "listLabel": null, "text": "以上报价含税。", "regions": [{"pageNo": 3, "x0": 0, "y0": 0, "x1": 0, "y1": 0}], "source": null, "confidence": null, "flags": [], "tableRef": null, "section": null}
+  ],
+  "clauses": [],
+  "warnings": []
+}

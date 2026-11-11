@@ -11,6 +11,7 @@ import java.util.Map;
 
 @Repository
 public class KnowledgeRepository {
+
     private final KbBaseMapper bases;
     private final KbBaseLockMapper baseLocks;
     private final KbDocumentMapper documents;
@@ -19,11 +20,14 @@ public class KnowledgeRepository {
     private final WikiPageMapper wikis;
     private final KbDatasourceMapper datasources;
     private final KbIngestJobMapper ingestJobs;
+    /** ENG-05：统一注入 Spring ObjectMapper。 */
+    private final com.fasterxml.jackson.databind.ObjectMapper mapper;
 
     public KnowledgeRepository(KbBaseMapper bases, KbBaseLockMapper baseLocks,
                                KbDocumentMapper documents, KbChunkMapper chunks,
                                KbCitationMapper citations, WikiPageMapper wikis, KbDatasourceMapper datasources,
-                               KbIngestJobMapper ingestJobs) {
+                               KbIngestJobMapper ingestJobs,
+                               com.fasterxml.jackson.databind.ObjectMapper mapper) {
         this.bases = bases;
         this.baseLocks = baseLocks;
         this.documents = documents;
@@ -32,11 +36,32 @@ public class KnowledgeRepository {
         this.wikis = wikis;
         this.datasources = datasources;
         this.ingestJobs = ingestJobs;
+        this.mapper = mapper;
     }
 
     public void insertBase(KbBaseDO row) { bases.insert(row); }
     public boolean hasBase(String id) { return bases.selectById(id) != null; }
     public KbBaseDO findBase(String id) { return bases.selectById(id); }
+
+    /** KNW-03：切块策略落 kb_base 列；修改后调用方触发既有重建路径。 */
+    public void updateBaseChunkPolicy(String kbId, String chunkPolicyJson, Boolean contextEnhancement) {
+        KbBaseDO row = bases.selectById(kbId);
+        if (row == null) {
+            throw new com.tioka.framework.error.BizException(
+                    com.tioka.framework.error.ErrorCode.NOT_FOUND, "知识库不存在");
+        }
+        row.setChunkPolicyJson(chunkPolicyJson);
+        if (contextEnhancement != null) {
+            row.setContextEnhancement(contextEnhancement);
+        }
+        bases.updateById(row);
+    }
+
+    /** KNW-03：重建任务按知识库遍历文档。 */
+    public List<KbDocumentDO> listDocumentsByKb(String kbId) {
+        return documents.selectList(Wrappers.<KbDocumentDO>lambdaQuery()
+                .eq(KbDocumentDO::getKbId, kbId));
+    }
 
     /** AST-02：FOR SHARE 确认知识库存在且未删除。 */
     public boolean lockBaseExists(String id) { return baseLocks.selectIdForShare(id) != null; }
@@ -66,7 +91,26 @@ public class KnowledgeRepository {
 
     public void insertChunkWithVector(ChunkInsertCommand cmd) {
         chunks.insertWithVector(cmd.id(), cmd.docId(), cmd.kbId(), cmd.workspaceId(),
-                cmd.text(), cmd.ordinal(), cmd.vectorLiteral(), cmd.docVersion());
+                cmd.text(), cmd.ordinal(), cmd.vectorLiteral(), cmd.docVersion(),
+                cmd.chunkType(), cmd.parentChunkId(), cmd.pageStart(), cmd.pageEnd(),
+                cmd.blockIds() == null ? null : writeJsonQuietly(cmd.blockIds()),
+                cmd.contextPrefix());
+    }
+
+    /** KNW-03：检索后按父块 ID 批量取父块正文（上下文组装，同一父块只取一次）。 */
+    public List<KbChunkDO> listChunksByIds(java.util.Collection<String> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return List.of();
+        }
+        return chunks.selectBatchIds(ids);
+    }
+
+    private String writeJsonQuietly(Object value) {
+        try {
+            return mapper.writeValueAsString(value);
+        } catch (Exception e) {
+            throw new IllegalStateException("JSON 序列化失败: " + e.getMessage(), e);
+        }
     }
 
     public void updateChunkVector(String id, String vectorLiteral) {

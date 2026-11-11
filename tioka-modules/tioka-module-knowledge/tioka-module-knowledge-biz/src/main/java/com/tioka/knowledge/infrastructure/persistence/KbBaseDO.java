@@ -13,6 +13,15 @@ public class KbBaseDO extends WorkspaceAwareDO {
     private String embeddingBindingId;
     /** DAT-02（V164）：知识库数据标签，缺省 INTERNAL。 */
     private String dataLabel;
+    /** KNW-03 / V179：切块策略 JSON（缺省 NULL = 自动）；修改后经重建任务生效。 */
+    private String chunkPolicyJson;
+    /** KNW-03 / V179：上下文增强开关（子块嵌入/全文索引加标题路径前缀），缺省 TRUE。 */
+    private Boolean contextEnhancement;
+
+    public String getChunkPolicyJson() { return chunkPolicyJson; }
+    public void setChunkPolicyJson(String chunkPolicyJson) { this.chunkPolicyJson = chunkPolicyJson; }
+    public Boolean getContextEnhancement() { return contextEnhancement; }
+    public void setContextEnhancement(Boolean contextEnhancement) { this.contextEnhancement = contextEnhancement; }
 
     public String getId() { return id; }
     public void setId(String id) { this.id = id; }

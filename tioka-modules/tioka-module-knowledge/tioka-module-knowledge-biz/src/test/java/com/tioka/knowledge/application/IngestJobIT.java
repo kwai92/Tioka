@@ -5,6 +5,7 @@ import com.tioka.framework.error.ErrorCode;
 import com.tioka.framework.messaging.DomainEvent;
 import com.tioka.knowledge.api.IngestChangeSource;
 import com.tioka.knowledge.api.mq.KnowledgeMqTopics;
+import com.tioka.knowledge.infrastructure.ChunkInsertCommand;
 import com.tioka.knowledge.infrastructure.KnowledgeRepository;
 import com.tioka.knowledge.infrastructure.embedding.HashEmbeddingClient;
 import com.tioka.knowledge.infrastructure.persistence.KbBaseDO;
@@ -103,6 +104,8 @@ class IngestJobIT {
         assertEquals(1, job.getDocVersion());
 
         // 消费者驱动：阶段推进到 READY，检索可见
+        // KNW-03：kb_chunk 现为父子块结构（父块无向量仅供上下文），检索只返回子块——
+        // 断言对切块粒度不敏感：总行数 >= 2、版本一致、检索命中数 == 子块数
         driveToTermination(jobService, jobId);
         assertEquals("READY", repo.findDocument(doc.id()).getStatus());
         KbIngestJobDO done = repo.findJob(jobId);
@@ -112,7 +115,9 @@ class IngestJobIT {
         assertTrue(chunks.size() >= 2, "切块应产生多个分块");
         assertTrue(chunks.stream().allMatch(c -> c.getDocVersion() == 1));
         assertEquals(1, repo.findDocument(doc.id()).getActiveVersion());
-        assertEquals(chunks.size(), asyncSvc.search(KB, "", 50).size());
+        long childCount = chunks.stream()
+                .filter(c -> ChunkInsertCommand.TYPE_CHILD.equals(c.getChunkType())).count();
+        assertEquals(childCount, asyncSvc.search(KB, "", 50).size());
 
         // content_hash 去重：同内容再次提交不建新任务
         KnowledgeService.Document again = asyncSvc.ingest(KB, "验收文档", content, "upload", "txt");
@@ -171,8 +176,8 @@ class IngestJobIT {
         driveToTermination(jobService, jobId1);
         String docId = doc.id();
         assertEquals(1, repo.findDocument(docId).getActiveVersion());
-        Set<String> v1Texts = repo.listChunksByDoc(docId).stream()
-                .map(KbChunkDO::getText).collect(Collectors.toSet());
+        // KNW-03：检索只看子块文本（父块仅为上下文），版本一致性断言针对子块集合
+        Set<String> v1Texts = childTexts(repo, docId);
         assertTrue(repo.listChunksByDoc(docId).stream().allMatch(c -> c.getDocVersion() == 1));
 
         // v2 提交：EMBED 写 v2 分块（active_version 仍为 1）→ SWAP 原子切换
@@ -202,8 +207,7 @@ class IngestJobIT {
         assertTrue(pool.awaitTermination(10, TimeUnit.SECONDS));
         assertTrue(snapshots.size() > 0, "切换窗口内应产生并发检索快照");
 
-        Set<String> v2Texts = repo.listChunksByDoc(docId).stream()
-                .map(KbChunkDO::getText).collect(Collectors.toSet());
+        Set<String> v2Texts = childTexts(repo, docId);
         assertNotEquals(v1Texts, v2Texts);
         for (Set<String> snapshot : snapshots) {
             assertTrue(snapshot.isEmpty() || snapshot.equals(v1Texts) || snapshot.equals(v2Texts),
@@ -219,6 +223,13 @@ class IngestJobIT {
         // F39：externalId / aclPrincipals 落列
         assertEquals("e1", repo.findDocument(docId).getExternalId());
         assertEquals("v2", repo.findDocument(docId).getExternalVersion());
+    }
+
+    /** KNW-03：子块文本集合（父块无向量不参与检索）。 */
+    private static Set<String> childTexts(KnowledgeRepository repo, String docId) {
+        return repo.listChunksByDoc(docId).stream()
+                .filter(c -> ChunkInsertCommand.TYPE_CHILD.equals(c.getChunkType()))
+                .map(KbChunkDO::getText).collect(Collectors.toSet());
     }
 
     // ------------------------------------------------------------------

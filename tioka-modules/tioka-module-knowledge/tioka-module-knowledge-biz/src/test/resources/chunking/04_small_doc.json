@@ -1,0 +1,15 @@
+{
+  "contract": "tioka.parse/v1",
+  "parseId": "doc_sample_small",
+  "fileHash": "a4",
+  "parserVersion": "1.0.0",
+  "status": "READY",
+  "pageCount": 1,
+  "language": null,
+  "units": [
+    {"blockId": "doc_sample_small:1:1", "seq": 1, "type": "PARAGRAPH", "role": "BODY", "parentId": null, "level": 0, "listLabel": null, "text": "这是一篇小文档。全文不超过父块上限。", "regions": [{"pageNo": 1, "x0": 0, "y0": 0, "x1": 0, "y1": 0}], "source": null, "confidence": null, "flags": [], "tableRef": null, "section": null},
+    {"blockId": "doc_sample_small:1:2", "seq": 2, "type": "PARAGRAPH", "role": "BODY", "parentId": null, "level": 0, "listLabel": null, "text": "因此整篇作为一个父块。", "regions": [{"pageNo": 1, "x0": 0, "y0": 0, "x1": 0, "y1": 0}], "source": null, "confidence": null, "flags": [], "tableRef": null, "section": null}
+  ],
+  "clauses": [],
+  "warnings": []
+}

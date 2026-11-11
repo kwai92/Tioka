@@ -29,6 +29,31 @@ public class KbDocumentDO extends BaseDO {
     private String contentHash;
     /** KNW-05 / V211：当前生效版本（SWAP 单事务原子切换，检索只看该版本）。 */
     private Integer activeVersion;
+    /** KNW-11 / V179：解析产物溯源（DOC 域共用服务 parseId）。 */
+    private String parseId;
+    /** KNW-11 / V179：解析方案键（docparse 契约，如 tioka.parse/v1）。 */
+    private String parsePlan;
+    /** KNW-11 / V179：解析器版本（去重键成分之一）。 */
+    private String parsePlanVersion;
+    /** KNW-11 / V179：解析状态（READY / PARTIAL / FAILED）。 */
+    private String parseStatus;
+    /** KNW-11 / V179：解析质量指标 JSON（页数 / 语言 / 块数等）。 */
+    private String qualityMetricsJson;
+    /** KNW-11 / V179：解析警告 JSON 数组（PARTIAL 的失败页与降级原因）。 */
+    private String parseWarnings;
+
+    public String getParseId() { return parseId; }
+    public void setParseId(String parseId) { this.parseId = parseId; }
+    public String getParsePlan() { return parsePlan; }
+    public void setParsePlan(String parsePlan) { this.parsePlan = parsePlan; }
+    public String getParsePlanVersion() { return parsePlanVersion; }
+    public void setParsePlanVersion(String parsePlanVersion) { this.parsePlanVersion = parsePlanVersion; }
+    public String getParseStatus() { return parseStatus; }
+    public void setParseStatus(String parseStatus) { this.parseStatus = parseStatus; }
+    public String getQualityMetricsJson() { return qualityMetricsJson; }
+    public void setQualityMetricsJson(String qualityMetricsJson) { this.qualityMetricsJson = qualityMetricsJson; }
+    public String getParseWarnings() { return parseWarnings; }
+    public void setParseWarnings(String parseWarnings) { this.parseWarnings = parseWarnings; }
 
     public String getDatasourceId() { return datasourceId; }
     public void setDatasourceId(String datasourceId) { this.datasourceId = datasourceId; }
