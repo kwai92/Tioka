@@ -12,18 +12,22 @@ import com.tioka.ontology.api.docparse.ParsedRegion;
 import com.tioka.ontology.api.docparse.ParsedUnit;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 
 /**
  * KNW-11：ParserPort 的 DOC 域实现——复用 {@code DocumentApi.ingest(FileRef) + units(docId)}。
  *
- * <p>FileRef 接线（现状最简方式）：KNW 上传字节经 {@link ObjectStorageApi#put} 落对象交换层
- * 得 storageKey，sha256 在适配器内对字节现算（DocumentService 会按存储对象复核哈希），
+ * <p>FileRef 接线：KNW 上传字节先经 {@link ObjectStorageApi#put} 落对象交换层
+ * （键 {@code knw/ingest/{sha256}/{filename}}），再以该键构造 FileRef 交 ingest——
+ * DocumentService.ingest 按存储对象取字节（{@code storage.get(storageKey)}）并以存储内容
+ * 复核 sha256，故 put 必须先于 ingest。sha256 在适配器内对字节现算；
+ * 键为内容寻址（sha256 在键中），同键同内容（dedup 二次调用、PARSE 阶段重试）跳过重复写入。
  * spaceId = workspaceId（去重键 {@code sha256 + parser_version + space_id}——「同一文件只解析一次」
  * 由 DocumentService 命中 READY 直接返回 docId 实现），sourceSystem = "knw"。
  * ingest 同步完成解析落库并返回 docId；FAILED 时 DocumentService 落自身状态并抛异常
- * → 由入库流水线按阶段重试（≤3）。
+ * → 由入库流水线按阶段重试（≤3）。put/ingest 异常均向上传播（不吞），交按阶段重试。
  *
  * <p>DocUnit → ParsedUnit 映射（DocumentApi 未暴露 role/level/regions/tableRef，登记口径）：
  * role 由 kind 推导（PAGE_HEADER/PAGE_FOOTER → FURNITURE，COMMENT → ANNOTATION，其余 BODY）；
@@ -55,8 +59,13 @@ public class DocParserAdapter implements ParserPort {
 
         byte[] bytes = request.bytes() == null ? new byte[0] : request.bytes();
         String sha = TextStructuredParser.sha256Hex(bytes);
+        String key = storageKey(sha, request.fileName());
+        byte[] existing = storage.get(key);
+        if (!Arrays.equals(existing, bytes)) {
+            storage.put(key, bytes, mimeTypeOf(format));
+        }
         String docId = documents.ingest(new FileRef(
-                storageKey(sha, request.fileName()), request.fileName(),
+                key, request.fileName(),
                 mimeTypeOf(format), sha, request.workspaceId(), null, "knw", null));
         List<DocUnit> units = documents.units(docId, 0, Integer.MAX_VALUE);
         DocumentView view = documents.get(docId)
