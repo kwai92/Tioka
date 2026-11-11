@@ -61,7 +61,8 @@ class G2OrchDispatchGateIT {
         IntegrationTestSupport.register(registry);
         registry.add("tioka.messaging.mode", () -> "in-memory");
         registry.add("tioka.messaging.relay-enabled", () -> "false");
-        registry.add("tioka.runtime.dispatcher-enabled", () -> "true");
+        // C-12：本类直调 dispatchService.handleRunCreated（同步路径），不依赖真实 TurnDispatcher；
+        // 保留缺省 dispatcher-enabled=false（IntegrationTestSupport），避免僵尸上下文跨类抢消费 rt:turns。
     }
 
     @Autowired MockMvc mockMvc;
