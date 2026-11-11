@@ -25,6 +25,7 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 
 import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
@@ -148,6 +149,10 @@ class RuntimeApiContractTest {
         List<RuntimeApi.ItemView> listed = principals.runAs(principal, () ->
                 runtime.listItems(thr.threadId(), 0, 0));
         assertFalse(listed.isEmpty());
+        // C-12（1970 修复）：listItems 路径 create_at 必须真实读出，不允许落回 Instant.EPOCH 兜底
+        assertTrue(listed.stream().allMatch(it ->
+                        it.createdAt() != null && it.createdAt().isAfter(Instant.EPOCH)),
+                "item.createdAt 不应为 EPOCH/ null: " + listed);
 
         BizException blankSteer = assertThrows(BizException.class, () -> principals.runAs(principal, () ->
                 runtime.steer(handle.turnId(), "  ")));

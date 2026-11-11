@@ -37,34 +37,37 @@
     <select id="listByThread" resultType="RuntimeItemDO">
         <![CDATA[
             SELECT thread_id AS threadId, seq, id, turn_id AS turnId, step, type, role,
-                   content_json AS contentJson, token_count AS tokenCount, discarded
+                   content_json AS contentJson, token_count AS tokenCount, discarded,
+                   data_label AS dataLabel, create_at AS createAt
             FROM runtime_item
             WHERE thread_id = #{threadId}
             ORDER BY seq
-            
+
 ]]>
     </select>
 
     <select id="listAfterSeq" resultType="RuntimeItemDO">
         <![CDATA[
             SELECT thread_id AS threadId, seq, id, turn_id AS turnId, step, type, role,
-                   content_json AS contentJson, token_count AS tokenCount, discarded
+                   content_json AS contentJson, token_count AS tokenCount, discarded,
+                   data_label AS dataLabel, create_at AS createAt
             FROM runtime_item
             WHERE thread_id = #{threadId} AND seq > #{afterSeq}
             ORDER BY seq
             LIMIT #{limit}
-            
+
 ]]>
     </select>
 
     <select id="listByTurn" resultType="RuntimeItemDO">
         <![CDATA[
             SELECT thread_id AS threadId, seq, id, turn_id AS turnId, step, type, role,
-                   content_json AS contentJson, token_count AS tokenCount, discarded
+                   content_json AS contentJson, token_count AS tokenCount, discarded,
+                   data_label AS dataLabel, create_at AS createAt
             FROM runtime_item
             WHERE turn_id = #{turnId}
             ORDER BY seq
-            
+
 ]]>
     </select>
 
