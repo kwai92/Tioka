@@ -1,1 +1,2 @@
 com.tioka.eval.config.EvalAutoConfiguration
+com.tioka.eval.config.EvalBatchAutoConfiguration

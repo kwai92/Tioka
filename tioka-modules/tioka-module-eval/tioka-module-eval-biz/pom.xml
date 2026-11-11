@@ -29,6 +29,11 @@
             <groupId>com.tioka</groupId>
             <artifactId>tioka-module-runtime-api</artifactId>
         </dependency>
+        <!-- EVO-02：llm_judge 评估器经 ModelGateway 调模型（purpose=EVALUATION，仅 api） -->
+        <dependency>
+            <groupId>com.tioka</groupId>
+            <artifactId>tioka-module-model-api</artifactId>
+        </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter</artifactId>
