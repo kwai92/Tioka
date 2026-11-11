@@ -315,6 +315,13 @@ class UndoIT {
         long undone = events.stream()
                 .filter(e -> GovernanceMqTopics.TRUST_ACTION_UNDONE.equals(e.event())).count();
         assertEquals(5, undone);
+        // EVO-01：撤销登记事件（eval-biz 消费写负向反馈）
+        long recorded = events.stream()
+                .filter(e -> GovernanceMqTopics.TRUST_UNDO_RECORDED.equals(e.event())).count();
+        assertEquals(1, recorded);
+        assertEquals(RUN, events.stream()
+                .filter(e -> GovernanceMqTopics.TRUST_UNDO_RECORDED.equals(e.event()))
+                .findFirst().orElseThrow().payload().get("scopeId"));
         // 熔断计数（TRU-07 写计数，联动登记 TRU-10）
         assertEquals(1, ((InMemoryCircuit) circuit).undoCount);
     }

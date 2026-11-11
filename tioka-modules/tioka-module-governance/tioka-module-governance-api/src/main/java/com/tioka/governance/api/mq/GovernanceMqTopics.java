@@ -16,6 +16,7 @@ public final class GovernanceMqTopics {
     public static final String POLICY_CHANGED = "tioka.gov.policy_changed.v1";
     public static final String QUOTA_THRESHOLD = "tioka.quota.threshold.v1";
     public static final String TRUST_ACTION_UNDONE = "tioka.trust.action_undone.v1";
+    public static final String TRUST_UNDO_RECORDED = "tioka.trust.undo_recorded.v1";
     public static final String TRUST_COMPENSATE = "tioka.trust.compensate.v1";
     public static final String TRUST_COMPENSATION_FAILED = "tioka.trust.compensation_failed.v1";
     public static final String TRUST_AUTONOMY_CHANGED = "tioka.trust.autonomy_changed.v1";

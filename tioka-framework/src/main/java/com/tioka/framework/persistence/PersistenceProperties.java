@@ -94,7 +94,11 @@ public class PersistenceProperties {
             // NTF-01 / V174：通知投递状态机（dedup_key 主维度，无 workspace_id）
             "ntf_delivery",
             // FND-09 / V140：外部身份映射（PK source+external_id，无 workspace_id）
-            "sys_external_identity"
+            "sys_external_identity",
+            // KNW-05 / V211：入库任务（doc_id 关联 kb_document，ADR-018 设计原文无 workspace_id）
+            "kb_ingest_job",
+            // EVO-01 / V212：用户反馈（PK turn_id+user_id，ADR-031 设计原文无 workspace_id）
+            "eval_feedback"
     ));
 
     public List<String> getWorkspaceScopeExemptTables() {

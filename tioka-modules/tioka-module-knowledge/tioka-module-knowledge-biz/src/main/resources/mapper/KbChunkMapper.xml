@@ -5,8 +5,8 @@
 
     <insert id="insertWithVector">
         <![CDATA[
-INSERT INTO kb_chunk(id, doc_id, kb_id, workspace_id, text, ordinal, embedding_vec, create_at, update_at, create_by, update_by, deleted)
-VALUES (#{id}, #{docId}, #{kbId}, #{workspaceId}, #{text}, #{ordinal}, CAST(#{vectorLiteral} AS vector),
+INSERT INTO kb_chunk(id, doc_id, kb_id, workspace_id, text, ordinal, embedding_vec, doc_version, create_at, update_at, create_by, update_by, deleted)
+VALUES (#{id}, #{docId}, #{kbId}, #{workspaceId}, #{text}, #{ordinal}, CAST(#{vectorLiteral} AS vector), #{docVersion},
         CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'system', 'system', FALSE)
 ]]>
     </insert>
@@ -18,6 +18,7 @@ WHERE id = #{id} AND deleted = FALSE
 ]]>
     </update>
 
+    <!-- KNW-05：检索只看当前版本（c.doc_version = d.active_version）；存量数据 0/0 行为不变 -->
     <select id="searchNearest" resultType="java.util.HashMap">
         <![CDATA[
 SELECT c.id AS chunk_id, c.doc_id AS doc_id, c.kb_id AS kb_id, c.text AS text, c.ordinal AS ordinal,
@@ -27,6 +28,7 @@ FROM kb_chunk c
 LEFT JOIN kb_document d ON d.id = c.doc_id AND d.deleted = FALSE
 WHERE c.kb_id = #{kbId} AND c.deleted = FALSE
   AND c.embedding_vec IS NOT NULL
+  AND c.doc_version = d.active_version
 ORDER BY c.embedding_vec <=> CAST(#{vectorLiteral} AS vector)
 LIMIT #{k}
 ]]>
@@ -43,6 +45,7 @@ LIMIT #{k}
         WHERE c.deleted = FALSE
           AND c.embedding_vec IS NOT NULL
           AND c.workspace_id = #{workspaceId}
+          AND c.doc_version = d.active_version
         <if test="kbIds != null and kbIds.size() &gt; 0">
             AND c.kb_id IN
             <foreach collection="kbIds" item="kid" open="(" separator="," close=")">

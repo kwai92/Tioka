@@ -19,6 +19,27 @@ public class KbDocumentDO extends BaseDO {
     private String aclPrincipals;
     /** DAT-02（V164）：文档数据标签；null = 继承知识库标签。 */
     private String dataLabel;
+    /** KNW-05 / V211：数据源 ID（F39 ChangeEvent 来源）。 */
+    private String datasourceId;
+    /** KNW-05 / V211：源系统文档标识。 */
+    private String externalId;
+    /** KNW-05 / V211：源系统版本号。 */
+    private String externalVersion;
+    /** KNW-05 / V211：内容哈希（SHA-256），去重跳过内容未变的重复入库。 */
+    private String contentHash;
+    /** KNW-05 / V211：当前生效版本（SWAP 单事务原子切换，检索只看该版本）。 */
+    private Integer activeVersion;
+
+    public String getDatasourceId() { return datasourceId; }
+    public void setDatasourceId(String datasourceId) { this.datasourceId = datasourceId; }
+    public String getExternalId() { return externalId; }
+    public void setExternalId(String externalId) { this.externalId = externalId; }
+    public String getExternalVersion() { return externalVersion; }
+    public void setExternalVersion(String externalVersion) { this.externalVersion = externalVersion; }
+    public String getContentHash() { return contentHash; }
+    public void setContentHash(String contentHash) { this.contentHash = contentHash; }
+    public Integer getActiveVersion() { return activeVersion; }
+    public void setActiveVersion(Integer activeVersion) { this.activeVersion = activeVersion; }
 
     public String getId() { return id; }
     public void setId(String id) { this.id = id; }

@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tioka.dev/schema/tioka.trust.undo_recorded.v1.json",
+  "title": "tioka.trust.undo_recorded.v1",
+  "description": "TRU-07: an undo request was recorded; consumers (EVO-01) derive a negative feedback item for turn-scoped undos (M3-06 §4.1).",
+  "type": "object",
+  "required": ["undoId", "scopeType", "scopeId", "requester"],
+  "properties": {
+    "undoId": { "type": "string", "description": "trust_undo_request.id" },
+    "scopeType": { "type": "string", "description": "turn | run | action" },
+    "scopeId": { "type": "string", "description": "scope identifier (turnId for scopeType=turn)" },
+    "requester": { "type": "string", "description": "user id who requested the undo" },
+    "workspaceId": { "type": "string" },
+    "compensating": { "type": "number" },
+    "irreversible": { "type": "number" }
+  },
+  "additionalProperties": true
+}

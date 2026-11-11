@@ -15,6 +15,8 @@ public final class KnowledgeMqTopics {
 
     public static final String INGEST_STAGE = "tioka.knowledge.ingest_stage.v1";
     public static final String EXTERNAL_QUERIED = "tioka.knowledge.external_queried.v1";
+    /** KNW-05：入库任务触发事件（M3-06 §3.1，任务表驱动，payload 只带 jobId）。 */
+    public static final String INGEST_REQUESTED = "tioka.knowledge.ingest_requested.v1";
     public static final String EVAL_RUN_FINISHED = "tioka.eval.run_finished.v1";
     public static final String EVAL_FEEDBACK_RECORDED = "tioka.eval.feedback_recorded.v1";
 

@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tioka.dev/schema/tioka.knowledge.ingest_requested.v1.json",
+  "title": "tioka.knowledge.ingest_requested.v1",
+  "description": "KNW-05: knowledge ingest job trigger; payload carries the job id only, stages are driven by kb_ingest_job (M3-06 §3.1 / ADR-018).",
+  "type": "object",
+  "required": ["jobId", "docId", "kbId"],
+  "properties": {
+    "jobId": { "type": "string", "description": "kb_ingest_job.id" },
+    "docId": { "type": "string", "description": "kb_document.id" },
+    "kbId": { "type": "string", "description": "kb_base.id" }
+  },
+  "additionalProperties": true
+}

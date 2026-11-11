@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tioka.dev/schema/tioka.lease.review.feedback.v1.json",
+  "description": "EVO-01 reservation: legal review rejection (LSE-05) writes a negative feedback item; producer not yet implemented, consumer registered (M3-06 §4.1).",
+  "type": "object",
+  "required": ["turnId"],
+  "properties": {
+    "turnId": { "type": "string", "description": "runtime turn that produced the rejected answer" },
+    "userId": { "type": "string", "description": "reviewer id; optional, falls back to system" },
+    "comment": { "type": "string", "description": "rejection reason" },
+    "reasonCode": { "type": "string" },
+    "reviewRunId": { "type": "string" }
+  },
+  "additionalProperties": true
+}

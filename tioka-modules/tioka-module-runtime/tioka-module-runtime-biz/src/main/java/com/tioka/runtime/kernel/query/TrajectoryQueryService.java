@@ -9,6 +9,7 @@ import com.tioka.framework.security.PrincipalHolder;
 import com.tioka.model.api.CostQueryApi;
 import com.tioka.runtime.api.kernel.ItemType;
 import com.tioka.runtime.api.kernel.RuntimeApi;
+import com.tioka.runtime.api.kernel.ThreadLabelApi;
 import com.tioka.runtime.api.kernel.TrajectoryApi;
 import com.tioka.runtime.api.kernel.TurnStatus;
 import com.tioka.runtime.infrastructure.RuntimeThreadRepository;
@@ -33,7 +34,7 @@ import java.util.TreeMap;
  * HCI-07b：轨迹按步查询（含作废 item 与按步用量）。
  */
 @Service
-public class TrajectoryQueryService implements TrajectoryApi {
+public class TrajectoryQueryService implements TrajectoryApi, ThreadLabelApi {
 
     private final TurnRepository turns;
     private final ItemRepository items;
@@ -122,6 +123,14 @@ public class TrajectoryQueryService implements TrajectoryApi {
                     toInstant(t.getEndedAt())));
         }
         return out;
+    }
+
+    /** EVO-01：会话数据标签只读（DAT-02 / V164），轨迹导出的标签限制依据。 */
+    @Override
+    public java.util.Optional<String> dataLabel(String threadId) {
+        RuntimeThreadDO s = threads.find(threadId);
+        return s == null ? java.util.Optional.empty()
+                : java.util.Optional.ofNullable(s.getDataLabel());
     }
 
     private void requireThreadVisible(String threadId) {

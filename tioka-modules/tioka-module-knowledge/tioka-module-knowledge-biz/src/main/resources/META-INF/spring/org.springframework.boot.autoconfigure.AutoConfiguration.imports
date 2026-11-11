@@ -1,1 +1,2 @@
 com.tioka.knowledge.config.KnowledgeAutoConfiguration
+com.tioka.knowledge.config.KnowledgeIngestAsyncAutoConfiguration
