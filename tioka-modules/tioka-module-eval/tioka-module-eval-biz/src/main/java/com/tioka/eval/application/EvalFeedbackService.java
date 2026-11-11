@@ -15,6 +15,7 @@ import com.tioka.framework.messaging.IdempotentConsumer;
 import com.tioka.governance.api.mq.GovernanceMqTopics;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -44,11 +45,17 @@ public class EvalFeedbackService implements EvalFeedbackApi {
     }
 
     @Override
+    @Transactional
     public void feedback(String turnId, String userId, int rating, String comment) {
         record(turnId, userId, rating, comment, SOURCE_USER);
     }
 
-    /** 统一入口：rating 仅 +1/-1；UNIQUE 冲突时保留既有反馈。 */
+    /**
+     * 统一入口：rating 仅 +1/-1；UNIQUE 冲突时保留既有反馈。
+     * 事务边界：写 {@code eval_feedback} 与 outbox 发布（{@code Propagation.MANDATORY}，
+     * 见 OutboxEventPublisher）必须同事务，回滚即整体不落盘。
+     */
+    @Transactional
     public boolean record(String turnId, String userId, int rating, String comment, String source) {
         if (turnId == null || turnId.isBlank()) {
             throw new BizException(ErrorCode.BAD_REQUEST, "turnId 不能为空");
