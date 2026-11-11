@@ -12,7 +12,6 @@ import com.tioka.ontology.infrastructure.OntValueIndexRepository;
 import com.tioka.ontology.infrastructure.persistence.OntInstanceVersionDO;
 import com.tioka.ontology.infrastructure.persistence.OntValueIndexDO;
 import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
@@ -37,9 +36,16 @@ import java.util.function.Function;
  *
  * <p>期望项匹配：对象类型按 {@code m.<collectionKey>} 路径前缀；陈述类型按
  * {@code [<typeKey>]} 身份选择器（确认模型陈述集合元素以 type 字段为身份）。
+ *
+ * <p>不用 @Component/@Service：依赖 {@code DefinitionService} 为条件装配
+ * （tioka.ontology.definition.enabled），经 OntologyQueryAutoConfiguration
+ * {@code @Bean} 条件注册（tioka.ontology.query.enabled）；DefinitionService 未装配时
+ * 期望项来源降级为空集（WARN 一次），保证 query.enabled=true 而 definition.enabled=false 可装配。
  */
-@Service
 public class CoverageService {
+
+    private static final org.slf4j.Logger log =
+            org.slf4j.LoggerFactory.getLogger(CoverageService.class);
 
     /** 主题覆盖四态。 */
     public enum State { PRESENT, MISSING, BLANK, NOT_APPLICABLE }
@@ -51,14 +57,17 @@ public class CoverageService {
         }
     }
 
-    private final DefinitionService definitions;
+    private final ObjectProvider<DefinitionService> definitions;
     private final OntValueIndexRepository valueIndex;
     private final ObjectMapper mapper;
     private final ObjectProvider<RuleEvaluator> rules;
     /** 主题 → 领域包 CEL 适用条件（无条件返回 null；M3-04 领域包复核时挂接真实来源，登记偏差）。 */
     private final Function<String, String> topicConditions;
+    /** DefinitionService 降级告警只记一次。 */
+    private final java.util.concurrent.atomic.AtomicBoolean warnedNoDefinitions =
+            new java.util.concurrent.atomic.AtomicBoolean(false);
 
-    public CoverageService(DefinitionService definitions,
+    public CoverageService(ObjectProvider<DefinitionService> definitions,
                            OntValueIndexRepository valueIndex,
                            ObjectMapper mapper,
                            ObjectProvider<RuleEvaluator> rules,
@@ -178,9 +187,18 @@ public class CoverageService {
     }
 
     private PublishedDefinition resolveDefinition(OntInstanceVersionDO instance) {
-        return definitions.getVersion(instance.getDefKey(), instance.getDefVersion())
-                .or(() -> definitions.currentPublishedVersion(instance.getDefKey()))
-                .orElseGet(() -> definitions.getDraft(instance.getDefKey()).orElse(null));
+        DefinitionService service = definitions.getIfAvailable();
+        if (service == null) {
+            // 降级：定义服务未装配（tioka.ontology.definition.enabled=false）→ 期望项来源为空集
+            if (warnedNoDefinitions.compareAndSet(false, true)) {
+                log.warn("CoverageService 降级：DefinitionService 未装配（tioka.ontology.definition.enabled=false），"
+                        + "期望项来源为空集，coverage 将返回空列表");
+            }
+            return null;
+        }
+        return service.getVersion(instance.getDefKey(), instance.getDefVersion())
+                .or(() -> service.currentPublishedVersion(instance.getDefKey()))
+                .orElseGet(() -> service.getDraft(instance.getDefKey()).orElse(null));
     }
 
     private JsonNode readModel(String modelJson) {

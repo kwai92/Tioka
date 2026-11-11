@@ -50,7 +50,7 @@
 
 ## 五、偏差登记
 
-1. **ontology.instance 数据集登记为 best-effort**：DatasetStoreDb.save 是管理面 API（M3 只读）→ 注册时捕获 UnsupportedOperationException/WARN 跳过；查询行过滤在 ModelQueryService 内存实现（任务书二选一口径二），DatasetPolicyCompiler 未复用亦未重写 CEL；治理面真正落库随管理面批次。
+1. **ontology.instance 数据集登记延后至管理面开放（registrar 已移除）**：初版 OntologyInstanceDatasetRegistrar 向 DatasetStore best-effort 注册，但 DatasetStoreDb.save 是管理面 API（M3 只读，save 抛 UnsupportedOperationException，运行时零实际作用），且 ontology-biz → connector-biz 依赖违反 LayeredDependencyArchTest.bizLayersMustNotDependOnForeignModuleLayers——CI 回归修复中删除 registrar 与 connector-biz 依赖；查询行过滤在 ModelQueryService 内存实现（任务书二选一口径二），DatasetPolicyCompiler 未复用亦未重写 CEL；治理面登记随管理面批次开放后补。
 2. **ontology-biz 新增两个运行时依赖**：`tioka-module-connector-biz`（DatasetStore/DatasetPolicyModel 登记，无 Maven 环：connector-biz 不依赖 ontology）、`spring-boot-starter-data-redis`（RedisFoldLock）。测试依赖：testcontainers junit-jupiter/postgresql + postgresql 驱动（BOM 管理）。
 3. **OntDraftRepository.insert JSONB 转型潜在坑**（既有代码，见三-2）：DraftService 保存路径若在真实 PG 上执行 BaseMapper.insert 会报错，建议后续批次为其补 XML insertDraft（本批未触碰既有文件）。
 4. **RedisFoldLock 落 infrastructure 包**（FoldLock 接口在 application/fold）：锁实现依赖 StringRedisTemplate，避免 application 层依赖具体中间件。

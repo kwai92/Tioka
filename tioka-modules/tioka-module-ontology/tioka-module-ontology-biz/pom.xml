@@ -46,12 +46,6 @@
             <groupId>dev.cel</groupId>
             <artifactId>cel</artifactId>
         </dependency>
-        <!-- ONT-03：ontology.instance 数据集登记（DatasetStore / DatasetPolicyModel，DAT-01 治理面）；
-             查询执行不走 DatasetGateway（ModelQueryService 内行过滤），无 Maven 环（connector 不依赖 ontology） -->
-        <dependency>
-            <groupId>com.tioka</groupId>
-            <artifactId>tioka-module-connector-biz</artifactId>
-        </dependency>
         <!-- ONT-07：折叠互斥锁 ont:fold:{storeKey}（RedisFoldLock，StringRedisTemplate） -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

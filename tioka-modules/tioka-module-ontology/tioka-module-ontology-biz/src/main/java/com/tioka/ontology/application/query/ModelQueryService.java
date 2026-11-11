@@ -5,7 +5,6 @@ import com.tioka.ontology.infrastructure.OntDraftRepository;
 import com.tioka.ontology.infrastructure.OntInstanceVersionRepository;
 import com.tioka.ontology.infrastructure.persistence.OntDraftDO;
 import com.tioka.ontology.infrastructure.persistence.OntInstanceVersionDO;
-import org.springframework.stereotype.Service;
 
 import java.util.LinkedHashSet;
 import java.util.Optional;
@@ -20,8 +19,12 @@ import java.util.Set;
  * <p>主体标识（经 on_behalf_of 交集的 PrincipalSnapshot，参考 DatasetPolicyModel.PrincipalSnapshot）：
  * {@code userId}、{@code onBehalfOf}（MAS-01 经办人）与角色编码的并集；
  * 实例 ACL 命中任一标识即可见（deny-by-default：ACL 为空不可见）。
+ *
+ * <p>不用 @Service：经 OntologyQueryAutoConfiguration {@code @Bean} 条件注册
+ * （tioka.ontology.query.enabled）。仓储依赖（OntInstanceVersionRepository/OntDraftRepository，
+ * {@code @Repository} 组件扫描无条件注册；其 Mapper 经 framework 全局
+ * {@code @MapperScan(com.tioka, Mapper.class)} 无条件可用）不构成装配断点。
  */
-@Service
 public class ModelQueryService {
 
     /** 读草稿的额外动作类别（M3-03 §8：只有建模与审查 Agent 的授权书里有）。 */
