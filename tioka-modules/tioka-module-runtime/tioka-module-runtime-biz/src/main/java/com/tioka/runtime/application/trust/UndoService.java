@@ -167,7 +167,31 @@ public class UndoService {
         }
 
         auditUndo(request, compensating, irreversible, principal);
+        publishUndoRecorded(request, compensating.size(), irreversible.size());
         return new UndoResult(request.getId(), "OPEN", compensating, irreversible, null);
+    }
+
+    /**
+     * EVO-01：撤销登记事件（与撤销同事务 outbox）。eval-biz 消费后对 turn 范围撤销
+     * 自动写一条负向反馈（M3-06 §4.1；依赖方向：runtime 不反向依赖 eval，经事件解耦）。
+     */
+    private void publishUndoRecorded(TrustUndoRequestDO request, int compensating, int irreversible) {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("undoId", request.getId());
+        payload.put("scopeType", request.getScopeType());
+        payload.put("scopeId", request.getScopeId());
+        payload.put("requester", request.getRequester());
+        payload.put("workspaceId", request.getWorkspaceId());
+        payload.put("compensating", compensating);
+        payload.put("irreversible", irreversible);
+        publisher.publish(new DomainEvent(
+                GovernanceMqTopics.TRUST_UNDO_RECORDED,
+                GovernanceMqTopics.TOPIC,
+                request.getScopeId(),
+                payload,
+                0,
+                null,
+                "trust_undo_request:" + request.getId()));
     }
 
     private void publishCompensate(TrustUndoRequestDO request, TrustActionDO row, int order) {
