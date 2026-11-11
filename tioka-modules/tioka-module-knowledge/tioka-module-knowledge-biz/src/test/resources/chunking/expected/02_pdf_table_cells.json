@@ -1,0 +1,37 @@
+[ {
+  "chunkType" : "PARENT",
+  "parentOrdinal" : -1,
+  "text" : "下表列出各项目报价。\n项目 | 金额\n实施 | 120 万\n运维 | 40 万\n以上报价含税。",
+  "contextPrefix" : "项目报价单 > 报价明细",
+  "headingPath" : "报价明细",
+  "pageStart" : 2,
+  "pageEnd" : 3,
+  "blockIds" : [ "doc_sample_tbl:2:2", "tbl:7:doc_sample_tbl:2:3", "doc_sample_tbl:3:9" ]
+}, {
+  "chunkType" : "CHILD",
+  "parentOrdinal" : 0,
+  "text" : "下表列出各项目报价。",
+  "contextPrefix" : "项目报价单 > 报价明细",
+  "headingPath" : "",
+  "pageStart" : 2,
+  "pageEnd" : 2,
+  "blockIds" : [ "doc_sample_tbl:2:2" ]
+}, {
+  "chunkType" : "CHILD",
+  "parentOrdinal" : 0,
+  "text" : "项目 | 金额\n实施 | 120 万\n运维 | 40 万",
+  "contextPrefix" : "项目报价单 > 报价明细（表说明：下表列出各项目报价。）",
+  "headingPath" : "",
+  "pageStart" : 2,
+  "pageEnd" : 3,
+  "blockIds" : [ "tbl:7:doc_sample_tbl:2:3" ]
+}, {
+  "chunkType" : "CHILD",
+  "parentOrdinal" : 0,
+  "text" : "以上报价含税。",
+  "contextPrefix" : "项目报价单 > 报价明细",
+  "headingPath" : "",
+  "pageStart" : 3,
+  "pageEnd" : 3,
+  "blockIds" : [ "doc_sample_tbl:3:9" ]
+} ]

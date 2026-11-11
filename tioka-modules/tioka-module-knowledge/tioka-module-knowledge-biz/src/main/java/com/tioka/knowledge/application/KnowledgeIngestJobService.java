@@ -11,9 +11,12 @@ import com.tioka.framework.security.PrincipalHolder;
 import com.tioka.framework.security.SystemPrincipals;
 import com.tioka.knowledge.api.IngestChangeSource;
 import com.tioka.knowledge.api.mq.KnowledgeMqTopics;
+import com.tioka.knowledge.application.chunk.StructuredChunker;
+import com.tioka.knowledge.application.chunk.StructuredChunker.ChunkPolicy;
+import com.tioka.knowledge.application.parse.ParseSupport;
+import com.tioka.knowledge.application.parse.ParserPort;
 import com.tioka.knowledge.infrastructure.ChunkInsertCommand;
 import com.tioka.knowledge.infrastructure.KnowledgeRepository;
-import com.tioka.knowledge.infrastructure.parse.DocumentParser;
 import com.tioka.knowledge.infrastructure.persistence.KbBaseDO;
 import com.tioka.knowledge.infrastructure.persistence.KbDocumentDO;
 import com.tioka.knowledge.infrastructure.persistence.KbIngestJobDO;
@@ -21,6 +24,8 @@ import com.tioka.model.api.ModelBindingQueryApi;
 import com.tioka.model.api.gateway.ModelCallContext;
 import com.tioka.model.api.gateway.ModelGateway;
 import com.tioka.model.api.gateway.ModelPurpose;
+import com.tioka.ontology.api.docparse.ParseResult;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -44,14 +49,19 @@ import java.util.stream.Collectors;
  * SWAP：新版本分块全部写入后，单事务切换 {@code kb_document.active_version} 并删除旧版本分块；
  * 检索 SQL 只看当前版本（{@code KbChunkMapper} 过滤 {@code doc_version = active_version}）。
  *
+ * <p>KNW-11：PARSE 阶段经 {@link ParserPort}（DOC 域共用解析服务，ObjectProvider 弱依赖）
+ * 产结构化解析产物 ParseResult（溯源/质量指标/警告落 kb_document）；解析 FAILED 抛异常交按阶段重试，
+ * PARTIAL 照常入库并把失败页与降级原因（warnings）写到文档上。
+ * KNW-03：CHUNK 阶段 {@link StructuredChunker} 按知识库策略（kb_base.chunk_policy_json）
+ * 切父子块；EMBED 阶段子块嵌入（context_enhancement 开启时输入带标题路径前缀）、
+ * 父块无向量落库供上下文组装。
+ *
  * <p>仅由 {@code KnowledgeIngestAsyncAutoConfiguration} 在
  * {@code tioka.knowledge.ingest.async.enabled=true} 时装配；缺省关闭时
- * {@code KnowledgeService} 走既有同步路径，行为完全不变。
+ * {@code KnowledgeService} 走既有同步路径。
  */
 public class KnowledgeIngestJobService {
 
-    /** 与同步路径 KnowledgeService.CHUNK_CHAR_SIZE 对齐（KNW-03 结构感知切块会统一重写）。 */
-    static final int CHUNK_CHAR_SIZE = 200;
     static final int MAX_ATTEMPTS = 3;
     private static final int ERROR_MESSAGE_MAX_LEN = 2000;
 
@@ -69,7 +79,7 @@ public class KnowledgeIngestJobService {
     private final ModelGateway modelGateway;
     private final ModelBindingQueryApi bindings;
     private final PrincipalHolder principals;
-    private final DocumentParser documentParser;
+    private final ObjectProvider<ParserPort> parserPort;
     private final EventPublisher publisher;
     private final ObjectMapper mapper;
     private final TransactionTemplate tx;
@@ -79,7 +89,7 @@ public class KnowledgeIngestJobService {
                                      ModelGateway modelGateway,
                                      ModelBindingQueryApi bindings,
                                      PrincipalHolder principals,
-                                     DocumentParser documentParser,
+                                     ObjectProvider<ParserPort> parserPort,
                                      EventPublisher publisher,
                                      ObjectMapper mapper,
                                      @Value("${tioka.knowledge.embedding-dim:1024}") int embeddingDim,
@@ -88,7 +98,7 @@ public class KnowledgeIngestJobService {
         this.modelGateway = modelGateway;
         this.bindings = bindings;
         this.principals = principals;
-        this.documentParser = documentParser;
+        this.parserPort = parserPort;
         this.publisher = publisher;
         this.mapper = mapper;
         this.embeddingDim = Math.max(1, embeddingDim);
@@ -109,7 +119,7 @@ public class KnowledgeIngestJobService {
     }
 
     public KnowledgeService.Document submitUpload(String kbId, String title, byte[] bytes, String filename) {
-        String format = DocumentParser.resolveFormat(filename);
+        String format = ParserPort.resolveFormat(filename);
         String docTitle = (title == null || title.isBlank())
                 ? (filename == null || filename.isBlank() ? "upload" : filename)
                 : title;
@@ -283,57 +293,121 @@ public class KnowledgeIngestJobService {
         }
     }
 
-    /** PARSE：上传字节经 DocumentParser 真解析；文本路径规范化。产出 normalized 文本。 */
+    /**
+     * PARSE：经 ParserPort（KNW-11，DOC 域共用解析服务）产结构化解析产物；
+     * FAILED 抛异常交按阶段重试，PARTIAL 照常入库（警告落文档）。
+     */
     private void doParse(KbIngestJobDO job) {
         Map<String, Object> payload = readPayload(job);
         String kind = String.valueOf(payload.get("kind"));
         String format = String.valueOf(payload.getOrDefault("format", "txt"));
-        String normalized;
+        byte[] bytes;
+        String filename = null;
         if ("UPLOAD".equals(kind)) {
-            byte[] bytes = java.util.Base64.getDecoder().decode(String.valueOf(payload.getOrDefault("base64", "")));
-            String filename = String.valueOf(payload.getOrDefault("filename", ""));
-            normalized = DocumentParser.normalizeText(documentParser.parse(bytes, filename), format);
+            bytes = java.util.Base64.getDecoder().decode(String.valueOf(payload.getOrDefault("base64", "")));
+            filename = String.valueOf(payload.getOrDefault("filename", ""));
         } else {
-            normalized = DocumentParser.normalizeText(String.valueOf(payload.getOrDefault("content", "")), format);
+            bytes = String.valueOf(payload.getOrDefault("content", "")).getBytes(StandardCharsets.UTF_8);
         }
-        payload.put("normalized", normalized);
+        KbDocumentDO doc = repo.findDocument(job.getDocId());
+        String workspaceId = doc == null ? "" : workspaceIdOf(doc);
+        ParseResult result = ParseSupport.parse(parserPort,
+                new ParserPort.ParseRequest(workspaceId, filename, format, bytes));
+        ParseSupport.assertNotFailed(result);
+        payload.put("parseResult", writeJson(result));
         job.setPayloadJson(writeJson(payload));
+        if (doc != null) {
+            ParseSupport.applyParseMeta(doc, result, mapper);
+            repo.updateDocument(doc);
+        }
         advanceStage(job, STAGE_CHUNK);
     }
 
-    /** CHUNK：固定 200 字切块（KNW-03 结构感知切块落地前与同步路径一致）。 */
+    /** CHUNK：KNW-03 结构感知切块（策略读 kb_base.chunk_policy_json，缺省自动）。 */
     private void doChunk(KbIngestJobDO job) {
         Map<String, Object> payload = readPayload(job);
-        String normalized = String.valueOf(payload.getOrDefault("normalized", ""));
-        List<String> chunks = new ArrayList<>();
-        if (normalized.isEmpty()) {
-            chunks.add("");
-        } else {
-            for (int i = 0; i < normalized.length(); i += CHUNK_CHAR_SIZE) {
-                chunks.add(normalized.substring(i, Math.min(normalized.length(), i + CHUNK_CHAR_SIZE)));
-            }
+        KbDocumentDO doc = repo.findDocument(job.getDocId());
+        if (doc == null) {
+            throw new BizException(ErrorCode.INTERNAL, "document 不存在");
         }
-        payload.put("chunkTexts", chunks);
+        ParseResult result = readParseResult(payload);
+        KbBaseDO base = repo.findBase(doc.getKbId());
+        ChunkPolicy policy = ChunkPolicy.fromJson(base == null ? null : base.getChunkPolicyJson(), mapper);
+        boolean contextEnhancement = base == null || base.getContextEnhancement() == null
+                || base.getContextEnhancement();
+        List<StructuredChunker.ChunkPiece> pieces =
+                new StructuredChunker(policy, contextEnhancement).chunk(result, doc.getTitle());
+
+        List<Map<String, Object>> chunks = new ArrayList<>(pieces.size());
+        for (int i = 0; i < pieces.size(); i++) {
+            StructuredChunker.ChunkPiece p = pieces.get(i);
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("type", p.chunkType());
+            m.put("parentOrdinal", p.parentOrdinal());
+            m.put("text", p.text());
+            m.put("contextPrefix", p.contextPrefix());
+            m.put("pageStart", p.pageStart());
+            m.put("pageEnd", p.pageEnd());
+            m.put("blockIds", p.blockIds());
+            m.put("ordinal", i);
+            chunks.add(m);
+        }
+        payload.put("chunks", chunks);
         job.setPayloadJson(writeJson(payload));
         advanceStage(job, STAGE_EMBED);
     }
 
-    /** EMBED：批量嵌入并带 doc_version 写入（先清同版本分块，重试幂等）。 */
+    /**
+     * EMBED：子块批量嵌入（context_enhancement 开启时输入带标题路径前缀）并带 doc_version 写入
+     * （先清同版本分块，重试幂等）；父块无向量落库（chunk_type=PARENT），仅供上下文组装。
+     */
     private void doEmbed(KbIngestJobDO job, KbDocumentDO doc) {
         Map<String, Object> payload = readPayload(job);
         @SuppressWarnings("unchecked")
-        List<String> chunkTexts = (List<String>) payload.getOrDefault("chunkTexts", List.of());
+        List<Map<String, Object>> chunks =
+                (List<Map<String, Object>>) payload.getOrDefault("chunks", List.of());
         String bindingId = resolveBindingId(doc.getKbId());
         String workspaceId = workspaceIdOf(doc);
+        KbBaseDO base = repo.findBase(doc.getKbId());
+        boolean contextEnhancement = base == null || base.getContextEnhancement() == null
+                || base.getContextEnhancement();
         repo.deleteChunksOfVersion(doc.getId(), job.getDocVersion());
-        for (int i = 0; i < chunkTexts.size(); i++) {
-            String text = chunkTexts.get(i) == null ? "" : chunkTexts.get(i);
-            double[] vec = embed(bindingId, text);
+        Map<Integer, String> parentIds = new LinkedHashMap<>();
+        for (Map<String, Object> c : chunks) {
+            int ordinal = c.get("ordinal") instanceof Number n ? n.intValue() : 0;
+            String type = String.valueOf(c.getOrDefault("type", ChunkInsertCommand.TYPE_CHILD));
+            String chunkId = "chk_" + doc.getId() + "_v" + job.getDocVersion() + "_" + ordinal;
+            String text = String.valueOf(c.getOrDefault("text", ""));
+            if (ChunkInsertCommand.TYPE_PARENT.equals(type)) {
+                parentIds.put(ordinal, chunkId);
+                repo.insertChunkWithVector(new ChunkInsertCommand(
+                        chunkId, doc.getId(), doc.getKbId(), workspaceId,
+                        text, ordinal, null, job.getDocVersion(),
+                        ChunkInsertCommand.TYPE_PARENT, null,
+                        intOf(c.get("pageStart")), intOf(c.get("pageEnd")),
+                        listOfStrings(c.get("blockIds")), stringOrNull(c.get("contextPrefix"))));
+            }
+        }
+        for (Map<String, Object> c : chunks) {
+            int ordinal = c.get("ordinal") instanceof Number n ? n.intValue() : 0;
+            String type = String.valueOf(c.getOrDefault("type", ChunkInsertCommand.TYPE_CHILD));
+            if (ChunkInsertCommand.TYPE_PARENT.equals(type)) {
+                continue;
+            }
+            String text = String.valueOf(c.getOrDefault("text", ""));
+            String prefix = stringOrNull(c.get("contextPrefix"));
+            String embedInput = contextEnhancement && prefix != null && !prefix.isBlank()
+                    ? prefix + "\n" + text : text;
+            double[] vec = embed(bindingId, embedInput);
+            Integer parentOrdinal = c.get("parentOrdinal") instanceof Number n ? n.intValue() : -1;
+            String parentChunkId = parentOrdinal >= 0 ? parentIds.get(parentOrdinal) : null;
             repo.insertChunkWithVector(new ChunkInsertCommand(
-                    // chunk id 带版本：同 doc 行多版本并存时不与旧版本分块撞 PK
-                    "chk_" + doc.getId() + "_v" + job.getDocVersion() + "_" + i,
+                    "chk_" + doc.getId() + "_v" + job.getDocVersion() + "_" + ordinal,
                     doc.getId(), doc.getKbId(), workspaceId,
-                    text, i, toVectorLiteral(vec), job.getDocVersion()));
+                    text, ordinal, toVectorLiteral(vec), job.getDocVersion(),
+                    ChunkInsertCommand.TYPE_CHILD, parentChunkId,
+                    intOf(c.get("pageStart")), intOf(c.get("pageEnd")),
+                    listOfStrings(c.get("blockIds")), prefix));
         }
         advanceStage(job, STAGE_SWAP);
     }
@@ -454,6 +528,41 @@ public class KnowledgeIngestJobService {
         } catch (Exception e) {
             throw new BizException(ErrorCode.INTERNAL, "任务载荷损坏: " + e.getMessage());
         }
+    }
+
+    private ParseResult readParseResult(Map<String, Object> payload) {
+        try {
+            String json = String.valueOf(payload.getOrDefault("parseResult", "{}"));
+            ParseResult result = mapper.readValue(json, ParseResult.class);
+            if (result == null || result.units() == null) {
+                throw new BizException(ErrorCode.INTERNAL, "载荷缺解析产物");
+            }
+            return result;
+        } catch (BizException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new BizException(ErrorCode.INTERNAL, "解析产物还原失败: " + e.getMessage());
+        }
+    }
+
+    private static Integer intOf(Object value) {
+        return value instanceof Number n ? n.intValue() : null;
+    }
+
+    private static String stringOrNull(Object value) {
+        if (value == null) {
+            return null;
+        }
+        String s = String.valueOf(value);
+        return s.isEmpty() || "null".equals(s) ? null : s;
+    }
+
+    @SuppressWarnings("unchecked")
+    private static List<String> listOfStrings(Object value) {
+        if (!(value instanceof List<?> list)) {
+            return null;
+        }
+        return (List<String>) list;
     }
 
     private String writeJson(Object value) {

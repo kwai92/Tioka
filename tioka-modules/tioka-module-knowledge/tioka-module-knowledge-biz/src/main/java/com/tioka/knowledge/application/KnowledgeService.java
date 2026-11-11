@@ -11,9 +11,12 @@ import com.tioka.framework.security.ResourceGuard;
 import com.tioka.framework.security.SystemPrincipals;
 import com.tioka.framework.security.VisibilityFilter;
 import com.tioka.knowledge.api.KnowledgeSearchApi;
+import com.tioka.knowledge.application.chunk.StructuredChunker;
+import com.tioka.knowledge.application.chunk.StructuredChunker.ChunkPolicy;
+import com.tioka.knowledge.application.parse.ParseSupport;
+import com.tioka.knowledge.application.parse.ParserPort;
 import com.tioka.knowledge.infrastructure.ChunkInsertCommand;
 import com.tioka.knowledge.infrastructure.KnowledgeRepository;
-import com.tioka.knowledge.infrastructure.parse.DocumentParser;
 import com.tioka.knowledge.infrastructure.persistence.KbBaseDO;
 import com.tioka.knowledge.infrastructure.persistence.KbChunkDO;
 import com.tioka.knowledge.infrastructure.persistence.KbCitationDO;
@@ -22,6 +25,7 @@ import com.tioka.model.api.ModelBindingQueryApi;
 import com.tioka.model.api.gateway.ModelCallContext;
 import com.tioka.model.api.gateway.ModelGateway;
 import com.tioka.model.api.gateway.ModelPurpose;
+import com.tioka.ontology.api.docparse.ParseResult;
 import com.tioka.system.api.authz.ResourceAclApi;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
@@ -32,9 +36,17 @@ import org.springframework.transaction.support.TransactionTemplate;
 import java.util.*;
 import java.util.stream.Collectors;
 
+/**
+ * KnowledgeService（KNW-02/05/11/03）：同步入库路径与检索入口。
+ *
+ * <p>KNW-11：同步路径解析同样经 {@link ParserPort}（DOC 域共用解析服务，ObjectProvider 弱依赖；
+ * 条件装配缺席时降级 TextStructuredParser 本地结构化解析——「旧行为不变」纪律对 KNW-11 不适用，
+ * 行为变更为设计本意：解析产物溯源落 kb_document，切块从固定 200 字升级为结构感知父子块）。
+ * KNW-03：{@link StructuredChunker} 按知识库策略切块；检索返回子块引用 + 父块正文上下文
+ * （同一父块只随第一个命中返回一次）；{@code chunkPolicyJson} 策略修改后经既有重建路径重嵌入。
+ */
 @Service
 public class KnowledgeService implements KnowledgeSearchApi {
-    private static final int CHUNK_CHAR_SIZE = 200;
     private static final int ERROR_MESSAGE_MAX_LEN = 2000;
 
     private final KnowledgeRepository repo;
@@ -43,7 +55,8 @@ public class KnowledgeService implements KnowledgeSearchApi {
     private final PrincipalHolder principals;
     private final ResourceGuard guard;
     private final ResourceAclApi resourceAcl;
-    private final DocumentParser documentParser;
+    private final ObjectProvider<ParserPort> parserPort;
+    private final com.fasterxml.jackson.databind.ObjectMapper mapper;
     private final int embeddingDim;
     private final TransactionTemplate tx;
     /** KNW-05：异步入库任务服务（开关 tioka.knowledge.ingest.async.enabled 缺省关闭时缺席）。 */
@@ -54,7 +67,8 @@ public class KnowledgeService implements KnowledgeSearchApi {
                             PrincipalHolder principals,
                             ResourceGuard guard,
                             ResourceAclApi resourceAcl,
-                            DocumentParser documentParser,
+                            ObjectProvider<ParserPort> parserPort,
+                            com.fasterxml.jackson.databind.ObjectMapper mapper,
                             @Value("${tioka.knowledge.embedding-dim:1024}") int embeddingDim,
                             PlatformTransactionManager transactionManager,
                             org.springframework.beans.factory.ObjectProvider<KnowledgeIngestJobService> ingestJobs) {
@@ -64,7 +78,8 @@ public class KnowledgeService implements KnowledgeSearchApi {
         this.principals = principals;
         this.guard = guard;
         this.resourceAcl = resourceAcl;
-        this.documentParser = documentParser;
+        this.parserPort = parserPort;
+        this.mapper = mapper;
         this.embeddingDim = Math.max(1, embeddingDim);
         this.tx = new TransactionTemplate(transactionManager);
         this.ingestJobs = ingestJobs;
@@ -119,6 +134,26 @@ public class KnowledgeService implements KnowledgeSearchApi {
         return new KnowledgeBase(id, workspaceId, name, bindingId);
     }
 
+    /** KNW-03：切块策略修改（落 kb_base 列）并触发既有重建路径（逐文档重嵌入）。 */
+    public int updateChunkPolicy(String kbId, String chunkPolicyJson, Boolean contextEnhancement) {
+        if (!repo.hasBase(kbId)) {
+            throw new BizException(ErrorCode.NOT_FOUND, "知识库不存在");
+        }
+        ChunkPolicy.fromJson(chunkPolicyJson, mapper); // 非法 JSON 静默回退自动，不阻断
+        repo.updateBaseChunkPolicy(kbId, chunkPolicyJson, contextEnhancement);
+        int triggered = 0;
+        for (KbDocumentDO doc : repo.listDocumentsByKb(kbId)) {
+            if (!"READY".equals(doc.getStatus())) {
+                continue;
+            }
+            doc.setStatus("REINDEX_PENDING");
+            repo.updateDocument(doc);
+            reindexDocument(doc.getId());
+            triggered++;
+        }
+        return triggered;
+    }
+
     public Document ingest(String kbId, String title, String content, String sourceType) {
         return ingest(kbId, title, content, sourceType, "txt");
     }
@@ -130,11 +165,15 @@ public class KnowledgeService implements KnowledgeSearchApi {
         if (jobs != null) {
             return jobs.submitText(kbId, title, content, sourceType, format);
         }
-        String normalized = DocumentParser.normalizeText(content == null ? "" : content, format == null ? "txt" : format);
-        return indexDocument(kbId, title, normalized, sourceType, format == null ? "txt" : format);
+        String fmt = format == null ? "txt" : format;
+        // KNW-11：同步路径同样经 ParserPort（结构化解析产物）
+        ParseResult result = ParseSupport.parse(parserPort, new ParserPort.ParseRequest(
+                requireWorkspaceId(kbId), title, fmt,
+                (content == null ? "" : content).getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+        return indexDocument(kbId, title, result, sourceType, fmt);
     }
 
-    /** multipart 上传：真解析后入库。 */
+    /** multipart 上传：经 ParserPort 真解析后结构化入库（KNW-11）。 */
     public Document ingestUpload(String kbId, String title, byte[] bytes, String filename) {
         if (!repo.hasBase(kbId)) throw new BizException(ErrorCode.NOT_FOUND, "知识库不存在");
         // KNW-05：异步开关打开 → 登记任务立即返回（解析在 PARSE 阶段完成）
@@ -142,12 +181,13 @@ public class KnowledgeService implements KnowledgeSearchApi {
         if (jobs != null) {
             return jobs.submitUpload(kbId, title, bytes, filename);
         }
-        String format = DocumentParser.resolveFormat(filename);
-        String text = documentParser.parse(bytes, filename);
+        String format = ParserPort.resolveFormat(filename);
         String docTitle = (title == null || title.isBlank())
                 ? (filename == null || filename.isBlank() ? "upload" : filename)
                 : title;
-        return indexDocument(kbId, docTitle, text, "upload", format);
+        ParseResult result = ParseSupport.parse(parserPort, new ParserPort.ParseRequest(
+                requireWorkspaceId(kbId), filename, format, bytes));
+        return indexDocument(kbId, docTitle, result, "upload", format);
     }
 
     /** F39：入库任务接受 ChangeEvent 作为来源（KNW-06 只需产生事件）。 */
@@ -163,13 +203,15 @@ public class KnowledgeService implements KnowledgeSearchApi {
         return ingest(kbId, title, content, "datasource", "txt");
     }
 
-    /** V119 / ReindexJob：按已有 chunk 文本经网关重嵌入。 */
+    /** V119 / ReindexJob：按已有 chunk 文本经网关重嵌入（KNW-03：父块无向量，跳过）。 */
     public void reindexDocument(String docId) {
         KbDocumentDO doc = repo.findDocument(docId);
         if (doc == null) {
             throw new BizException(ErrorCode.NOT_FOUND, "document 不存在");
         }
-        List<KbChunkDO> chunks = repo.listChunksByDoc(docId);
+        List<KbChunkDO> chunks = repo.listChunksByDoc(docId).stream()
+                .filter(c -> !ChunkInsertCommand.TYPE_PARENT.equals(c.getChunkType()))
+                .toList();
         String bindingId = resolveBindingId(doc.getKbId());
         for (KbChunkDO chunk : chunks) {
             double[] vec = embed(bindingId, chunk.getText());
@@ -186,7 +228,8 @@ public class KnowledgeService implements KnowledgeSearchApi {
         });
     }
 
-    private Document indexDocument(String kbId, String title, String normalized, String sourceType, String format) {
+    private Document indexDocument(String kbId, String title, ParseResult result,
+                                   String sourceType, String format) {
         String id = Ids.newId("doc");
         String fmt = format == null ? "txt" : format;
         String workspaceId = requireWorkspaceId(kbId);
@@ -198,12 +241,13 @@ public class KnowledgeService implements KnowledgeSearchApi {
             doc.setSourceType(sourceType);
             doc.setStatus("EMBEDDING");
             doc.setFormat(fmt);
+            ParseSupport.applyParseMeta(doc, result, mapper);
             repo.insertDocument(doc);
         });
 
-        List<PreparedChunk> prepared;
+        List<PreparedRow> prepared;
         try {
-            prepared = prepareChunks(id, kbId, normalized);
+            prepared = prepareRows(id, kbId, title, result);
         } catch (RuntimeException e) {
             String msg = e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage();
             tx.executeWithoutResult(status -> markFailed(id, msg));
@@ -212,10 +256,12 @@ public class KnowledgeService implements KnowledgeSearchApi {
         }
 
         return tx.execute(status -> {
-            for (PreparedChunk c : prepared) {
+            for (PreparedRow c : prepared) {
                 repo.insertChunkWithVector(new ChunkInsertCommand(
                         c.chunkId(), c.docId(), c.kbId(), workspaceId, c.text(), c.ordinal(),
-                        toVectorLiteral(c.vec())));
+                        c.vec() == null ? null : toVectorLiteral(c.vec()), 0,
+                        c.chunkType(), c.parentChunkId(), c.pageStart(), c.pageEnd(),
+                        c.blockIds(), c.contextPrefix()));
             }
             KbDocumentDO doc = repo.findDocument(id);
             if (doc == null) {
@@ -228,17 +274,30 @@ public class KnowledgeService implements KnowledgeSearchApi {
         });
     }
 
-    private List<PreparedChunk> prepareChunks(String docId, String kbId, String normalized) {
+    /** KNW-03：结构感知父子块准备（策略读 kb_base；子块嵌入输入带上下文前缀，文本列只存正文）。 */
+    private List<PreparedRow> prepareRows(String docId, String kbId, String docTitle, ParseResult result) {
         String bindingId = resolveBindingId(kbId);
-        List<PreparedChunk> out = new ArrayList<>();
-        if (normalized == null || normalized.isEmpty()) {
-            out.add(new PreparedChunk("chk_" + docId + "_0", docId, kbId, "", 0, embed(bindingId, "")));
-            return out;
+        KbBaseDO base = repo.findBase(kbId);
+        ChunkPolicy policy = ChunkPolicy.fromJson(base == null ? null : base.getChunkPolicyJson(), mapper);
+        boolean contextEnhancement = base == null || base.getContextEnhancement() == null
+                || base.getContextEnhancement();
+        List<StructuredChunker.ChunkPiece> pieces =
+                new StructuredChunker(policy, contextEnhancement).chunk(result, docTitle);
+        List<PreparedRow> out = new ArrayList<>(pieces.size());
+        String[] ids = new String[pieces.size()];
+        for (int i = 0; i < pieces.size(); i++) {
+            ids[i] = "chk_" + docId + "_" + i;
         }
-        for (int i = 0, ordinal = 0; i < normalized.length(); i += CHUNK_CHAR_SIZE, ordinal++) {
-            String text = normalized.substring(i, Math.min(normalized.length(), i + CHUNK_CHAR_SIZE));
-            out.add(new PreparedChunk("chk_" + docId + "_" + ordinal, docId, kbId, text, ordinal,
-                    embed(bindingId, text)));
+        for (int i = 0; i < pieces.size(); i++) {
+            StructuredChunker.ChunkPiece p = pieces.get(i);
+            boolean parent = StructuredChunker.TYPE_PARENT.equals(p.chunkType());
+            String parentChunkId = !parent && p.parentOrdinal() >= 0 ? ids[p.parentOrdinal()] : null;
+            String embedInput = contextEnhancement && p.contextPrefix() != null && !p.contextPrefix().isBlank()
+                    ? p.contextPrefix() + "\n" + p.text() : p.text();
+            double[] vec = parent ? null : embed(bindingId, embedInput);
+            out.add(new PreparedRow(ids[i], docId, kbId, p.text(), i, vec,
+                    p.chunkType(), parentChunkId, p.pageStart(), p.pageEnd(),
+                    p.blockIds(), p.contextPrefix()));
         }
         return out;
     }
@@ -254,16 +313,17 @@ public class KnowledgeService implements KnowledgeSearchApi {
         repo.updateDocument(doc);
     }
 
-    private record PreparedChunk(String chunkId, String docId, String kbId, String text, int ordinal, double[] vec) {}
+    private record PreparedRow(String chunkId, String docId, String kbId, String text, int ordinal,
+                               double[] vec, String chunkType, String parentChunkId,
+                               Integer pageStart, Integer pageEnd, List<String> blockIds,
+                               String contextPrefix) {}
 
     @Override
     public List<KnowledgeSearchApi.Hit> searchKnowledge(String kbId, String query, int topK) {
         return search(kbId, query, topK).stream()
                 .map(h -> new KnowledgeSearchApi.Hit(h.docId(), h.chunkId(), h.text(), h.score(), h.title(), h.citationId()))
                 .toList();
-    }
-
-    public List<RetrievalHit> search(String kbId, String query, int topK) {
+    }    public List<RetrievalHit> search(String kbId, String query, int topK) {
         return retrieve(kbId == null ? null : List.of(kbId), query, topK);
     }
 
@@ -315,17 +375,16 @@ public class KnowledgeService implements KnowledgeSearchApi {
         List<ScoredChunk> keywordRanked = new ArrayList<>();
         List<ScoredChunk> vectorRanked = new ArrayList<>();
         for (Map<String, Object> row : rows) {
-            ScoredChunk sc = toScored(row, 0);
+            ScoredChunk sc = toScored(row, 0, mapper);
             double distance = row.get("distance") instanceof Number n ? n.doubleValue() : 1.0;
             double vector = 1.0 / (1.0 + Math.max(0, distance));
-            int keyword = keywordScore(q, sc.text());
+            // KNW-03：全文索引口径 = 标题路径前缀 + 正文（context_enhancement）
+            int keyword = keywordScore(q, sc.indexableText());
             if (keyword > 0 || q.isBlank()) {
-                keywordRanked.add(new ScoredChunk(sc.docId(), sc.chunkId(), sc.kbId(), sc.text(), sc.title(),
-                        sc.ordinal(), keyword));
+                keywordRanked.add(sc);
             }
             if (vector > 0.01 || q.isBlank()) {
-                vectorRanked.add(new ScoredChunk(sc.docId(), sc.chunkId(), sc.kbId(), sc.text(), sc.title(),
-                        sc.ordinal(), vector));
+                vectorRanked.add(sc);
             }
         }
 
@@ -347,7 +406,7 @@ public class KnowledgeService implements KnowledgeSearchApi {
         }
 
         final com.tioka.framework.label.DataLabel labelCeiling = maxDataLabel;
-        return fused.entrySet().stream()
+        List<RetrievalHit> hits = fused.entrySet().stream()
                 .sorted(Map.Entry.<String, Double>comparingByValue().reversed())
                 // DAT-02：标签过滤在 limit 之前（可返回少于 topK，登记口径）
                 .filter(e -> {
@@ -370,9 +429,44 @@ public class KnowledgeService implements KnowledgeSearchApi {
                     cit.setOrdinal(sc.ordinal());
                     repo.insertCitation(cit);
                     return new RetrievalHit(sc.docId(), sc.chunkId(), sc.kbId(), sc.text(), e.getValue(),
-                            sc.title(), citationId);
+                            sc.title(), citationId, sc.chunkType(), sc.parentChunkId(), null,
+                            sc.pageStart(), sc.pageEnd(), sc.blockIds());
                 })
                 .toList();
+        // KNW-03：父块正文上下文——同一父块只随第一个（最高分）命中返回一次
+        return attachParentContext(hits);
+    }
+
+    /**
+     * 父块正文组装：命中按分序遍历，每个 parentChunkId 只在首个命中携带 parentText；
+     * 无父块引用（存量 CHILD/降级数据）的命中 parentText 为 null。
+     */
+    private List<RetrievalHit> attachParentContext(List<RetrievalHit> hits) {
+        Set<String> parentIds = hits.stream()
+                .map(RetrievalHit::parentChunkId)
+                .filter(id -> id != null && !id.isBlank())
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+        if (parentIds.isEmpty()) {
+            return hits;
+        }
+        Map<String, KbChunkDO> parents = new HashMap<>();
+        for (KbChunkDO c : repo.listChunksByIds(parentIds)) {
+            parents.put(c.getId(), c);
+        }
+        Set<String> attached = new HashSet<>();
+        List<RetrievalHit> out = new ArrayList<>(hits.size());
+        for (RetrievalHit h : hits) {
+            String pid = h.parentChunkId();
+            if (pid != null && !pid.isBlank() && attached.add(pid)) {
+                KbChunkDO parent = parents.get(pid);
+                if (parent != null) {
+                    out.add(h.withParentText(parent.getText()));
+                    continue;
+                }
+            }
+            out.add(h);
+        }
+        return out;
     }
 
     /** DAT-02：hit 的有效数据标签 = max(kb_base.data_label, kb_document.data_label)。 */
@@ -479,10 +573,18 @@ public class KnowledgeService implements KnowledgeSearchApi {
         return keyword;
     }
 
-    private static ScoredChunk toScored(Map<String, Object> row, double score) {
+    private static ScoredChunk toScored(Map<String, Object> row, double score,
+                                        com.fasterxml.jackson.databind.ObjectMapper mapper) {
         Object ordinal = row.get("ordinal");
         int ord = ordinal instanceof Number n ? n.intValue() : 0;
         Object kb = row.get("kb_id");
+        Integer pageStart = row.get("page_start") instanceof Number n ? n.intValue() : null;
+        Integer pageEnd = row.get("page_end") instanceof Number n ? n.intValue() : null;
+        List<String> blockIds = readBlockIds(row.get("block_ids_json"), mapper);
+        String prefix = row.get("context_prefix") == null ? null : String.valueOf(row.get("context_prefix"));
+        String type = row.get("chunk_type") == null ? ChunkInsertCommand.TYPE_CHILD
+                : String.valueOf(row.get("chunk_type"));
+        String parent = row.get("parent_chunk_id") == null ? null : String.valueOf(row.get("parent_chunk_id"));
         return new ScoredChunk(
                 String.valueOf(row.get("doc_id")),
                 String.valueOf(row.get("chunk_id")),
@@ -490,7 +592,25 @@ public class KnowledgeService implements KnowledgeSearchApi {
                 String.valueOf(row.get("text")),
                 String.valueOf(row.getOrDefault("title", "")),
                 ord,
-                score);
+                score,
+                type, parent, pageStart, pageEnd, blockIds, prefix);
+    }
+
+    @SuppressWarnings("unchecked")
+    private static List<String> readBlockIds(Object json, com.fasterxml.jackson.databind.ObjectMapper mapper) {
+        if (json == null) {
+            return List.of();
+        }
+        String s = String.valueOf(json);
+        if (s.isBlank() || "null".equals(s)) {
+            return List.of();
+        }
+        try {
+            List<String> ids = mapper.readValue(s, List.class);
+            return ids == null ? List.of() : ids;
+        } catch (Exception e) {
+            return List.of();
+        }
     }
 
     private static String toVectorLiteral(double[] v) {
@@ -519,7 +639,15 @@ public class KnowledgeService implements KnowledgeSearchApi {
     }
 
     private record ScoredChunk(String docId, String chunkId, String kbId, String text, String title,
-                               int ordinal, double score) {}
+                               int ordinal, double score, String chunkType, String parentChunkId,
+                               Integer pageStart, Integer pageEnd, List<String> blockIds,
+                               String contextPrefix) {
+        /** 全文索引口径：标题路径前缀 + 正文（context_enhancement）。 */
+        String indexableText() {
+            return contextPrefix == null || contextPrefix.isBlank() ? text
+                    : contextPrefix + "\n" + text;
+        }
+    }
 
     public record KnowledgeBase(String id, String workspaceId, String name, String embeddingBindingId) {
         public KnowledgeBase(String id, String workspaceId, String name) {
@@ -530,11 +658,22 @@ public class KnowledgeService implements KnowledgeSearchApi {
     public record ReindexProgress(String kbId, long pending, long ready, long failed, long embedding,
                                   long total, int percent) {}
     public record Document(String id, String kbId, String title, String sourceType, String status, String format) {}
+    /**
+     * 检索命中（KNW-03）：返回子块用于引用定位；父块正文（parentText）用于模型上下文，
+     * 同一父块只随第一个命中返回一次。旧 7 参构造兼容存量调用（结构字段为 null）。
+     */
     public record RetrievalHit(String docId, String chunkId, String kbId, String text, double score, String title,
-                               String citationId) {
+                               String citationId, String chunkType, String parentChunkId, String parentText,
+                               Integer pageStart, Integer pageEnd, List<String> blockIds) {
         /** 兼容旧调用：无 kbId。 */
         public RetrievalHit(String docId, String chunkId, String text, double score, String title, String citationId) {
-            this(docId, chunkId, "", text, score, title, citationId);
+            this(docId, chunkId, "", text, score, title, citationId, null, null, null, null, null, null);
+        }
+
+        /** KNW-03：附带父块正文（不可变拷贝）。 */
+        public RetrievalHit withParentText(String parentText) {
+            return new RetrievalHit(docId, chunkId, kbId, text, score, title, citationId,
+                    chunkType, parentChunkId, parentText, pageStart, pageEnd, blockIds);
         }
     }
     public record Citation(String id, String docId, String chunkId, String text, String title, int ordinal) {}

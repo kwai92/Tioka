@@ -230,6 +230,12 @@ actions:
     retentionClass: BIZ
     siemSeverity: LOW
     module: tioka-module-knowledge
+  - action: knowledge.base.chunk_policy
+    category: CONFIG
+    resourceType: kb
+    retentionClass: BIZ
+    siemSeverity: LOW
+    module: tioka-module-knowledge
   - action: knowledge.datasource.bind
     category: CONFIG
     resourceType: kb_datasource

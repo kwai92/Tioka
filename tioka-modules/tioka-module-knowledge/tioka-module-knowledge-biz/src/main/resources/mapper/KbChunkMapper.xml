@@ -5,8 +5,11 @@
 
     <insert id="insertWithVector">
         <![CDATA[
-INSERT INTO kb_chunk(id, doc_id, kb_id, workspace_id, text, ordinal, embedding_vec, doc_version, create_at, update_at, create_by, update_by, deleted)
+INSERT INTO kb_chunk(id, doc_id, kb_id, workspace_id, text, ordinal, embedding_vec, doc_version,
+                     chunk_type, parent_chunk_id, page_start, page_end, block_ids_json, context_prefix,
+                     create_at, update_at, create_by, update_by, deleted)
 VALUES (#{id}, #{docId}, #{kbId}, #{workspaceId}, #{text}, #{ordinal}, CAST(#{vectorLiteral} AS vector), #{docVersion},
+        #{chunkType}, #{parentChunkId}, #{pageStart}, #{pageEnd}, #{blockIdsJson}, #{contextPrefix},
         CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'system', 'system', FALSE)
 ]]>
     </insert>
@@ -19,9 +22,13 @@ WHERE id = #{id} AND deleted = FALSE
     </update>
 
     <!-- KNW-05：检索只看当前版本（c.doc_version = d.active_version）；存量数据 0/0 行为不变 -->
+    <!-- KNW-03：返回父子块结构列；父块 embedding_vec 为 NULL，被 IS NOT NULL 天然排除 -->
     <select id="searchNearest" resultType="java.util.HashMap">
         <![CDATA[
 SELECT c.id AS chunk_id, c.doc_id AS doc_id, c.kb_id AS kb_id, c.text AS text, c.ordinal AS ordinal,
+       c.chunk_type AS chunk_type, c.parent_chunk_id AS parent_chunk_id,
+       c.page_start AS page_start, c.page_end AS page_end,
+       c.block_ids_json AS block_ids_json, c.context_prefix AS context_prefix,
        COALESCE(d.title, '') AS title,
        (c.embedding_vec <=> CAST(#{vectorLiteral} AS vector)) AS distance
 FROM kb_chunk c
@@ -37,7 +44,11 @@ LIMIT #{k}
     <!-- vfSql 由 VisibilityFilter 产出，仅含已限定别名的列条件；勿传入未信任输入 -->
     <select id="searchVisible" resultType="java.util.HashMap">
         SELECT c.id AS chunk_id, c.doc_id AS doc_id, c.kb_id AS kb_id, c.text AS text,
-               c.ordinal AS ordinal, COALESCE(d.title, '') AS title,
+               c.ordinal AS ordinal,
+               c.chunk_type AS chunk_type, c.parent_chunk_id AS parent_chunk_id,
+               c.page_start AS page_start, c.page_end AS page_end,
+               c.block_ids_json AS block_ids_json, c.context_prefix AS context_prefix,
+               COALESCE(d.title, '') AS title,
                (c.embedding_vec <![CDATA[<=>]]> CAST(#{vectorLiteral} AS vector)) AS distance
         FROM kb_chunk c
         JOIN kb_base b ON b.id = c.kb_id AND b.deleted = FALSE

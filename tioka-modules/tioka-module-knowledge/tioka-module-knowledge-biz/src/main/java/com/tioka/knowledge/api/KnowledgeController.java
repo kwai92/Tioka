@@ -44,6 +44,19 @@ public class KnowledgeController {
         return ApiResponse.ok(service.reindexProgress(id));
     }
 
+    /** KNW-03：切块策略配置（chunk_policy_json + 上下文增强开关），修改后触发既有重建路径。 */
+    @PutMapping("/bases/{id}/chunk-policy")
+    @Audited(action = "knowledge.base.chunk_policy", resourceType = "kb", resourceIdArg = "#id")
+    public ApiResponse<Map<String, Object>> updateChunkPolicy(@PathVariable String id,
+                                                              @RequestBody Map<String, Object> body) {
+        String policyJson = body.get("chunkPolicy") == null ? null
+                : String.valueOf(body.get("chunkPolicy"));
+        Boolean contextEnhancement = body.get("contextEnhancement") == null ? null
+                : Boolean.parseBoolean(String.valueOf(body.get("contextEnhancement")));
+        int triggered = service.updateChunkPolicy(id, policyJson, contextEnhancement);
+        return ApiResponse.ok(Map.of("triggeredReindex", triggered));
+    }
+
     @PostMapping("/bases/{id}/documents")
     @Audited(action = "knowledge.document.ingest", resourceType = "kb", resourceIdArg = "#id")
     public ApiResponse<KnowledgeService.Document> ingest(@PathVariable String id, @RequestBody Map<String, String> body) {

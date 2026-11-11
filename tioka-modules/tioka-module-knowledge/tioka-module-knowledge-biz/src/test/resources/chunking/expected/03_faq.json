@@ -1,0 +1,82 @@
+[ {
+  "chunkType" : "PARENT",
+  "parentOrdinal" : -1,
+  "text" : "如何创建知识库？\n进入知识库页面点击新建。填写名称与嵌入模型。保存后即可上传文档。",
+  "contextPrefix" : "知识库 FAQ",
+  "headingPath" : "",
+  "pageStart" : 1,
+  "pageEnd" : 1,
+  "blockIds" : [ "doc_sample_faq:1:1", "doc_sample_faq:1:2" ]
+}, {
+  "chunkType" : "CHILD",
+  "parentOrdinal" : 0,
+  "text" : "如何创建知识库？",
+  "contextPrefix" : "知识库 FAQ",
+  "headingPath" : "",
+  "pageStart" : 1,
+  "pageEnd" : 1,
+  "blockIds" : [ "doc_sample_faq:1:1" ]
+}, {
+  "chunkType" : "CHILD",
+  "parentOrdinal" : 0,
+  "text" : "进入知识库页面点击新建。填写名称与嵌入模型。保存后即可上传文档。",
+  "contextPrefix" : "知识库 FAQ",
+  "headingPath" : "",
+  "pageStart" : 1,
+  "pageEnd" : 1,
+  "blockIds" : [ "doc_sample_faq:1:2" ]
+}, {
+  "chunkType" : "PARENT",
+  "parentOrdinal" : -1,
+  "text" : "如何调整切块策略？\n在知识库设置中修改策略。修改后系统触发重建任务。重建期间检索不受影响。",
+  "contextPrefix" : "知识库 FAQ",
+  "headingPath" : "",
+  "pageStart" : 1,
+  "pageEnd" : 1,
+  "blockIds" : [ "doc_sample_faq:1:3", "doc_sample_faq:1:4" ]
+}, {
+  "chunkType" : "CHILD",
+  "parentOrdinal" : 3,
+  "text" : "如何调整切块策略？",
+  "contextPrefix" : "知识库 FAQ",
+  "headingPath" : "",
+  "pageStart" : 1,
+  "pageEnd" : 1,
+  "blockIds" : [ "doc_sample_faq:1:3" ]
+}, {
+  "chunkType" : "CHILD",
+  "parentOrdinal" : 3,
+  "text" : "在知识库设置中修改策略。修改后系统触发重建任务。重建期间检索不受影响。",
+  "contextPrefix" : "知识库 FAQ",
+  "headingPath" : "",
+  "pageStart" : 1,
+  "pageEnd" : 1,
+  "blockIds" : [ "doc_sample_faq:1:4" ]
+}, {
+  "chunkType" : "PARENT",
+  "parentOrdinal" : -1,
+  "text" : "如何检索引用？\n检索返回子块用于引用定位。父块正文用于模型上下文。同一父块只返回一次。",
+  "contextPrefix" : "知识库 FAQ",
+  "headingPath" : "",
+  "pageStart" : 1,
+  "pageEnd" : 1,
+  "blockIds" : [ "doc_sample_faq:1:5", "doc_sample_faq:1:6" ]
+}, {
+  "chunkType" : "CHILD",
+  "parentOrdinal" : 6,
+  "text" : "如何检索引用？",
+  "contextPrefix" : "知识库 FAQ",
+  "headingPath" : "",
+  "pageStart" : 1,
+  "pageEnd" : 1,
+  "blockIds" : [ "doc_sample_faq:1:5" ]
+}, {
+  "chunkType" : "CHILD",
+  "parentOrdinal" : 6,
+  "text" : "检索返回子块用于引用定位。父块正文用于模型上下文。同一父块只返回一次。",
+  "contextPrefix" : "知识库 FAQ",
+  "headingPath" : "",
+  "pageStart" : 1,
+  "pageEnd" : 1,
+  "blockIds" : [ "doc_sample_faq:1:6" ]
+} ]

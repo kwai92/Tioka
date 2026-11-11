@@ -15,7 +15,13 @@ public interface KbChunkMapper extends BaseMapper<KbChunkDO> {
                          @Param("workspaceId") String workspaceId,
                          @Param("text") String text, @Param("ordinal") int ordinal,
                          @Param("vectorLiteral") String vectorLiteral,
-                         @Param("docVersion") int docVersion);
+                         @Param("docVersion") int docVersion,
+                         @Param("chunkType") String chunkType,
+                         @Param("parentChunkId") String parentChunkId,
+                         @Param("pageStart") Integer pageStart,
+                         @Param("pageEnd") Integer pageEnd,
+                         @Param("blockIdsJson") String blockIdsJson,
+                         @Param("contextPrefix") String contextPrefix);
 
     int updateVector(@Param("id") String id, @Param("vectorLiteral") String vectorLiteral);
 
