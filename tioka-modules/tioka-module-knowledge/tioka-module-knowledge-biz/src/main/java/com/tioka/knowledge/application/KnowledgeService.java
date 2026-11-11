@@ -23,6 +23,7 @@ import com.tioka.model.api.gateway.ModelCallContext;
 import com.tioka.model.api.gateway.ModelGateway;
 import com.tioka.model.api.gateway.ModelPurpose;
 import com.tioka.system.api.authz.ResourceAclApi;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -45,7 +46,8 @@ public class KnowledgeService implements KnowledgeSearchApi {
     private final DocumentParser documentParser;
     private final int embeddingDim;
     private final TransactionTemplate tx;
-
+    /** KNW-05：异步入库任务服务（开关 tioka.knowledge.ingest.async.enabled 缺省关闭时缺席）。 */
+    private final ObjectProvider<KnowledgeIngestJobService> ingestJobs;
     public KnowledgeService(KnowledgeRepository repo,
                             ModelGateway modelGateway,
                             ModelBindingQueryApi bindings,
@@ -54,7 +56,8 @@ public class KnowledgeService implements KnowledgeSearchApi {
                             ResourceAclApi resourceAcl,
                             DocumentParser documentParser,
                             @Value("${tioka.knowledge.embedding-dim:1024}") int embeddingDim,
-                            PlatformTransactionManager transactionManager) {
+                            PlatformTransactionManager transactionManager,
+                            org.springframework.beans.factory.ObjectProvider<KnowledgeIngestJobService> ingestJobs) {
         this.repo = repo;
         this.modelGateway = modelGateway;
         this.bindings = bindings;
@@ -64,6 +67,7 @@ public class KnowledgeService implements KnowledgeSearchApi {
         this.documentParser = documentParser;
         this.embeddingDim = Math.max(1, embeddingDim);
         this.tx = new TransactionTemplate(transactionManager);
+        this.ingestJobs = ingestJobs;
     }
 
     /** FE-04：可用嵌入 binding（kind=embedding、enabled、维度对齐配置）。 */
@@ -121,6 +125,11 @@ public class KnowledgeService implements KnowledgeSearchApi {
 
     public Document ingest(String kbId, String title, String content, String sourceType, String format) {
         if (!repo.hasBase(kbId)) throw new BizException(ErrorCode.NOT_FOUND, "知识库不存在");
+        // KNW-05：异步开关打开 → 只写文档登记 + 入库任务 + outbox（同一事务），立即返回
+        KnowledgeIngestJobService jobs = ingestJobs == null ? null : ingestJobs.getIfAvailable();
+        if (jobs != null) {
+            return jobs.submitText(kbId, title, content, sourceType, format);
+        }
         String normalized = DocumentParser.normalizeText(content == null ? "" : content, format == null ? "txt" : format);
         return indexDocument(kbId, title, normalized, sourceType, format == null ? "txt" : format);
     }
@@ -128,12 +137,30 @@ public class KnowledgeService implements KnowledgeSearchApi {
     /** multipart 上传：真解析后入库。 */
     public Document ingestUpload(String kbId, String title, byte[] bytes, String filename) {
         if (!repo.hasBase(kbId)) throw new BizException(ErrorCode.NOT_FOUND, "知识库不存在");
+        // KNW-05：异步开关打开 → 登记任务立即返回（解析在 PARSE 阶段完成）
+        KnowledgeIngestJobService jobs = ingestJobs == null ? null : ingestJobs.getIfAvailable();
+        if (jobs != null) {
+            return jobs.submitUpload(kbId, title, bytes, filename);
+        }
         String format = DocumentParser.resolveFormat(filename);
         String text = documentParser.parse(bytes, filename);
         String docTitle = (title == null || title.isBlank())
                 ? (filename == null || filename.isBlank() ? "upload" : filename)
                 : title;
         return indexDocument(kbId, docTitle, text, "upload", format);
+    }
+
+    /** F39：入库任务接受 ChangeEvent 作为来源（KNW-06 只需产生事件）。 */
+    public Document ingestChange(String kbId, com.tioka.knowledge.api.IngestChangeSource change, String content) {
+        if (!repo.hasBase(kbId)) throw new BizException(ErrorCode.NOT_FOUND, "知识库不存在");
+        KnowledgeIngestJobService jobs = ingestJobs == null ? null : ingestJobs.getIfAvailable();
+        if (jobs != null) {
+            return jobs.submitChange(kbId, change, content);
+        }
+        // 开关关闭（异步未启用）：按同步行为入库（ChangeEvent 无文件语义，按 txt 处理）
+        String title = change == null || change.title() == null || change.title().isBlank()
+                ? (change == null ? "change" : change.externalId()) : change.title();
+        return ingest(kbId, title, content, "datasource", "txt");
     }
 
     /** V119 / ReindexJob：按已有 chunk 文本经网关重嵌入。 */

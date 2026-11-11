@@ -14,7 +14,8 @@ public interface KbChunkMapper extends BaseMapper<KbChunkDO> {
     int insertWithVector(@Param("id") String id, @Param("docId") String docId, @Param("kbId") String kbId,
                          @Param("workspaceId") String workspaceId,
                          @Param("text") String text, @Param("ordinal") int ordinal,
-                         @Param("vectorLiteral") String vectorLiteral);
+                         @Param("vectorLiteral") String vectorLiteral,
+                         @Param("docVersion") int docVersion);
 
     int updateVector(@Param("id") String id, @Param("vectorLiteral") String vectorLiteral);
 

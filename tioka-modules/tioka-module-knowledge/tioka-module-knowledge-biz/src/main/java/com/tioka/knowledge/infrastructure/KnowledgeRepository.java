@@ -18,10 +18,12 @@ public class KnowledgeRepository {
     private final KbCitationMapper citations;
     private final WikiPageMapper wikis;
     private final KbDatasourceMapper datasources;
+    private final KbIngestJobMapper ingestJobs;
 
     public KnowledgeRepository(KbBaseMapper bases, KbBaseLockMapper baseLocks,
                                KbDocumentMapper documents, KbChunkMapper chunks,
-                               KbCitationMapper citations, WikiPageMapper wikis, KbDatasourceMapper datasources) {
+                               KbCitationMapper citations, WikiPageMapper wikis, KbDatasourceMapper datasources,
+                               KbIngestJobMapper ingestJobs) {
         this.bases = bases;
         this.baseLocks = baseLocks;
         this.documents = documents;
@@ -29,6 +31,7 @@ public class KnowledgeRepository {
         this.citations = citations;
         this.wikis = wikis;
         this.datasources = datasources;
+        this.ingestJobs = ingestJobs;
     }
 
     public void insertBase(KbBaseDO row) { bases.insert(row); }
@@ -63,7 +66,7 @@ public class KnowledgeRepository {
 
     public void insertChunkWithVector(ChunkInsertCommand cmd) {
         chunks.insertWithVector(cmd.id(), cmd.docId(), cmd.kbId(), cmd.workspaceId(),
-                cmd.text(), cmd.ordinal(), cmd.vectorLiteral());
+                cmd.text(), cmd.ordinal(), cmd.vectorLiteral(), cmd.docVersion());
     }
 
     public void updateChunkVector(String id, String vectorLiteral) {
@@ -93,4 +96,52 @@ public class KnowledgeRepository {
         return datasources.selectList(Wrappers.<KbDatasourceDO>lambdaQuery().eq(KbDatasourceDO::getKbId, kbId));
     }
     public KbDatasourceDO findDatasource(String id) { return datasources.selectById(id); }
+
+    // ---- KNW-05：入库任务与版本化分块 ----
+
+    public void insertJob(KbIngestJobDO row) {
+        if (ingestJobs == null) {
+            throw new IllegalStateException("kb_ingest_job 未装配");
+        }
+        ingestJobs.insert(row);
+    }
+
+    public KbIngestJobDO findJob(String id) {
+        return ingestJobs == null ? null : ingestJobs.selectById(id);
+    }
+
+    public void updateJob(KbIngestJobDO row) {
+        if (ingestJobs == null) {
+            throw new IllegalStateException("kb_ingest_job 未装配");
+        }
+        ingestJobs.updateById(row);
+    }
+
+    /** content_hash 去重：同库同哈希且未删除的文档。 */
+    public List<KbDocumentDO> findDocumentsByHash(String kbId, String contentHash) {
+        return documents.selectList(Wrappers.<KbDocumentDO>lambdaQuery()
+                .eq(KbDocumentDO::getKbId, kbId)
+                .eq(KbDocumentDO::getContentHash, contentHash));
+    }
+
+    /** F39：ChangeEvent 来源按 external_id 找既有文档（版本递增复用同一 doc 行）。 */
+    public List<KbDocumentDO> findDocumentsByExternalId(String kbId, String externalId) {
+        return documents.selectList(Wrappers.<KbDocumentDO>lambdaQuery()
+                .eq(KbDocumentDO::getKbId, kbId)
+                .eq(KbDocumentDO::getExternalId, externalId));
+    }
+
+    /** SWAP 原子切换的后半步：删除旧版本分块（doc_version &lt; activeVersion）。 */
+    public int deleteChunksBeforeVersion(String docId, int activeVersion) {
+        return chunks.delete(Wrappers.<KbChunkDO>lambdaQuery()
+                .eq(KbChunkDO::getDocId, docId)
+                .lt(KbChunkDO::getDocVersion, activeVersion));
+    }
+
+    /** EMBED 阶段幂等重跑：清掉同版本已有分块再写（EMBED 失败重试不产生重复 PK）。 */
+    public int deleteChunksOfVersion(String docId, int docVersion) {
+        return chunks.delete(Wrappers.<KbChunkDO>lambdaQuery()
+                .eq(KbChunkDO::getDocId, docId)
+                .eq(KbChunkDO::getDocVersion, docVersion));
+    }
 }

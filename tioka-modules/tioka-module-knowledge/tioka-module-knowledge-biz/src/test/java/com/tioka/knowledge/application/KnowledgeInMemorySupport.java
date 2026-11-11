@@ -1,5 +1,6 @@
 package com.tioka.knowledge.application;
 
+import com.tioka.framework.messaging.EventPublisher;
 import com.tioka.framework.security.AccessLevel;
 import com.tioka.framework.security.Principal;
 import com.tioka.framework.security.PrincipalHolder;
@@ -19,6 +20,7 @@ import com.tioka.knowledge.infrastructure.persistence.KbCitationDO;
 import com.tioka.knowledge.infrastructure.persistence.KbDocumentDO;
 import com.tioka.knowledge.infrastructure.persistence.KbDatasourceDO;
 import com.tioka.system.api.authz.ResourceAclApi;
+import org.springframework.beans.factory.ObjectProvider;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -40,8 +42,9 @@ final class KnowledgeInMemorySupport {
         Map<String, KbChunkDO> chunks = new ConcurrentHashMap<>();
         Map<String, KbCitationDO> citations = new ConcurrentHashMap<>();
         Map<String, KbDatasourceDO> datasources = new ConcurrentHashMap<>();
+        Map<String, com.tioka.knowledge.infrastructure.persistence.KbIngestJobDO> jobs = new ConcurrentHashMap<>();
 
-        return new KnowledgeRepository(null, null, null, null, null, null, null) {
+        return new KnowledgeRepository(null, null, null, null, null, null, null, null) {
             @Override public void insertBase(KbBaseDO row) { bases.put(row.getId(), row); }
             @Override public boolean hasBase(String id) { return bases.containsKey(id); }
             @Override public KbBaseDO findBase(String id) { return bases.get(id); }
@@ -72,6 +75,7 @@ final class KnowledgeInMemorySupport {
                 row.setWorkspaceId(cmd.workspaceId());
                 row.setText(cmd.text());
                 row.setOrdinal(cmd.ordinal());
+                row.setDocVersion(cmd.docVersion());
                 chunks.put(cmd.id(), row);
             }
             @Override public void updateChunkVector(String id, String vectorLiteral) { /* no-op in memory */ }
@@ -114,6 +118,39 @@ final class KnowledgeInMemorySupport {
                 return datasources.values().stream().filter(d -> kbId.equals(d.getKbId())).toList();
             }
             @Override public KbDatasourceDO findDatasource(String id) { return datasources.get(id); }
+
+            // ---- KNW-05：入库任务与版本化分块（内存替身） ----
+            @Override public void insertJob(com.tioka.knowledge.infrastructure.persistence.KbIngestJobDO row) {
+                jobs.put(row.getId(), row);
+            }
+            @Override public com.tioka.knowledge.infrastructure.persistence.KbIngestJobDO findJob(String id) {
+                return jobs.get(id);
+            }
+            @Override public void updateJob(com.tioka.knowledge.infrastructure.persistence.KbIngestJobDO row) {
+                jobs.put(row.getId(), row);
+            }
+            @Override public List<KbDocumentDO> findDocumentsByHash(String kbId, String contentHash) {
+                return docs.values().stream()
+                        .filter(d -> kbId.equals(d.getKbId()) && contentHash.equals(d.getContentHash()))
+                        .toList();
+            }
+            @Override public List<KbDocumentDO> findDocumentsByExternalId(String kbId, String externalId) {
+                return docs.values().stream()
+                        .filter(d -> kbId.equals(d.getKbId()) && externalId.equals(d.getExternalId()))
+                        .toList();
+            }
+            @Override public int deleteChunksBeforeVersion(String docId, int activeVersion) {
+                int before = chunks.size();
+                chunks.values().removeIf(c -> docId.equals(c.getDocId())
+                        && c.getDocVersion() != null && c.getDocVersion() < activeVersion);
+                return before - chunks.size();
+            }
+            @Override public int deleteChunksOfVersion(String docId, int docVersion) {
+                int before = chunks.size();
+                chunks.values().removeIf(c -> docId.equals(c.getDocId())
+                        && c.getDocVersion() != null && c.getDocVersion() == docVersion);
+                return before - chunks.size();
+            }
         };
     }
 
@@ -173,7 +210,97 @@ final class KnowledgeInMemorySupport {
             @Override public void replace(String resourceType, String resourceId, List<AclEntry> entries) {}
         };
         return new KnowledgeService(repo, gateway, bindings, holder, guard, acls, new DocumentParser(), 32,
-                new PassthroughTxManager());
+                new PassthroughTxManager(), null);
+    }
+
+    /** KNW-05：异步开关打开场景（ObjectProvider 返回给定任务服务）。 */
+    static KnowledgeService asyncService(KnowledgeRepository repo, KnowledgeIngestJobService jobService) {
+        return new KnowledgeService(repo, gateway(repo), bindings(), holder(), guard(), acls(),
+                new DocumentParser(), 32, new PassthroughTxManager(),
+                new ObjectProvider<>() {
+                    @Override public KnowledgeIngestJobService getIfAvailable() { return jobService; }
+                    @Override public KnowledgeIngestJobService getIfUnique() { return jobService; }
+                    @Override public KnowledgeIngestJobService getObject() { return jobService; }
+                    @Override public KnowledgeIngestJobService getObject(Object... args) { return jobService; }
+                });
+    }
+
+    /** KNW-05：入库任务服务（哈希嵌入 + 捕获事件）。 */
+    static KnowledgeIngestJobService jobService(KnowledgeRepository repo, EventPublisher publisher,
+                                                ModelGateway gatewayOverride) {
+        return new KnowledgeIngestJobService(repo,
+                gatewayOverride != null ? gatewayOverride : gateway(repo),
+                bindings(), holder(), new DocumentParser(), publisher,
+                new com.fasterxml.jackson.databind.ObjectMapper(), 32, new PassthroughTxManager());
+    }
+
+    private static com.tioka.model.api.gateway.ModelGateway gateway(KnowledgeRepository repo) {
+        HashEmbeddingClient hash = new HashEmbeddingClient(32);
+        return new com.tioka.model.api.gateway.ModelGateway() {
+            @Override
+            public ChatResult chat(ModelCallContext ctx, ChatRequest request,
+                                   java.util.function.Consumer<StreamDelta> onDelta) {
+                throw new UnsupportedOperationException();
+            }
+
+            @Override
+            public com.tioka.model.api.capability.OcrResult ocr(ModelCallContext ctx,
+                    com.tioka.model.api.capability.OcrRequest request) {
+                throw new UnsupportedOperationException();
+            }
+
+            @Override
+            public EmbeddingResult embed(ModelCallContext ctx, EmbeddingRequest request) {
+                List<String> inputs = request.inputs() == null ? List.of() : request.inputs();
+                List<float[]> vectors = new ArrayList<>();
+                for (String text : inputs) {
+                    double[] d = hash.embed(text);
+                    float[] f = new float[d.length];
+                    for (int i = 0; i < d.length; i++) {
+                        f[i] = (float) d[i];
+                    }
+                    vectors.add(f);
+                }
+                return new EmbeddingResult(vectors, hash.dimension(), inputs.size(), "bnd_hash");
+            }
+
+            @Override
+            public RerankResult rerank(ModelCallContext ctx, RerankRequest request) {
+                throw new UnsupportedOperationException();
+            }
+        };
+    }
+
+    private static ModelBindingQueryApi bindings() {
+        return bindingId -> Optional.empty();
+    }
+
+    private static PrincipalHolder holder() {
+        Principal testUser = new Principal("1", "ws", PrincipalType.USER, Set.of("builder"), Set.of("*"), "test");
+        return new PrincipalHolder() {
+            @Override public Principal current() { return testUser; }
+            @Override public java.util.Optional<Principal> find() { return java.util.Optional.of(testUser); }
+            @Override public <T> T runAs(Principal principal, java.util.function.Supplier<T> body) { return body.get(); }
+        };
+    }
+
+    private static ResourceGuard guard() {
+        return new ResourceGuard() {
+            @Override public void check(String resourceType, String resourceId, AccessLevel level) {}
+            @Override public boolean allows(String resourceType, String resourceId, AccessLevel level) { return true; }
+            @Override public Set<String> visibleIds(String resourceType, AccessLevel level) { return Set.of(); }
+            @Override public VisibilityFilter filter(String resourceType, AccessLevel level) {
+                return VisibilityFilter.allowAll();
+            }
+        };
+    }
+
+    private static ResourceAclApi acls() {
+        return new ResourceAclApi() {
+            @Override public void ensureOwner(String resourceType, String resourceId, String userId) {}
+            @Override public List<AclEntry> list(String resourceType, String resourceId) { return List.of(); }
+            @Override public void replace(String resourceType, String resourceId, List<AclEntry> entries) {}
+        };
     }
 
     /** 单测无真实事务：回调直接执行。 */

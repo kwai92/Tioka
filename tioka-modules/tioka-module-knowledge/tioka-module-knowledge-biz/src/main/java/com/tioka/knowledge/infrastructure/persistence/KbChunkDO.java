@@ -15,6 +15,11 @@ public class KbChunkDO extends BaseDO {
     private String workspaceId;
     private String text;
     private Integer ordinal;
+    /** KNW-05 / V211：分块所属文档版本；检索只看 kb_document.active_version。 */
+    private Integer docVersion;
+
+    public Integer getDocVersion() { return docVersion; }
+    public void setDocVersion(Integer docVersion) { this.docVersion = docVersion; }
 
     public String getId() { return id; }
     public void setId(String id) { this.id = id; }
