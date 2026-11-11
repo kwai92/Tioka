@@ -15,14 +15,23 @@ import com.tioka.model.api.gateway.ModelGateway;
 import com.tioka.model.application.ModelAdminService;
 import com.tioka.runtime.api.approval.ToolRisk;
 import com.tioka.runtime.api.spi.ToolProvider;
+import com.tioka.runtime.config.KernelProperties;
+import com.tioka.runtime.kernel.application.TurnDispatcher;
+import com.tioka.runtime.kernel.infrastructure.redis.TurnDispatchQueue;
 import com.tioka.server.support.IntegrationTestSupport;
+import com.tioka.server.support.TestContainers;
 import com.tioka.server.support.TestFixtures;
+import io.lettuce.core.RedisClient;
+import io.lettuce.core.RedisURI;
+import io.lettuce.core.api.StatefulRedisConnection;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
@@ -53,6 +62,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * <p>模型走 mock://openai（ProviderClient mock：消息含 "echo" 且有工具时发工具调用，
  * 否则回「【mock】已收到：{msg}」）；turn 经真实 dispatcher/worker 执行（本类开启
  * {@code tioka.runtime.dispatcher-enabled=true}，仅本上下文消费）。
+ *
+ * <p>C-12 治理：@SpringBootTest 上下文会被 TestContext 框架缓存到 JVM 退出，
+ * 若不清理，本上下文的 TurnDispatcher 将成为游离消费者抢全局 rt:turns
+ * （CI runOrder=random 下排在本类之后的 GateCluster/DualInstance 用例会被
+ * 哨兵 fail-fast）。@AfterAll 停止消费并注销消费者条目（见
+ * {@link #stopDispatcherConsuming()}）。
  */
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -109,6 +124,44 @@ class BatchEvalIT {
     @Autowired ModelAdminService models;
     @Autowired JdbcTemplate jdbc;
     @Autowired com.tioka.eval.api.EvalApi eval;
+
+    /** 供 @AfterAll 在缓存上下文前无害化 dispatcher（Spring 不注入静态字段，经实例方法捕获）。 */
+    private static ApplicationContext cachedContext;
+
+    @Autowired
+    void captureContext(ApplicationContext context) {
+        cachedContext = context;
+    }
+
+    /**
+     * C-12 治理：@SpringBootTest 上下文被缓存至 JVM 退出，若不清理，本上下文的
+     * TurnDispatcher 将成为游离消费者（rt:turns/rt-workers）触发 GateCluster 哨兵
+     * fail-fast。两步清理：
+     * ① {@link TurnDispatcher#stopConsuming()} 让读线程转入 sleep，不再抢消费；
+     * ② 等待读线程退出可能挂着的 XREADGROUP（BLOCK=2s）后，经独立 Lettuce 连接
+     * XGROUP DELCONSUMER 注销本上下文消费者条目（GateCluster 同款模式）——
+     * 哨兵按 XINFO CONSUMERS 判定，仅 stopConsuming 不删条目仍会被命中。
+     */
+    @AfterAll
+    static void stopDispatcherConsuming() throws InterruptedException {
+        if (cachedContext == null) {
+            return;
+        }
+        cachedContext.getBean(TurnDispatcher.class).stopConsuming();
+        Thread.sleep(2100);
+        String consumerName = cachedContext.getBean(KernelProperties.class).getInstanceId();
+        RedisURI uri = RedisURI.builder()
+                .withHost(TestContainers.REDIS.getHost())
+                .withPort(TestContainers.REDIS.getMappedPort(6379))
+                .build();
+        try (RedisClient client = RedisClient.create(uri);
+             StatefulRedisConnection<String, String> conn = client.connect()) {
+            conn.sync().xgroupDelconsumer(TurnDispatchQueue.STREAM_KEY,
+                    io.lettuce.core.Consumer.from(TurnDispatchQueue.GROUP, consumerName));
+        } catch (Exception e) {
+            System.err.println("[BatchEvalIT] 注销 consumer " + consumerName + " 失败（忽略）: " + e);
+        }
+    }
 
     private TestFixtures.Actor actor;
     private String runId;
