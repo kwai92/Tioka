@@ -1,0 +1,5 @@
+{
+  "recallAt5": 1.0,
+  "mrr": 1.0,
+  "note": "C-16 (KNW-07) 首轮实测回填：环境=本机 Docker pgvector+Redis 单例容器、dim=32 mock://openai hashEmbed（确定性字节直方图嵌入）；语料=6 篇主题差异明显的 md 文档（标题承载主题词、正文同义表述），评测集=12 用例（每篇 2 题）；被测=知识库 A（缺省结构化策略+上下文增强）。同轮对照 B（childTargetChars=200、childOverlapChars=0、context_enhancement=false）recallAt5=0.9167 / mrr=0.8333，KNW-03 验收 A>B 严格成立。Recall@5 低于本基线 0.02 以上即阻塞合并。"
+}

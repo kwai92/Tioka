@@ -97,7 +97,6 @@ class AuditCoverageIT {
             "com.tioka.flow.api.FlowController#run",
             "com.tioka.flow.api.FlowController#save",
             "com.tioka.flow.api.FlowPublicationController#asTool",
-            "com.tioka.knowledge.api.EvalController#run",
             "com.tioka.knowledge.api.KnowledgeController#bindDatasource",
             "com.tioka.knowledge.api.KnowledgeController#createBase",
             "com.tioka.knowledge.api.KnowledgeController#ingest",
