@@ -112,6 +112,8 @@ class AuditCoverageIT {
             "com.tioka.model.api.ModelAdminController#createPlan",
             "com.tioka.model.api.ModelAdminController#createProvider",
             "com.tioka.model.api.ModelAdminController#publish",
+            // ADR-041 §2：草稿不写审计，以 cfg_draft 最后修改人为准
+            "com.tioka.model.api.ModelAdminController#saveDraft",
             "com.tioka.model.api.ModelAdminController#updateModelBinding",
             "com.tioka.orchestration.api.OrchRuleController#create",
             "com.tioka.orchestration.api.OrchRuleController#createVersion",
@@ -125,6 +127,8 @@ class AuditCoverageIT {
             "com.tioka.runtime.kernel.api.ThreadController#interrupt",
             "com.tioka.runtime.kernel.api.ThreadController#startTurn",
             "com.tioka.runtime.kernel.api.ThreadController#steer",
+            // 服务层手动审计：UndoService#auditUndo → AuditApi.recordIndependent
+            "com.tioka.runtime.kernel.api.TrustUndoController#undo",
             "com.tioka.server.mcp.TiokaMcpOutboundServer#call",
             "com.tioka.server.ops.OpsFacadeController#ds",
             "com.tioka.server.ops.OpsFacadeController#map",

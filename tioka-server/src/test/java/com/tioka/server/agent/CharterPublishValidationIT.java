@@ -29,6 +29,7 @@ import org.springframework.test.context.DynamicPropertySource;
 
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -145,7 +146,8 @@ class CharterPublishValidationIT {
         String saId = "sa_ok_" + admin.userId();
 
         principals.runAs(adminPrincipal(admin), () -> {
-            String planId = publishPlan("ok");
+            // tag 唯一化：别名 name（tag + "-m"）全局查重，固定 "ok" 会与其他测试类冲突
+            String planId = publishPlan("ok-" + UUID.randomUUID().toString().substring(0, 8));
             McpStore.McpServer server = mcpAdmin.register("ok-mcp", "mock://x", "t");
             mcpAdmin.refreshTools(server.id());
             resourceAcl.ensureOwner("mcp", server.id(), admin.userId());

@@ -199,7 +199,8 @@ class P0L1AcceptanceIT {
         RuntimeTurnDO t = new RuntimeTurnDO();
         t.setId(Ids.newId("turn"));
         t.setThreadId(threadId);
-        t.setSeq(turns.nextSeq(threadId));
+        // runtime_thread 行级过滤非豁免表，nextSeq（SELECT … FOR UPDATE）须带 Principal
+        t.setSeq(principals.runAs(user("1"), () -> turns.nextSeq(threadId)));
         t.setStatus("QUEUED");
         t.setOrigin("chat");
         t.setClientMsgId(clientMsgId);
