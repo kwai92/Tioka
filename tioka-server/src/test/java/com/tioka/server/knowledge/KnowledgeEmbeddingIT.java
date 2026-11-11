@@ -69,10 +69,19 @@ class KnowledgeEmbeddingIT {
             Integer dim = jdbc.queryForObject(
                     """
                     SELECT vector_dims(embedding_vec) FROM kb_chunk
-                    WHERE kb_id = ? AND deleted = FALSE LIMIT 1
+                    WHERE kb_id = ? AND deleted = FALSE AND chunk_type = 'CHILD' LIMIT 1
                     """,
                     Integer.class, kb.id());
             assertEquals(32, dim);
+
+            // C-15 起向量召回只见子块：父块不嵌入（embedding_vec 为 NULL）是设计语义
+            Integer parentVecs = jdbc.queryForObject(
+                    """
+                    SELECT COUNT(*) FROM kb_chunk
+                    WHERE kb_id = ? AND deleted = FALSE AND chunk_type = 'PARENT' AND embedding_vec IS NOT NULL
+                    """,
+                    Integer.class, kb.id());
+            assertEquals(0, parentVecs, "父块不应携带嵌入向量");
 
             return null;
         });
