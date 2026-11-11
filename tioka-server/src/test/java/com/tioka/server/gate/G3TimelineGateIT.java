@@ -12,7 +12,7 @@ import org.junit.jupiter.api.Test;
  * 2. 外发记录可列出；导出审计留痕
  */
 @Tag("gate")
-@Disabled("P3-00b skeleton — enable when owning package turns green")
+@Disabled("G3 blocked: OBS-06..09 not started")
 class G3TimelineGateIT {
 
     @Test

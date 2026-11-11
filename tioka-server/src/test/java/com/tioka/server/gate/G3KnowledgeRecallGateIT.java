@@ -13,7 +13,7 @@ import org.junit.jupiter.api.Test;
  * 3. 无权限用户检索不到受限文档
  */
 @Tag("gate")
-@Disabled("P3-00b skeleton — enable when owning package turns green")
+@Disabled("G3 blocked: KNW-04/KNW-12/KNW-14 not started")
 class G3KnowledgeRecallGateIT {
 
     @Test

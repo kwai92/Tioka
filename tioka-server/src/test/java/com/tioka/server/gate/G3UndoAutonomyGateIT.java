@@ -13,7 +13,7 @@ import org.junit.jupiter.api.Test;
  * 3. 熔断后全部类别 L1；补偿失败停后续并人审
  */
 @Tag("gate")
-@Disabled("P3-00b skeleton — enable when owning package turns green")
+@Disabled("G3 blocked: TRU-08/TRU-10 not started")
 class G3UndoAutonomyGateIT {
 
     @Test

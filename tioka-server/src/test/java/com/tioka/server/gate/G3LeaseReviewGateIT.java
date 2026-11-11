@@ -12,7 +12,7 @@ import org.junit.jupiter.api.Test;
  * 2. 审查 Agent 跑通要点与 Finding
  */
 @Tag("gate")
-@Disabled("P3-00b skeleton — enable when owning package turns green")
+@Disabled("G3 blocked: LSE-05/LSE-07/LSE-08 and BIZ-01..08 + transitional region permission not started")
 class G3LeaseReviewGateIT {
 
     @Test

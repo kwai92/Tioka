@@ -192,24 +192,50 @@ public class DefaultGrantService implements GrantService {
         if (grantId == null || grantId.isBlank()) {
             return null;
         }
+        GrantBody body = null;
         String cached = cache.get(grantId);
         if (cached != null && !cached.isBlank()) {
             try {
-                return mapper.readValue(cached, GrantBody.class).grant();
+                body = mapper.readValue(cached, GrantBody.class);
             } catch (Exception ignored) {
                 // 缓存损坏 → 回源
             }
         }
-        GrantBody body = store.findBody(grantId);
         if (body == null) {
-            return null;
+            body = store.findBody(grantId);
+            if (body == null) {
+                return null;
+            }
+            try {
+                cache.put(grantId, mapper.writeValueAsString(body));
+            } catch (Exception ignored) {
+                // 缓存写失败不阻断
+            }
+        }
+        // C-17 修复：reap/revoke 只更新 rt_grant.status 列（body_json 不动，保持 CAS 原文），
+        // 快照读必须以行级终态为准，否则回收后的授予经 get 仍显示 ACTIVE，
+        // DelegationGrantCheck 的 GRANT_INACTIVE 判定永远失效。
+        return withRowStatus(grantId, body.grant());
+    }
+
+    /** 以 rt_grant.status 行级终态覆盖快照状态（终态 REAPED/REVOKED 优先）。 */
+    private DelegationGrant withRowStatus(String grantId, DelegationGrant grant) {
+        if (grant.status() != GrantStatus.ACTIVE) {
+            return grant;
+        }
+        var row = store.findRow(grantId);
+        if (row == null || row.getStatus() == null || GrantStatus.ACTIVE.name().equals(row.getStatus())) {
+            return grant;
         }
         try {
-            cache.put(grantId, mapper.writeValueAsString(body));
-        } catch (Exception ignored) {
-            // 缓存写失败不阻断
+            GrantStatus rowStatus = GrantStatus.valueOf(row.getStatus());
+            return new DelegationGrant(grant.grantId(), grant.parentGrantId(), grant.rootPrincipalRef(),
+                    grant.onBehalfOf(), grant.chain(), grant.tools(), grant.actionClasses(),
+                    grant.skillVersionIds(), grant.resources(), grant.scope(), grant.maxDataLabel(),
+                    grant.egressHosts(), grant.budget(), grant.expiresAt(), rowStatus, grant.hash());
+        } catch (IllegalArgumentException e) {
+            return grant;
         }
-        return body.grant();
     }
 
     private static String refOf(Principal p) {

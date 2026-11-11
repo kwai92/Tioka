@@ -89,7 +89,10 @@ public class DataQueryToolProvider implements ToolProvider {
                 ? l.stream().filter(o -> o != null).map(String::valueOf).toList() : List.of();
         int limit = args.get("limit") instanceof Number n ? n.intValue() : 100;
 
-        // 授予：grantId → scope（AND 合并进行谓词）；null = 无授予链路（测试/根路径），scope 空
+        // 授予：grantId → scope（AND 合并进行谓词）；null = 无授予链路（测试/根路径），scope 空。
+        // C-17 修复（M3 口径）：principal.attrs 用户属性目录 EIS 对接后续批次，
+        // attrs 用例经授予 scope 承载 —— scope 单值键并入 attrs，供列掩码 when 的
+        // principal.attrs.<key> CEL 求值（否则含 attrs 引用的列策略一律求值失败）。
         Map<String, List<String>> scope = Map.of();
         if (ctx.grantId() != null && !ctx.grantId().isBlank()) {
             GrantService gs = grants.getIfAvailable();
@@ -102,8 +105,14 @@ public class DataQueryToolProvider implements ToolProvider {
                 }
             }
         }
+        Map<String, Object> effAttrs = new LinkedHashMap<>();
+        scope.forEach((k, v) -> {
+            if (v != null && v.size() == 1 && v.get(0) != null) {
+                effAttrs.put(k, v.get(0));
+            }
+        });
         DatasetPolicyModel.PrincipalSnapshot eff = new DatasetPolicyModel.PrincipalSnapshot(
-                ctx.principal().userId(), List.copyOf(ctx.principal().roles()), Map.of());
+                ctx.principal().userId(), List.copyOf(ctx.principal().roles()), effAttrs);
         try {
             DatasetResult result = gateway.query(ctx.principal().workspaceId(), dataset,
                     new DatasetQuery(filter, columns, limit), eff, scope);

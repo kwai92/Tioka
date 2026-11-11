@@ -13,7 +13,7 @@ import org.junit.jupiter.api.Test;
  * 3. 飞书用户身份下两位用户结果不同
  */
 @Tag("gate")
-@Disabled("P3-00b skeleton — enable when owning package turns green")
+@Disabled("G3 blocked: KNW-16/KNW-17a not started")
 class G3ExternalKnowledgeGateIT {
 
     @Test

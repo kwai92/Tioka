@@ -12,7 +12,7 @@ import org.junit.jupiter.api.Test;
  * 2. 授予透传到 Flow Run
  */
 @Tag("gate")
-@Disabled("P3-00b skeleton — enable when owning package turns green")
+@Disabled("G3 blocked: FLW-06 suspended; DAT-04 Flow part pending FLW-04/06")
 class G3FlowPublishGateIT {
 
     @Test

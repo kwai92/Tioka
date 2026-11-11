@@ -12,7 +12,7 @@ import org.junit.jupiter.api.Test;
  * 2. 断点与单步可观察
  */
 @Tag("gate")
-@Disabled("P3-00b skeleton — enable when owning package turns green")
+@Disabled("G3 blocked: FLW-13a suspended (ADR-043 Flow domain descoping)")
 class G3FlowDebugGateIT {
 
     @Test

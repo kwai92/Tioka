@@ -12,7 +12,7 @@ import org.junit.jupiter.api.Test;
  * 2. 运行身份矩阵与无权引用被拒
  */
 @Tag("gate")
-@Disabled("P3-00b skeleton — enable when owning package turns green")
+@Disabled("G3 blocked: FLW-15 suspended")
 class G3FlowSecurityGateIT {
 
     @Test
