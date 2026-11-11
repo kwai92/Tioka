@@ -39,7 +39,7 @@ class CoverageServiceTest {
         definitions = new DefinitionService(new ObjectMapper(), null);
         valueIndex = mock(OntValueIndexRepository.class);
         definitions.saveDraft("test.pack", "1.0.0", definition());
-        service = new CoverageService(definitions, valueIndex, new ObjectMapper(),
+        service = new CoverageService(fixedProvider(definitions), valueIndex, new ObjectMapper(),
                 emptyProvider(), topic -> null);
     }
 
@@ -142,5 +142,15 @@ class CoverageServiceTest {
     @SuppressWarnings("unchecked")
     private static <T> ObjectProvider<T> emptyProvider() {
         return (ObjectProvider<T>) Mockito.mock(ObjectProvider.class);
+    }
+
+    /** 定值 ObjectProvider（DefinitionService 弱依赖桩）。 */
+    private static <T> ObjectProvider<T> fixedProvider(T value) {
+        return new ObjectProvider<>() {
+            @Override public T getObject() { return value; }
+            @Override public T getObject(Object... args) { return value; }
+            @Override public T getIfAvailable() { return value; }
+            @Override public T getIfUnique() { return value; }
+        };
     }
 }

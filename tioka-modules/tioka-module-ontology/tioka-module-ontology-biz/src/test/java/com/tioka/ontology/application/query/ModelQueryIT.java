@@ -251,7 +251,8 @@ class ModelQueryIT {
         assertEquals("NOT_FOUND", denied.content());
 
         ModelCoverageToolProvider coverage = new ModelCoverageToolProvider(queries,
-                new CoverageService(new com.tioka.ontology.application.def.DefinitionService(mapper, null),
+                new CoverageService(fixedProvider(
+                                new com.tioka.ontology.application.def.DefinitionService(mapper, null)),
                         valueIndex, mapper, emptyProvider(), topic -> null),
                 mapper, ctx2 -> ctx2 == null ? null : ctx2.principal());
         ToolProvider.ToolResult covDenied = coverage.invoke(ctx(agentPrincipal()), "av1", "model.coverage",
@@ -264,5 +265,15 @@ class ModelQueryIT {
     private static <T> org.springframework.beans.factory.ObjectProvider<T> emptyProvider() {
         return (org.springframework.beans.factory.ObjectProvider<T>) org.mockito.Mockito.mock(
                 org.springframework.beans.factory.ObjectProvider.class);
+    }
+
+    /** 定值 ObjectProvider（DefinitionService 弱依赖桩）。 */
+    private static <T> org.springframework.beans.factory.ObjectProvider<T> fixedProvider(T value) {
+        return new org.springframework.beans.factory.ObjectProvider<>() {
+            @Override public T getObject() { return value; }
+            @Override public T getObject(Object... args) { return value; }
+            @Override public T getIfAvailable() { return value; }
+            @Override public T getIfUnique() { return value; }
+        };
     }
 }
