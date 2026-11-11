@@ -1,0 +1,84 @@
+# LSE-01 / LSE-04：主题 ↔ 审查要点对应关系（M3-04 §1：主题清单与必备要点的对应关系，
+# 由 LSE-04 与法务一起维护）。第一期权利义务只抽 56 个必备要点涉及的主题；19 个主题覆盖仍全部输出。
+# mode: D=规则判定 / H=复核员确认 / J=判断员判断；mandatory=true 即必备要点。
+# 完整 86 要点表达式见 seed/checkpoints.yaml；本表只做主题级映射。
+version: 1
+topics:
+  - topicKey: rent.base
+    checkpoints:
+      mandatory: [D-001, D-002, D-003]
+      others: [D-004]
+  - topicKey: rent.abatement
+    checkpoints:
+      mandatory: [D-017, D-018]
+      others: [D-019, D-020]
+  - topicKey: rent.escalation
+    checkpoints:
+      mandatory: [D-023, D-024]
+      others: []
+  - topicKey: rent.payment
+    checkpoints:
+      mandatory: [D-030, D-031]
+      others: [D-032]
+  - topicKey: rent.freeMonths
+    checkpoints:
+      mandatory: [D-017]
+      others: []
+  - topicKey: deposit.security
+    checkpoints:
+      mandatory: [D-040, D-041, D-042]
+      others: [D-043]
+  - topicKey: fee.management
+    checkpoints:
+      mandatory: [D-045, D-046]
+      others: []
+  - topicKey: fee.utility
+    checkpoints:
+      mandatory: [D-048]
+      others: [D-049]
+  - topicKey: fee.promotion
+    checkpoints:
+      mandatory: [D-051]
+      others: []
+  - topicKey: fee.tax
+    checkpoints:
+      mandatory: [D-053]
+      others: []
+  - topicKey: crossRule.offset
+    checkpoints:
+      mandatory: [D-055]
+      others: []
+  - topicKey: term.delivery
+    checkpoints:
+      mandatory: [D-057, D-058]
+      others: []
+  - topicKey: term.fitout
+    checkpoints:
+      mandatory: [D-060]
+      others: [D-061]
+  - topicKey: term.opening
+    checkpoints:
+      mandatory: [D-063]
+      others: []
+  - topicKey: termination.tenant_default
+    checkpoints:
+      mandatory: [H-001, H-002]
+      others: [J-010]
+  - topicKey: termination.landlord
+    checkpoints:
+      mandatory: [H-004, H-005]
+      others: [J-011]
+  - topicKey: termination.early
+    checkpoints:
+      mandatory: [H-007]
+      others: [J-012]
+  - topicKey: renewal.renew
+    checkpoints:
+      mandatory: [H-010]
+      others: [J-015]
+  - topicKey: transfer.assign
+    checkpoints:
+      mandatory: [H-013]
+      others: [J-018]
+# 权利义务（第四支）第一期抽取范围：上面 mandatory 涉及的主题
+# （56 个必备要点 = D 类 40 + H 类 16；J 类 24 个按主题分组判断，见 M3-04 §4 LSE-05）

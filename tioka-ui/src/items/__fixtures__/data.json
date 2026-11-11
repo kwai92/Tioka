@@ -1,0 +1,33 @@
+[
+  {
+    "name": "basic",
+    "item": {
+      "itemId": "fix_data_basic",
+      "seq": 1,
+      "itemType": "data",
+      "role": "assistant",
+      "content": {
+        "note": "fixture for data"
+      }
+    }
+  },
+  {
+    "name": "edge",
+    "item": {
+      "itemId": "fix_data_edge",
+      "seq": 1,
+      "itemType": "data",
+      "role": "assistant",
+      "content": {
+        "data": [
+          1,
+          2,
+          3
+        ],
+        "change_set": {
+          "op": "noop"
+        }
+      }
+    }
+  }
+]
