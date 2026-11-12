@@ -128,6 +128,9 @@ class AuditCoverageIT {
             "com.tioka.runtime.kernel.api.ThreadController#steer",
             // 服务层手动审计：UndoService#auditUndo → AuditApi.recordIndependent
             "com.tioka.runtime.kernel.api.TrustUndoController#undo",
+            // C-21 TRU-08：UndoCircuitBreaker#configure 写 trust.undo.circuit_policy_changed
+            // 明细审计（阈值 / 窗口 / actor），无需再套 @Audited
+            "com.tioka.runtime.kernel.api.TrustUndoController#configureCircuitPolicy",
             "com.tioka.server.mcp.TiokaMcpOutboundServer#call",
             "com.tioka.server.ops.OpsFacadeController#ds",
             "com.tioka.server.ops.OpsFacadeController#map",

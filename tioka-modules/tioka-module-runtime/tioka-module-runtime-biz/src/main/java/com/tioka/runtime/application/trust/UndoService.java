@@ -65,7 +65,10 @@ public class UndoService {
     private final UndoAuthorizer authorizer;
     private final ObjectProvider<AuditApi> auditApi;
     private final ObjectMapper mapper;
+    /** TRU-08 熔断判定（C-21）；离线单测用旧构造器置空，行为 = C-4 时期。 */
+    private final UndoCircuitBreaker breaker;
 
+    /** 兼容离线单测 / 无熔断联动装配。 */
     public UndoService(TrustActionStore actions,
                        TrustUndoRequestRepository requests,
                        TrustUndoCircuitRepository circuit,
@@ -74,6 +77,19 @@ public class UndoService {
                        UndoAuthorizer authorizer,
                        ObjectProvider<AuditApi> auditApi,
                        ObjectMapper mapper) {
+        this(actions, requests, circuit, preparedCalls, publisher, authorizer, auditApi, mapper, null);
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public UndoService(TrustActionStore actions,
+                       TrustUndoRequestRepository requests,
+                       TrustUndoCircuitRepository circuit,
+                       PreparedCallStore preparedCalls,
+                       EventPublisher publisher,
+                       UndoAuthorizer authorizer,
+                       ObjectProvider<AuditApi> auditApi,
+                       ObjectMapper mapper,
+                       UndoCircuitBreaker breaker) {
         this.actions = actions;
         this.requests = requests;
         this.circuit = circuit;
@@ -82,6 +98,7 @@ public class UndoService {
         this.authorizer = authorizer;
         this.auditApi = auditApi;
         this.mapper = mapper;
+        this.breaker = breaker;
     }
 
     @Transactional
@@ -157,13 +174,20 @@ public class UndoService {
         request.setIrreversibleJson(writeJson(irreversible));
         requests.update(request);
 
-        // 熔断计数（TRU-07/08 共用；降级联动归 TRU-10）
+        // 熔断计数（TRU-07/08 共用）；C-21 起按空间窗口计数并触发降级事件（TRU-10 消费）
         TrustActionDO first = eligible.get(0);
+        LocalDateTime stamp = LocalDateTime.ofInstant(now, ZoneOffset.UTC);
         try {
-            circuit.recordUndo(first.getAgentId(), first.getWorkspaceId(),
-                    LocalDateTime.ofInstant(now, ZoneOffset.UTC));
+            int windowMinutes = breaker == null ? 60 : breaker.windowMinutes(first.getWorkspaceId());
+            circuit.recordUndo(first.getAgentId(), first.getWorkspaceId(), stamp, windowMinutes);
         } catch (RuntimeException e) {
+            // 仅计数写入保留 C-4 既有容错（不阻断撤销）
             log.warn("撤销熔断计数写入失败: {}", e.toString());
+        }
+        if (breaker != null) {
+            // 判定 / 事件发布失败必须让撤销事务整体回滚：否则 opened_at 已被 CAS
+            // 消耗、降级事件却没发出去，该窗口的熔断会永久静默失效。
+            breaker.onUndo(first.getAgentId(), first.getWorkspaceId(), scopeId, stamp);
         }
 
         auditUndo(request, compensating, irreversible, principal);

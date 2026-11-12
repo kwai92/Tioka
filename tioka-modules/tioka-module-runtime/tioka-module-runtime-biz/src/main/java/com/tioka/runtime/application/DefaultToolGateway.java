@@ -189,6 +189,11 @@ public class DefaultToolGateway implements ToolGateway {
         pipeCtx.put("pipeline.risk", risk.name());
         pipeCtx.put("pipeline.reversibility", rev.name());
         pipeCtx.put("pipeline.estimated", changeSet != null && changeSet.estimated());
+        // TRU-08 第 11 步：变更单汇总经上下文传递（步骤间不互相调用，K1b）
+        if (changeSet != null && changeSet.totals() != null) {
+            pipeCtx.put("changeset.records", changeSet.totals().records());
+            pipeCtx.put("changeset.amountMicros", changeSet.totals().amountMicros());
+        }
         ToolPipelineVerdict pipeVerdict;
         try {
             pipeVerdict = pipelineSteps.run(pipeCtx);

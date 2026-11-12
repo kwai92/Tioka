@@ -4,15 +4,21 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tioka.framework.messaging.EventPublisher;
 import com.tioka.governance.api.autonomy.AutonomyApi;
 import com.tioka.governance.api.autonomy.AutonomyGate;
+import com.tioka.governance.api.charter.AgentCharterPort;
 import com.tioka.governance.application.autonomy.AutonomyChangeNotifier;
+import com.tioka.governance.application.autonomy.AutonomyDemotionConsumer;
+import com.tioka.governance.application.autonomy.AutonomyDemotionService;
 import com.tioka.governance.application.autonomy.DefaultAutonomyGate;
 import com.tioka.governance.application.autonomy.DefaultAutonomyService;
 import com.tioka.governance.application.autonomy.SamplingPolicy;
+import com.tioka.governance.infrastructure.autonomy.TrustAutonomyDemotionRepository;
 import com.tioka.governance.infrastructure.autonomy.TrustAutonomyRepository;
+import com.tioka.governance.infrastructure.mapper.TrustAutonomyDemotionMapper;
 import com.tioka.governance.infrastructure.mapper.TrustAutonomyEventMapper;
 import com.tioka.governance.infrastructure.mapper.TrustAutonomyMapper;
 import com.tioka.governance.infrastructure.mapper.TrustAutonomyStatsMapper;
 import com.tioka.system.api.audit.AuditApi;
+import com.tioka.system.api.notify.NotificationPort;
 import org.mybatis.spring.annotation.MapperScan;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
@@ -65,5 +71,24 @@ public class AutonomyAutoConfiguration {
                             ObjectProvider<AuditApi> auditApi,
                             ObjectMapper mapper) {
         return new DefaultAutonomyService(repository, notifier, sampler, auditApi, mapper);
+    }
+
+    /** TRU-10（C-21）：降级幂等台账 + 服务 + 事件消费者。通知端口缺省缺席时静默跳过。 */
+    @Bean
+    TrustAutonomyDemotionRepository trustAutonomyDemotionRepository(TrustAutonomyDemotionMapper mapper) {
+        return new TrustAutonomyDemotionRepository(mapper);
+    }
+
+    @Bean
+    AutonomyDemotionService autonomyDemotionService(AutonomyApi autonomyApi,
+                                                    TrustAutonomyDemotionRepository demotions,
+                                                    ObjectProvider<NotificationPort> notifications,
+                                                    ObjectProvider<AgentCharterPort> agents) {
+        return new AutonomyDemotionService(autonomyApi, demotions, notifications, agents);
+    }
+
+    @Bean
+    AutonomyDemotionConsumer autonomyDemotionConsumer(AutonomyDemotionService service) {
+        return new AutonomyDemotionConsumer(service);
     }
 }

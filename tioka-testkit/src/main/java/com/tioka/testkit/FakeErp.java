@@ -159,7 +159,6 @@ public final class FakeErp implements TransactionalTool {
     }
 
     @Override
-    @SuppressWarnings("unchecked")
     public ChangeSet.CompensationResult compensate(ChangeSet.ApplyReceipt receipt, String idempotencyKey) {
         if (idempotencyKey != null && Boolean.TRUE.equals(compensated.get(idempotencyKey))) {
             return new ChangeSet.CompensationResult(true, "already compensated", receipt.externalRef());
@@ -174,15 +173,47 @@ public final class FakeErp implements TransactionalTool {
                     receipt.externalRef());
         }
         for (Object item : list) {
-            if (!(item instanceof ChangeSet.Change c)) {
+            // 回执经 trust_action.receipt_json 序列化往返后，changes 元素退化为 Map
+            // （compensationToken 声明为 Map<String,Object>），离线直调时则是 ChangeSet.Change。
+            // 两种形态都要能复原，否则真实 DB 链路上的撤销不会回滚业务数据。
+            String objectType = null;
+            String objectId = null;
+            Map<String, Object> before = null;
+            if (item instanceof ChangeSet.Change c) {
+                objectType = c.objectType();
+                objectId = c.objectId();
+                before = c.before();
+            } else if (item instanceof Map<?, ?> m) {
+                objectType = str(m.get("objectType"));
+                objectId = str(m.get("objectId"));
+                if (m.get("before") instanceof Map<?, ?> bm) {
+                    before = new LinkedHashMap<>();
+                    for (Map.Entry<?, ?> e : bm.entrySet()) {
+                        before.put(String.valueOf(e.getKey()), e.getValue());
+                    }
+                }
+            }
+            if (objectType == null || objectType.isBlank() || objectId == null
+                    || objectId.isBlank() || before == null) {
                 continue;
             }
-            storeOf(c.objectType()).put(c.objectId(), Map.copyOf(c.before()));
+            storeOf(objectType).put(objectId, Map.copyOf(normalizeAmounts(before)));
         }
         if (idempotencyKey != null) {
             compensated.put(idempotencyKey, true);
         }
         return new ChangeSet.CompensationResult(true, "ok", receipt.externalRef());
+    }
+
+    /** JSON 往返会把 amountMicros 收窄成 Integer；复原时统一回 Long，与 seed 快照同型。 */
+    private static Map<String, Object> normalizeAmounts(Map<String, Object> before) {
+        Object amount = before.get("amountMicros");
+        if (!(amount instanceof Number n) || amount instanceof Long) {
+            return before;
+        }
+        Map<String, Object> out = new LinkedHashMap<>(before);
+        out.put("amountMicros", n.longValue());
+        return out;
     }
 
     private ChangeSet changeSet(String summary, List<ChangeSet.Change> changes) {

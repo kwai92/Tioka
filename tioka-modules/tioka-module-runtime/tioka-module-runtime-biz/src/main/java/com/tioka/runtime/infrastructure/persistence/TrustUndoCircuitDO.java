@@ -22,6 +22,12 @@ public class TrustUndoCircuitDO extends TechnicalRecordDO {
     private Integer compFailCount;
     private LocalDateTime windowStart;
 
+    /** V226 熔断开启状态：只由 TrustUndoCircuitMapper.xml 的 tryOpen 写入（CAS 去重）。 */
+    @TableField(insertStrategy = FieldStrategy.NEVER, updateStrategy = FieldStrategy.NEVER)
+    private LocalDateTime openedAt;
+    @TableField(insertStrategy = FieldStrategy.NEVER, updateStrategy = FieldStrategy.NEVER)
+    private String openReason;
+
     @TableField(insertStrategy = FieldStrategy.NEVER, updateStrategy = FieldStrategy.NEVER)
     private LocalDateTime updateAt;
 
@@ -35,6 +41,10 @@ public class TrustUndoCircuitDO extends TechnicalRecordDO {
     public void setCompFailCount(Integer compFailCount) { this.compFailCount = compFailCount; }
     public LocalDateTime getWindowStart() { return windowStart; }
     public void setWindowStart(LocalDateTime windowStart) { this.windowStart = windowStart; }
+    public LocalDateTime getOpenedAt() { return openedAt; }
+    public void setOpenedAt(LocalDateTime openedAt) { this.openedAt = openedAt; }
+    public String getOpenReason() { return openReason; }
+    public void setOpenReason(String openReason) { this.openReason = openReason; }
     public LocalDateTime getUpdateAt() { return updateAt; }
     public void setUpdateAt(LocalDateTime updateAt) { this.updateAt = updateAt; }
 }

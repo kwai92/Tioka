@@ -70,6 +70,8 @@ class UndoIT {
     private TrustCompensator compensator;
     private TrustUndoCircuitRepository circuit;
     private TrustUndoRequestRepository requests;
+    /** seed 后、apply 前的初始状态：撤销必须复原到这一刻（而非 apply 后的状态）。 */
+    private final Map<String, Map<String, Object>> seedSnapshot = new LinkedHashMap<>();
 
     /** 内存日累计（断言扣回）。 */
     private final class InMemoryCounters implements DailyCounterStore {
@@ -147,21 +149,37 @@ class UndoIT {
             super(null);
         }
 
+        // C-21 起 UndoService 调 4 参（空间可配窗口）；3 参只是兼容入口，两者都要覆写，
+        // 否则会落到父类空 mapper 上并静默丢失计数。
         @Override
-        public void recordUndo(String agentId, String workspaceId, LocalDateTime now) {
+        public void recordUndo(String agentId, String workspaceId, LocalDateTime now,
+                               int windowMinutes) {
             undoCount++;
         }
 
         @Override
-        public void recordCompensationFailure(String agentId, String workspaceId, LocalDateTime now) {
+        public void recordUndo(String agentId, String workspaceId, LocalDateTime now) {
+            recordUndo(agentId, workspaceId, now, 60);
+        }
+
+        @Override
+        public void recordCompensationFailure(String agentId, String workspaceId,
+                                              LocalDateTime now, int windowMinutes) {
             compFailCount++;
+        }
+
+        @Override
+        public void recordCompensationFailure(String agentId, String workspaceId, LocalDateTime now) {
+            recordCompensationFailure(agentId, workspaceId, now, 60);
         }
     }
 
     @BeforeEach
     void setUp() {
+        seedSnapshot.clear();
         for (int i = 1; i <= 5; i++) {
             erp.seedOrder("ord_" + i, "OPEN", 1_000_000L * i);
+            seedSnapshot.put("ord_" + i, erp.order("ord_" + i));
         }
         ToolRegistry registry = new ToolRegistry(List.of(erp));
         PreparedCallStore preparedCalls = new PreparedCallStore(store, mapper, null);
@@ -273,12 +291,6 @@ class UndoIT {
 
     @Test
     void fiveStepsRestored() {
-        // 撤销前快照
-        Map<String, Map<String, Object>> before = new LinkedHashMap<>();
-        for (int i = 1; i <= 5; i++) {
-            before.put("ord_" + i, erp.order("ord_" + i));
-        }
-
         UndoService.UndoResult result = undoRun();
         assertEquals(5, result.compensating().size(), "5 步全部将补偿");
         assertTrue(result.irreversible().isEmpty());
@@ -300,9 +312,9 @@ class UndoIT {
             compensator.routeLocally(p);
         }
 
-        // FakeErp 状态与执行前快照完全一致（倒序恢复后 = 初始）
+        // FakeErp 状态与 apply 之前的 seed 快照完全一致（倒序恢复后 = 初始）
         for (int i = 1; i <= 5; i++) {
-            assertEquals(before.get("ord_" + i), erp.order("ord_" + i), "ord_" + i + " 已复原");
+            assertEquals(seedSnapshot.get("ord_" + i), erp.order("ord_" + i), "ord_" + i + " 已复原");
         }
         // trust_action 全部 COMPENSATED
         for (int i = 1; i <= 5; i++) {
@@ -324,6 +336,37 @@ class UndoIT {
                 .findFirst().orElseThrow().payload().get("scopeId"));
         // 熔断计数（TRU-07 写计数，联动登记 TRU-10）
         assertEquals(1, ((InMemoryCircuit) circuit).undoCount);
+    }
+
+    @Test
+    void compensationWithoutOrchRunIdSucceeds() {
+        // 生产 ToolCallContext 不带 orchRunId（trust_action.orch_run_id 无写入点）。
+        // 事件 payload 一旦带 null value，DomainEvent 的 Map.copyOf 会抛 NPE，
+        // 补偿事务整体回滚、撤销永远收不了口（C-21 撤销自治闸门暴露）。
+        store.findById("act_1").setOrchRunId(null);
+        UndoService.UndoResult result = undoService.undo("turn", TURN, user("user_1"));
+        assertEquals(5, result.compensating().size());
+
+        for (Map<String, Object> p : compensatePayloads()) {
+            compensator.routeLocally(p);
+        }
+
+        assertEquals("COMPENSATED", store.findById("act_1").getStatus());
+        assertEquals(seedSnapshot.get("ord_1"), erp.order("ord_1"),
+                "回执经 receipt_json 序列化往返后仍应复原业务数据");
+        List<DomainEvent> undone = events.stream()
+                .filter(e -> GovernanceMqTopics.TRUST_ACTION_UNDONE.equals(e.event()))
+                .toList();
+        assertEquals(5, undone.size());
+        // Map.copyOf 产出的不可变 Map 对 containsValue(null) 自身就会抛 NPE，故逐个取值断言
+        for (DomainEvent event : undone) {
+            for (Object value : event.payload().values()) {
+                assertNotNull(value, "事件 payload 不允许 null value: " + event.event());
+            }
+        }
+        assertEquals("", undone.stream()
+                .filter(e -> "act_1".equals(e.payload().get("actionId")))
+                .findFirst().orElseThrow().payload().get("orchRunId"));
     }
 
     @Test

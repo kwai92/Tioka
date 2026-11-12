@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tioka.runtime.infrastructure.mapper.TrustUndoCircuitMapper">
+
+    <!-- TRU-08：同一 Agent 同一滑动窗口只允许开启一次熔断（V226 opened_at）。
+         WHERE 条件保证并发下只有一个调用者拿到 true，避免重复降级/通知。 -->
+    <update id="tryOpen">
+        UPDATE trust_undo_circuit
+           SET opened_at = #{now},
+               open_reason = #{reason},
+               update_at = now()
+         WHERE agent_id = #{agentId}
+           AND (opened_at IS NULL OR opened_at &lt; #{windowStart})
+    </update>
+
+</mapper>
