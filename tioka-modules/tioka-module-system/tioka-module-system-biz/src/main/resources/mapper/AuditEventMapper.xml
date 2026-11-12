@@ -3,6 +3,13 @@
         "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.tioka.system.infrastructure.mapper.AuditEventMapper">
 
+    <!--
+      C-20：所有驼峰列别名必须加双引号。PostgreSQL 会把未加引号的别名折叠成全小写
+      （workspaceId -> workspaceid），MyBatis resultType=HashMap 以 JDBC column label 为键，
+      导致 AuditService.toEvent / AuditChainService.canonical / groupByChain / verify
+      按驼峰取键恒为 null —— 审计回读字段全空、哈希链全部租户归入 _system 单链。
+    -->
+
     <insert id="insert">
         <![CDATA[
             INSERT INTO audit_event
@@ -11,17 +18,16 @@
             VALUES
               (#{id}, #{ts}, #{workspaceId}, #{actorType}, #{actorId}, #{action},
                #{resourceType}, #{resourceId}, #{outcome}, #{reason}, #{traceId}, #{spanId}, #{service}, #{requestId}, #{subject}, #{clientIp}, #{detailsJson}, FALSE)
-            
 ]]>
     </insert>
 
     <select id="query" resultType="java.util.HashMap">
         <![CDATA[
-            SELECT id, ts, workspace_id AS workspaceId, actor_type AS actorType, actor_id AS actorId,
-                   action, resource_type AS resourceType, resource_id AS resourceId,
-                   outcome, reason, trace_id AS traceId, span_id AS spanId, service,
-                   request_id AS requestId, client_ip AS clientIp,
-                   details_json AS detailsJson, forwarded
+            SELECT id, ts, workspace_id AS "workspaceId", actor_type AS "actorType", actor_id AS "actorId",
+                   action, resource_type AS "resourceType", resource_id AS "resourceId",
+                   outcome, reason, trace_id AS "traceId", span_id AS "spanId", service,
+                   request_id AS "requestId", client_ip AS "clientIp",
+                   details_json AS "detailsJson", forwarded
             FROM audit_event
             WHERE (#{workspaceId}::varchar IS NULL OR workspace_id = #{workspaceId})
               AND (#{actorId}::varchar IS NULL OR actor_id = #{actorId})
@@ -33,22 +39,20 @@
               AND (#{to}::timestamptz IS NULL OR ts <= #{to})
             ORDER BY ts DESC
             LIMIT #{limit} OFFSET #{offset}
-            
 ]]>
     </select>
 
     <select id="listUnforwarded" resultType="java.util.HashMap">
         <![CDATA[
-            SELECT id, ts, workspace_id AS workspaceId, actor_type AS actorType, actor_id AS actorId,
-                   action, resource_type AS resourceType, resource_id AS resourceId,
-                   outcome, reason, trace_id AS traceId, span_id AS spanId, service,
-                   request_id AS requestId, client_ip AS clientIp,
-                   details_json AS detailsJson, forwarded
+            SELECT id, ts, workspace_id AS "workspaceId", actor_type AS "actorType", actor_id AS "actorId",
+                   action, resource_type AS "resourceType", resource_id AS "resourceId",
+                   outcome, reason, trace_id AS "traceId", span_id AS "spanId", service,
+                   request_id AS "requestId", client_ip AS "clientIp",
+                   details_json AS "detailsJson", forwarded
             FROM audit_event
             WHERE forwarded = FALSE
             ORDER BY ts ASC
             LIMIT #{limit}
-            
 ]]>
     </select>
 
@@ -62,7 +66,6 @@ UPDATE audit_event SET forwarded = TRUE WHERE id = #{id}
         <![CDATA[
             DELETE FROM audit_event
             WHERE forwarded = TRUE AND ts < #{before}
-
 ]]>
     </delete>
 
@@ -70,22 +73,20 @@ UPDATE audit_event SET forwarded = TRUE WHERE id = #{id}
 
     <select id="listUnsealed" resultType="java.util.HashMap">
         <![CDATA[
-            SELECT id, ts, workspace_id AS workspaceId, actor_type AS actorType, actor_id AS actorId,
-                   action, resource_type AS resourceType, resource_id AS resourceId,
-                   outcome, reason, trace_id AS traceId, span_id AS spanId, service,
-                   request_id AS requestId, subject, client_ip AS clientIp, details_json AS detailsJson
+            SELECT id, ts, workspace_id AS "workspaceId", actor_type AS "actorType", actor_id AS "actorId",
+                   action, resource_type AS "resourceType", resource_id AS "resourceId",
+                   outcome, reason, trace_id AS "traceId", span_id AS "spanId", service,
+                   request_id AS "requestId", subject, client_ip AS "clientIp", details_json AS "detailsJson"
             FROM audit_event
             WHERE hash IS NULL
             ORDER BY id ASC
             LIMIT #{limit}
-
 ]]>
     </select>
 
     <update id="markSealed">
         <![CDATA[
             UPDATE audit_event SET prev_hash = #{prevHash}, hash = #{hash} WHERE id = #{id}
-
 ]]>
     </update>
 
@@ -98,32 +99,29 @@ UPDATE audit_event SET forwarded = TRUE WHERE id = #{id}
                   last_hash = EXCLUDED.last_hash,
                   events_sealed = audit_seal.events_sealed + EXCLUDED.events_sealed,
                   sealed_at = now()
-
 ]]>
     </insert>
 
     <select id="listSealedByChain" resultType="java.util.HashMap">
         <![CDATA[
-            SELECT id, ts, workspace_id AS workspaceId, actor_type AS actorType, actor_id AS actorId,
-                   action, resource_type AS resourceType, resource_id AS resourceId,
-                   outcome, reason, trace_id AS traceId, span_id AS spanId, service,
-                   request_id AS requestId, subject, client_ip AS clientIp, details_json AS detailsJson,
-                   prev_hash AS prevHash, hash
+            SELECT id, ts, workspace_id AS "workspaceId", actor_type AS "actorType", actor_id AS "actorId",
+                   action, resource_type AS "resourceType", resource_id AS "resourceId",
+                   outcome, reason, trace_id AS "traceId", span_id AS "spanId", service,
+                   request_id AS "requestId", subject, client_ip AS "clientIp", details_json AS "detailsJson",
+                   prev_hash AS "prevHash", hash
             FROM audit_event
             WHERE (CASE WHEN #{workspaceKey} = '_system' THEN workspace_id IS NULL ELSE workspace_id = #{workspaceKey} END)
               AND hash IS NOT NULL
             ORDER BY id ASC
-
 ]]>
     </select>
 
     <select id="getSeal" resultType="java.util.HashMap">
         <![CDATA[
-            SELECT workspace_key AS workspaceKey, last_id AS lastId, last_hash AS lastHash,
-                   events_sealed AS eventsSealed, sealed_at AS sealedAt
+            SELECT workspace_key AS "workspaceKey", last_id AS "lastId", last_hash AS "lastHash",
+                   events_sealed AS "eventsSealed", sealed_at AS "sealedAt"
             FROM audit_seal
             WHERE workspace_key = #{workspaceKey}
-
 ]]>
     </select>
 
@@ -132,14 +130,12 @@ UPDATE audit_event SET forwarded = TRUE WHERE id = #{id}
     <select id="tryAdvisoryLock" resultType="boolean">
         <![CDATA[
             SELECT pg_try_advisory_lock(hashtext(#{lockKey}))
-
 ]]>
     </select>
 
     <select id="advisoryUnlock" resultType="boolean">
         <![CDATA[
             SELECT pg_advisory_unlock(hashtext(#{lockKey}))
-
 ]]>
     </select>
 
@@ -151,7 +147,6 @@ UPDATE audit_event SET forwarded = TRUE WHERE id = #{id}
               SET last_forwarded_id = EXCLUDED.last_forwarded_id,
                   batches = audit_forward_progress.batches + EXCLUDED.batches,
                   last_forwarded_at = now()
-
 ]]>
     </insert>
 

@@ -2,7 +2,6 @@ package com.tioka.server.gate;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.tioka.agent.api.spec.AgentSpec;
 import com.tioka.agent.application.AgentService;
 import com.tioka.agent.domain.AgentStore;
@@ -170,20 +169,10 @@ class G3DelegationGateIT {
                         AgentSpec.SandboxPolicy.defaults(),
                         AgentSpec.ApprovalSettings.empty(),
                         AgentSpec.Limits.defaults(),
-                        charter, null, null, null, null, null, null, null);
-                // SchemaPublishCheck 仍冻结 subAgents（M1 预留字段必须为 null），而委派运行时
-                // DelegateToolProvider.allowedByParent 消费 subAgents.allowed —— 设施缺口：
-                // 先按 subAgents=null 合法发布（走完整 charter 编译），再回填 agent_version.spec_json
-                // 的 subAgents 节点（偏差登记：MAS-01 发布闸未解冻 subAgents）。
+                        charter, null, null, null, null, null, subAgents, null);
+                // C-20：subAgents 已在 SchemaPublishCheck 解冻（委派开关开启时带结构校验），
+                // 直接经合法发布链路写入快照，不再回填 agent_version.spec_json。
                 AgentService.PublishResult parentPublished = agents.publishSpec(parent.id(), parentSpec);
-                try {
-                    ObjectNode parentJson = (ObjectNode) mapper.valueToTree(parentSpec);
-                    parentJson.set("subAgents", subAgents);
-                    jdbc.update("UPDATE agent_version SET spec_json = ? WHERE id = ?",
-                            mapper.writeValueAsString(parentJson), parentPublished.versionId());
-                } catch (Exception e) {
-                    throw new IllegalStateException(e);
-                }
                 return new Seeded(s.id(), plan, child.id(),
                         childPublished.versionId(), parentPublished.versionId());
             });

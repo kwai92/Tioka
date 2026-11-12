@@ -27,7 +27,8 @@ import java.util.regex.Pattern;
  *   <li>非 READ 写工具必须落入某个动作类别的 toolPatterns</li>
  *   <li>{@code actingAs=SERVICE} 时发布者对 serviceAccountId 有 USE</li>
  *   <li>动作类别 ceiling &gt; L2 时发布者须为空间管理员</li>
- *   <li>MAS-02：delegable ⊆ 本授权书动作类别 ∪ subAgents 成员授权书动作类别</li>
+ *   <li>MAS-02：delegable ⊆ 本授权书动作类别（C-20：subAgents 解冻后仅含 agentId 白名单，
+ *       成员授权书类别并集无法在发布期反查，归 M4 SubAgentPolicy 扩展）</li>
  * </ul>
  */
 @Component
@@ -163,17 +164,18 @@ public class CharterPublishCheck implements PublishCheck {
     }
 
     /**
-     * MAS-02：可下放类别 ⊆ 本授权书动作类别 ∪ subAgents 成员授权书动作类别。
+     * MAS-02：可下放类别 ⊆ 本授权书动作类别。
      * 顶层 {@code delegable} 数组优先；缺省按 {@code actionClasses[].delegable=true} 派生（C-2b 兼容口径）。
-     * subAgents 为预留 JsonNode：null/空时仅本授权书类别即可；非空时尽力解析成员授权书
-     * （成员形态未定，解析失败不阻断——登记：成员类别并集完整校验待 subAgents 解冻后启用）。
+     * C-20 裁决：subAgents 权威形态为 {@code {"allowed":[agentId...]}}，只含 agentId、不含成员授权书，
+     * 且发布期反查会与父子发布顺序形成死锁，故 C-2c 的「成员类别并集（尽力解析）」正式作废；
+     * 待 M4 SubAgentPolicy 引入成员授权书快照后再启用。
      */
     private void checkDelegableScope(AgentSpec spec, JsonNode charter, List<PublishError> errors) {
         List<String> requested = requestedDelegable(charter);
         if (requested.isEmpty()) {
             return;
         }
-        Set<String> allowed = allowedDelegableScope(charter, spec.subAgents());
+        Set<String> allowed = allowedDelegableScope(charter);
         List<String> violations = new ArrayList<>();
         for (String c : requested) {
             if (!allowed.contains(c)) {
@@ -184,7 +186,7 @@ public class CharterPublishCheck implements PublishCheck {
             errors.add(new PublishError(
                     "/charter/delegable",
                     CODE_DELEGABLE_INVALID,
-                    "delegable 含越界动作类别（须为本授权书类别 ∪ subAgents 成员授权书类别）: "
+                    "delegable 含越界动作类别（须为本授权书动作类别）: "
                             + String.join(", ", violations)));
         }
     }
@@ -216,8 +218,8 @@ public class CharterPublishCheck implements PublishCheck {
         return out;
     }
 
-    /** allowed = 本授权书 actionClasses codes ∪ subAgents 成员授权书 actionClasses codes（尽力解析）。 */
-    private static Set<String> allowedDelegableScope(JsonNode charter, JsonNode subAgents) {
+    /** allowed = 本授权书 actionClasses codes（C-20：成员类别并集作废，见 checkDelegableScope）。 */
+    private static Set<String> allowedDelegableScope(JsonNode charter) {
         Set<String> allowed = new HashSet<>();
         JsonNode classes = charter.get("actionClasses");
         if (classes != null && classes.isArray()) {
@@ -225,34 +227,6 @@ public class CharterPublishCheck implements PublishCheck {
                 String code = text(ac, "code");
                 if (code != null && !code.isBlank()) {
                     allowed.add(code);
-                }
-            }
-        }
-        if (subAgents != null && subAgents.isArray()) {
-            for (JsonNode member : subAgents) {
-                if (member == null || !member.isObject()) {
-                    continue;
-                }
-                JsonNode memberCharter = member.get("charter");
-                if (memberCharter == null) {
-                    JsonNode innerSpec = member.get("spec");
-                    memberCharter = innerSpec == null ? null : innerSpec.get("charter");
-                }
-                if (memberCharter == null || !memberCharter.isObject()) {
-                    continue;
-                }
-                try {
-                    com.tioka.agent.api.spec.Charter parsed =
-                            com.tioka.agent.api.spec.Charter.parse(memberCharter);
-                    if (parsed != null && parsed.actionClasses() != null) {
-                        for (com.tioka.agent.api.spec.Charter.ActionClass ac : parsed.actionClasses()) {
-                            if (ac.code() != null && !ac.code().isBlank()) {
-                                allowed.add(ac.code());
-                            }
-                        }
-                    }
-                } catch (RuntimeException ignored) {
-                    // 尽力解析：subAgents 成员形态未定（预留段），解析失败不阻断发布
                 }
             }
         }

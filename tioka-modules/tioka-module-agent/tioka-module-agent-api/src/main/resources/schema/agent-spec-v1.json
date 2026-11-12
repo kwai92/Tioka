@@ -108,9 +108,21 @@
       ]
     },
     "subAgents": {
-      "type": [
-        "object",
-        "null"
+      "description": "MAS-01..03 / C-20 解冻：可委派子 Agent 白名单，由 DelegateToolProvider 消费",
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["allowed"],
+          "properties": {
+            "allowed": {
+              "type": "array",
+              "minItems": 1,
+              "items": { "type": "string", "minLength": 1 }
+            }
+          }
+        }
       ]
     },
     "dataClearance": {

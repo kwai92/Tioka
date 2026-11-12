@@ -21,6 +21,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Flow;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -31,6 +32,8 @@ import static org.junit.jupiter.api.Assertions.*;
 class AgUiEndpointIT {
 
     private final ObjectMapper om = new ObjectMapper();
+    /** C-20：记录 SSE 订阅侧 onError 根因，避免 flake 失败时只剩「零事件」而无从归因。 */
+    private volatile Throwable lastStreamFailure;
 
     @Test
     void streamsAndFinishes() throws Exception {
@@ -41,16 +44,16 @@ class AgUiEndpointIT {
             List<JsonNode> events = postRunCollect(di.baseUrlA(), bundle, aguiThread, runId,
                     "ping", List.of(), 60_000);
 
-            assertFalse(events.isEmpty(), "应收到 AG-UI 事件");
+            assertFalse(events.isEmpty(), () -> "应收到 AG-UI 事件: " + diagnostic(events));
             assertEquals(AgUiEventType.RUN_STARTED, events.get(0).path("type").asText(), events::toString);
             assertEquals(aguiThread, events.get(0).path("threadId").asText());
             assertEquals(runId, events.get(0).path("runId").asText());
             assertTrue(events.stream().anyMatch(e -> AgUiEventType.RUN_FINISHED.equals(e.path("type").asText())),
-                    () -> "应有 RUN_FINISHED: " + events);
+                    () -> "应有 RUN_FINISHED: " + diagnostic(events));
             assertTrue(events.stream().anyMatch(e ->
                             AgUiEventType.TEXT_MESSAGE_CONTENT.equals(e.path("type").asText())
                                     || AgUiEventType.TEXT_MESSAGE_END.equals(e.path("type").asText())),
-                    () -> "应有文本消息: " + events);
+                    () -> "应有文本消息: " + diagnostic(events));
         }
     }
 
@@ -61,7 +64,7 @@ class AgUiEndpointIT {
             List<JsonNode> events = postRunCollect(di.baseUrlA(), bundle, Ids.newId("agui"),
                     Ids.newId("run"), "hi",
                     List.of(Map.of("name", "browser")), 10_000);
-            assertEquals(1, events.size(), () -> events.toString());
+            assertEquals(1, events.size(), () -> diagnostic(events));
             assertEquals(AgUiEventType.RUN_ERROR, events.get(0).path("type").asText());
             assertEquals("CLIENT_TOOLS_UNSUPPORTED", events.get(0).path("code").asText());
         }
@@ -75,14 +78,14 @@ class AgUiEndpointIT {
             List<JsonNode> first = postRunCollect(di.baseUrlA(), bundle, aguiThread,
                     Ids.newId("run"), "ping", List.of(), 60_000);
             assertTrue(first.stream().anyMatch(e -> AgUiEventType.RUN_FINISHED.equals(e.path("type").asText())),
-                    () -> first.toString());
+                    () -> diagnostic(first));
 
             List<JsonNode> second = postRunCollect(di.baseUrlA(), bundle, aguiThread,
                     Ids.newId("run"), "ping again", List.of(), 60_000);
             assertEquals(AgUiEventType.RUN_STARTED, second.get(0).path("type").asText());
             assertEquals(aguiThread, second.get(0).path("threadId").asText());
             assertTrue(second.stream().anyMatch(e -> AgUiEventType.RUN_FINISHED.equals(e.path("type").asText())),
-                    () -> second.toString());
+                    () -> diagnostic(second));
         }
     }
 
@@ -101,6 +104,8 @@ class AgUiEndpointIT {
 
         List<JsonNode> events = new CopyOnWriteArrayList<>();
         AtomicBoolean done = new AtomicBoolean(false);
+        AtomicReference<Throwable> failure = new AtomicReference<>();
+        lastStreamFailure = null;
         HttpClient client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build();
         HttpRequest req = HttpRequest.newBuilder()
                 .uri(URI.create(baseUrl + "/api/agui/agents/" + bundle.agentVersionId() + "/run"))
@@ -145,6 +150,8 @@ class AgUiEndpointIT {
 
                     @Override
                     public void onError(Throwable t) {
+                        failure.set(t);
+                        lastStreamFailure = t;
                         done.set(true);
                     }
 
@@ -172,6 +179,16 @@ class AgUiEndpointIT {
         } catch (Exception ignored) {
             future.cancel(true);
         }
-        return new ArrayList<>(events);
+        List<JsonNode> snapshot = new ArrayList<>(events);
+        if (snapshot.isEmpty() && failure.get() != null) {
+            throw new AssertionError("SSE 订阅异常终止且零事件: " + failure.get(), failure.get());
+        }
+        return snapshot;
+    }
+
+    /** 断言消息附带 SSE onError 根因（C-20 诊断增强）。 */
+    private String diagnostic(List<JsonNode> events) {
+        Throwable t = lastStreamFailure;
+        return events + (t == null ? "" : " | SSE onError: " + t);
     }
 }

@@ -134,6 +134,8 @@ ALTER TABLE audit_event ADD COLUMN data_label VARCHAR(16);
 | governance-biz | `policy/CharterCompiler` | 禁区策略条件改为 `context.chain.contains("{agv}")`；额度与范围策略不变 |
 | governance-biz | `policy/CedarEvaluator` | context 的 schema 增加 `chain: Set<String>`、`depth: Long`、`onBehalfOf: String` |
 
+> **C-20 裁决（2026-11-12）**：上表「或某个 `subAgents` 成员授权书的动作类别」半句作废。`subAgents` 的权威形态经 C-20 解冻定为 `{"allowed":[agentId...]}`（见本节后文与 ADR-027），只含成员 Agent ID、不含成员授权书；发布期若按 ID 反查成员授权书，会与父子发布顺序形成死锁。因此 `CharterPublishCheck` 的 MAS-02 只校验 `delegable ⊆ 本授权书 actionClasses`，原「尽力解析成员类别并集」的预留分支已删除，待 M4 引入 SubAgentPolicy（成员授权书快照）后再恢复该能力。
+
 编译后的禁区示例：
 
 ```cedar
