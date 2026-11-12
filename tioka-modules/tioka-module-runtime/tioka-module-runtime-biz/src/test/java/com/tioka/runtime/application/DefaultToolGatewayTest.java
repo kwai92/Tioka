@@ -91,7 +91,7 @@ class DefaultToolGatewayTest {
         gw = new DefaultToolGateway(registry, pipeline, mock(com.tioka.runtime.api.grant.GrantService.class),
                 audit, degraded, new ObjectMapper(),
                 preparedCalls, changeSets, policies, new ToolPipelineStepRegistry(List.of()),
-                dailyCountersNone(), autonomyNone());
+                dailyCountersNone(), autonomyNone(), null);
     }
 
     @SuppressWarnings("unchecked")

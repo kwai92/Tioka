@@ -290,7 +290,8 @@ public class ApprovalDecideService {
     private void guardAssignee(RuntimeApprovalDO a, Principal p) {
         // TRU-02 四眼（M3-05 §3.4）：fourEyes=true 的审批，决定人不能是 Turn 发起人
         // 或编排工单请求人；违规拒绝并写审计（服务端二次校验，绕过前端过滤也无效）
-        if (isFourEyes(a)) {
+        boolean fourEyes = isFourEyes(a);
+        if (fourEyes) {
             String requester = a.getRequestedBy();
             String initiator = turnInitiator(a.getSubjectType(), a.getSubjectId());
             if ((requester != null && requester.equals(p.userId()))
@@ -308,6 +309,13 @@ public class ApprovalDecideService {
         List<String> roleCodes = assignee.get("roleCodes") instanceof List<?> l
                 ? (List<String>) l : List.of();
         if (userIds.isEmpty() && roleCodes.isEmpty()) {
+            // 授权书策略 ESCALATE 生成的四眼审批未指定审批人列表（Assignee.isRequester()）。
+            // 若仍按「空 = 仅 Turn 发起人可批」解释，会与上面的四眼禁止发起人形成死锁：
+            // 唯一可批的人恰好被禁止，审批永远无法完成。四眼语义本身只要求「不是发起人 /
+            // 工单请求人」，故此处放行任何已通过 approval:decide 权限校验的第三人。
+            if (fourEyes) {
+                return;
+            }
             // 空 = Turn 发起人
             RuntimeTurnDO turn = turns.findById(a.getSubjectId()).orElse(null);
             String requester = turn == null ? null : extractRunAsUser(turn.getRunAsJson());

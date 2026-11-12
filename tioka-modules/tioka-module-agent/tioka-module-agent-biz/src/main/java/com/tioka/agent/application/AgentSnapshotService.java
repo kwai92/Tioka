@@ -79,11 +79,23 @@ public class AgentSnapshotService implements AgentSnapshotApi {
         currentPublished.invalidate(event.agentId());
     }
 
+    /**
+     * TRU-03：授权书状态转移后失效全部快照缓存（byVersion 无 TTL，不失效会长期缓存
+     * 旧 charterStatus；转移为低频事件，整体失效代价可接受）。
+     */
+    public void invalidateCharterCaches() {
+        byVersion.invalidateAll();
+        currentPublished.invalidateAll();
+    }
+
     private AgentSnapshot toSnapshot(AgentVersionDO row) {
         AgentStore.Agent agent = agents.getAgent(row.getAgentId())
                 .orElseThrow(() -> new BizException(ErrorCode.NOT_FOUND, "agent 不存在"));
         AgentSpec spec = AgentSpecJson.parse(mapper, row.getSpecJson());
         String owner = agent.ownerId() == null ? row.getCreateBy() : agent.ownerId();
+        com.tioka.agent.infrastructure.persistence.AgentDO agentRow = repo.findAgent(row.getAgentId());
+        String charterStatus = agentRow == null || agentRow.getCharterStatus() == null
+                ? "ACTIVE" : agentRow.getCharterStatus();
         return new AgentSnapshot(
                 row.getId(),
                 row.getAgentId(),
@@ -92,6 +104,7 @@ public class AgentSnapshotService implements AgentSnapshotApi {
                 owner,
                 row.getSnapshotHash(),
                 spec,
-                row.getPublishedAt() == null ? null : row.getPublishedAt().toInstant(java.time.ZoneOffset.UTC));
+                row.getPublishedAt() == null ? null : row.getPublishedAt().toInstant(java.time.ZoneOffset.UTC),
+                charterStatus);
     }
 }

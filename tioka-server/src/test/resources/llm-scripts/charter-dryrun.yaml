@@ -1,0 +1,6 @@
+# C-19 G3 场景 7：DRYRUN 策略命中 → 调用照常执行 + 审计 tool.policy_dryrun
+calls:
+  - tool_calls: [{ name: erp.update, arguments: { q: "writeoff", customerLevel: "C", amountMicros: 30000000000 } }]
+    usage: { prompt: 10, completion: 6 }
+  - content: "dryrun done"
+    usage: { prompt: 12, completion: 16 }

@@ -3,23 +3,33 @@ package com.tioka.runtime.kernel.approval;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.tioka.framework.error.BizException;
 import com.tioka.framework.security.Principal;
 import com.tioka.framework.security.PrincipalHolder;
 import com.tioka.runtime.api.approval.ApprovalPolicy;
+import com.tioka.runtime.api.approval.ApprovalPolicy.Assignee;
+import com.tioka.runtime.api.approval.ApprovalPolicy.RequireApproval;
 import com.tioka.runtime.api.approval.ApprovalRequestContexts;
 import com.tioka.runtime.api.approval.ToolRisk;
 import com.tioka.runtime.api.kernel.ApprovalStatus;
 import com.tioka.runtime.api.kernel.ItemType;
+import com.tioka.runtime.api.pipeline.ToolPipelineContext;
+import com.tioka.runtime.api.pipeline.ToolPipelineVerdict;
+import com.tioka.runtime.api.spi.ToolCallContexts;
+import com.tioka.runtime.api.spi.ToolGateway;
 import com.tioka.runtime.api.spi.ToolProvider;
 import com.tioka.runtime.application.ToolRegistry;
+import com.tioka.runtime.application.pipeline.PolicyEvalPipelineStep;
 import com.tioka.runtime.kernel.domain.LoopContext;
 import com.tioka.runtime.kernel.domain.LoopPorts;
 import com.tioka.runtime.kernel.infrastructure.ApprovalRepository;
 import com.tioka.runtime.kernel.infrastructure.ItemRepository;
 import com.tioka.runtime.infrastructure.persistence.RuntimeApprovalDO;
 import com.tioka.runtime.infrastructure.persistence.RuntimeItemDO;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Component;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -32,6 +42,8 @@ import java.util.Set;
  */
 @Component
 public class ToolApprovalCoordinator {
+    private static final Duration CHARTER_APPROVAL_TTL = Duration.ofHours(24);
+
     private final ApprovalPolicyResolver policies;
     private final ToolRegistry tools;
     private final PrincipalHolder principals;
@@ -39,6 +51,7 @@ public class ToolApprovalCoordinator {
     private final ItemRepository items;
     private final ApprovalSuspendService suspendService;
     private final ObjectMapper mapper;
+    private final ObjectProvider<PolicyEvalPipelineStep> policyStep;
 
     public ToolApprovalCoordinator(ApprovalPolicyResolver policies,
                                    ToolRegistry tools,
@@ -46,7 +59,8 @@ public class ToolApprovalCoordinator {
                                    ApprovalRepository approvals,
                                    ItemRepository items,
                                    ApprovalSuspendService suspendService,
-                                   ObjectMapper mapper) {
+                                   ObjectMapper mapper,
+                                   ObjectProvider<PolicyEvalPipelineStep> policyStep) {
         this.policies = policies;
         this.tools = tools;
         this.principals = principals;
@@ -54,6 +68,7 @@ public class ToolApprovalCoordinator {
         this.items = items;
         this.suspendService = suspendService;
         this.mapper = mapper;
+        this.policyStep = policyStep;
     }
 
     /**
@@ -133,9 +148,46 @@ public class ToolApprovalCoordinator {
             Map<String, Object> args = parseMap(b.call().argumentsJson());
             ApprovalPolicy.ApprovalRequestContext req = ApprovalRequestContexts.from(
                     principal, ctx.agentVersionId(), b.call().name(), args, desc, Map.of());
-            out.add(new PendingToolCall(b.itemId(), b.call(), args, desc, policy.evaluate(req)));
+            ApprovalPolicy.Decision decision = charterOverride(ctx, b.call().name(), args, policy.evaluate(req));
+            out.add(new PendingToolCall(b.itemId(), b.call(), args, desc, decision));
         }
         return out;
+    }
+
+    /**
+     * TRU-02 授权书 Cedar 求值与 agent-config 决定合并（M3-05 第 9 步，只收紧不放松）：
+     * <ul>
+     *   <li>ESCALATE → {@link RequireApproval}（reason 前缀 {@code fourEyes:} 驱动四眼标记，
+     *       审批卡片 / 审批人 JSON 由 {@link ApprovalSuspendService} 落库）</li>
+     *   <li>DENY（{@code POLICY_DENIED}）→ 保持 agent-config 决定放行到网关
+     *       {@code call} 路径统一拒绝并写 {@code tool.invoke} DENIED 审计（拒绝结果回喂模型）</li>
+     *   <li>其余（ALLOW / DRYRUN 命中）→ 维持 agent-config 决定</li>
+     * </ul>
+     */
+    private ApprovalPolicy.Decision charterOverride(LoopContext ctx, String name,
+                                                    Map<String, Object> args,
+                                                    ApprovalPolicy.Decision current) {
+        PolicyEvalPipelineStep step = policyStep.getIfAvailable();
+        if (step == null || current instanceof ApprovalPolicy.Deny) {
+            return current;
+        }
+        try {
+            ToolGateway.ToolCallContext callCtx = ToolCallContexts.forTurn(
+                    principals.current(), ctx.threadId(), ctx.turnId(), ctx.agentVersionId(),
+                    ctx.origin(), ctx.toolAllowList(), ctx.agentToolConfig(), ctx.grantId());
+            ToolPipelineContext pipeCtx = new ToolPipelineContext(callCtx, name, args);
+            ToolPipelineVerdict verdict = step.execute(pipeCtx);
+            if (verdict == ToolPipelineVerdict.ESCALATE) {
+                Boolean fourEyes = pipeCtx.get("policy.fourEyes", Boolean.class);
+                String actionClass = pipeCtx.get("policy.actionClass", String.class);
+                return new RequireApproval(new Assignee(null, null), CHARTER_APPROVAL_TTL,
+                        (Boolean.TRUE.equals(fourEyes) ? "fourEyes:" : "pipeline:")
+                                + "charter:" + (actionClass == null ? "" : actionClass));
+            }
+        } catch (BizException e) {
+            // POLICY_DENIED：交由网关 call 路径拒绝并审计
+        }
+        return current;
     }
 
     public void suspend(LoopContext ctx, List<PendingToolCall> requires) {

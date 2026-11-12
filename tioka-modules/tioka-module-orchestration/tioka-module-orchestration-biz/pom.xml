@@ -35,6 +35,11 @@
             <groupId>com.tioka</groupId>
             <artifactId>tioka-module-connector-api</artifactId>
         </dependency>
+        <!-- TRU-03：派工复验读授权书状态（AgentCharterPort），biz 只依赖他模块 api（ADR-030） -->
+        <dependency>
+            <groupId>com.tioka</groupId>
+            <artifactId>tioka-module-governance-api</artifactId>
+        </dependency>
         <dependency>
             <groupId>com.networknt</groupId>
             <artifactId>json-schema-validator</artifactId>

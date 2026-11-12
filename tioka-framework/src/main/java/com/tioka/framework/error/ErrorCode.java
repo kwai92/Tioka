@@ -37,6 +37,8 @@ public enum ErrorCode {
     NO_ELIGIBLE_MODEL(42210, 422, "当前对话数据标签下没有获准的模型"),
     /** Agent 已停用，HTTP 423。 */
     AGENT_DISABLED(42300, 423, "Agent 已停用"),
+    /** Agent 负责人已失效，授权书暂停（TRU-03 / ADR-032），HTTP 423。 */
+    AGENT_SUSPENDED(42301, 423, "Agent 负责人已失效，授权书暂停"),
     RATE_LIMITED(42900, 429, "请求过于频繁"),
     /** 配额用尽（ADR-017、ADR-029 第 7 条），HTTP 429。 */
     QUOTA_EXCEEDED(42901, 429, "配额已用尽"),

@@ -1,0 +1,6 @@
+# C-19 G3 场景 3/6：单次 8 万（80_000 元）> 额度 5 万 → ESCALATE 转审批；批准后续跑
+calls:
+  - tool_calls: [{ name: erp.update, arguments: { q: "writeoff", customerLevel: "C", amountMicros: 80000000000 } }]
+    usage: { prompt: 10, completion: 6 }
+  - content: "approved and done"
+    usage: { prompt: 12, completion: 16 }

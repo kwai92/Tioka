@@ -21,6 +21,16 @@ public interface AgentSnapshotApi {
             String ownerId,
             String contentHash,
             AgentSpec spec,
-            java.time.Instant publishedAt
-    ) {}
+            java.time.Instant publishedAt,
+            /** 授权书生命周期状态（TRU-03 / ADR-032；ACTIVE / SUSPENDED / HANDOVER）。 */
+            String charterStatus
+    ) {
+        /** 兼容八参构造（TRU-03 前的调用点；快照读不到授权书状态时按 ACTIVE 口径）。 */
+        public AgentSnapshot(String versionId, String agentId, int versionNo, String workspaceId,
+                             String ownerId, String contentHash, AgentSpec spec,
+                             java.time.Instant publishedAt) {
+            this(versionId, agentId, versionNo, workspaceId, ownerId, contentHash, spec,
+                    publishedAt, "ACTIVE");
+        }
+    }
 }

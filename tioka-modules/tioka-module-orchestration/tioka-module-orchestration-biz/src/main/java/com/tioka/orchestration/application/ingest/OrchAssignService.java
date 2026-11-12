@@ -131,6 +131,7 @@ public class OrchAssignService {
         row.setRequesterExternalId(cmd.requesterExternalId());
         row.setRequesterUserId(cmd.requesterUserId());
         row.setScopeJson(json(cmd.scopeJson()));
+        row.setAgentVersionId(cmd.agentVersionId());
         row.setStatus("ACTIVE");
         row.setCreateAt(now);
         repo.insertMandate(row);

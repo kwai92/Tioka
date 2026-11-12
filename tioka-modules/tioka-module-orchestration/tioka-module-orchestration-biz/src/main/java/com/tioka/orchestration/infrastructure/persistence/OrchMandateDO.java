@@ -20,6 +20,8 @@ public class OrchMandateDO extends TechnicalRecordDO {
     private String requesterExternalId;
     private String requesterUserId;
     private String scopeJson;
+    /** 派工目标 Agent 版本（V201 / ADR-029 第 36 条：工单级授权记录关联数字员工版本）。 */
+    private String agentVersionId;
     private String status;
     private String revokedBy;
     private String revokedReason;
@@ -46,6 +48,8 @@ public class OrchMandateDO extends TechnicalRecordDO {
     public void setRequesterUserId(String requesterUserId) { this.requesterUserId = requesterUserId; }
     public String getScopeJson() { return scopeJson; }
     public void setScopeJson(String scopeJson) { this.scopeJson = scopeJson; }
+    public String getAgentVersionId() { return agentVersionId; }
+    public void setAgentVersionId(String agentVersionId) { this.agentVersionId = agentVersionId; }
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }
     public String getRevokedBy() { return revokedBy; }

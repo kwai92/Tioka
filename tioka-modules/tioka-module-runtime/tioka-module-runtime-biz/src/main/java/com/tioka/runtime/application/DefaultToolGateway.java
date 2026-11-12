@@ -75,6 +75,7 @@ public class DefaultToolGateway implements ToolGateway {
     private final ToolPipelineStepRegistry pipelineSteps;
     private final ObjectProvider<com.tioka.runtime.application.tool.DailyCounterStore> dailyCounters;
     private final ObjectProvider<com.tioka.governance.api.autonomy.AutonomyApi> autonomyApi;
+    private final com.tioka.runtime.application.pipeline.PolicyEvalPipelineStep policyStep;
 
     public DefaultToolGateway(ToolRegistry registry,
                               ToolCallPipeline pipeline,
@@ -87,7 +88,8 @@ public class DefaultToolGateway implements ToolGateway {
                               ApprovalPolicyResolver policies,
                               ToolPipelineStepRegistry pipelineSteps,
                               ObjectProvider<com.tioka.runtime.application.tool.DailyCounterStore> dailyCounters,
-                              ObjectProvider<com.tioka.governance.api.autonomy.AutonomyApi> autonomyApi) {
+                              ObjectProvider<com.tioka.governance.api.autonomy.AutonomyApi> autonomyApi,
+                              com.tioka.runtime.application.pipeline.PolicyEvalPipelineStep policyStep) {
         this.registry = registry;
         this.pipeline = pipeline;
         this.grants = grants;
@@ -102,6 +104,7 @@ public class DefaultToolGateway implements ToolGateway {
                 : pipelineSteps;
         this.dailyCounters = dailyCounters;
         this.autonomyApi = autonomyApi;
+        this.policyStep = policyStep;
     }
 
     @Override
@@ -403,6 +406,23 @@ public class DefaultToolGateway implements ToolGateway {
         }
 
         AuthorizedCall ac = ((AuthorizeResult.Ok) authz).call();
+        // M3-05 第 9 步：Cedar 策略求值（live 调用路径）。DENY → 拒绝并审计后原样抛出
+        // （GatewayToolPort.invokeOne 捕获为 ToolOutcome 回喂模型）；ESCALATE → 放行执行，
+        // 转审批由 AgentLoop 审批分类（ToolApprovalCoordinator）上游处理（批准续跑经此路径落工具）。
+        if (policyStep != null) {
+            try {
+                com.tioka.runtime.api.pipeline.ToolPipelineVerdict verdict = policyStep.execute(
+                        new com.tioka.runtime.api.pipeline.ToolPipelineContext(ctx, name, ac.args()));
+                if (verdict == ToolPipelineVerdict.ESCALATE) {
+                    log.info("policy ESCALATE（上游审批流处理）thread={} tool={}",
+                            ctx == null ? null : ctx.threadId(), name);
+                }
+            } catch (BizException e) {
+                auditDenied(ctx, name, ac.args(), e.getMessage(), 9,
+                        System.currentTimeMillis() - t0);
+                throw e;
+            }
+        }
         ToolProvider.ToolResult result;
         try {
             // M3：透传完整 ctx（agent.delegate 等需要父 Turn / grantId 的 provider 走此重载）

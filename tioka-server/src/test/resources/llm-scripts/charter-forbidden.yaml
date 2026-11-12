@@ -1,0 +1,6 @@
+# C-19 G3 场景 5：禁区工具 erp.deleteCustomer（映射 biz.erp.deleteCustomer）→ DENY
+calls:
+  - tool_calls: [{ name: erp.deleteCustomer, arguments: { id: "c-42" } }]
+    usage: { prompt: 10, completion: 6 }
+  - content: "acknowledged"
+    usage: { prompt: 12, completion: 16 }
