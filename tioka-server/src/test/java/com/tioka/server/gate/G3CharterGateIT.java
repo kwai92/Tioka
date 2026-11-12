@@ -480,17 +480,16 @@ class G3CharterGateIT {
                     AuditOutcome.DENIED);
             assertFalse(dryrun.isEmpty(), "审计应有 tool.policy_dryrun");
             assertEquals("dryrun_would_deny", dryrun.get(0).reason());
-            // 既有审计查询层缺陷（登记偏离，归 OBS 后续批次）：AuditApi.query 用 MyBatis
-            // HashMap 接 PostgreSQL 结果，未加引号的驼峰别名 detailsJson / workspaceId 被
-            // PG 折叠为小写，AuditService.toEvent 按驼峰取键失败 → 回读 details/workspaceId
-            // 为空（DB 列实际有值）。此处按事件 id 直查原始列，验证策略 @id 确实落库。
-            String detailsJson = scene.ctx().getBean(JdbcTemplate.class).queryForObject(
-                    "SELECT details_json FROM audit_event WHERE id = ?",
-                    String.class, dryrun.get(0).id());
-            assertTrue(detailsJson != null && detailsJson.contains("policyIds"),
-                    () -> "details_json 应含 policyIds，实际=" + detailsJson);
-            assertTrue(detailsJson != null && detailsJson.contains("gate:dryrun:erp.update"),
-                    () -> "details_json 应含 DRYRUN 策略 @id，实际=" + detailsJson);
+            // C-20：AuditEventMapper 驼峰别名已加双引号，AuditApi.query 回读恢复，
+            // 直接断言 API 返回的 details / workspaceId（不再按事件 id 直查原始列）。
+            Map<String, Object> details = dryrun.get(0).details();
+            Object policyIds = details.get("policyIds");
+            assertTrue(policyIds != null && !String.valueOf(policyIds).isEmpty(),
+                    () -> "details.policyIds 非空，实际 details=" + details);
+            assertTrue(String.valueOf(policyIds).contains("gate:dryrun:erp.update"),
+                    () -> "details.policyIds 应含 DRYRUN 策略 @id，实际=" + details);
+            assertEquals(scene.workspaceId, dryrun.get(0).workspaceId(),
+                    "workspaceId 应从审计查询回读");
         }
     }
 

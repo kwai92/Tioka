@@ -10,7 +10,9 @@ import java.util.Map;
  * M3（P3-00b / K9）：一次加齐可空段 {@code output}、{@code charter}、{@code prompt}、
  * {@code context}、{@code memory}、{@code execution}；缺省 null = 行为等于现状。
  * M3 DAT-01 解冻：{@code datasets}（绑定的数据集名列表）、{@code dataClearance}（读标签上限，
- * 缺省 INTERNAL）；{@code subAgents} 仍为预留（须 null，直至对应工作项解冻）。
+ * 缺省 INTERNAL）。M3 MAS-01〜03 / C-20 解冻：{@code subAgents} 形态为
+ * {@code {"allowed":[agentId...]}}，仅在 {@code tioka.runtime.delegate.enabled=true} 时可发布
+ * （关闭时仍须 null，保持 M1 预留行为），由 {@code DelegateToolProvider} 消费。
  */
 public record AgentSpec(
         int schemaVersion,

@@ -26,7 +26,7 @@ class OutputContractPublishCheckTest {
 
     @BeforeEach
     void setUp() {
-        schemaPublishCheck = new SchemaPublishCheck(mapper, false);
+        schemaPublishCheck = new SchemaPublishCheck(mapper, false, false);
     }
 
     @Test

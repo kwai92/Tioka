@@ -108,20 +108,34 @@ class CharterPublishCheckTest {
     }
 
     @Test
-    void delegableAllowedViaSubAgentsMemberCharter() {
-        // subAgents 成员授权书的动作类别并入 allowed（尽力解析）
+    void objectFormSubAgentsDoesNotWidenDelegableScope() {
+        // C-20 裁决：subAgents 权威形态为 {"allowed":[agentId...]}，只含 agentId、不含成员授权书。
+        // 发布期无法反查成员授权书类别（且父子发布顺序会形成死锁），C-2c 的「成员类别并集（尽力解析）」
+        // 正式作废；delegable 只能落在本授权书动作类别内，归 M4 SubAgentPolicy 扩展。
         CharterPublishCheck check = newCheck(true, builder(), acl(true), name -> false);
         ObjectNode charter = baseCharter("DELEGATED", null);
         ObjectNode ac = charter.putArray("actionClasses").addObject();
         ac.put("code", "echo").put("name", "Echo");
         ac.putArray("toolPatterns").add("mcp_echo");
         charter.putArray("delegable").add("echo").add("pay");
-        ObjectNode memberCharter = mapper.createObjectNode();
-        ObjectNode mac = memberCharter.putArray("actionClasses").addObject();
-        mac.put("code", "pay").put("name", "Pay");
-        mac.putArray("toolPatterns");
-        com.fasterxml.jackson.databind.node.ArrayNode subAgents = mapper.createArrayNode();
-        subAgents.add(mapper.createObjectNode().set("charter", memberCharter));
+        ObjectNode subAgents = mapper.createObjectNode();
+        subAgents.putArray("allowed").add("ag_child");
+        List<PublishCheck.PublishError> errors = check.check(spec(charter, List.of(), subAgents), ctx());
+        assertTrue(errors.stream().anyMatch(e -> CharterPublishCheck.CODE_DELEGABLE_INVALID.equals(e.code())
+                && e.message().contains("pay")), String.valueOf(errors));
+    }
+
+    @Test
+    void objectFormSubAgentsKeepsOwnClassDelegableValid() {
+        // 新形态不得误伤合法发布：delegable 全在本授权书类别内时仍放行
+        CharterPublishCheck check = newCheck(true, builder(), acl(true), name -> false);
+        ObjectNode charter = baseCharter("DELEGATED", null);
+        ObjectNode ac = charter.putArray("actionClasses").addObject();
+        ac.put("code", "echo").put("name", "Echo");
+        ac.putArray("toolPatterns").add("mcp_echo");
+        charter.putArray("delegable").add("echo");
+        ObjectNode subAgents = mapper.createObjectNode();
+        subAgents.putArray("allowed").add("ag_child");
         assertEquals(List.of(), check.check(spec(charter, List.of(), subAgents), ctx()));
     }
 

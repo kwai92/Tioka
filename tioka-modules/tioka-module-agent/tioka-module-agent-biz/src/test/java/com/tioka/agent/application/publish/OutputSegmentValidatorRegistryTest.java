@@ -18,7 +18,7 @@ class OutputSegmentValidatorRegistryTest {
     void registryIncludesOutputContractPublishCheck() {
         OutputContractPublishCheck outputCheck = new OutputContractPublishCheck(emptyProvider());
         DefaultAgentSpecValidatorRegistry registry = new DefaultAgentSpecValidatorRegistry(List.of(
-                new SchemaPublishCheck(new com.fasterxml.jackson.databind.ObjectMapper(), false),
+                new SchemaPublishCheck(new com.fasterxml.jackson.databind.ObjectMapper(), false, false),
                 outputCheck));
 
         List<PublishCheck> validators = registry.validators();
