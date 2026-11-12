@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--
+  C-18（EVO-07 / ADR-068 L63）UnitSplit 校验查询：同一空间内给定材料单元键
+  已落到的 (unit_key, tier) 去重组合（跨数据集含历史版本）。
+  eval_case 无 workspace_id（V176 workspace-scope-exempt），经 eval_dataset 归属。
+-->
+<mapper namespace="com.tioka.eval.infrastructure.mapper.EvalCaseMapper">
+
+    <select id="selectUnitTiers" resultType="java.util.HashMap">
+        SELECT DISTINCT c.unit_key AS "unitKey", d.tier AS "tier"
+        FROM eval_case c
+        JOIN eval_dataset d ON d.id = c.dataset_id AND d.deleted = FALSE
+        WHERE d.workspace_id = #{workspaceId}
+          AND c.unit_key IS NOT NULL
+          AND c.unit_key IN
+          <foreach collection="unitKeys" item="k" open="(" separator="," close=")">#{k}</foreach>
+    </select>
+
+</mapper>

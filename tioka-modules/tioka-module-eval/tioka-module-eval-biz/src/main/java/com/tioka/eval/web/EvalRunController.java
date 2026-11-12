@@ -30,15 +30,16 @@ public class EvalRunController {
         this.eval = eval;
     }
 
+    /** C-18 EVO-07：trials（每条用例运行次数，null 缺省 1，1~10 越界拒绝，ADR-068 第 5 节）。 */
     public record StartRunCmd(String datasetId, Integer datasetVersion, String subjectType,
-                              String subjectRef, List<String> evaluatorIds) {}
+                              String subjectRef, List<String> evaluatorIds, Integer trials) {}
 
     @PostMapping
     @RequirePermission(Permissions.CHAT_USE)
     public Map<String, Object> start(@RequestBody StartRunCmd cmd) {
         String runId = eval.startRun(new EvalApi.StartEvalRunCmd(
                 cmd.datasetId(), cmd.datasetVersion(), cmd.subjectType(),
-                cmd.subjectRef(), cmd.evaluatorIds()));
+                cmd.subjectRef(), cmd.evaluatorIds(), cmd.trials()));
         return Map.of("runId", runId);
     }
 

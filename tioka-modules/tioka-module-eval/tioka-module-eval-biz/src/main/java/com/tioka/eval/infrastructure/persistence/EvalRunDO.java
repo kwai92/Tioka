@@ -30,6 +30,8 @@ public class EvalRunDO extends TechnicalRecordDO {
     private String status;
     private String summaryJson;
     private String runAsJson;
+    /** 每条用例运行次数（C-18 EVO-07 / V225；1~10，缺省 1，ADR-068 第 5 节） */
+    private Integer trials;
     private LocalDateTime createAt;
     private LocalDateTime endedAt;
 
@@ -57,6 +59,8 @@ public class EvalRunDO extends TechnicalRecordDO {
     public void setSummaryJson(String summaryJson) { this.summaryJson = summaryJson; }
     public String getRunAsJson() { return runAsJson; }
     public void setRunAsJson(String runAsJson) { this.runAsJson = runAsJson; }
+    public Integer getTrials() { return trials; }
+    public void setTrials(Integer trials) { this.trials = trials; }
     public LocalDateTime getCreateAt() { return createAt; }
     public void setCreateAt(LocalDateTime createAt) { this.createAt = createAt; }
     public LocalDateTime getEndedAt() { return endedAt; }

@@ -50,6 +50,9 @@ public final class Permissions {
     /** 策略引擎管理：导入 / 模式切换 / 停用（GOV-07 / M3-05 §1.4）。 */
     public static final String GOV_POLICY_ADMIN = "gov:policy:admin";
 
+    /** 密封集逐条内容读取（C-18 EVO-07 / ADR-068 L42/L47：仅评测负责人与业务专家）。 */
+    public static final String EVAL_SEALED_READ = "eval:sealed:read";
+
     /** 目录中的全部具体权限点（不含 {@link #ALL}）。 */
     public static final String[] ALL_CONCRETE = {
             AGENT_READ, AGENT_WRITE, AGENT_PUBLISH, AGENT_SHARE,
@@ -61,7 +64,8 @@ public final class Permissions {
             ORCH_READ, ORCH_WRITE, ORCH_OPERATE,
             MODEL_READ, MODEL_ADMIN,
             QUOTA_READ, QUOTA_ADMIN,
-            AUDIT_READ, WORKSPACE_MANAGE, TENANT_ADMIN, GOV_POLICY_ADMIN
+            AUDIT_READ, WORKSPACE_MANAGE, TENANT_ADMIN, GOV_POLICY_ADMIN,
+            EVAL_SEALED_READ
     };
 
     private Permissions() {}

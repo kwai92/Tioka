@@ -59,8 +59,10 @@ public class EvalAutoConfiguration {
     // ---- EVO-02：数据集 + 评估器 SPI ----
 
     @Bean
-    public DatasetService evalDatasetService(EvalDatasetRepository repo, ObjectMapper mapper) {
-        return new DatasetService(repo, mapper);
+    public DatasetService evalDatasetService(EvalDatasetRepository repo, ObjectMapper mapper,
+                                             PrincipalHolder principals) {
+        // C-18 EVO-07：principals 供密封集隔离（eval:sealed:read）与 UnitSplit 工作空间归属
+        return new DatasetService(repo, mapper, principals);
     }
 
     @Bean

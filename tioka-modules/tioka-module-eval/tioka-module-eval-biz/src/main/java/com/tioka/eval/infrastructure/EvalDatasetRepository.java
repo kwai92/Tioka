@@ -11,6 +11,7 @@ import org.springframework.stereotype.Repository;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 
 /**
  * EVO-02 数据集 / 用例 / 评估器实例存取。
@@ -66,5 +67,16 @@ public class EvalDatasetRepository {
         }
         return evaluators.selectList(Wrappers.<EvalEvaluatorDO>lambdaQuery()
                 .in(EvalEvaluatorDO::getId, ids));
+    }
+
+    /**
+     * UnitSplit 校验（C-18 EVO-07 / ADR-068 L63）：同一空间内给定材料单元键
+     * 已落到的 (unit_key, tier) 去重组合（跨数据集含历史版本）。
+     */
+    public List<Map<String, Object>> selectUnitTiers(String workspaceId, Collection<String> unitKeys) {
+        if (unitKeys == null || unitKeys.isEmpty()) {
+            return List.of();
+        }
+        return cases.selectUnitTiers(workspaceId, unitKeys);
     }
 }

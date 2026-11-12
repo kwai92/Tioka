@@ -24,6 +24,12 @@ public class EvalCaseDO extends TechnicalRecordDO {
     /** MANUAL / IMPORT / ONLINE */
     private String source;
     private String sourceTurnId;
+    /** 材料单元键（C-18 EVO-07 / V225；NULL = 未声明） */
+    private String unitKey;
+    /** VALID / STALE / DISPUTED（ADR-068 第 2 节；非 VALID 不参与门禁统计） */
+    private String labelStatus;
+    /** 逐条必须通过（回归集缺省为是） */
+    private Boolean mustPass;
     private LocalDateTime createAt;
 
     public String getId() { return id; }
@@ -40,6 +46,12 @@ public class EvalCaseDO extends TechnicalRecordDO {
     public void setSource(String source) { this.source = source; }
     public String getSourceTurnId() { return sourceTurnId; }
     public void setSourceTurnId(String sourceTurnId) { this.sourceTurnId = sourceTurnId; }
+    public String getUnitKey() { return unitKey; }
+    public void setUnitKey(String unitKey) { this.unitKey = unitKey; }
+    public String getLabelStatus() { return labelStatus; }
+    public void setLabelStatus(String labelStatus) { this.labelStatus = labelStatus; }
+    public Boolean getMustPass() { return mustPass; }
+    public void setMustPass(Boolean mustPass) { this.mustPass = mustPass; }
     public LocalDateTime getCreateAt() { return createAt; }
     public void setCreateAt(LocalDateTime createAt) { this.createAt = createAt; }
 }

@@ -20,6 +20,10 @@ public class EvalEvaluatorDO extends TechnicalRecordDO {
     private String name;
     private String configJson;
     private Boolean builtin;
+    /** 评分器版本（C-18 EVO-07 / V225 落列；ADR-068 第 3 节，消费面 EVO-09 接入） */
+    private String version;
+    /** 评分器配置指纹（config_json 变化即新版本） */
+    private String configHash;
 
     public String getId() { return id; }
     public void setId(String id) { this.id = id; }
@@ -33,4 +37,8 @@ public class EvalEvaluatorDO extends TechnicalRecordDO {
     public void setConfigJson(String configJson) { this.configJson = configJson; }
     public Boolean getBuiltin() { return builtin; }
     public void setBuiltin(Boolean builtin) { this.builtin = builtin; }
+    public String getVersion() { return version; }
+    public void setVersion(String version) { this.version = version; }
+    public String getConfigHash() { return configHash; }
+    public void setConfigHash(String configHash) { this.configHash = configHash; }
 }
