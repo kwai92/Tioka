@@ -19,6 +19,8 @@ public final class GovernanceMqTopics {
     public static final String TRUST_UNDO_RECORDED = "tioka.trust.undo_recorded.v1";
     public static final String TRUST_COMPENSATE = "tioka.trust.compensate.v1";
     public static final String TRUST_COMPENSATION_FAILED = "tioka.trust.compensation_failed.v1";
+    /** TRU-08 撤销熔断开启（C-21 / M3-05 §6）；由 TRU-10 消费端全类别降 L1。 */
+    public static final String TRUST_UNDO_CIRCUIT_OPEN = "tioka.trust.undo_circuit_open.v1";
     public static final String TRUST_AUTONOMY_CHANGED = "tioka.trust.autonomy_changed.v1";
     public static final String RUN_MANIFEST_WRITTEN = "tioka.obs.run_manifest_written.v1";
 

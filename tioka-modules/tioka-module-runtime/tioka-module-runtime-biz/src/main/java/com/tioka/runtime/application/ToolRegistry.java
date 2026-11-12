@@ -8,13 +8,24 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 @Component
 public class ToolRegistry {
-    private final List<ToolProvider> providers;
+    /** 可动态追加（ENG-04d 闸门基座装载 FakeErp、FND-12 插件宿主登记适配器）。 */
+    private final List<ToolProvider> providers = new CopyOnWriteArrayList<>();
 
     public ToolRegistry(List<ToolProvider> providers) {
-        this.providers = providers;
+        if (providers != null) {
+            this.providers.addAll(providers);
+        }
+    }
+
+    /** 运行时登记工具提供者；同实例内对所有工具调用立即可见。 */
+    public void register(ToolProvider provider) {
+        if (provider != null) {
+            providers.add(provider);
+        }
     }
 
     public record ResolvedTool(ToolProvider provider, ToolProvider.ToolDescriptor descriptor) {}

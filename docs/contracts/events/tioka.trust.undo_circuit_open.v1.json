@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tioka.dev/schema/tioka.trust.undo_circuit_open.v1.json",
+  "title": "tioka.trust.undo_circuit_open.v1",
+  "description": "TRU-08 撤销熔断开启：同一 Agent 在滑动窗口内撤销次数或补偿失败次数达到空间阈值。由 TRU-10 消费，把该 Agent 全部动作类别降到 L1 并通知负责人。同一窗口只发一次。",
+  "type": "object",
+  "required": [
+    "agentId",
+    "workspaceId",
+    "reason",
+    "undoCount",
+    "compFailCount",
+    "windowStart",
+    "undoThreshold",
+    "compFailThreshold"
+  ],
+  "properties": {
+    "agentId": { "type": "string" },
+    "workspaceId": { "type": "string" },
+    "reason": { "type": "string", "enum": ["UNDO_THRESHOLD", "COMPENSATION_FAILURE"] },
+    "undoCount": { "type": "integer" },
+    "compFailCount": { "type": "integer" },
+    "windowStart": { "type": "string", "format": "date-time" },
+    "undoThreshold": { "type": "integer" },
+    "compFailThreshold": { "type": "integer" },
+    "windowMinutes": { "type": "integer" },
+    "undoScopeId": { "type": "string" }
+  },
+  "additionalProperties": true
+}

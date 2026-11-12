@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tioka.governance.infrastructure.mapper.TrustAutonomyDemotionMapper">
+
+    <!-- TRU-10：一次撤销会产生多条 action_undone，按 (撤销范围, 类别) 只降一级；
+         重复投递（Broker 重投）与同窗口多事件只处理一次。 -->
+    <insert id="tryInsert">
+        INSERT INTO trust_autonomy_demotion
+            (demotion_key, workspace_id, agent_id, action_class, event_id, from_level, to_level)
+        VALUES
+            (#{row.demotionKey}, #{row.workspaceId}, #{row.agentId}, #{row.actionClass},
+             #{row.eventId}, #{row.fromLevel}, #{row.toLevel})
+        ON CONFLICT (demotion_key) DO NOTHING
+    </insert>
+
+</mapper>

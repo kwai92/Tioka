@@ -62,6 +62,8 @@ public class TrustCompensator extends IdempotentConsumer<Map<String, Object>> {
     private final ObjectProvider<EventPublisher> publishers;
     private final ApprovalRepository approvals;
     private final ObjectProvider<com.tioka.agent.api.AgentSnapshotApi> agentSnapshots;
+    /** TRU-08 空间窗口口径（补偿失败计数与撤销计数必须同窗口）；离线装配可缺席。 */
+    private final ObjectProvider<UndoCircuitBreaker> breakers;
     private final Backoff backoff;
     private final ObjectMapper mapper;
 
@@ -78,7 +80,8 @@ public class TrustCompensator extends IdempotentConsumer<Map<String, Object>> {
                             ObjectMapper mapper) {
         this(actions, requests, circuit, preparedCalls, registry,
                 new FixedProvider<>(dailyCounters), new FixedProvider<>(publisher), approvals,
-                new FixedProvider<>(agentSnapshots), Backoff.NONE, mapper);
+                new FixedProvider<>(agentSnapshots), new FixedProvider<UndoCircuitBreaker>(null),
+                Backoff.NONE, mapper);
     }
 
     /** Spring 装配（RocketMqConsumerBootstrap 按 List&lt;IdempotentConsumer&gt; 拉起）。 */
@@ -92,9 +95,10 @@ public class TrustCompensator extends IdempotentConsumer<Map<String, Object>> {
                             ObjectProvider<EventPublisher> publishers,
                             ApprovalRepository approvals,
                             ObjectProvider<com.tioka.agent.api.AgentSnapshotApi> agentSnapshots,
+                            ObjectProvider<UndoCircuitBreaker> breakers,
                             ObjectMapper mapper) {
         this(actions, requests, circuit, preparedCalls, registry, dailyCounters, publishers,
-                approvals, agentSnapshots, Backoff.EXPONENTIAL, mapper);
+                approvals, agentSnapshots, breakers, Backoff.EXPONENTIAL, mapper);
     }
 
     public TrustCompensator(TrustActionStore actions,
@@ -106,6 +110,7 @@ public class TrustCompensator extends IdempotentConsumer<Map<String, Object>> {
                             ObjectProvider<EventPublisher> publishers,
                             ApprovalRepository approvals,
                             ObjectProvider<com.tioka.agent.api.AgentSnapshotApi> agentSnapshots,
+                            ObjectProvider<UndoCircuitBreaker> breakers,
                             Backoff backoff,
                             ObjectMapper mapper) {
         this.actions = actions;
@@ -117,6 +122,7 @@ public class TrustCompensator extends IdempotentConsumer<Map<String, Object>> {
         this.publishers = publishers;
         this.approvals = approvals;
         this.agentSnapshots = agentSnapshots;
+        this.breakers = breakers;
         this.backoff = backoff;
         this.mapper = mapper;
     }
@@ -228,9 +234,16 @@ public class TrustCompensator extends IdempotentConsumer<Map<String, Object>> {
                 return;
             } catch (RuntimeException e) {
                 last = e;
+                log.warn("补偿失败 attempt={}/{} actionId={}", attempt, MAX_ATTEMPTS, actionId, e);
+                // 本轮若已把状态推离 COMPENSATING（例如 onCompensated 的副作用异常），
+                // 继续重试只会在 markCompensated 上碰撞，最终把一次成功补偿误判为失败并生成人审。
+                // 此时抛出让投递事务整体回滚，由 outbox 重投从头走一遍（工具补偿本身幂等）。
+                TrustActionDO current = actions.findById(actionId);
+                if (current == null
+                        || !PreparedCallStore.STATUS_COMPENSATING.equals(current.getStatus())) {
+                    throw e;
+                }
                 int attempts = preparedCalls.bumpUndoAttempts(actionId);
-                log.warn("补偿失败 attempt={}/{} actionId={}: {}", attempt, MAX_ATTEMPTS,
-                        actionId, e.toString());
                 if (attempts >= MAX_ATTEMPTS) {
                     break;
                 }
@@ -274,8 +287,13 @@ public class TrustCompensator extends IdempotentConsumer<Map<String, Object>> {
                 row.getId());
         openOwnerAttention(row, reason);
         try {
+            // 与 UndoService 的撤销计数共用空间策略窗口：若这里固定 60 分钟，
+            // 自定义 120 分钟窗口下第 90 分钟的补偿失败会误判窗口过期、
+            // 把已累计的撤销次数清零，熔断与全类别降级不再触发。
+            UndoCircuitBreaker breaker = breakers == null ? null : breakers.getIfAvailable();
+            int windowMinutes = breaker == null ? 60 : breaker.windowMinutes(row.getWorkspaceId());
             circuit.recordCompensationFailure(row.getAgentId(), row.getWorkspaceId(),
-                    LocalDateTime.ofInstant(Instant.now(), ZoneOffset.UTC));
+                    LocalDateTime.ofInstant(Instant.now(), ZoneOffset.UTC), windowMinutes);
         } catch (RuntimeException e) {
             log.warn("补偿失败熔断计数写入失败: {}", e.toString());
         }
@@ -344,15 +362,18 @@ public class TrustCompensator extends IdempotentConsumer<Map<String, Object>> {
             return;
         }
         Map<String, Object> payload = new LinkedHashMap<>();
-        payload.put("actionId", row.getId());
-        payload.put("agentId", row.getAgentId());
-        payload.put("agentVersionId", row.getAgentVersionId());
-        payload.put("actionCategory", row.getActionClass());
-        payload.put("amountMicros", row.getAmountMicros() == null ? 0 : row.getAmountMicros());
-        payload.put("recordCount", row.getRecords() == null ? 0 : row.getRecords());
-        payload.put("orchRunId", row.getOrchRunId());
-        payload.put("workspaceId", row.getWorkspaceId());
-        payload.put("undoScopeId", undoScopeId == null ? "" : undoScopeId);
+        put(payload, "actionId", row.getId());
+        put(payload, "agentId", row.getAgentId());
+        // ToolCallContext 不带 orchRunId，生产 trust_action.orch_run_id 亦无写入点，
+        // agentVersionId 同样可能缺省。DomainEvent 用 Map.copyOf 构造，任何 null value
+        // 都会抛 NPE 并回滚整笔补偿（C-21 闸门暴露），故统一归一为空串。
+        put(payload, "agentVersionId", row.getAgentVersionId());
+        put(payload, "actionCategory", row.getActionClass());
+        put(payload, "amountMicros", row.getAmountMicros() == null ? 0 : row.getAmountMicros());
+        put(payload, "recordCount", row.getRecords() == null ? 0 : row.getRecords());
+        put(payload, "orchRunId", row.getOrchRunId());
+        put(payload, "workspaceId", row.getWorkspaceId());
+        put(payload, "undoScopeId", undoScopeId);
         publisher.publish(new DomainEvent(
                 GovernanceMqTopics.TRUST_ACTION_UNDONE,
                 GovernanceMqTopics.TOPIC,
@@ -369,11 +390,11 @@ public class TrustCompensator extends IdempotentConsumer<Map<String, Object>> {
             return;
         }
         Map<String, Object> payload = new LinkedHashMap<>();
-        payload.put("actionId", row.getId());
-        payload.put("undoScopeId", undoScopeId == null ? "" : undoScopeId);
-        payload.put("reason", reason == null ? "" : reason);
-        payload.put("agentId", row.getAgentId());
-        payload.put("workspaceId", row.getWorkspaceId());
+        put(payload, "actionId", row.getId());
+        put(payload, "undoScopeId", undoScopeId);
+        put(payload, "reason", reason);
+        put(payload, "agentId", row.getAgentId());
+        put(payload, "workspaceId", row.getWorkspaceId());
         publisher.publish(new DomainEvent(
                 GovernanceMqTopics.TRUST_COMPENSATION_FAILED,
                 GovernanceMqTopics.TOPIC,
@@ -393,6 +414,11 @@ public class TrustCompensator extends IdempotentConsumer<Map<String, Object>> {
         } catch (Exception e) {
             return null;
         }
+    }
+
+    /** 事件 payload 不允许 null value（{@code DomainEvent} 用 Map.copyOf 构造）。 */
+    private static void put(Map<String, Object> payload, String key, Object value) {
+        payload.put(key, value == null ? "" : value);
     }
 
     private static String str(Object v) {
