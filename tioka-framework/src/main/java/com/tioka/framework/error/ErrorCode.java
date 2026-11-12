@@ -35,6 +35,8 @@ public enum ErrorCode {
     AGENT_PUBLISH_INVALID(42201, 422, "Agent 发布校验失败"),
     /** Turn 当前数据标签下无获准的模型路由计划（DAT-03 / ADR-040），HTTP 422。 */
     NO_ELIGIBLE_MODEL(42210, 422, "当前对话数据标签下没有获准的模型"),
+    /** CTX-01：四区段注入超出有效预算，不静默截断，HTTP 422。 */
+    CONTEXT_OVERFLOW(42211, 422, "上下文超出有效预算"),
     /** Agent 已停用，HTTP 423。 */
     AGENT_DISABLED(42300, 423, "Agent 已停用"),
     /** Agent 负责人已失效，授权书暂停（TRU-03 / ADR-032），HTTP 423。 */
@@ -68,4 +70,29 @@ public enum ErrorCode {
     public int getCode() { return code; }
     public int getHttpStatus() { return httpStatus; }
     public String getMessage() { return message; }
+
+    /**
+     * ADR-017 / C-22：治理类失败（参数、鉴权、策略、配额、预算、标签、上下文预算）。
+     * 降级链路（rerank 退回 RRF、上下文段渲染失败退化空注入）不得吞掉这类错误，
+     * 否则「治理拒绝」会被伪装成「调用成功但恰好没有结果」。
+     */
+    public boolean isGovernanceFailure() {
+        return switch (this) {
+            case BAD_REQUEST, UNAUTHORIZED, FORBIDDEN, WORKSPACE_FORBIDDEN, EGRESS_DENIED,
+                    GRANT_NOT_NARROWER, GRANT_INACTIVE, DATA_LABEL_EXCEEDED,
+                    POLICY_DENIED, POLICY_EVAL_FAILED, QUOTA_EXCEEDED,
+                    MODEL_BUDGET_EXHAUSTED, RATE_LIMITED, CONTEXT_OVERFLOW, NO_ELIGIBLE_MODEL,
+                    AGENT_PUBLISH_INVALID -> true;
+            default -> false;
+        };
+    }
+
+    /**
+     * 降级链路（上下文段渲染失败 → 空注入）不得吞掉的错误。
+     * {@code DEPENDENCY} 是 DefaultModelGateway 兜底 catch 对「未知异常」的包装码，
+     * 语义不明，静默降级会把未知故障伪装成「知识库里没有相关内容」。
+     */
+    public boolean mustNotDegrade() {
+        return isGovernanceFailure() || this == DEPENDENCY;
+    }
 }

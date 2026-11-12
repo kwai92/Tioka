@@ -53,9 +53,17 @@ public class KernelLoopConfiguration {
         });
     }
 
+    /**
+     * CTX-01：四区组装开关缺省关闭，关闭时 ContextBuilder 与 M2 的 item→messages 路径完全一致。
+     * 闸门显式开启 {@code tioka.context.enabled=true} 后按区渲染并把 D 区按 Turn 冻结。
+     */
     @Bean
-    ContextBuilder contextBuilder(ObjectMapper mapper, ContextSegmentRegistry segments) {
-        return new ContextBuilder(mapper, segments);
+    ContextBuilder contextBuilder(ObjectMapper mapper, ContextSegmentRegistry segments,
+                                  @org.springframework.beans.factory.annotation.Value(
+                                          "${tioka.context.enabled:false}") boolean contextEnabled,
+                                  @org.springframework.beans.factory.annotation.Value(
+                                          "${tioka.context.max-context-tokens:12000}") int maxContextTokens) {
+        return new ContextBuilder(mapper, segments, contextEnabled, maxContextTokens);
     }
 
     @Bean

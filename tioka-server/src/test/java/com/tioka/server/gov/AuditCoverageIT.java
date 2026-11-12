@@ -99,6 +99,7 @@ class AuditCoverageIT {
             "com.tioka.flow.api.FlowPublicationController#asTool",
             "com.tioka.knowledge.api.KnowledgeController#bindDatasource",
             "com.tioka.knowledge.api.KnowledgeController#createBase",
+            "com.tioka.knowledge.api.KnowledgeController#configureRerank",
             "com.tioka.knowledge.api.KnowledgeController#ingest",
             "com.tioka.knowledge.api.KnowledgeController#syncDatasource",
             "com.tioka.knowledge.api.KnowledgeController#upload",

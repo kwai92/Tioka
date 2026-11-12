@@ -21,4 +21,15 @@ public interface ContextSegmentProvider {
     default double budgetShare() {
         return 0d;
     }
+
+    /**
+     * CTX-01：渲染本段的实际文本。默认返回空串，保证既有仅注册元数据的段提供者行为不变。
+     *
+     * <p>渲染可能触发检索 / 读库，实现方须自行做异常兜底（返回空串而不是抛出），
+     * 并自行遵守 {@link #budgetShare()}；组装器仍会做一次统一的预算裁剪。
+     * D 区段的结果由组装器按 {@code turnId} 冻结，同一 Turn 内只调用一次。
+     */
+    default String render(ContextRenderContext context) {
+        return "";
+    }
 }
