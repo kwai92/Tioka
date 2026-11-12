@@ -42,6 +42,8 @@ public class KnowledgeRepository {
     public void insertBase(KbBaseDO row) { bases.insert(row); }
     public boolean hasBase(String id) { return bases.selectById(id) != null; }
     public KbBaseDO findBase(String id) { return bases.selectById(id); }
+    /** KNW-14 kb.list：当前空间知识库清单（TenantLine 自动限定 workspace）。 */
+    public List<KbBaseDO> listBases() { return bases.selectList(null); }
 
     /** KNW-03：切块策略落 kb_base 列；修改后调用方触发既有重建路径。 */
     public void updateBaseChunkPolicy(String kbId, String chunkPolicyJson, Boolean contextEnhancement) {
@@ -55,6 +57,25 @@ public class KnowledgeRepository {
             row.setContextEnhancement(contextEnhancement);
         }
         bases.updateById(row);
+    }
+
+    /**
+     * KNW-04 / V227：rerank 绑定与阈值落 kb_base 列；null 表示解绑（跳过且不设阈值）。
+     *
+     * <p>必须用 {@code lambdaUpdate().set(...)} 显式写 NULL：{@code updateById} 走
+     * MyBatis-Plus 的 NOT NULL 默认更新策略，会静默跳过 null 字段，导致解绑无效。
+     */
+    public void updateBaseRerank(String kbId, String rerankBindingId, Double rerankThreshold) {
+        KbBaseDO row = bases.selectById(kbId);
+        if (row == null) {
+            throw new com.tioka.framework.error.BizException(
+                    com.tioka.framework.error.ErrorCode.NOT_FOUND, "知识库不存在");
+        }
+        bases.update(null, Wrappers.<KbBaseDO>lambdaUpdate()
+                .eq(KbBaseDO::getId, kbId)
+                .eq(KbBaseDO::getWorkspaceId, row.getWorkspaceId())
+                .set(KbBaseDO::getRerankBindingId, rerankBindingId)
+                .set(KbBaseDO::getRerankThreshold, rerankThreshold));
     }
 
     /** KNW-03：重建任务按知识库遍历文档。 */
@@ -132,6 +153,19 @@ public class KnowledgeRepository {
 
     public List<Map<String, Object>> searchVisible(Map<String, Object> params) {
         return chunks.searchVisible(params);
+    }
+
+    /**
+     * KNW-12：独立全文召回（与向量路同权限条件下推）。
+     * 无 tokens 时不发 SQL；仓储被部分构造（离线内存替身 / 单测）时也不触碰 mapper，
+     * 避免生成空 IN / 空 OR 的非法 SQL 或 NPE。
+     */
+    public List<Map<String, Object>> searchByKeyword(Map<String, Object> params) {
+        Object tokens = params == null ? null : params.get("tokens");
+        if (chunks == null || !(tokens instanceof List<?> list) || list.isEmpty()) {
+            return List.of();
+        }
+        return chunks.searchByKeyword(params);
     }
 
     public void insertWiki(WikiPageDO row) { wikis.insert(row); }

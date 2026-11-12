@@ -29,9 +29,11 @@ class KbToolProviderTest {
         // ToolRegistry 聚合 ToolProvider；此处直接验证 SPI 契约（Echo 之外）
         List<String> names = provider.listTools("agent_v1").stream().map(ToolProvider.ToolDescriptor::name).toList();
         assertTrue(names.contains("kb.search"));
+        assertTrue(names.contains("kb.read"));
+        assertTrue(names.contains("kb.list"));
         assertTrue(names.contains("kb.read_chunk"));
         assertTrue(names.contains("kb.read_document"));
-        assertEquals(3, names.size());
+        assertEquals(5, names.size(), "KNW-14 后为 3 个主工具 + 2 个兼容别名");
 
         ToolProvider.ToolResult search = provider.invoke("kb.search",
                 Map.of("kbId", kb.id(), "query", "Tioka", "topK", 3));
@@ -52,5 +54,14 @@ class KbToolProviderTest {
                 Map.of("docId", doc.id(), "maxChunks", 2));
         assertTrue(document.ok());
         assertTrue(document.content().contains(doc.id()));
+
+        ToolProvider.ToolResult unified = provider.invoke("kb.read",
+                Map.of("scope", "chunk", "chunkId", chunkId));
+        assertTrue(unified.ok(), "kb.read(scope=chunk) 须可读回同一块");
+        assertTrue(unified.content().contains(chunkId));
+
+        ToolProvider.ToolResult list = provider.invoke("kb.list", Map.of());
+        assertTrue(list.ok(), "kb.list 须返回当前可见知识库");
+        assertTrue(list.content().contains(kb.id()));
     }
 }

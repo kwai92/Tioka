@@ -2,6 +2,7 @@ package com.tioka.runtime.kernel.domain;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tioka.runtime.api.approval.ApprovalPolicy;
+import com.tioka.runtime.api.context.ContextRenderContext;
 import com.tioka.runtime.api.kernel.ItemType;
 import com.tioka.runtime.kernel.approval.PendingToolCall;
 import com.tioka.runtime.kernel.approval.ToolApprovalCoordinator;
@@ -116,7 +117,12 @@ public final class AgentLoop {
                     }
                     applySteers(ctx, step);
                     boolean last = step >= ctx.maxSteps() || ctx.isForceFinalAnswer();
-                    List<Map<String, Object>> messages = contextBuilder.build(itemLoader.apply(ctx.threadId()));
+                    // CTX-01：四区段渲染 + D 区按 Turn 冻结（开关关闭时 build 走原 M2 路径）。
+                    List<RuntimeItemDO> turnItems = itemLoader.apply(ctx.threadId());
+                    String turnQuery = ContextBuilder.queryForTurn(turnItems, mapper, ctx.turnId());
+                    List<Map<String, Object>> messages = contextBuilder.build(turnItems,
+                            ContextRenderContext.of(ctx.turnId(), ctx.threadId(), ctx.workspaceId(),
+                                    ctx.agentVersionId(), turnQuery));
                     TurnCallScope.open(ctx, sink, step);
                     LoopPorts.ModelPort.Result r;
                     try {

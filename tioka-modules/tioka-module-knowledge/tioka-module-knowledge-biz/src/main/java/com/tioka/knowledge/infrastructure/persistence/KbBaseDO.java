@@ -17,6 +17,15 @@ public class KbBaseDO extends WorkspaceAwareDO {
     private String chunkPolicyJson;
     /** KNW-03 / V179：上下文增强开关（子块嵌入/全文索引加标题路径前缀），缺省 TRUE。 */
     private Boolean contextEnhancement;
+    /** KNW-04 / V227：知识库绑定的 rerank 模型；NULL = 未绑定（跳过且不设阈值）。 */
+    private String rerankBindingId;
+    /** KNW-04 / V227：rerank 分数阈值，NULL 时取缺省 0.3。 */
+    private Double rerankThreshold;
+
+    public String getRerankBindingId() { return rerankBindingId; }
+    public void setRerankBindingId(String rerankBindingId) { this.rerankBindingId = rerankBindingId; }
+    public Double getRerankThreshold() { return rerankThreshold; }
+    public void setRerankThreshold(Double rerankThreshold) { this.rerankThreshold = rerankThreshold; }
 
     public String getChunkPolicyJson() { return chunkPolicyJson; }
     public void setChunkPolicyJson(String chunkPolicyJson) { this.chunkPolicyJson = chunkPolicyJson; }

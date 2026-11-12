@@ -41,4 +41,12 @@ public interface KbChunkMapper extends BaseMapper<KbChunkDO> {
      */
     @InterceptorIgnore(tenantLine = "true")
     List<Map<String, Object>> searchVisible(Map<String, Object> params);
+
+    /**
+     * KNW-12：与向量路完全独立的全文召回（ADR-056 §2 步 4「不得只在向量结果上打分」）。
+     * tokens 由 {@code CjkTokenizer} 产出，同样的权限条件（空间、知识库 ACL、文档级 ACL、
+     * 当前版本）全部下推到 SQL；按命中 token 数排序后 LIMIT。
+     */
+    @InterceptorIgnore(tenantLine = "true")
+    List<Map<String, Object>> searchByKeyword(Map<String, Object> params);
 }

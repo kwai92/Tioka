@@ -71,7 +71,84 @@ LIMIT #{k}
             </choose>
             )
         </if>
+        <if test="aclTokens != null and aclTokens.size() &gt; 0">
+            AND (btrim(coalesce(d.acl_principals, '')) IN ('', '[]')
+            <foreach collection="aclTokens" item="acl">
+                OR d.acl_principals LIKE CONCAT('%', #{acl}, '%')
+            </foreach>
+            )
+        </if>
         ORDER BY c.embedding_vec <![CDATA[<=>]]> CAST(#{vectorLiteral} AS vector)
+        LIMIT #{k}
+    </select>
+
+    <!-- KNW-12：独立全文召回。中文由应用层 CjkTokenizer 切 bigram 后以 strpos 下推：
+         strpos 是普通子串函数，token 中的 % / _ 不会被当作 LIKE 通配符（W1）。
+         aclTokens 为带引号的 JSON 主体串（如 "user:42"），空/空白/[] 文档继承知识库权限。
+         tokens 为空时本语句返回空集而不是生成空 OR 的非法 SQL（W2）。
+         SQL 全部走 #{} 参数，仅 vfSql 为框架生成的已限定别名条件。 -->
+    <select id="searchByKeyword" resultType="java.util.HashMap">
+        SELECT c.id AS chunk_id, c.doc_id AS doc_id, c.kb_id AS kb_id, c.text AS text,
+               c.ordinal AS ordinal,
+               c.chunk_type AS chunk_type, c.parent_chunk_id AS parent_chunk_id,
+               c.page_start AS page_start, c.page_end AS page_end,
+               c.block_ids_json AS block_ids_json, c.context_prefix AS context_prefix,
+               COALESCE(d.title, '') AS title,
+               0.0 AS distance,
+        <choose>
+            <when test="tokens != null and tokens.size() &gt; 0">
+                <foreach collection="tokens" item="t" separator=" + ">
+                    (CASE WHEN strpos(lower(coalesce(c.context_prefix, '') || ' '
+                                            || coalesce(c.text, '')), #{t}) &gt; 0
+                          THEN 1 ELSE 0 END)
+                </foreach>
+                + 0
+            </when>
+            <otherwise>0</otherwise>
+        </choose>
+        AS keyword_hits
+        FROM kb_chunk c
+        JOIN kb_base b ON b.id = c.kb_id AND b.deleted = FALSE
+        LEFT JOIN kb_document d ON d.id = c.doc_id AND d.deleted = FALSE
+        WHERE c.deleted = FALSE
+          AND c.workspace_id = #{workspaceId}
+          <!-- 父块正文通过 parentText 附加，不参与独立召回；按 chunk_type 排除而非
+               embedding_vec IS NOT NULL，避免把「嵌入失败但仍有正文」的子块从全文路漏掉。 -->
+          AND coalesce(c.chunk_type, 'CHILD') != 'PARENT'
+          AND c.doc_version = d.active_version
+        <if test="kbIds != null and kbIds.size() &gt; 0">
+            AND c.kb_id IN
+            <foreach collection="kbIds" item="kid" open="(" separator="," close=")">
+                #{kid}
+            </foreach>
+        </if>
+        <if test="vfAll == null or vfAll == false">
+            AND (
+            <choose>
+                <when test="vfSql != null and vfSql != ''">${vfSql}</when>
+                <otherwise>TRUE</otherwise>
+            </choose>
+            )
+        </if>
+        <if test="aclTokens != null and aclTokens.size() &gt; 0">
+            AND (btrim(coalesce(d.acl_principals, '')) IN ('', '[]')
+            <foreach collection="aclTokens" item="acl">
+                OR d.acl_principals LIKE CONCAT('%', #{acl}, '%')
+            </foreach>
+            )
+        </if>
+        <choose>
+            <when test="tokens != null and tokens.size() &gt; 0">
+                AND (
+                <foreach collection="tokens" item="t" separator=" OR ">
+                    strpos(lower(coalesce(c.context_prefix, '') || ' '
+                                 || coalesce(c.text, '')), #{t}) &gt; 0
+                </foreach>
+                )
+            </when>
+            <otherwise>AND 1 = 0</otherwise>
+        </choose>
+        ORDER BY keyword_hits DESC, c.ordinal
         LIMIT #{k}
     </select>
 

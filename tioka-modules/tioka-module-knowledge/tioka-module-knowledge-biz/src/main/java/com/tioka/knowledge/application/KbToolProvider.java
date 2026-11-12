@@ -12,8 +12,22 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * KNW-14：知识使用模式与 {@code kb.*} 工具（ADR-056 §3）。
+ *
+ * <p>模式来自 {@code AgentSpec.knowledge.mode}（经 {@code agentToolConfig} 传入，禁止反查 Agent）：
+ * {@code AUTO} 不开放工具（由 D 区段提供者自动注入）、{@code TOOL} 只开放工具、
+ * {@code BOTH} 两者都有。缺省 {@code TOOL} 与 {@code AgentSpec.KnowledgeBinding.empty()} 一致。
+ *
+ * <p>{@code kb.read} 按 ADR-056 取代 {@code kb.read_chunk} / {@code kb.read_document}；
+ * 后两者保留为兼容别名，既有 Agent 不受影响。
+ */
 @Component
 public class KbToolProvider implements ToolProvider {
+    public static final String MODE_AUTO = "AUTO";
+    public static final String MODE_TOOL = "TOOL";
+    public static final String MODE_BOTH = "BOTH";
+
     private final KnowledgeService knowledgeService;
     private final ObjectProvider<GrantService> grants;
     private final ObjectMapper mapper;
@@ -29,12 +43,23 @@ public class KbToolProvider implements ToolProvider {
     @Override
     public String name() { return "knowledge"; }
 
+    /** 兼容旧调用：按缺省 TOOL 全量开放。 */
     @Override
     public List<ToolDescriptor> listTools(String agentVersionId) {
+        return allTools();
+    }
+
+    /** KNW-14：AUTO 模式不开放任何 kb.* 工具。 */
+    @Override
+    public List<ToolDescriptor> listTools(String agentVersionId, Map<String, Object> agentToolConfig) {
+        return MODE_AUTO.equalsIgnoreCase(modeOf(agentToolConfig)) ? List.of() : allTools();
+    }
+
+    private static List<ToolDescriptor> allTools() {
         return List.of(
                 ToolDescriptor.builder()
                         .name("kb.search")
-                        .description("Search knowledge base")
+                        .description("Search knowledge bases (multi-kb, metadata filter, topK)")
                         .requiredPermission(Permissions.KB_READ)
                         .inputSchema(Map.of(
                                 "type", "object",
@@ -46,8 +71,30 @@ public class KbToolProvider implements ToolProvider {
                                 "required", List.of("query")))
                         .build(),
                 ToolDescriptor.builder()
+                        .name("kb.read")
+                        .description("Read a chunk, its parent block, or a document page range")
+                        .requiredPermission(Permissions.KB_READ)
+                        .inputSchema(Map.of(
+                                "type", "object",
+                                "properties", Map.of(
+                                        "scope", Map.of("type", "string",
+                                                "enum", List.of("chunk", "parent", "document")),
+                                        "chunkId", Map.of("type", "string"),
+                                        "docId", Map.of("type", "string"),
+                                        "pageStart", Map.of("type", "integer"),
+                                        "pageEnd", Map.of("type", "integer"),
+                                        "maxChunks", Map.of("type", "integer"))))
+                        .build(),
+                ToolDescriptor.builder()
+                        .name("kb.list")
+                        .description("List knowledge bases available to this agent")
+                        .requiredPermission(Permissions.KB_READ)
+                        .inputSchema(Map.of("type", "object", "properties", Map.of()))
+                        .build(),
+                // M1/M2 兼容别名：ADR-056 §3 由 kb.read 取代，保留以免存量 Agent 工具名失效。
+                ToolDescriptor.builder()
                         .name("kb.read_chunk")
-                        .description("Read a knowledge chunk by chunkId")
+                        .description("Deprecated alias of kb.read(scope=chunk)")
                         .requiredPermission(Permissions.KB_READ)
                         .inputSchema(Map.of(
                                 "type", "object",
@@ -56,7 +103,7 @@ public class KbToolProvider implements ToolProvider {
                         .build(),
                 ToolDescriptor.builder()
                         .name("kb.read_document")
-                        .description("Read document text by docId (optional maxChunks)")
+                        .description("Deprecated alias of kb.read(scope=document)")
                         .requiredPermission(Permissions.KB_READ)
                         .inputSchema(Map.of(
                                 "type", "object",
@@ -66,6 +113,17 @@ public class KbToolProvider implements ToolProvider {
                                 "required", List.of("docId")))
                         .build()
         );
+    }
+
+    static String modeOf(Map<String, Object> agentToolConfig) {
+        Object raw = agentToolConfig == null ? null : agentToolConfig.get("knowledge");
+        if (raw instanceof Map<?, ?> m && m.get("mode") != null) {
+            String mode = String.valueOf(m.get("mode")).toUpperCase();
+            if (MODE_AUTO.equals(mode) || MODE_TOOL.equals(mode) || MODE_BOTH.equals(mode)) {
+                return mode;
+            }
+        }
+        return MODE_TOOL;
     }
 
     @Override
@@ -98,6 +156,8 @@ public class KbToolProvider implements ToolProvider {
         try {
             return switch (toolName) {
                 case "kb.search" -> invokeSearch(arguments, maxLabel);
+                case "kb.read" -> invokeRead(arguments);
+                case "kb.list" -> invokeList();
                 case "kb.read_chunk" -> invokeReadChunk(arguments);
                 case "kb.read_document" -> invokeReadDocument(arguments);
                 default -> new ToolResult(false, "unknown tool");
@@ -149,29 +209,83 @@ public class KbToolProvider implements ToolProvider {
                 resultLabel == null ? null : resultLabel.name());
     }
 
-    private ToolResult invokeReadChunk(Map<String, Object> arguments) throws Exception {
-        String chunkId = String.valueOf(arguments.get("chunkId"));
-        var c = knowledgeService.readChunk(chunkId);
+    /** KNW-14：scope=chunk / parent / document；pageStart/pageEnd 与 maxChunks 为可选裁剪。 */
+    private ToolResult invokeRead(Map<String, Object> arguments) throws Exception {
+        String scope = arguments.get("scope") == null ? "document"
+                : String.valueOf(arguments.get("scope"));
+        int maxChunks = intOf(arguments.get("maxChunks"), 0);
+        Integer pageStart = arguments.get("pageStart") == null ? null
+                : Integer.parseInt(String.valueOf(arguments.get("pageStart")));
+        Integer pageEnd = arguments.get("pageEnd") == null ? null
+                : Integer.parseInt(String.valueOf(arguments.get("pageEnd")));
         Map<String, Object> m = new LinkedHashMap<>();
-        m.put("chunkId", c.chunkId());
-        m.put("docId", c.docId());
-        m.put("kbId", c.kbId());
-        m.put("text", c.text());
-        m.put("ordinal", c.ordinal());
-        m.put("title", c.title());
+        switch (scope) {
+            case "chunk", "parent" -> {
+                String chunkId = String.valueOf(arguments.get("chunkId"));
+                var c = "parent".equals(scope)
+                        ? knowledgeService.readParentChunk(chunkId)
+                        : knowledgeService.readChunk(chunkId);
+                m.put("scope", scope);
+                m.put("sourceChunkId", chunkId);
+                m.put("chunkId", c.chunkId());
+                m.put("docId", c.docId());
+                m.put("kbId", c.kbId());
+                m.put("text", c.text());
+                m.put("ordinal", c.ordinal());
+                m.put("title", c.title());
+                if ("parent".equals(scope)) {
+                    m.put("parentResolved", !chunkId.equals(c.chunkId()));
+                }
+            }
+            case "document" -> {
+                String docId = String.valueOf(arguments.get("docId"));
+                var d = knowledgeService.readDocument(docId, maxChunks, pageStart, pageEnd);
+                m.put("scope", scope);
+                m.put("docId", d.docId());
+                m.put("kbId", d.kbId());
+                m.put("title", d.title());
+                m.put("text", d.text());
+                m.put("chunkIds", d.chunkIds());
+            }
+            default -> {
+                return new ToolResult(false, "unsupported scope: " + scope);
+            }
+        }
+        if (pageStart != null) m.put("pageStart", pageStart);
+        if (pageEnd != null) m.put("pageEnd", pageEnd);
         return new ToolResult(true, mapper.writeValueAsString(m));
     }
 
+    private ToolResult invokeList() throws Exception {
+        List<Map<String, Object>> out = new ArrayList<>();
+        for (var kb : knowledgeService.listVisibleBases()) {
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("kbId", kb.kbId());
+            m.put("name", kb.name());
+            m.put("dataLabel", kb.dataLabel());
+            out.add(m);
+        }
+        return new ToolResult(true, mapper.writeValueAsString(out));
+    }
+
+    private static int intOf(Object v, int fallback) {
+        if (v == null) return fallback;
+        try {
+            return Integer.parseInt(String.valueOf(v));
+        } catch (NumberFormatException e) {
+            return fallback;
+        }
+    }
+
+    private ToolResult invokeReadChunk(Map<String, Object> arguments) throws Exception {
+        Map<String, Object> args = new LinkedHashMap<>(arguments);
+        args.put("scope", "chunk");
+        return invokeRead(args);
+    }
+
     private ToolResult invokeReadDocument(Map<String, Object> arguments) throws Exception {
-        String docId = String.valueOf(arguments.get("docId"));
-        int maxChunks = arguments.get("maxChunks") == null ? 0 : Integer.parseInt(String.valueOf(arguments.get("maxChunks")));
-        var d = knowledgeService.readDocument(docId, maxChunks);
-        Map<String, Object> m = new LinkedHashMap<>();
-        m.put("docId", d.docId());
-        m.put("kbId", d.kbId());
-        m.put("title", d.title());
-        m.put("text", d.text());
-        m.put("chunkIds", d.chunkIds());
-        return new ToolResult(true, mapper.writeValueAsString(m));
+        Map<String, Object> args = new LinkedHashMap<>(arguments);
+        args.put("scope", "document");
+        return invokeRead(args);
     }
 }

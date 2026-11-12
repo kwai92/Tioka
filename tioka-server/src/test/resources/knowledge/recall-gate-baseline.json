@@ -1,0 +1,6 @@
+{
+  "recallAt5": 1.0,
+  "mrr": 0.8673333333333333,
+  "corpus": "knowledge/eval-corpus.json (20 docs / 50 queries)",
+  "note": "C-22 G3KnowledgeRecallGateIT 实测回填（2026-11-12）：环境=GateCluster 双实例 + Testcontainers pgvector/Redis/Keycloak，dim=32 确定性嵌入（LlmStubServer /embeddings）+ KNW-12 两路独立召回（中文 bigram strpos + pgvector）+ RRF(k=60)，未绑定 rerank。实测 recallAt5=1.0 / mrr=0.8673333333333333 / perCase=50。Recall@5 低于本基线 0.02 以上阻塞合并；同时设 0.90 绝对下限，防止基线被回填成恒真值。MRR 除 [0,1] 区间外另设 0.5 绝对下限，防止评分链路退化成恒真值。语料为 20 篇主题互斥的短制度文档，与 C-16 的 6 篇/12 题基线不是同一数据集。"
+}

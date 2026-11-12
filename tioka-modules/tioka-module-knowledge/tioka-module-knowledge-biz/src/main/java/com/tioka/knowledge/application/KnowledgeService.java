@@ -15,6 +15,7 @@ import com.tioka.knowledge.application.chunk.StructuredChunker;
 import com.tioka.knowledge.application.chunk.StructuredChunker.ChunkPolicy;
 import com.tioka.knowledge.application.parse.ParseSupport;
 import com.tioka.knowledge.application.parse.ParserPort;
+import com.tioka.knowledge.application.retrieval.CjkTokenizer;
 import com.tioka.knowledge.infrastructure.ChunkInsertCommand;
 import com.tioka.knowledge.infrastructure.KnowledgeRepository;
 import com.tioka.knowledge.infrastructure.persistence.KbBaseDO;
@@ -48,6 +49,15 @@ import java.util.stream.Collectors;
 @Service
 public class KnowledgeService implements KnowledgeSearchApi {
     private static final int ERROR_MESSAGE_MAX_LEN = 2000;
+
+    /**
+     * KNW-04：只有模型网关明确抛出的「模型侧故障」允许退回 RRF。
+     * 治理错误（ErrorCode#isGovernanceFailure）一律冒泡，不能退化成「检索成功但静默绕过配额与鉴权」。
+     * 不含 DEPENDENCY：DefaultModelGateway#rerank 的兜底 catch 会把任意非 BizException
+     * 包装成 DEPENDENCY，把它列入白名单等于给未知异常开静默通道（fresh-eyes B-5）。
+     */
+    private static final Set<ErrorCode> RECOVERABLE_RERANK_ERRORS = EnumSet.of(
+            ErrorCode.MODEL_UNAVAILABLE, ErrorCode.MODEL_ERROR);
 
     private final KnowledgeRepository repo;
     private final ModelGateway modelGateway;
@@ -83,6 +93,17 @@ public class KnowledgeService implements KnowledgeSearchApi {
         this.embeddingDim = Math.max(1, embeddingDim);
         this.tx = new TransactionTemplate(transactionManager);
         this.ingestJobs = ingestJobs;
+    }
+
+    /** KNW-14 / kb.list：列出本主体可见的知识库及其说明，帮助模型选库。 */
+    public record KnowledgeBaseView(String kbId, String name, String dataLabel) {}
+
+    public List<KnowledgeBaseView> listVisibleBases() {
+        return repo.listBases().stream()
+                .filter(b -> guard.allows("kb", b.getId(), AccessLevel.USE))
+                .map(b -> new KnowledgeBaseView(b.getId(), b.getName(),
+                        b.getDataLabel() == null ? "INTERNAL" : b.getDataLabel()))
+                .toList();
     }
 
     /** FE-04：可用嵌入 binding（kind=embedding、enabled、维度对齐配置）。 */
@@ -327,16 +348,33 @@ public class KnowledgeService implements KnowledgeSearchApi {
         return retrieve(kbId == null ? null : List.of(kbId), query, topK);
     }
 
+    /** KNW-12 / ADR-056 §2「无答案」：空结果必须带原因，自动注入据此如实说明。 */
+    public enum NoAnswerReason {
+        NONE, NO_PERMISSION, NO_RESULT, BELOW_THRESHOLD
+    }
+
+    /** KNW-12：一次检索的两路召回明细，供轨迹、命中测试与闸门验收使用。 */
+    public record RetrievalOutcome(List<RetrievalHit> hits, NoAnswerReason reason,
+                                   int vectorCount, int keywordCount, boolean reranked,
+                                   int rerankDropped) {}
+
     /**
-     * KNW-02：权限过滤 → 向量召回（下推 ACL）。{@code kbIds == null} 表示当前空间内全部可见知识库。
+     * KNW-02 / KNW-12：权限过滤 → 向量与全文两路独立召回 → RRF → KNW-04 Rerank。
+     * {@code kbIds == null} 表示当前空间内全部可见知识库。
      */
     public List<RetrievalHit> retrieve(List<String> kbIds, String query, int topK) {
-        return retrieve(kbIds, query, topK, null);
+        return retrieveDetailed(kbIds, query, topK, null).hits();
     }
 
     /** DAT-02：带 maxDataLabel 的检索——有效标签（kb/doc 最大值）超限的文档被过滤掉（ADR-040）。 */
     public List<RetrievalHit> retrieve(List<String> kbIds, String query, int topK,
                                        com.tioka.framework.label.DataLabel maxDataLabel) {
+        return retrieveDetailed(kbIds, query, topK, maxDataLabel).hits();
+    }
+
+    /** KNW-12 / KNW-04：返回含两路召回计数、rerank 状态与无答案原因的完整结果。 */
+    public RetrievalOutcome retrieveDetailed(List<String> kbIds, String query, int topK,
+                                             com.tioka.framework.label.DataLabel maxDataLabel) {
         VisibilityFilter vf = guard.filter("kb", AccessLevel.USE);
         List<String> allowed = null;
         if (kbIds != null) {
@@ -346,19 +384,25 @@ public class KnowledgeService implements KnowledgeSearchApi {
                     .distinct()
                     .toList();
             if (allowed.isEmpty()) {
-                return List.of();
+                return new RetrievalOutcome(List.of(), NoAnswerReason.NO_PERMISSION, 0, 0, false, 0);
             }
         }
         Principal p = principals.current();
         String workspaceId = p.workspaceId();
         if (workspaceId == null || workspaceId.isBlank()) {
-            return List.of();
+            return new RetrievalOutcome(List.of(), NoAnswerReason.NO_PERMISSION, 0, 0, false, 0);
         }
 
         String bindingId = resolveBindingForRetrieve(allowed);
         String q = query == null ? "" : query.toLowerCase();
         double[] qVec = embed(bindingId, q);
         int limit = Math.max(1, topK);
+        int candidateLimit = Math.max(limit * 5, 50);
+
+        // KNW-12：文档级 ACL 与知识库 ACL 一起下推（V118 建列、V227 启用）。
+        // 管理员（* 或 system_admin）不下推文档级 ACL，保持既有 G1 口径。
+        List<String> aclTokens = docAclTokens(p);
+        List<String> tokens = CjkTokenizer.tokenize(q);
 
         Map<String, Object> params = new HashMap<>();
         if (!vf.all()) {
@@ -367,32 +411,22 @@ public class KnowledgeService implements KnowledgeSearchApi {
         params.put("vectorLiteral", toVectorLiteral(qVec));
         params.put("workspaceId", workspaceId);
         params.put("kbIds", allowed);
-        params.put("k", Math.max(limit * 5, 20));
+        params.put("k", candidateLimit);
         params.put("vfAll", vf.all());
         params.put("vfSql", vf.sqlForTableAlias("b"));
+        params.put("aclTokens", aclTokens);
+        params.put("tokens", tokens);
 
-        List<Map<String, Object>> rows = repo.searchVisible(params);
-        List<ScoredChunk> keywordRanked = new ArrayList<>();
-        List<ScoredChunk> vectorRanked = new ArrayList<>();
-        for (Map<String, Object> row : rows) {
-            ScoredChunk sc = toScored(row, 0, mapper);
-            double distance = row.get("distance") instanceof Number n ? n.doubleValue() : 1.0;
-            double vector = 1.0 / (1.0 + Math.max(0, distance));
-            // KNW-03：全文索引口径 = 标题路径前缀 + 正文（context_enhancement）
-            int keyword = keywordScore(q, sc.indexableText());
-            if (keyword > 0 || q.isBlank()) {
-                keywordRanked.add(sc);
-            }
-            if (vector > 0.01 || q.isBlank()) {
-                vectorRanked.add(sc);
-            }
-        }
+        // 两路各自独立查询：向量路按距离、全文路按命中 token 数，SQL 已各自 ORDER BY + LIMIT。
+        List<Map<String, Object>> vectorRows = repo.searchVisible(params);
+        List<Map<String, Object>> keywordRows = tokens.isEmpty()
+                ? List.of() : repo.searchByKeyword(params);
+        List<ScoredChunk> vectorRanked = vectorRows.stream().map(r -> toScored(r, 0, mapper)).toList();
+        List<ScoredChunk> keywordRanked = keywordRows.stream().map(r -> toScored(r, 0, mapper)).toList();
 
-        keywordRanked.sort(Comparator.comparingDouble(ScoredChunk::score).reversed());
-        vectorRanked.sort(Comparator.comparingDouble(ScoredChunk::score).reversed());
-
+        // RRF(k=60)：只按名次融合，不比较两路原始分数（ADR-056 §2 步 6）。
         final int rrfK = 60;
-        Map<String, Double> fused = new HashMap<>();
+        Map<String, Double> fused = new LinkedHashMap<>();
         Map<String, ScoredChunk> byKey = new HashMap<>();
         for (int i = 0; i < keywordRanked.size(); i++) {
             ScoredChunk sc = keywordRanked.get(i);
@@ -404,21 +438,77 @@ public class KnowledgeService implements KnowledgeSearchApi {
             fused.merge(sc.chunkId(), 1.0 / (rrfK + i + 1), Double::sum);
             byKey.putIfAbsent(sc.chunkId(), sc);
         }
+        if (fused.isEmpty()) {
+            return new RetrievalOutcome(List.of(), NoAnswerReason.NO_RESULT,
+                    vectorRanked.size(), keywordRanked.size(), false, 0);
+        }
+
+        List<Map.Entry<String, Double>> ranked = fused.entrySet().stream()
+                .sorted(Map.Entry.<String, Double>comparingByValue().reversed())
+                .toList();
+        int pool = Math.min(50, ranked.size());
+        List<String> candidateKeys = ranked.subList(0, pool).stream().map(Map.Entry::getKey).toList();
+
+        // KNW-04：绑定 rerank 才走 ModelGateway，并按知识库阈值丢弃低分；
+        // 未绑定时跳过且「不设阈值」（ADR-056 §2 步 7）。
+        List<String> selected = candidateKeys;
+        boolean reranked = false;
+        int dropped = 0;
+        RerankConfig cfg = resolveRerank(allowed);
+        double cutoff = cfg == null || cfg.threshold() == null ? 0.3d : cfg.threshold();
+        if (cfg != null && query != null && !query.isBlank() && !candidateKeys.isEmpty()) {
+            List<String> documents = candidateKeys.stream()
+                    .map(k -> {
+                        ScoredChunk sc = byKey.get(k);
+                        String t = sc.indexableText();
+                        return t.length() > 1000 ? t.substring(0, 1000) : t;
+                    })
+                    .toList();
+            try {
+                ModelCallContext mctx = new ModelCallContext(
+                        p, null, null, null, null, ModelPurpose.RERANK);
+                ModelGateway.RerankResult rr = modelGateway.rerank(mctx,
+                        new ModelGateway.RerankRequest(cfg.bindingId(), query, documents, pool));
+                List<String> kept = new ArrayList<>();
+                for (ModelGateway.RerankResult.Ranked hit : rr.results()) {
+                    if (hit.index() < 0 || hit.index() >= candidateKeys.size()) {
+                        continue;
+                    }
+                    if (hit.score() < cutoff) {
+                        dropped++;
+                        continue;
+                    }
+                    // 达到 topK 后继续统计低于阈值的候选，rerankDropped 须是完整口径。
+                    if (kept.size() < limit) {
+                        kept.add(candidateKeys.get(hit.index()));
+                    }
+                }
+                selected = kept;
+                reranked = true;
+            } catch (BizException e) {
+                if (!RECOVERABLE_RERANK_ERRORS.contains(e.getErrorCode())
+                        || e.getErrorCode().isGovernanceFailure()) {
+                    // ADR-017：治理类错误不得被「可用性优先」掩盖。
+                    throw e;
+                }
+                org.slf4j.LoggerFactory.getLogger(KnowledgeService.class)
+                        .warn("rerank 依赖失败，退回 RRF 结果: code={} reason={}",
+                                e.getErrorCode(), e.toString());
+            }
+        }
 
         final com.tioka.framework.label.DataLabel labelCeiling = maxDataLabel;
-        List<RetrievalHit> hits = fused.entrySet().stream()
-                .sorted(Map.Entry.<String, Double>comparingByValue().reversed())
-                // DAT-02：标签过滤在 limit 之前（可返回少于 topK，登记口径）
-                .filter(e -> {
+        List<RetrievalHit> hits = selected.stream()
+                .filter(k -> {
                     if (labelCeiling == null) {
                         return true;
                     }
-                    ScoredChunk sc0 = byKey.get(e.getKey());
+                    ScoredChunk sc0 = byKey.get(k);
                     return KbLabels.readable(effectiveLabel(sc0.kbId(), sc0.docId()), labelCeiling);
                 })
                 .limit(limit)
-                .map(e -> {
-                    ScoredChunk sc = byKey.get(e.getKey());
+                .map(k -> {
+                    ScoredChunk sc = byKey.get(k);
                     String citationId = Ids.newId("cit");
                     KbCitationDO cit = new KbCitationDO();
                     cit.setId(citationId);
@@ -428,13 +518,76 @@ public class KnowledgeService implements KnowledgeSearchApi {
                     cit.setTitle(sc.title());
                     cit.setOrdinal(sc.ordinal());
                     repo.insertCitation(cit);
-                    return new RetrievalHit(sc.docId(), sc.chunkId(), sc.kbId(), sc.text(), e.getValue(),
-                            sc.title(), citationId, sc.chunkType(), sc.parentChunkId(), null,
+                    return new RetrievalHit(sc.docId(), sc.chunkId(), sc.kbId(), sc.text(),
+                            fused.getOrDefault(k, 0d), sc.title(), citationId,
+                            sc.chunkType(), sc.parentChunkId(), null,
                             sc.pageStart(), sc.pageEnd(), sc.blockIds());
                 })
                 .toList();
+        NoAnswerReason reason = hits.isEmpty()
+                ? (reranked && dropped > 0 ? NoAnswerReason.BELOW_THRESHOLD : NoAnswerReason.NO_RESULT)
+                : NoAnswerReason.NONE;
         // KNW-03：父块正文上下文——同一父块只随第一个（最高分）命中返回一次
-        return attachParentContext(hits);
+        return new RetrievalOutcome(attachParentContext(hits), reason,
+                vectorRanked.size(), keywordRanked.size(), reranked, dropped);
+    }
+
+    /**
+     * 文档级 ACL 主体（V118 JSON 数组口径）：带引号的 JSON 串，供 LIKE 精确匹配。
+     * 不设管理员后门——ADR-056 §2 步 3/4 要求文档级权限无条件下推；
+     * 存量文档 acl_principals 为 NULL，条件中的空值分支保证既有检索行为不变。
+     */
+    private static List<String> docAclTokens(Principal p) {
+        if (p == null) {
+            return List.of();
+        }
+        List<String> out = new ArrayList<>();
+        out.add("\"" + aclSubject("user:" + p.userId()) + "\"");
+        for (String role : p.roles()) {
+            out.add("\"" + aclSubject("role:" + role) + "\"");
+        }
+        return List.copyOf(out);
+    }
+
+    private static String aclSubject(String s) {
+        return s.replace("\"", "").replace("\\", "");
+    }
+
+    /** KNW-04：binding 与 threshold 必须从同一知识库解析，避免跨库拼出错误配置。 */
+    private record RerankConfig(String bindingId, Double threshold) {}
+
+    /** 多知识库检索时取首个显式绑定的 rerank 模型（向量嵌入同口径，登记偏离）。 */
+    private RerankConfig resolveRerank(List<String> allowedKbIds) {
+        List<String> ids = allowedKbIds;
+        if (ids == null || ids.isEmpty()) {
+            ids = new ArrayList<>(guard.visibleIds("kb", AccessLevel.USE));
+        }
+        for (String id : ids) {
+            KbBaseDO base = repo.findBase(id);
+            if (base != null && base.getRerankBindingId() != null
+                    && !base.getRerankBindingId().isBlank()) {
+                return new RerankConfig(base.getRerankBindingId(), base.getRerankThreshold());
+            }
+        }
+        return null;
+    }
+
+    /** KNW-04：配置知识库 rerank 绑定与阈值；仅空间管理员经 REST 调用。 */
+    public void configureRerank(String kbId, String bindingId, Double threshold) {
+        // 类级 KB_WRITE 之外再做资源级校验：跨空间 / 私有库不得通过路径变量改配置。
+        guard.check("kb", kbId, AccessLevel.EDIT);
+        KbBaseDO base = repo.findBase(kbId);
+        if (base == null) {
+            throw new BizException(ErrorCode.NOT_FOUND, "知识库不存在");
+        }
+        if (threshold != null && (!Double.isFinite(threshold) || threshold < 0 || threshold > 1)) {
+            throw new BizException(ErrorCode.BAD_REQUEST, "rerankThreshold 须在 0〜1 之间的有限数值");
+        }
+        jdbcUpdateRerank(kbId, bindingId, threshold);
+    }
+
+    private void jdbcUpdateRerank(String kbId, String bindingId, Double threshold) {
+        repo.updateBaseRerank(kbId, bindingId, threshold);
     }
 
     /**
@@ -487,21 +640,77 @@ public class KnowledgeService implements KnowledgeSearchApi {
     public Citation resolveCitation(String citationId) {
         KbCitationDO r = repo.findCitation(citationId);
         if (r == null) throw new BizException(ErrorCode.NOT_FOUND, "citation 不存在");
+        // 引用号同样携带正文，必须与 kb.* 读取工具同口径鉴权，否则凭 citationId 即可越权读全文。
+        KbDocumentDO doc = repo.findDocument(r.getDocId());
+        KbChunkDO chunk = r.getChunkId() == null ? null : repo.findChunk(r.getChunkId());
+        assertReadable(doc == null ? null : doc.getKbId(),
+                chunk == null ? null : chunk.getWorkspaceId(), doc);
         return new Citation(r.getId(), r.getDocId(), r.getChunkId(), r.getText(), r.getTitle(), r.getOrdinal());
+    }
+
+    /**
+     * KNW-14：kb.* 读取工具与 citation 端点的资源级可见性。检索路径已下推知识库 / 文档级 ACL，
+     * 读取路径必须同口径，否则任意 docId / chunkId / citationId 可绕过检索直接读全文（fresh-eyes B-3）。
+     * 资源级校验不依赖 KbBaseDO 是否存在，避免数据缺失时整段跳过。
+     */
+    private void assertReadable(String kbId, String workspaceId, KbDocumentDO doc) {
+        Principal p = principals.current();
+        String ws = workspaceId;
+        if ((ws == null || ws.isBlank()) && kbId != null) {
+            KbBaseDO base = repo.findBase(kbId);
+            ws = base == null ? null : base.getWorkspaceId();
+        }
+        if (ws != null && !ws.isBlank() && p.workspaceId() != null
+                && !ws.equals(p.workspaceId())) {
+            throw new BizException(ErrorCode.FORBIDDEN, "无权读取其他空间的知识库");
+        }
+        if (kbId != null && !kbId.isBlank() && !guard.allows("kb", kbId, AccessLevel.USE)) {
+            throw new BizException(ErrorCode.FORBIDDEN, "无权读取该知识库");
+        }
+        if (doc == null) {
+            return;
+        }
+        String acl = doc.getAclPrincipals();
+        if (acl != null && !acl.isBlank() && !"[]".equals(acl.trim())) {
+            boolean granted = docAclTokens(p).stream().anyMatch(acl::contains);
+            if (!granted) {
+                throw new BizException(ErrorCode.FORBIDDEN, "无权读取该文档");
+            }
+        }
     }
 
     public ChunkView readChunk(String chunkId) {
         KbChunkDO c = repo.findChunk(chunkId);
         if (c == null) throw new BizException(ErrorCode.NOT_FOUND, "chunk 不存在");
         KbDocumentDO d = repo.findDocument(c.getDocId());
+        assertReadable(c.getKbId(), c.getWorkspaceId(), d);
         return new ChunkView(c.getId(), c.getDocId(), c.getKbId(), c.getText(), c.getOrdinal(),
                 d == null ? "" : d.getTitle());
     }
 
+    /** KNW-14：kb.read(scope=parent) 读取父块正文；无父块（存量数据）时退回子块自身。 */
+    public ChunkView readParentChunk(String chunkId) {
+        KbChunkDO child = repo.findChunk(chunkId);
+        if (child == null) throw new BizException(ErrorCode.NOT_FOUND, "chunk 不存在");
+        assertReadable(child.getKbId(), child.getWorkspaceId(),
+                repo.findDocument(child.getDocId()));
+        String parentId = child.getParentChunkId();
+        return parentId == null || parentId.isBlank() ? readChunk(chunkId) : readChunk(parentId);
+    }
+
     public DocumentText readDocument(String docId, int maxChunks) {
+        return readDocument(docId, maxChunks, null, null);
+    }
+
+    /** KNW-14：页范围按与 [pageStart, pageEnd] 有交集裁剪，不再只回显参数。 */
+    public DocumentText readDocument(String docId, int maxChunks, Integer pageStart, Integer pageEnd) {
         KbDocumentDO d = repo.findDocument(docId);
         if (d == null) throw new BizException(ErrorCode.NOT_FOUND, "document 不存在");
-        List<KbChunkDO> chunks = repo.listChunksByDoc(docId);
+        assertReadable(d.getKbId(), null, d);
+        List<KbChunkDO> chunks = repo.listChunksByDoc(docId).stream()
+                .filter(c -> pageStart == null || c.getPageEnd() == null || c.getPageEnd() >= pageStart)
+                .filter(c -> pageEnd == null || c.getPageStart() == null || c.getPageStart() <= pageEnd)
+                .toList();
         int limit = maxChunks <= 0 ? chunks.size() : Math.min(maxChunks, chunks.size());
         StringBuilder sb = new StringBuilder();
         List<String> chunkIds = new ArrayList<>();

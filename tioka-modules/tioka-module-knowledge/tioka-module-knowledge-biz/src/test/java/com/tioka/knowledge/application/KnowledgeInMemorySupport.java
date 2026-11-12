@@ -65,6 +65,16 @@ final class KnowledgeInMemorySupport {
             @Override public void insertBase(KbBaseDO row) { bases.put(row.getId(), row); }
             @Override public boolean hasBase(String id) { return bases.containsKey(id); }
             @Override public KbBaseDO findBase(String id) { return bases.get(id); }
+            @Override public List<KbBaseDO> listBases() { return new ArrayList<>(bases.values()); }
+            @Override public void updateBaseRerank(String kbId, String bindingId, Double threshold) {
+                KbBaseDO row = bases.get(kbId);
+                if (row == null) {
+                    throw new com.tioka.framework.error.BizException(
+                            com.tioka.framework.error.ErrorCode.NOT_FOUND, "知识库不存在");
+                }
+                row.setRerankBindingId(bindingId);
+                row.setRerankThreshold(threshold);
+            }
             @Override public void updateBaseChunkPolicy(String kbId, String chunkPolicyJson, Boolean ctxEnh) {
                 KbBaseDO row = bases.get(kbId);
                 if (row == null) {
@@ -139,6 +149,26 @@ final class KnowledgeInMemorySupport {
             @Override public List<Map<String, Object>> searchNearest(String kbId, String vectorLiteral, int k) {
                 return searchVisible(Map.of("kbIds", List.of(kbId), "k", k)).stream().limit(k).toList();
             }
+            /** 两路召回共用同一列投影，避免向量路与全文路返回结构漂移。 */
+            private Map<String, Object> chunkRow(KbChunkDO c, double distance) {
+                KbDocumentDO d = docs.get(c.getDocId());
+                Map<String, Object> m = new LinkedHashMap<>();
+                m.put("chunk_id", c.getId());
+                m.put("doc_id", c.getDocId());
+                m.put("kb_id", c.getKbId());
+                m.put("text", c.getText());
+                m.put("ordinal", c.getOrdinal());
+                m.put("chunk_type", c.getChunkType());
+                m.put("parent_chunk_id", c.getParentChunkId());
+                m.put("page_start", c.getPageStart());
+                m.put("page_end", c.getPageEnd());
+                m.put("block_ids_json", c.getBlockIdsJson());
+                m.put("context_prefix", c.getContextPrefix());
+                m.put("title", d == null ? "" : d.getTitle());
+                m.put("distance", distance);
+                return m;
+            }
+
             @Override public List<Map<String, Object>> searchVisible(Map<String, Object> params) {
                 @SuppressWarnings("unchecked")
                 List<String> kbIds = (List<String>) params.get("kbIds");
@@ -151,24 +181,51 @@ final class KnowledgeInMemorySupport {
                     if (c.getChunkType() != null && ChunkInsertCommand.TYPE_PARENT.equals(c.getChunkType())) {
                         continue; // 父块无向量，检索天然不可见
                     }
-                    KbDocumentDO d = docs.get(c.getDocId());
-                    Map<String, Object> m = new LinkedHashMap<>();
-                    m.put("chunk_id", c.getId());
-                    m.put("doc_id", c.getDocId());
-                    m.put("kb_id", c.getKbId());
-                    m.put("text", c.getText());
-                    m.put("ordinal", c.getOrdinal());
-                    m.put("chunk_type", c.getChunkType());
-                    m.put("parent_chunk_id", c.getParentChunkId());
-                    m.put("page_start", c.getPageStart());
-                    m.put("page_end", c.getPageEnd());
-                    m.put("block_ids_json", c.getBlockIdsJson());
-                    m.put("context_prefix", c.getContextPrefix());
-                    m.put("title", d == null ? "" : d.getTitle());
-                    m.put("distance", 0.1);
-                    out.add(m);
+                    out.add(chunkRow(c, 0.1));
                 }
                 return out.stream().limit(k).toList();
+            }
+
+            /** KNW-12：独立全文路（与生产 SQL 同口径：按命中 token 数降序、ordinal 升序）。 */
+            @Override public List<Map<String, Object>> searchByKeyword(Map<String, Object> params) {
+                @SuppressWarnings("unchecked")
+                List<String> kbIds = (List<String>) params.get("kbIds");
+                Object rawTokens = params.get("tokens");
+                @SuppressWarnings("unchecked")
+                List<String> tokens = rawTokens instanceof List<?> t
+                        ? (List<String>) t : List.<String>of();
+                int k = params.get("k") instanceof Number n ? n.intValue() : 20;
+                if (tokens.isEmpty()) {
+                    return List.of();
+                }
+                record KeywordRow(Map<String, Object> columns, int hits, int ordinal) {}
+                List<KeywordRow> found = new ArrayList<>();
+                for (KbChunkDO c : chunks.values()) {
+                    if (kbIds != null && !kbIds.isEmpty() && !kbIds.contains(c.getKbId())) {
+                        continue;
+                    }
+                    if (c.getChunkType() != null && ChunkInsertCommand.TYPE_PARENT.equals(c.getChunkType())) {
+                        continue;
+                    }
+                    String haystack = ((c.getContextPrefix() == null ? "" : c.getContextPrefix())
+                            + " " + (c.getText() == null ? "" : c.getText())).toLowerCase();
+                    int hits = 0;
+                    for (String token : tokens) {
+                        if (haystack.contains(token.toLowerCase())) {
+                            hits++;
+                        }
+                    }
+                    if (hits == 0) {
+                        continue;
+                    }
+                    Map<String, Object> columns = chunkRow(c, 0.0);
+                    columns.put("keyword_hits", hits);
+                    found.add(new KeywordRow(columns, hits,
+                            c.getOrdinal() == null ? 0 : c.getOrdinal()));
+                }
+                found.sort(Comparator.<KeywordRow>comparingInt(KeywordRow::hits).reversed()
+                        .thenComparingInt(KeywordRow::ordinal));
+                return found.stream().limit(k).map(KeywordRow::columns).toList();
             }
             @Override public void insertDatasource(KbDatasourceDO row) { datasources.put(row.getId(), row); }
             @Override public List<KbDatasourceDO> listDatasources(String kbId) {
@@ -268,6 +325,13 @@ final class KnowledgeInMemorySupport {
         };
         return new KnowledgeService(repo, gateway, bindings, holder, guard, acls, noParserPort(),
                 new com.fasterxml.jackson.databind.ObjectMapper(), 32,
+                new PassthroughTxManager(), null);
+    }
+
+    /** KNW-04 单测用：注入可失败的 rerank 网关，验证治理异常不被静默吞掉。 */
+    static KnowledgeService service(KnowledgeRepository repo, ModelGateway gatewayOverride) {
+        return new KnowledgeService(repo, gatewayOverride, bindings(), holder(), guard(), acls(),
+                noParserPort(), new com.fasterxml.jackson.databind.ObjectMapper(), 32,
                 new PassthroughTxManager(), null);
     }
 
