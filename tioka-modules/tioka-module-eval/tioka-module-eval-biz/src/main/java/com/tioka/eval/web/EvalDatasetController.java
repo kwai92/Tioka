@@ -30,14 +30,16 @@ public class EvalDatasetController {
         this.datasets = datasets;
     }
 
-    public record CreateDatasetCmd(String name, String schemaJson) {}
+    /** C-18 EVO-07：tier（SMOKE/DEV/SEALED/REGRESSION/SPECIAL，缺省 DEV）+ unitKeyPath（ADR-068 第 1 节）。 */
+    public record CreateDatasetCmd(String name, String schemaJson, String tier, String unitKeyPath) {}
 
     public record ImportCasesCmd(List<EvalApi.EvalCase> cases) {}
 
     @PostMapping
     @RequirePermission(Permissions.CHAT_USE)
     public EvalDatasetView create(@RequestBody CreateDatasetCmd cmd) {
-        return datasets.createDataset(new EvalApi.CreateDatasetCmd(cmd.name(), cmd.schemaJson()));
+        return datasets.createDataset(
+                new EvalApi.CreateDatasetCmd(cmd.name(), cmd.schemaJson(), cmd.tier(), cmd.unitKeyPath()));
     }
 
     @PostMapping("/{id}/cases")

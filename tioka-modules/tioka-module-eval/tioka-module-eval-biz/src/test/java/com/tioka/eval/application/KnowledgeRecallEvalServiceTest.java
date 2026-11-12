@@ -99,7 +99,29 @@ class KnowledgeRecallEvalServiceTest {
         final List<EvalCaseDO> cases = new ArrayList<>();
 
         FakeDatasetService() {
-            super(null, new ObjectMapper());
+            super(null, new ObjectMapper(), noPrincipalHolder());
+        }
+
+        /** 离线桩：无身份上下文（C-18 DatasetService 加密封集隔离依赖）。 */
+        private static com.tioka.framework.security.PrincipalHolder noPrincipalHolder() {
+            return new com.tioka.framework.security.PrincipalHolder() {
+                @Override
+                public com.tioka.framework.security.Principal current() {
+                    throw new com.tioka.framework.error.BizException(
+                            com.tioka.framework.error.ErrorCode.UNAUTHORIZED, "no principal");
+                }
+
+                @Override
+                public java.util.Optional<com.tioka.framework.security.Principal> find() {
+                    return java.util.Optional.empty();
+                }
+
+                @Override
+                public <T> T runAs(com.tioka.framework.security.Principal principal,
+                                   java.util.function.Supplier<T> body) {
+                    return body.get();
+                }
+            };
         }
 
         @Override
