@@ -90,7 +90,7 @@ flowchart TB
 | agent-biz | system-api, model-api, mcp-api, skill-api, flow-api, framework |
 | mcp-biz | system-api, agent-api（Grant 快照解析）, framework |
 | skill-biz | system-api, framework |
-| orchestration-biz | runtime-api, system-api, framework |
+| orchestration-biz | runtime-api, agent-api, governance-api（TRU-03 派工复验 AgentCharterPort）, system-api, framework |
 | chat-biz | runtime-api, orchestration-api, agent-api, system-api, framework |
 | knowledge-biz | connector-api, infra-api, system-api, framework |
 | flow-biz | runtime-api, orchestration-api, model-api, knowledge-api(可选), system-api, framework |

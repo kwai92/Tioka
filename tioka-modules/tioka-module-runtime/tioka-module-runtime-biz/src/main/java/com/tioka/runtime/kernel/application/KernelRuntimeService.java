@@ -18,6 +18,7 @@ import com.tioka.runtime.api.grant.GrantService;
 import com.tioka.runtime.api.grant.GrantStatus;
 import com.tioka.runtime.api.grant.MandateScope;
 import com.tioka.runtime.api.kernel.ItemType;
+import org.springframework.beans.factory.ObjectProvider;
 import com.tioka.runtime.api.kernel.RuntimeApi;
 import com.tioka.runtime.api.kernel.RuntimeEventType;
 import com.tioka.runtime.api.kernel.TurnStatus;
@@ -70,6 +71,7 @@ public class KernelRuntimeService implements RuntimeApi {
     private final ApprovalDecideService approvalDecide;
     private final GrantService grants;
     private final ToolRegistry tools;
+    private final ObjectProvider<com.tioka.governance.api.charter.AgentCharterPort> charterPort;
 
     public KernelRuntimeService(RuntimeThreadRepository threads,
                                 TurnRepository turns,
@@ -84,7 +86,8 @@ public class KernelRuntimeService implements RuntimeApi {
                                 AgentSnapshotApi agents,
                                 ApprovalDecideService approvalDecide,
                                 GrantService grants,
-                                ToolRegistry tools) {
+                                ToolRegistry tools,
+                                ObjectProvider<com.tioka.governance.api.charter.AgentCharterPort> charterPort) {
         this.threads = threads;
         this.turns = turns;
         this.items = items;
@@ -99,6 +102,7 @@ public class KernelRuntimeService implements RuntimeApi {
         this.approvalDecide = approvalDecide;
         this.grants = grants;
         this.tools = tools;
+        this.charterPort = charterPort;
     }
 
     @Override
@@ -110,6 +114,8 @@ public class KernelRuntimeService implements RuntimeApi {
         requireText(cmd.agentVersionId(), "agentVersionId");
         Principal p = principals.current();
         AgentSnapshotApi.AgentSnapshot ver = agents.get(cmd.agentVersionId());
+        // TRU-03（ADR-032）：SUSPENDED / HANDOVER 的新建 thread → AGENT_SUSPENDED(42301)
+        requireCharterActive(ver);
         String id = Ids.newId("thr");
         RuntimeThreadDO row = new RuntimeThreadDO();
         row.setId(id);
@@ -141,7 +147,9 @@ public class KernelRuntimeService implements RuntimeApi {
             throw new BizException(ErrorCode.BAD_REQUEST, "StartTurnCmd 必填");
         }
         requireText(cmd.clientMsgId(), "clientMsgId");
-        requireThread(threadId);
+        RuntimeThreadDO thread = requireThread(threadId);
+        // TRU-03（ADR-032）：SUSPENDED / HANDOVER 的新 Turn → AGENT_SUSPENDED(42301)
+        requireCharterActive(agents.get(thread.getAgentVersionId()));
         var existing = turns.findByThreadAndClientMsgId(threadId, cmd.clientMsgId());
         if (existing.isPresent()) {
             RuntimeTurnDO t = existing.get();
@@ -282,6 +290,29 @@ public class KernelRuntimeService implements RuntimeApi {
             throw new BizException(ErrorCode.NOT_FOUND, "thread 不存在");
         }
         return s;
+    }
+
+    /**
+     * TRU-03（ADR-032「负责人与生命周期」）：授权书非 ACTIVE（SUSPENDED / HANDOVER）时
+     * 拒绝新建 thread 与 Turn。状态读经 {@link AgentCharterPort}（直连 DB，无快照缓存延迟，
+     * 跨实例即时一致）；端口缺失（离线 mock 场景）回落快照内 {@code charterStatus}。
+     */
+    private void requireCharterActive(AgentSnapshotApi.AgentSnapshot ver) {
+        if (ver == null) {
+            return;
+        }
+        String status = null;
+        var port = charterPort.getIfAvailable();
+        if (port != null) {
+            status = port.charterStatus(ver.agentId());
+        }
+        if (status == null) {
+            status = ver.charterStatus();
+        }
+        if (!"ACTIVE".equals(status)) {
+            throw new BizException(ErrorCode.AGENT_SUSPENDED,
+                    "Agent 授权书状态为 " + status + "，暂停服务（TRU-03）");
+        }
     }
 
     private String runAsJson(RuntimeApi.StartTurnCmd cmd) {

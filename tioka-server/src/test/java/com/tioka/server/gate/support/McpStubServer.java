@@ -87,9 +87,10 @@ public final class McpStubServer implements AutoCloseable {
             case "erp.query" -> "query-ok";
             case "erp.update" -> "update-ok";
             case "erp.slow" -> "slow-ok";
+            case "erp.deleteCustomer" -> "delete-ok";
             default -> "unknown-tool:" + name;
         });
-        if (!List.of("erp.query", "erp.update", "erp.slow").contains(name)) {
+        if (!List.of("erp.query", "erp.update", "erp.slow", "erp.deleteCustomer").contains(name)) {
             result.put("isError", true);
         }
         return rpcOk(id, result);
@@ -111,6 +112,7 @@ public final class McpStubServer implements AutoCloseable {
         tools.add(tool("erp.query", "READ：查询 ERP", "READ"));
         tools.add(tool("erp.update", "WRITE：更新 ERP", "WRITE"));
         tools.add(tool("erp.slow", "慢工具（3s），用于崩溃与取消", "READ"));
+        tools.add(tool("erp.deleteCustomer", "WRITE：删除客户（授权书禁区，C-19 G3 映射 biz.erp.deleteCustomer）", "WRITE"));
         return result;
     }
 
@@ -120,7 +122,12 @@ public final class McpStubServer implements AutoCloseable {
         t.put("description", description + " [" + risk + "]");
         ObjectNode schema = t.putObject("inputSchema");
         schema.put("type", "object");
-        schema.putObject("properties").putObject("q").put("type", "string");
+        // C-19 G3：策略可求值参数（resourceAttrs 直传 tool args 原始键）
+        ObjectNode props = schema.putObject("properties");
+        props.putObject("q").put("type", "string");
+        props.putObject("id").put("type", "string");
+        props.putObject("customerLevel").put("type", "string");
+        props.putObject("amountMicros").put("type", "number");
         return t;
     }
 

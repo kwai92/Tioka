@@ -1,0 +1,6 @@
+# C-19 G3 场景 2：单次 3 万（30_000 元 = 30_000_000_000 micros）≤ 额度 5 万 → 自动执行
+calls:
+  - tool_calls: [{ name: erp.update, arguments: { q: "writeoff", customerLevel: "C", amountMicros: 30000000000 } }]
+    usage: { prompt: 10, completion: 6 }
+  - content: "writeoff done"
+    usage: { prompt: 12, completion: 16 }

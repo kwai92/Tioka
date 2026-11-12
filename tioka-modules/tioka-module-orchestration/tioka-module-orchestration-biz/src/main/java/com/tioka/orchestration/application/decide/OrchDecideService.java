@@ -4,6 +4,7 @@ import com.tioka.framework.error.BizException;
 import com.tioka.framework.error.ErrorCode;
 import com.tioka.framework.id.Ids;
 import com.tioka.framework.security.Principal;
+import com.tioka.agent.api.AgentSnapshotApi;
 import com.tioka.orchestration.api.engine.AcceptMode;
 import com.tioka.orchestration.api.engine.AssignCommand;
 import com.tioka.orchestration.api.engine.AssignResult;
@@ -42,17 +43,26 @@ public class OrchDecideService {
     private final CelRuleCondition cel;
     private final OrchAssignService assignService;
     private final PrincipalLoaderApi principals;
+    private final com.fasterxml.jackson.databind.ObjectMapper mapper;
+    private final AgentSnapshotApi agentSnapshots;
+    private final org.springframework.beans.factory.ObjectProvider<com.tioka.governance.api.charter.AgentCharterPort> charterPort;
     private final boolean recordIgnored;
 
     public OrchDecideService(OrchEngineRepository repo,
                              CelRuleCondition cel,
                              OrchAssignService assignService,
                              PrincipalLoaderApi principals,
+                             com.fasterxml.jackson.databind.ObjectMapper mapper,
+                             AgentSnapshotApi agentSnapshots,
+                             org.springframework.beans.factory.ObjectProvider<com.tioka.governance.api.charter.AgentCharterPort> charterPort,
                              @Value("${tioka.orch.record-ignored:false}") boolean recordIgnored) {
         this.repo = repo;
         this.cel = cel;
         this.assignService = assignService;
         this.principals = principals;
+        this.mapper = mapper;
+        this.agentSnapshots = agentSnapshots;
+        this.charterPort = charterPort;
         this.recordIgnored = recordIgnored;
     }
 
@@ -151,6 +161,12 @@ public class OrchDecideService {
                                          MandateVia via,
                                          String workspaceId,
                                          String followupWorkItemId) {
+        // TRU-03 / ADR-029 第 36 条：派工复验同时检查授权书状态为 ACTIVE
+        String agentVersionId = firstAgentVersionId(version.getActionsJson());
+        if (agentVersionId != null && !charterActive(agentVersionId)) {
+            return record(eventId, version.getId(), strength, DecisionCode.UNAVAILABLE,
+                    "charter_suspended", null);
+        }
         Principal sa = loadServicePrincipal(version.getServiceAccountId(), workspaceId);
         Map<String, Object> scope = Map.of(
                 "roles", sa.roles(),
@@ -171,9 +187,52 @@ public class OrchDecideService {
                 event.attrs().get("tioka.requester_user_id"),
                 scope,
                 event.attrs(),
-                event.body()), workspaceId, followupWorkItemId);
+                event.body(),
+                agentVersionId), workspaceId, followupWorkItemId);
 
         return record(eventId, version.getId(), strength, DecisionCode.ACCEPT, "accepted", assign.workItemId());
+    }
+
+    /** 解析规则版本 actions 中首个 agent 动作的 agentVersionId；无 Agent 动作返回 null。 */
+    private String firstAgentVersionId(String actionsJson) {
+        if (actionsJson == null || actionsJson.isBlank()) {
+            return null;
+        }
+        try {
+            com.fasterxml.jackson.databind.JsonNode actions = mapper.readTree(actionsJson);
+            if (actions.isArray()) {
+                for (com.fasterxml.jackson.databind.JsonNode action : actions) {
+                    String id = action.path("agentVersionId").asText(null);
+                    if (id != null && !id.isBlank()) {
+                        return id;
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.warn("解析规则版本 actions 失败，跳过授权书复验: {}", e.toString());
+        }
+        return null;
+    }
+
+    /**
+     * 派工复验（ADR-029 第 36 条 / ADR-032）：Agent 版本 → agent_agent.charter_status，
+     * 经 {@code AgentCharterPort} 直连 DB 读（无快照缓存延迟）。非 ACTIVE（含 SUSPENDED /
+     * HANDOVER）→ false → 决定 UNAVAILABLE(reason=charter_suspended)。快照 / 端口缺失
+     * （TRU-01 特性关闭或离线）保持放行兼容。
+     */
+    private boolean charterActive(String agentVersionId) {
+        var port = charterPort.getIfAvailable();
+        if (port == null) {
+            return true;
+        }
+        try {
+            AgentSnapshotApi.AgentSnapshot snap = agentSnapshots.get(agentVersionId);
+            String status = port.charterStatus(snap.agentId());
+            return status == null || "ACTIVE".equals(status);
+        } catch (BizException e) {
+            log.warn("派工复验读取快照失败 agv={}: {}", agentVersionId, e.toString());
+            return true;
+        }
     }
 
     private DecisionView maybeIgnore(String eventId, String ruleVersionId,

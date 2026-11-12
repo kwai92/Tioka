@@ -1,0 +1,6 @@
+# C-19 G3 场景 4：客户等级 A 不在 scope {C,D} → DENY(40340)，审计记策略 @id；拒绝结果回喂模型
+calls:
+  - tool_calls: [{ name: erp.update, arguments: { q: "writeoff", customerLevel: "A", amountMicros: 10000000000 } }]
+    usage: { prompt: 10, completion: 6 }
+  - content: "acknowledged"
+    usage: { prompt: 12, completion: 16 }

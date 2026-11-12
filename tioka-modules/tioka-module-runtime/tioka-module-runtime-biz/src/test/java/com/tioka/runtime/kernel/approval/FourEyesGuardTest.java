@@ -30,6 +30,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
@@ -135,6 +136,22 @@ class FourEyesGuardTest {
         } catch (BizException e) {
             assertEquals(false, e.getMessage().contains("四眼审批"),
                     "合规审批人不应被四眼校验拦截: " + e.getMessage());
+        }
+    }
+
+    @Test
+    void fourEyesWithoutExplicitAssigneeAllowsThirdParty() {
+        // 授权书 ESCALATE 生成的审批：assignee_json 只有 fourEyes 标记、userIds/roleCodes 为空。
+        // 此时不能按「空 = 仅发起人」解释，否则四眼禁止发起人会形成无人可批的死锁。
+        when(approvals.findForUpdate("apr1")).thenReturn(Optional.of(approval("1", "turn1")));
+        when(approvals.findById("apr1")).thenReturn(Optional.of(approval("1", "turn1")));
+        when(turns.findById("turn1")).thenReturn(Optional.of(turn("9")));
+        when(principals.current()).thenReturn(approver("7"));
+        try {
+            service.decide("apr1", new RuntimeApi.ApprovalDecision(true, null, "ok"));
+        } catch (BizException e) {
+            assertFalse(e.getMessage().contains("非审批人"),
+                    "四眼审批未指定审批人时，第三人不得被 assignee 校验拦下: " + e.getMessage());
         }
     }
 

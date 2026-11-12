@@ -9,6 +9,8 @@ import com.tioka.framework.error.BizException;
 import com.tioka.framework.error.ErrorCode;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 
 @Repository
@@ -78,5 +80,57 @@ public class AgentRepository {
         }
         existing.setStatus("RETIRED");
         versions.updateById(existing);
+    }
+
+    // ---- TRU-03：授权书生命周期（charter_status / reviewed_at / owner_id，V201）----
+
+    /** 指定用户作为负责人的全部 Agent（跨工作空间；调用方须以 SYSTEM 身份绕过行级过滤）。 */
+    public List<AgentDO> listByOwner(String ownerId) {
+        return agents.selectList(new QueryWrapper<AgentDO>().eq("owner_id", ownerId));
+    }
+
+    /** 指定用户在某工作空间内作为负责人的 Agent。 */
+    public List<AgentDO> listByOwnerInWorkspace(String workspaceId, String ownerId) {
+        return agents.selectList(new QueryWrapper<AgentDO>()
+                .eq("workspace_id", workspaceId)
+                .eq("owner_id", ownerId));
+    }
+
+    /** ACTIVE → SUSPENDED（CAS）；已是 SUSPENDED / HANDOVER 时影响 0 行（重复事件幂等）。 */
+    public boolean suspendCharter(String agentId) {
+        AgentDO patch = new AgentDO();
+        patch.setCharterStatus(CharterStatusValues.SUSPENDED);
+        return agents.update(patch, new QueryWrapper<AgentDO>()
+                .eq("id", agentId)
+                .eq("charter_status", CharterStatusValues.ACTIVE)) > 0;
+    }
+
+    /** ACTIVE / SUSPENDED → HANDOVER 并更换负责人；无可转移状态影响 0 行。 */
+    public boolean handoverCharter(String agentId, String newOwnerId) {
+        AgentDO patch = new AgentDO();
+        patch.setCharterStatus(CharterStatusValues.HANDOVER);
+        patch.setOwnerId(newOwnerId);
+        return agents.update(patch, new QueryWrapper<AgentDO>()
+                .eq("id", agentId)
+                .in("charter_status", CharterStatusValues.ACTIVE, CharterStatusValues.SUSPENDED)) > 0;
+    }
+
+    /** HANDOVER → ACTIVE 并刷新 reviewed_at（新负责人确认授权书）；非 HANDOVER 影响 0 行。 */
+    public boolean activateCharter(String agentId) {
+        AgentDO patch = new AgentDO();
+        patch.setCharterStatus(CharterStatusValues.ACTIVE);
+        patch.setReviewedAt(LocalDateTime.now(ZoneOffset.UTC));
+        return agents.update(patch, new QueryWrapper<AgentDO>()
+                .eq("id", agentId)
+                .eq("charter_status", CharterStatusValues.HANDOVER)) > 0;
+    }
+
+    /** charter_status 字面量常量（TRU-03 状态机；与 governance-api CharterStatus 对齐）。 */
+    static final class CharterStatusValues {
+        static final String ACTIVE = "ACTIVE";
+        static final String SUSPENDED = "SUSPENDED";
+        static final String HANDOVER = "HANDOVER";
+
+        private CharterStatusValues() {}
     }
 }

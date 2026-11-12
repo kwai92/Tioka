@@ -64,6 +64,9 @@ public class TurnSignalService {
     /** FND-04e：身份失效取消原因，写入 {@code runtime_turn.error_code}。 */
     public static final String REASON_PRINCIPAL_REVOKED = "principal_revoked";
 
+    /** TRU-03：授权书暂停（负责人失效）取消原因，写入 {@code runtime_turn.error_code}。 */
+    public static final String REASON_CHARTER_SUSPENDED = "charter_suspended";
+
     public void interrupt(String turnId) {
         interrupt(turnId, null);
     }
