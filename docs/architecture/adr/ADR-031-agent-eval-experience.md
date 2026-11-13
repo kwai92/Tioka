@@ -148,3 +148,11 @@ CREATE TABLE exp_hit (turn_id VARCHAR(64) NOT NULL, exp_id VARCHAR(32) NOT NULL,
 - **上线规程**：场景 Agent 按 ADR-069 的 E0〜E5 上线，准入时生成上线准入单（EVO-10）；在岗新版本用双跑或按比例灰度（EVO-11）；哨兵评测（EVO-12）。
 - **反馈**：`eval_feedback` 与 EVO-03「待标注」统一为反馈项，带原因码并每周分诊；只有分诊确认为 Agent 错误的反馈进入经验提取的失败组与回归集（[ADR-071](ADR-071-feedback-loop-improvement.md)，EVO-08a M3、EVO-14 M4）。
 - 数据模型增量（字段级，迁移编号在施工设计中分配）：`eval_dataset` 加 `tier`、`unit_key_path`；`eval_case` 加第 ADR-068 第 2 节字段；`eval_run` 加 `trials`；`eval_evaluator` 加 `version`、`config_hash` 与校准结果；新增 `eval_feedback_item`、`eval_improvement`、`agent_launch_stage`、`eval_readiness_report`。
+
+## 修订：施工设计评审（2026-11-11，ADR-029 第 79、81 条）
+
+见 [36 号评审](../implementation/36-M3M4施工设计多维度评审.md)。本 ADR 原文与以下各条冲突时，以下列为准：
+
+- 发布回归门禁接入「发布前置步骤」序号 30；跑哪些数据集由序号 20 的变更级别决定（ADR-069 第 4.1 节）。
+- 哨兵评测与解析、结构化、护栏、知识召回的夜间回归统一由 `eval.nightly` 调度，经夜间套件 SPI 注册（M4-01 第 2 节）。
+- 经验库：成功组只取生产 Turn；失败组只取分诊确认为 Agent 错误的反馈；来源 Turn 为 TAINTED 的条目标 `derivedFromExternal`，不能自动生效。

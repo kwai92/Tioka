@@ -97,3 +97,12 @@ ALTER TABLE sys_workspace ADD COLUMN promotes_to VARCHAR(64);
 - GOV-08：`audit_event`、`model_usage` 之外的记录表也带关联键；除 `trace_id` 外增加 `request_id`、`subject`；采样改为 Collector 尾部采样，日志聚合缺省 Loki（[ADR-073](ADR-073-correlation-trace-propagation.md)）。
 - GOV-09：提前到 M4 前段、P1；链覆盖审计、外部交互台账、运行清单；应用账号对这些表只有 INSERT 与 SELECT；外部锚点增加对象存储；保留与归档按 ADR-072 第 7 节。
 - 跨系统往来统一记入外部交互台账（[ADR-074](ADR-074-external-interaction-ledger.md)）；按请求与业务主体的时间线见 [ADR-075](ADR-075-unified-timeline-evidence.md)。
+
+## 修订：施工设计评审（2026-11-11，ADR-029 第 79、81 条）
+
+见 [36 号评审](../implementation/36-M3M4施工设计多维度评审.md)。本 ADR 原文与以下各条冲突时，以下列为准：
+
+- GOV-09：v1 链（V219，按 ID 顺序、按空间分链）已在 P3 批次实现。M4 起改为独立的只增链表，按时间窗口封印，无空间维度；v1 冻结，v2 以创世记录接续（M4-06 修订节）。原文「封印任务按 ID 顺序」「每租户一条链」只适用于 v1。
+- GOV-06：版本状态增加 `GATING`（评测门禁运行中）与 `CANDIDATE`。发布前置步骤的编排器放在 `governance-api`，Agent、Flow、Skill、MCP 的发布入口都调用它（M4-01 修订节）。
+- GOV-06：放宽类操作（关闭某类资产审批等）需要申请人加安全管理员两人，申请人不能自审；MCP Server、模型 binding、Skill 有平台级「必须审批」下限。
+- `gov_safety_policy` 从未建表，由 `guardrail_policy` 取代（ADR-065）。
