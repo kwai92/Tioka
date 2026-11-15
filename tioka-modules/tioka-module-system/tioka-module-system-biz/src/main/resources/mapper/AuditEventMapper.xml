@@ -14,10 +14,10 @@
         <![CDATA[
             INSERT INTO audit_event
               (id, ts, workspace_id, actor_type, actor_id, action,
-               resource_type, resource_id, outcome, reason, trace_id, span_id, service, request_id, subject, client_ip, details_json, forwarded)
+               resource_type, resource_id, outcome, reason, trace_id, span_id, service, request_id, turn_id, run_id, subject, client_ip, details_json, forwarded)
             VALUES
               (#{id}, #{ts}, #{workspaceId}, #{actorType}, #{actorId}, #{action},
-               #{resourceType}, #{resourceId}, #{outcome}, #{reason}, #{traceId}, #{spanId}, #{service}, #{requestId}, #{subject}, #{clientIp}, #{detailsJson}, FALSE)
+               #{resourceType}, #{resourceId}, #{outcome}, #{reason}, #{traceId}, #{spanId}, #{service}, #{requestId}, #{turnId}, #{runId}, #{subject}, #{clientIp}, #{detailsJson}, FALSE)
 ]]>
     </insert>
 
@@ -26,7 +26,8 @@
             SELECT id, ts, workspace_id AS "workspaceId", actor_type AS "actorType", actor_id AS "actorId",
                    action, resource_type AS "resourceType", resource_id AS "resourceId",
                    outcome, reason, trace_id AS "traceId", span_id AS "spanId", service,
-                   request_id AS "requestId", client_ip AS "clientIp",
+                   request_id AS "requestId", turn_id AS "turnId", run_id AS "runId", subject,
+                   client_ip AS "clientIp",
                    details_json AS "detailsJson", forwarded
             FROM audit_event
             WHERE (#{workspaceId}::varchar IS NULL OR workspace_id = #{workspaceId})
@@ -35,10 +36,18 @@
               AND (#{resourceType}::varchar IS NULL OR resource_type = #{resourceType})
               AND (#{resourceId}::varchar IS NULL OR resource_id = #{resourceId})
               AND (#{outcome}::varchar IS NULL OR outcome = #{outcome})
+              AND (#{traceId}::varchar IS NULL OR trace_id = #{traceId})
+              AND (#{requestId}::varchar IS NULL OR request_id = #{requestId})
+              AND (#{subject}::varchar IS NULL OR subject = #{subject})
+              AND (#{turnId}::varchar IS NULL OR turn_id = #{turnId})
+              AND (#{runId}::varchar IS NULL OR run_id = #{runId})
               AND (#{from}::timestamptz IS NULL OR ts >= #{from})
               AND (#{to}::timestamptz IS NULL OR ts <= #{to})
-            ORDER BY ts DESC
-            LIMIT #{limit} OFFSET #{offset}
+              AND (#{cursorTs}::timestamptz IS NULL
+                   OR ts < #{cursorTs}::timestamptz
+                   OR (ts = #{cursorTs}::timestamptz AND id < #{cursorId}))
+            ORDER BY ts DESC, id DESC
+            LIMIT #{limit}
 ]]>
     </select>
 
@@ -149,5 +158,22 @@ UPDATE audit_event SET forwarded = TRUE WHERE id = #{id}
                   last_forwarded_at = now()
 ]]>
     </insert>
+
+    <!-- OBS-08 统一时间线（ADR-075 §2）：SECURITY 类审计事件按时间段读回 -->
+    <select id="listByActionsInRange" resultType="com.tioka.system.infrastructure.persistence.AuditEventTimelineDO">
+        <![CDATA[
+            SELECT id, ts, workspace_id AS "workspaceId", actor_type AS "actorType", actor_id AS "actorId",
+                   action, resource_type AS "resourceType", resource_id AS "resourceId",
+                   outcome, reason, trace_id AS "traceId",
+                   request_id AS "requestId", turn_id AS "turnId", run_id AS "runId", subject
+            FROM audit_event
+            WHERE action IN
+        ]]>
+        <foreach collection="actions" item="a" open="(" separator="," close=")">#{a}</foreach>
+        <![CDATA[
+              AND ts >= #{from} AND ts <= #{to}
+            ORDER BY ts, id
+        ]]>
+    </select>
 
 </mapper>

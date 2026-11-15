@@ -27,4 +27,10 @@ public interface CfgProjectionPointerMapper {
             @Param("objectId") String objectId,
             @Param("versionId") String versionId,
             @Param("versionNo") int versionNo);
+
+    /** AST-07（ADR-041 §4）：Prompt 模板身份表 prm_template 的当前生效版本指针。 */
+    int updatePromptTemplate(
+            @Param("objectId") String objectId,
+            @Param("versionId") String versionId,
+            @Param("versionNo") int versionNo);
 }

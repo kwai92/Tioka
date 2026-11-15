@@ -2,6 +2,7 @@ package com.tioka.system.infrastructure;
 
 import com.tioka.system.infrastructure.mapper.AuditEventMapper;
 import com.tioka.system.infrastructure.persistence.AuditEventQuery;
+import com.tioka.system.infrastructure.persistence.AuditEventTimelineDO;
 import com.tioka.system.infrastructure.persistence.AuditEventWriteRow;
 import org.springframework.stereotype.Repository;
 
@@ -93,5 +94,15 @@ public class AuditEventRepository {
     /** 转发水位 upsert：本通道已外送的最后一条记录 ID。 */
     public void updateForwardProgress(String channel, String lastForwardedId, int batchSize) {
         mapper.updateForwardProgress(channel, lastForwardedId, batchSize);
+    }
+
+    /* ---- OBS-08 统一时间线（ADR-075 §2） ---- */
+
+    /** 按动作名集合与时间段读回审计事件（时间线 SECURITY 条目只读端口）。 */
+    public List<AuditEventTimelineDO> listByActionsInRange(List<String> actions, Instant from, Instant to) {
+        if (actions == null || actions.isEmpty()) {
+            return List.of();
+        }
+        return mapper.listByActionsInRange(actions, from, to);
     }
 }

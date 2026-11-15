@@ -2,6 +2,7 @@ package com.tioka.system.infrastructure.mapper;
 
 import com.baomidou.mybatisplus.annotation.InterceptorIgnore;
 import com.tioka.system.infrastructure.persistence.AuditEventQuery;
+import com.tioka.system.infrastructure.persistence.AuditEventTimelineDO;
 import com.tioka.system.infrastructure.persistence.AuditEventWriteRow;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
@@ -62,4 +63,11 @@ public interface AuditEventMapper {
     int updateForwardProgress(@Param("channel") String channel,
                               @Param("lastForwardedId") String lastForwardedId,
                               @Param("batchSize") int batchSize);
+
+    /* ---- OBS-08 统一时间线（ADR-075 §2） ---- */
+
+    /** 按动作名集合与时间段读回审计事件（时间线 SECURITY 条目来源，升序）。 */
+    List<AuditEventTimelineDO> listByActionsInRange(@Param("actions") List<String> actions,
+                                                    @Param("from") Instant from,
+                                                    @Param("to") Instant to);
 }

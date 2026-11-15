@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- GOV-13 ops_alert_event 自定义 SQL（48-CS §4：自定义 SQL 须放 mapper/*.xml） -->
+<mapper namespace="com.tioka.governance.infrastructure.mapper.OpsAlertEventMapper">
+
+    <sql id="eventColumns">
+        id,
+        rule_id         AS ruleId,
+        rule_name       AS ruleName,
+        target_type     AS targetType,
+        target_id       AS targetId,
+        condition_type  AS conditionType,
+        state, severity,
+        metric_value    AS metricValue,
+        threshold_value AS thresholdValue,
+        message,
+        dedup_key       AS dedupKey,
+        notified,
+        observed_at     AS observedAt,
+        create_at       AS createAt
+    </sql>
+
+    <!-- 状态去重 / 恢复判定：同规则同对象同条件的最新事件 -->
+    <select id="findLatest" resultType="com.tioka.governance.infrastructure.persistence.OpsAlertEventDO">
+        SELECT <include refid="eventColumns"/> FROM ops_alert_event
+        WHERE rule_id = #{ruleId}
+          AND condition_type = #{conditionType}
+          AND target_id IS NOT DISTINCT FROM #{targetId}
+        ORDER BY observed_at DESC, id DESC
+        LIMIT 1
+    </select>
+
+    <select id="listRecent" resultType="com.tioka.governance.infrastructure.persistence.OpsAlertEventDO">
+        SELECT <include refid="eventColumns"/> FROM ops_alert_event
+        <where>
+            <if test="ruleId != null">AND rule_id = #{ruleId}</if>
+            <if test="targetId != null">AND target_id = #{targetId}</if>
+            <if test="state != null">AND state = #{state}</if>
+        </where>
+        ORDER BY observed_at DESC, id DESC
+        LIMIT #{limit}
+    </select>
+
+    <update id="markNotified">
+        UPDATE ops_alert_event SET notified = TRUE WHERE id = #{id}
+    </update>
+</mapper>

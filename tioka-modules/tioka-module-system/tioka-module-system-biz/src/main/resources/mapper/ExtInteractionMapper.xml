@@ -3,6 +3,12 @@
         "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.tioka.system.infrastructure.mapper.ExtInteractionMapper">
 
+    <!--
+      OBS-07（ADR-074 §4）台账查询出口。
+      驼峰列别名必须加双引号：PostgreSQL 会把未加引号的别名折叠成全小写（requestId -> requestid），
+      而 MyBatis resultType=HashMap 以 JDBC column label 为键，导致按驼峰取键恒为 null。
+    -->
+
     <insert id="insert">
         <![CDATA[
             INSERT INTO ext_interaction
@@ -22,5 +28,67 @@
 
 ]]>
     </insert>
+
+    <select id="query" resultType="java.util.HashMap">
+        <![CDATA[
+            SELECT id, ts, direction, kind, counterparty, endpoint, operation,
+                   auth_mode AS "authMode", actor_id AS "actorId",
+                   trace_id AS "traceId", request_id AS "requestId", subject,
+                   turn_id AS "turnId", run_id AS "runId", change_set_id AS "changeSetId",
+                   tool_call_id AS "toolCallId", idempotency_key AS "idempotencyKey",
+                   external_ref AS "externalRef", dedupe_key AS "dedupeKey",
+                   request_digest AS "requestDigest", response_digest AS "responseDigest",
+                   request_size AS "requestSize", response_size AS "responseSize",
+                   data_label AS "dataLabel", status, http_status AS "httpStatus",
+                   error_code AS "errorCode", attempt, latency_ms AS "latencyMs",
+                   retention_class AS "retentionClass", attrs_json AS "attrs"
+            FROM ext_interaction
+            WHERE (#{requestId}::varchar IS NULL OR request_id = #{requestId})
+              AND (#{subject}::varchar IS NULL OR subject = #{subject})
+              AND (#{counterparty}::varchar IS NULL OR counterparty = #{counterparty})
+              AND (#{externalRef}::varchar IS NULL OR external_ref = #{externalRef})
+              AND (#{kind}::varchar IS NULL OR kind = #{kind})
+              AND (#{direction}::varchar IS NULL OR direction = #{direction})
+              AND (#{from}::timestamptz IS NULL OR ts >= #{from})
+              AND (#{to}::timestamptz IS NULL OR ts <= #{to})
+            ORDER BY ts DESC, id DESC
+            LIMIT #{limit} OFFSET #{offset}
+]]>
+    </select>
+
+    <select id="destinationReport" resultType="java.util.HashMap">
+        <![CDATA[
+            SELECT kind,
+                   counterparty,
+                   data_label AS "dataLabel",
+                   COUNT(*) AS "cnt",
+                   COUNT(*) FILTER (WHERE status <> 'OK') AS "errorCount",
+                   MAX(ts) AS "lastTs"
+            FROM ext_interaction
+            WHERE direction = 'OUT'
+              AND (#{kind}::varchar IS NULL OR kind = #{kind})
+              AND (#{dataLabel}::varchar IS NULL OR data_label = #{dataLabel})
+              AND (#{from}::timestamptz IS NULL OR ts >= #{from})
+              AND (#{to}::timestamptz IS NULL OR ts <= #{to})
+            GROUP BY kind, counterparty, data_label
+            ORDER BY "cnt" DESC, kind, counterparty
+]]>
+    </select>
+
+    <select id="counterpartyStats" resultType="java.util.HashMap">
+        <![CDATA[
+            SELECT kind,
+                   counterparty,
+                   COUNT(*) AS "cnt",
+                   COUNT(*) FILTER (WHERE status <> 'OK') AS "errorCount",
+                   percentile_cont(0.95) WITHIN GROUP (ORDER BY latency_ms) AS "p95"
+            FROM ext_interaction
+            WHERE (#{kind}::varchar IS NULL OR kind = #{kind})
+              AND (#{from}::timestamptz IS NULL OR ts >= #{from})
+              AND (#{to}::timestamptz IS NULL OR ts <= #{to})
+            GROUP BY kind, counterparty
+            ORDER BY "cnt" DESC, kind, counterparty
+]]>
+    </select>
 
 </mapper>

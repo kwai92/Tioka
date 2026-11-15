@@ -4,6 +4,7 @@ import java.time.OffsetDateTime;
 
 /**
  * {@code gov_quota} 行（V102；无逻辑删，不继承 BaseDO）。
+ * <p>MH-09（V152）：增 {@code warnRatio} 预警比例（缺省 80）。
  */
 public class GovQuotaDO {
     private String scopeType;
@@ -11,6 +12,7 @@ public class GovQuotaDO {
     private String metric;
     private Long limitValue;
     private Long usedValue;
+    private Integer warnRatio;
     private OffsetDateTime windowStart;
     private OffsetDateTime createAt;
     private OffsetDateTime updateAt;
@@ -27,6 +29,8 @@ public class GovQuotaDO {
     public void setLimitValue(Long limitValue) { this.limitValue = limitValue; }
     public Long getUsedValue() { return usedValue; }
     public void setUsedValue(Long usedValue) { this.usedValue = usedValue; }
+    public Integer getWarnRatio() { return warnRatio; }
+    public void setWarnRatio(Integer warnRatio) { this.warnRatio = warnRatio; }
     public OffsetDateTime getWindowStart() { return windowStart; }
     public void setWindowStart(OffsetDateTime windowStart) { this.windowStart = windowStart; }
     public OffsetDateTime getCreateAt() { return createAt; }

@@ -19,6 +19,16 @@
             <groupId>com.tioka</groupId>
             <artifactId>tioka-framework</artifactId>
         </dependency>
+        <!-- OBS-08：外部交互台账 → 统一时间线的投影来源（TimelineSourceEvent/TimelineRebuildSource） -->
+        <dependency>
+            <groupId>com.tioka</groupId>
+            <artifactId>tioka-module-governance-api</artifactId>
+        </dependency>
+        <!-- OBS-12：证据包装配需审批与处置（ApprovalQueryApi） -->
+        <dependency>
+            <groupId>com.tioka</groupId>
+            <artifactId>tioka-module-runtime-api</artifactId>
+        </dependency>
 
         <dependency>
             <groupId>org.springframework.boot</groupId>

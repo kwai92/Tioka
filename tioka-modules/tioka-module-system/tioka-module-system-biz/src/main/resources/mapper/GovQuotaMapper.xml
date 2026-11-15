@@ -7,6 +7,7 @@
         <![CDATA[
             SELECT scope_type AS scopeType, scope_id AS scopeId, metric,
                    limit_value AS limitValue, used_value AS usedValue,
+                   COALESCE(warn_ratio, 80) AS warnRatio,
                    window_start AS windowStart,
                    create_at AS createAt, update_at AS updateAt,
                    create_by AS createBy, update_by AS updateBy
@@ -20,6 +21,7 @@
         <![CDATA[
             SELECT scope_type AS scopeType, scope_id AS scopeId, metric,
                    limit_value AS limitValue, used_value AS usedValue,
+                   COALESCE(warn_ratio, 80) AS warnRatio,
                    window_start AS windowStart,
                    create_at AS createAt, update_at AS updateAt,
                    create_by AS createBy, update_by AS updateBy
@@ -34,6 +36,7 @@
         <![CDATA[
             SELECT scope_type AS scopeType, scope_id AS scopeId, metric,
                    limit_value AS limitValue, used_value AS usedValue,
+                   COALESCE(warn_ratio, 80) AS warnRatio,
                    window_start AS windowStart,
                    create_at AS createAt, update_at AS updateAt,
                    create_by AS createBy, update_by AS updateBy
@@ -45,12 +48,14 @@
 
     <insert id="upsertLimit">
         <![CDATA[
-            INSERT INTO gov_quota (scope_type, scope_id, metric, limit_value, used_value, window_start,
+            INSERT INTO gov_quota (scope_type, scope_id, metric, limit_value, used_value, warn_ratio, window_start,
                                    create_at, update_at, create_by, update_by)
-            VALUES (#{scopeType}, #{scopeId}, #{metric}, #{limitValue}, COALESCE(#{usedValue}, 0), #{windowStart},
+            VALUES (#{scopeType}, #{scopeId}, #{metric}, #{limitValue}, COALESCE(#{usedValue}, 0),
+                    COALESCE(#{warnRatio}, 80), #{windowStart},
                     now(), now(), COALESCE(#{createBy}, 'system'), COALESCE(#{updateBy}, 'system'))
             ON CONFLICT (scope_type, scope_id, metric) DO UPDATE SET
                 limit_value = EXCLUDED.limit_value,
+                warn_ratio = EXCLUDED.warn_ratio,
                 update_at = now(),
                 update_by = EXCLUDED.update_by
             

@@ -11,6 +11,9 @@ public final class AuditRequestContext {
     public static final String MDC_REQUEST = "requestId";
     /** P2-L6：W3C traceparent 抽取的 parent-span-id（无则不生成）。 */
     public static final String MDC_SPAN = "spanId";
+    /** OBS-09 / ADR-073 §1：运行键 turn_id / run_id（由运行侧设置；无则不生成）。 */
+    public static final String MDC_TURN = "turnId";
+    public static final String MDC_RUN = "runId";
 
     private AuditRequestContext() {}
 
@@ -29,6 +32,18 @@ public final class AuditRequestContext {
         return v == null || v.isBlank() ? null : v;
     }
 
+    /** 当前所属 Turn（无则 null；不自动生成——turn_id 由运行侧设置，ADR-073 §1）。 */
+    public static String currentTurnId() {
+        String v = MDC.get(MDC_TURN);
+        return v == null || v.isBlank() ? null : v;
+    }
+
+    /** 当前所属 Run（无则 null；不自动生成——run_id 由编排 / Flow 侧设置，ADR-073 §1）。 */
+    public static String currentRunId() {
+        String v = MDC.get(MDC_RUN);
+        return v == null || v.isBlank() ? null : v;
+    }
+
     public static String currentRequestId() {
         String v = MDC.get(MDC_REQUEST);
         if (v == null || v.isBlank()) {
@@ -42,5 +57,7 @@ public final class AuditRequestContext {
         MDC.remove(MDC_TRACE);
         MDC.remove(MDC_REQUEST);
         MDC.remove(MDC_SPAN);
+        MDC.remove(MDC_TURN);
+        MDC.remove(MDC_RUN);
     }
 }

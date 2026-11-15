@@ -82,6 +82,11 @@ class AuthServiceTest {
             public long countSearch(String q) {
                 return byId.size();
             }
+
+            @Override
+            public List<AuthUserDO> listByRange(Instant from, Instant to) {
+                return List.of();
+            }
         };
         passwords = new PasswordService();
         AuthUserDO admin = new AuthUserDO();

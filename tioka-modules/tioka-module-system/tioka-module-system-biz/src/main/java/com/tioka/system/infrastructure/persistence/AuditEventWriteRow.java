@@ -18,6 +18,8 @@ public record AuditEventWriteRow(
         String spanId,
         String service,
         String requestId,
+        String turnId,
+        String runId,
         String subject,
         String clientIp,
         String detailsJson

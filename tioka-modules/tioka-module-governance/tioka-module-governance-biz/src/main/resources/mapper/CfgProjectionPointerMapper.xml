@@ -34,4 +34,12 @@
              WHERE id = #{objectId}
         ]]>
     </update>
+
+    <update id="updatePromptTemplate">
+        <![CDATA[
+            UPDATE prm_template
+               SET current_version_id = #{versionId}, current_version_no = #{versionNo}
+             WHERE id = #{objectId}
+        ]]>
+    </update>
 </mapper>

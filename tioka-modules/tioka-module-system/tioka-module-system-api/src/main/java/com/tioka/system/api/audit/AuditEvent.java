@@ -14,14 +14,27 @@ import java.util.Objects;
  * @param action    小写点分动作，如 {@code agent.publish}、{@code tool.invoke}
  * @param spanId    W3C parent-span-id（HTTP traceparent / MQ 消费侧回写；无则 null，P2-L6）
  * @param service   产生事件的服务名（tioka.observability.service-name，P2-L6）
+ * @param turnId    运行键：所属 Turn（ADR-073 §1/OBS-09；无则 null）
+ * @param runId     运行键：所属 Run（编排 / Flow / 评测等；无则 null）
  */
 public record AuditEvent(String id, Instant ts, String workspaceId,
                          String actorType, String actorId, String action,
                          String resourceType, String resourceId,
                          AuditOutcome outcome, String reason, String traceId, String spanId, String service,
-                         String requestId, String clientIp, Map<String, Object> details) {
+                         String requestId, String turnId, String runId, String clientIp,
+                         Map<String, Object> details) {
     public AuditEvent {
         details = details == null ? Map.of() : Map.copyOf(details);
+    }
+
+    /** 兼容旧 16 参口径（turnId/runId 为 null）。 */
+    public AuditEvent(String id, Instant ts, String workspaceId,
+                      String actorType, String actorId, String action,
+                      String resourceType, String resourceId,
+                      AuditOutcome outcome, String reason, String traceId, String spanId, String service,
+                      String requestId, String clientIp, Map<String, Object> details) {
+        this(id, ts, workspaceId, actorType, actorId, action, resourceType, resourceId, outcome,
+                reason, traceId, spanId, service, requestId, null, null, clientIp, details);
     }
 
     public static Builder builder() {
@@ -43,6 +56,8 @@ public record AuditEvent(String id, Instant ts, String workspaceId,
         private String spanId;
         private String service;
         private String requestId;
+        private String turnId;
+        private String runId;
         private String clientIp;
         private Map<String, Object> details = Map.of();
 
@@ -116,6 +131,16 @@ public record AuditEvent(String id, Instant ts, String workspaceId,
             return this;
         }
 
+        public Builder turnId(String turnId) {
+            this.turnId = turnId;
+            return this;
+        }
+
+        public Builder runId(String runId) {
+            this.runId = runId;
+            return this;
+        }
+
         public Builder clientIp(String clientIp) {
             this.clientIp = clientIp;
             return this;
@@ -130,7 +155,8 @@ public record AuditEvent(String id, Instant ts, String workspaceId,
             Objects.requireNonNull(action, "action");
             Objects.requireNonNull(outcome, "outcome");
             return new AuditEvent(id, ts, workspaceId, actorType, actorId, action,
-                    resourceType, resourceId, outcome, reason, traceId, spanId, service, requestId, clientIp, details);
+                    resourceType, resourceId, outcome, reason, traceId, spanId, service, requestId,
+                    turnId, runId, clientIp, details);
         }
     }
 }

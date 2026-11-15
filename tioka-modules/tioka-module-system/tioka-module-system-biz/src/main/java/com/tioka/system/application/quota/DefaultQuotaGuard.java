@@ -29,8 +29,10 @@ public class DefaultQuotaGuard implements QuotaGuard {
 
     static final Duration LIMIT_TTL = Duration.ofSeconds(60);
     static final Duration TOKEN_TTL = Duration.ofDays(40);
-    /** 月度 token 预警阈值（百分比）；越过即发 {@link QuotaThresholdExceededEvent}。 */
+    /** 月度 token 预警阈值（百分比）缺省值；逐行可被 {@code gov_quota.warn_ratio} 覆盖（V152）。 */
     static final int WARN_THRESHOLD_PCT = 80;
+    /** 100% 高水位：越过上限时额外发一次（与预警比例各自独立去重）。 */
+    static final int HARD_THRESHOLD_PCT = 100;
     private static final String LIM_MISS = "__none__";
 
     /**
@@ -89,8 +91,8 @@ public class DefaultQuotaGuard implements QuotaGuard {
     }
 
     /**
-     * 月度阈值预警：已用量首次越过 {@link #WARN_THRESHOLD_PCT}% 上限时发布领域事件。
-     * 去重键走 Redis SETNX（TTL 同 token 计数，覆盖整月窗口）；
+     * 月度阈值预警：已用量越过逐行预警比例（{@code warn_ratio}，缺省 80%）与 100% 高水位时各发布一次领域事件。
+     * 去重键走 Redis SETNX（TTL 同 token 计数，覆盖整月窗口），阈值不同则键不同；
      * 预警失败只记日志，不阻断计数主流程。
      */
     private void warnIfCrossed(String scopeType, String scopeId, String ym) {
@@ -102,10 +104,17 @@ public class DefaultQuotaGuard implements QuotaGuard {
             return;
         }
         long used = usedTokens(scopeType, scopeId);
-        if (used * 100 < lim * WARN_THRESHOLD_PCT) {
-            return;
+        int warnPct = warnRatioOf(scopeType, scopeId, QuotaMetrics.TOKENS_MONTH);
+        if (warnPct > 0 && used * 100 >= lim * warnPct) {
+            publishWarn(scopeType, scopeId, lim, used, warnPct, ym);
         }
-        String dedupKey = warnKey(scopeType, scopeId, ym);
+        if (used >= lim) {
+            publishWarn(scopeType, scopeId, lim, used, HARD_THRESHOLD_PCT, ym);
+        }
+    }
+
+    private void publishWarn(String scopeType, String scopeId, long lim, long used, int pct, String ym) {
+        String dedupKey = warnKey(scopeType, scopeId, ym, pct);
         try {
             Boolean first = redis.opsForValue()
                     .setIfAbsent(dedupKey, "1", TOKEN_TTL);
@@ -114,17 +123,44 @@ public class DefaultQuotaGuard implements QuotaGuard {
             }
             events.publishEvent(new QuotaThresholdExceededEvent(
                     scopeType, scopeId, QuotaMetrics.TOKENS_MONTH,
-                    lim, used, WARN_THRESHOLD_PCT, ym));
+                    lim, used, pct, ym));
             log.info("quota warning published: {}/{}/{} used={} limit={} pct={}",
-                    scopeType, scopeId, ym, used, lim, WARN_THRESHOLD_PCT);
+                    scopeType, scopeId, ym, used, lim, pct);
         } catch (RuntimeException e) {
             log.warn("quota warning failed (ignored): {}/{}: {}", scopeType, scopeId, e.toString());
         }
     }
 
-    /** 预警去重键：{@code q:warn:{scopeType}:{scopeId}:{yyyyMM}:80}。 */
+    /** 预警去重键（缺省阈值）：{@code q:warn:{scopeType}:{scopeId}:{yyyyMM}:80}。 */
     public String warnKey(String scopeType, String scopeId, String yyyyMM) {
-        return "q:warn:" + scopeType + ":" + scopeId + ":" + yyyyMM + ":" + WARN_THRESHOLD_PCT;
+        return warnKey(scopeType, scopeId, yyyyMM, WARN_THRESHOLD_PCT);
+    }
+
+    /** 预警去重键：{@code q:warn:{scopeType}:{scopeId}:{yyyyMM}:{pct}}。 */
+    public String warnKey(String scopeType, String scopeId, String yyyyMM, int pct) {
+        return "q:warn:" + scopeType + ":" + scopeId + ":" + yyyyMM + ":" + pct;
+    }
+
+    /**
+     * 预警比例（百分比）：读 {@code gov_quota.warn_ratio}（V152），缺失按缺省 80 处理，结果短缓存。
+     */
+    public int warnRatioOf(String scopeType, String scopeId, String metric) {
+        if (blank(scopeType) || blank(scopeId) || blank(metric)) {
+            return WARN_THRESHOLD_PCT;
+        }
+        String key = warnRatioKey(scopeType, scopeId, metric);
+        String cached = redis.opsForValue().get(key);
+        if (cached != null) {
+            try {
+                return Integer.parseInt(cached);
+            } catch (NumberFormatException ignored) {
+                // fall through
+            }
+        }
+        GovQuotaDO row = quotas.find(scopeType, scopeId, metric);
+        int ratio = row == null || row.getWarnRatio() == null ? WARN_THRESHOLD_PCT : row.getWarnRatio();
+        redis.opsForValue().set(key, String.valueOf(ratio), LIMIT_TTL);
+        return ratio;
     }
 
     @Override
@@ -251,9 +287,10 @@ public class DefaultQuotaGuard implements QuotaGuard {
         return row.getLimitValue();
     }
 
-    /** PUT/DELETE 后清上限缓存。 */
+    /** PUT/DELETE 后清上限与预警比例缓存。 */
     public void invalidateLimitCache(String scopeType, String scopeId, String metric) {
         redis.delete(limKey(scopeType, scopeId, metric));
+        redis.delete(warnRatioKey(scopeType, scopeId, metric));
     }
 
     public String tokKey(String scopeType, String scopeId, String yyyyMM) {
@@ -262,6 +299,10 @@ public class DefaultQuotaGuard implements QuotaGuard {
 
     public String limKey(String scopeType, String scopeId, String metric) {
         return "q:lim:" + scopeType + ":" + scopeId + ":" + metric;
+    }
+
+    public String warnRatioKey(String scopeType, String scopeId, String metric) {
+        return "q:warnpct:" + scopeType + ":" + scopeId + ":" + metric;
     }
 
     public String ccKey(String scopeType, String scopeId) {

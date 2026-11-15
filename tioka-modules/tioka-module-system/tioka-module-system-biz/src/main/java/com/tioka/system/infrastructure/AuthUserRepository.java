@@ -2,6 +2,7 @@ package com.tioka.system.infrastructure;
 
 import com.tioka.system.infrastructure.persistence.AuthUserDO;
 
+import java.time.Instant;
 import java.util.List;
 
 public interface AuthUserRepository {
@@ -16,4 +17,7 @@ public interface AuthUserRepository {
     List<AuthUserDO> search(String q, int offset, int limit);
 
     long countSearch(String q);
+
+    /** OBS-12：时间线重建只读端口——按 {@code update_at} 时间段读回用户（升序）。 */
+    List<AuthUserDO> listByRange(Instant from, Instant to);
 }

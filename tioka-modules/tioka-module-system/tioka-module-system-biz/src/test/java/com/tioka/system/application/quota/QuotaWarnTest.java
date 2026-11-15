@@ -106,6 +106,36 @@ class QuotaWarnTest {
     }
 
     @Test
+    void honorsPerRowWarnRatio() {
+        // MH-09（V152）：逐行 warn_ratio=50 → 600/1000 越 50% 即预警（三 scope 各一次）
+        GovQuotaRepository repo = mock(GovQuotaRepository.class);
+        when(repo.find(anyString(), anyString(), anyString())).thenAnswer(inv -> {
+            GovQuotaDO row = new GovQuotaDO();
+            row.setLimitValue(LIMIT);
+            row.setWarnRatio(50);
+            return row;
+        });
+        DefaultQuotaGuard g = new DefaultQuotaGuard(redis, repo, publisher);
+        g.consumeTokens(WS, "u1", "a1", 600L);
+        ArgumentCaptor<Object> captor = ArgumentCaptor.forClass(Object.class);
+        verify(publisher, times(3)).publishEvent(captor.capture());
+        List<Integer> pcts = captor.getAllValues().stream()
+                .map(e -> ((QuotaThresholdExceededEvent) e).thresholdPct()).toList();
+        assertEquals(List.of(50, 50, 50), pcts);
+    }
+
+    @Test
+    void emitsBothWarnAndHardThresholdAtFullUsage() {
+        // MH-09：越过上限 → 预警比例（80%）与 100% 高水位各发一次（三 scope × 2）
+        guard.consumeTokens(WS, "u1", "a1", LIMIT);
+        ArgumentCaptor<Object> captor = ArgumentCaptor.forClass(Object.class);
+        verify(publisher, times(6)).publishEvent(captor.capture());
+        List<Integer> pcts = captor.getAllValues().stream()
+                .map(e -> ((QuotaThresholdExceededEvent) e).thresholdPct()).toList();
+        assertEquals(List.of(80, 100, 80, 100, 80, 100), pcts);
+    }
+
+    @Test
     void notifierSendsNotificationWithDedupKey() {
         NotificationPort port = mock(NotificationPort.class);
         @SuppressWarnings("unchecked")

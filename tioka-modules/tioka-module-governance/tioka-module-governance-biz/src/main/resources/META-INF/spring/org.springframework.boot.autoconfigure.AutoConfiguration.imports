@@ -2,3 +2,6 @@ com.tioka.governance.config.GovernanceAutoConfiguration
 com.tioka.governance.config.CharterAutoConfiguration
 com.tioka.governance.config.PolicyAutoConfiguration
 com.tioka.governance.config.AutonomyAutoConfiguration
+com.tioka.governance.config.RunManifestAutoConfiguration
+com.tioka.governance.config.TimelineAutoConfiguration
+com.tioka.governance.config.AlertAutoConfiguration

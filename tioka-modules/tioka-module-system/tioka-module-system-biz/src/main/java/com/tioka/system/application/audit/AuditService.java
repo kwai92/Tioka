@@ -79,19 +79,15 @@ public class AuditService implements AuditApi {
     @Override
     public List<AuditEvent> query(AuditQuery query) {
         int limit = query.limit() <= 0 ? DEFAULT_QUERY_LIMIT : Math.min(query.limit(), MAX_QUERY_LIMIT);
-        int offset = 0;
-        if (query.cursor() != null && !query.cursor().isBlank()) {
-            try {
-                offset = Math.max(0, Integer.parseInt(query.cursor()));
-            } catch (NumberFormatException ignored) {
-                offset = 0;
-            }
-        }
+        AuditApi.AuditCursor cursor = AuditApi.AuditCursor.parse(query.cursor());
         String outcome = query.outcome() == null ? null : query.outcome().name();
         List<Map<String, Object>> rows = repository.query(new AuditEventQuery(
                 query.workspaceId(), query.actorId(), query.action(),
                 query.resourceType(), query.resourceId(), outcome,
-                query.from(), query.to(), limit, offset));
+                query.from(), query.to(),
+                query.traceId(), query.requestId(), query.subject(), query.turnId(), query.runId(),
+                cursor == null ? null : cursor.ts(), cursor == null ? null : cursor.id(),
+                limit));
         List<AuditEvent> out = new ArrayList<>(rows.size());
         for (Map<String, Object> r : rows) {
             out.add(toEvent(r));
@@ -106,7 +102,9 @@ public class AuditService implements AuditApi {
         List<Map<String, Object>> rows = repository.query(new AuditEventQuery(
                 query.workspaceId(), query.actorId(), query.action(),
                 query.resourceType(), query.resourceId(), outcome,
-                query.from(), query.to(), limit, 0));
+                query.from(), query.to(),
+                query.traceId(), query.requestId(), query.subject(), query.turnId(), query.runId(),
+                null, null, limit));
         List<AuditEvent> out = new ArrayList<>(rows.size());
         for (Map<String, Object> r : rows) {
             out.add(toEvent(r));
@@ -129,10 +127,11 @@ public class AuditService implements AuditApi {
                 e.id(), e.ts(), e.workspaceId(),
                 e.actorType(), e.actorId(), e.action(), e.resourceType(), e.resourceId(),
                 e.outcome().name(), e.reason(), e.traceId(), e.spanId(), e.service(), e.requestId(),
+                e.turnId(), e.runId(),
                 subject, e.clientIp(), detailsJson));
     }
 
-    /** OBS-01：补齐 id/ts/traceId/requestId；P2-L6：补齐 spanId（MDC）与 service。 */
+    /** OBS-01：补齐 id/ts/traceId/requestId；P2-L6：补齐 spanId（MDC）与 service；OBS-09：补齐 turnId/runId。 */
     private AuditEvent enrich(AuditEvent e) {
         String id = blank(e.id()) ? Ids.newId("aud") : e.id();
         Instant ts = e.ts() == null ? Instant.now() : e.ts();
@@ -140,6 +139,8 @@ public class AuditService implements AuditApi {
         String requestId = blank(e.requestId()) ? AuditRequestContext.currentRequestId() : e.requestId();
         String spanId = blank(e.spanId()) ? AuditRequestContext.currentSpanId() : e.spanId();
         String service = blank(e.service()) ? serviceName : e.service();
+        String turnId = blank(e.turnId()) ? AuditRequestContext.currentTurnId() : e.turnId();
+        String runId = blank(e.runId()) ? AuditRequestContext.currentRunId() : e.runId();
         return AuditEvent.builder()
                 .id(id)
                 .ts(ts)
@@ -155,6 +156,8 @@ public class AuditService implements AuditApi {
                 .spanId(spanId)
                 .service(service)
                 .requestId(requestId)
+                .turnId(turnId)
+                .runId(runId)
                 .clientIp(e.clientIp())
                 .details(e.details())
                 .build();
@@ -189,6 +192,8 @@ public class AuditService implements AuditApi {
                 .spanId(str(r.get("spanId")))
                 .service(str(r.get("service")))
                 .requestId(str(r.get("requestId")))
+                .turnId(str(r.get("turnId")))
+                .runId(str(r.get("runId")))
                 .clientIp(str(r.get("clientIp")))
                 .details(details)
                 .build();

@@ -1,6 +1,6 @@
 /** HCI-03：管理后台 API 封装（供页面 / vitest）。 */
 
-import { api } from '@/api/http'
+import { api, authHeaders } from '@/api/http'
 
 export type Page<T> = { items: T[]; total: number; page: number; size: number }
 
@@ -138,12 +138,26 @@ export function replaceGroupMembers(id: string, memberIds: string[]) {
   })
 }
 
-export function queryAudit(params: Record<string, string | undefined>) {
+export type AuditPage = { rows: AuditEvent[]; nextCursor?: string }
+
+/**
+ * 审计查询（OBS-09）：分页改为服务端 `(ts, id)` 游标。
+ * 响应头 `X-Next-Cursor` 非空时把它作为下次请求的 `cursor` 传入即可续查。
+ */
+export async function queryAudit(params: Record<string, string | undefined>): Promise<AuditPage> {
   const qs = new URLSearchParams()
   for (const [k, v] of Object.entries(params)) {
     if (v) qs.set(k, v)
   }
-  return api<AuditEvent[]>(`/api/system/audit?${qs}`)
+  const res = await fetch(`/api/system/audit?${qs}`, {
+    headers: authHeaders(),
+    credentials: 'include'
+  })
+  const body = await res.json().catch(() => ({ code: res.status, message: `查询失败 ${res.status}` }))
+  if (!res.ok || body.code !== 0) {
+    throw new Error(body.message || `查询失败 ${res.status}`)
+  }
+  return { rows: body.data as AuditEvent[], nextCursor: res.headers.get('X-Next-Cursor') || undefined }
 }
 
 export function auditExportUrl(params: Record<string, string | undefined>): string {

@@ -1,5 +1,6 @@
 package com.tioka.system.application.obs;
 
+import com.tioka.governance.api.timeline.TimelineProjector;
 import com.tioka.system.api.obs.ExtInteractionRecorder;
 import com.tioka.system.application.audit.AuditRequestContext;
 import com.tioka.system.infrastructure.ExtInteractionRepository;
@@ -8,6 +9,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.springframework.beans.factory.ObjectProvider;
 
 import java.util.List;
 import java.util.Map;
@@ -31,7 +33,13 @@ class DefaultExtInteractionRecorderTest {
     @BeforeEach
     void setUp() {
         repository = mock(ExtInteractionRepository.class);
-        recorder = new DefaultExtInteractionRecorder(repository);
+        recorder = new DefaultExtInteractionRecorder(repository, emptyProjectorProvider());
+    }
+
+    /** 时间线投影器缺席（离线单测）：投影跳过，只验证台账落库行组装。 */
+    @SuppressWarnings("unchecked")
+    private static ObjectProvider<TimelineProjector> emptyProjectorProvider() {
+        return mock(ObjectProvider.class);
     }
 
     @AfterEach

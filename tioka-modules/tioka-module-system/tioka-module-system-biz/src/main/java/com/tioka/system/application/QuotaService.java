@@ -31,7 +31,7 @@ public class QuotaService {
         this.principals = principals;
     }
 
-    public record QuotaView(String metric, Long limit, long used, OffsetDateTime windowStart) {}
+    public record QuotaView(String metric, Long limit, long used, Integer warnRatio, OffsetDateTime windowStart) {}
 
     public List<QuotaView> list(String scopeType, String scopeId) {
         requireScope(scopeType, scopeId);
@@ -41,6 +41,7 @@ public class QuotaService {
         for (GovQuotaDO row : rows) {
             long used = usedOf(scopeType, scopeId, row.getMetric(), row);
             out.add(new QuotaView(row.getMetric(), row.getLimitValue(), used,
+                    row.getWarnRatio() == null ? 80 : row.getWarnRatio(),
                     row.getWindowStart() == null ? monthStart : row.getWindowStart()));
         }
         return out;
@@ -50,9 +51,21 @@ public class QuotaService {
      * @param limit null 表示删除上限（不限）
      */
     public void putLimit(String scopeType, String scopeId, String metric, Long limit) {
+        putLimit(scopeType, scopeId, metric, limit, null);
+    }
+
+    /**
+     * 写入上限；{@code warnRatio} 为预警比例（百分比，缺省 80，见 MH-09 / V152）。
+     *
+     * @param limit null 表示删除上限（不限）
+     */
+    public void putLimit(String scopeType, String scopeId, String metric, Long limit, Integer warnRatio) {
         requireScope(scopeType, scopeId);
         if (!QuotaMetrics.ALL_METRICS.contains(metric)) {
             throw new BizException(ErrorCode.BAD_REQUEST, "未知 metric: " + metric);
+        }
+        if (warnRatio != null && (warnRatio < 0 || warnRatio > 100)) {
+            throw new BizException(ErrorCode.BAD_REQUEST, "warnRatio 须在 0..100");
         }
         String actor = actorId();
         if (limit == null) {
@@ -63,7 +76,7 @@ public class QuotaService {
         if (limit < 0) {
             throw new BizException(ErrorCode.BAD_REQUEST, "limit 不能为负");
         }
-        quotas.upsertLimit(scopeType, scopeId, metric, limit, actor);
+        quotas.upsertLimit(scopeType, scopeId, metric, limit, warnRatio, actor);
         guard.invalidateLimitCache(scopeType, scopeId, metric);
     }
 
