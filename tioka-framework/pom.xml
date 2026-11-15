@@ -11,6 +11,13 @@
     <artifactId>tioka-framework</artifactId>
     <name>tioka-framework</name>
     <dependencies>
+        <!-- F-02 BAS-26 第 1 步：Tioka 开始依赖 Foundation 工程底座。
+             版本由 tioka-dependencies 导入的 foundation-dependencies BOM 管理；
+             CoreAutoConfiguration 仅绑定 foundation.* 配置属性，不接管 Jackson/异常处理。 -->
+        <dependency>
+            <groupId>com.foundation</groupId>
+            <artifactId>foundation-starter-core</artifactId>
+        </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter</artifactId>

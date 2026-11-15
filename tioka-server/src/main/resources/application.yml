@@ -48,6 +48,10 @@ management:
       enabled: false
 
 tioka:
+  # F-02 BAS-26 / F-11 BAS-20：local=私有化单 Tioka（默认，不连中台）| foundation=接入中台
+  # 接入模式的实际接线（授权快照、starter、离职联动）由 BAS-20 完成；切换前请勿开启
+  foundation:
+    mode: ${TIOKA_FOUNDATION_MODE:local}
   env:
     name: local
   home: ${TIOKA_HOME:${user.home}/.tioka}
@@ -172,6 +176,14 @@ tioka:
     # OTEL_TRACES_SAMPLER=parentbased_traceidratio
     # OTEL_TRACES_SAMPLER_ARG=1.0
     # OTEL_TRACES_EXPORTER / OTEL_METRICS_EXPORTER / OTEL_RESOURCE_ATTRIBUTES
+
+# Foundation 底座 starter 契约（com.foundation:foundation-starter-core，F-02 BAS-26）。
+# 前缀属于底座/中台，Tioka 自身配置仍走 tioka.*；mode=foundation 时必须显式设置
+# FOUNDATION_URL，否则 FoundationModeGuard 启动即拒绝（不接受默认 localhost）。
+foundation:
+  enabled: true
+  app-code: tioka
+  base-url: ${FOUNDATION_URL:http://localhost:8080}
 
 # RocketMQ 客户端：producer.group 常驻；name-server 仅环境/闸门注入时才真正建 Producer/Template。
 # （RocketMQAutoConfiguration 要求 name-server + producer.group 齐备才创建 DefaultMQProducer。）
