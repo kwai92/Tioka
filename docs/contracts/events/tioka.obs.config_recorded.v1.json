@@ -1,0 +1,90 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tioka.dev/schema/tioka.obs.config_recorded.v1.json",
+  "title": "tioka.obs.config_recorded.v1",
+  "description": "OBS-08：配置变更落库的来源事件（ADR-075 §2，配置变更作为背景条目）。由 governance 域发布于 tioka-governance topic，投影消费者据此落时间线 CONFIG 条目；主体取配置对象本身（如 model.alias:sys.chat），标题按发布 / 回滚区分。",
+  "type": "object",
+  "required": [
+    "category"
+  ],
+  "properties": {
+    "category": {
+      "type": "string",
+      "description": "时间线类别（ADR-075 §2）：配置变更来源落 CONFIG",
+      "enum": [
+        "CONFIG"
+      ]
+    },
+    "title": {
+      "type": "string"
+    },
+    "summary": {
+      "type": "string",
+      "description": "不含 CONFIDENTIAL 原文"
+    },
+    "actor": {
+      "type": "string",
+      "description": "人 / Agent（带版本）/ 系统"
+    },
+    "outcome": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "OK",
+        "DENIED",
+        "ERROR",
+        "WAITING",
+        null
+      ]
+    },
+    "sourceType": {
+      "type": "string",
+      "const": "cfg_change"
+    },
+    "sourceId": {
+      "type": "string"
+    },
+    "traceId": {
+      "type": "string"
+    },
+    "dataLabel": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "PUBLIC",
+        "INTERNAL",
+        "CONFIDENTIAL",
+        "SECRET",
+        null
+      ]
+    },
+    "seq": {
+      "type": "integer",
+      "description": "来源内序号，用于同一毫秒内排序"
+    },
+    "requestId": {
+      "type": "string"
+    },
+    "parentRequestId": {
+      "type": "string"
+    },
+    "subjectType": {
+      "type": "string"
+    },
+    "subjectId": {
+      "type": "string"
+    },
+    "workspaceId": {
+      "type": "string"
+    },
+    "occurredAt": {
+      "type": "string",
+      "description": "ISO-8601 时刻；缺失时回落信封 occurredAt"
+    }
+  },
+  "additionalProperties": true
+}

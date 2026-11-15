@@ -1,0 +1,90 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tioka.dev/schema/tioka.obs.approval_recorded.v1.json",
+  "title": "tioka.obs.approval_recorded.v1",
+  "description": "OBS-08：审批单落库的来源事件（ADR-075 §2）。由 runtime 域发布于 tioka-governance topic，投影消费者据此落时间线 APPROVAL 条目；结局按 PENDING→WAITING、APPROVED→OK、REJECTED→DENIED、EXPIRED→ERROR 映射。",
+  "type": "object",
+  "required": [
+    "category"
+  ],
+  "properties": {
+    "category": {
+      "type": "string",
+      "description": "时间线类别（ADR-075 §2）：审批单来源落 APPROVAL",
+      "enum": [
+        "APPROVAL"
+      ]
+    },
+    "title": {
+      "type": "string"
+    },
+    "summary": {
+      "type": "string",
+      "description": "不含 CONFIDENTIAL 原文"
+    },
+    "actor": {
+      "type": "string",
+      "description": "人 / Agent（带版本）/ 系统"
+    },
+    "outcome": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "OK",
+        "DENIED",
+        "ERROR",
+        "WAITING",
+        null
+      ]
+    },
+    "sourceType": {
+      "type": "string",
+      "const": "runtime_approval"
+    },
+    "sourceId": {
+      "type": "string"
+    },
+    "traceId": {
+      "type": "string"
+    },
+    "dataLabel": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "PUBLIC",
+        "INTERNAL",
+        "CONFIDENTIAL",
+        "SECRET",
+        null
+      ]
+    },
+    "seq": {
+      "type": "integer",
+      "description": "来源内序号，用于同一毫秒内排序"
+    },
+    "requestId": {
+      "type": "string"
+    },
+    "parentRequestId": {
+      "type": "string"
+    },
+    "subjectType": {
+      "type": "string"
+    },
+    "subjectId": {
+      "type": "string"
+    },
+    "workspaceId": {
+      "type": "string"
+    },
+    "occurredAt": {
+      "type": "string",
+      "description": "ISO-8601 时刻；缺失时回落信封 occurredAt"
+    }
+  },
+  "additionalProperties": true
+}

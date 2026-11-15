@@ -34,6 +34,10 @@
 
 **迁移不是一次性全部生效**：删除表或列、改写现有数据的迁移（V103〜V106、V110、V115、V119〜V122、V132、V142、V143 等）随替代旧实现的工作项 PR 一起移入 `db/migration`，对照表见施工设计 M0-01 ENG-11「迁移随工作项落地」（ADR-029 第 33 条修订）。
 
+## Foundation（独立仓库）
+
+Foundation 是独立仓库与独立部署（[ADR-051](../architecture/adr/ADR-051-foundation-platform.md)、[S15](../architecture/systems/S15-Foundation基础平台系统.md)），其 OpenAPI 与事件契约**不在本目录**，在 Foundation 仓库内维护，自 F 阶段（W80–W89）落地。与 Tioka 有关的接口与事件（如授权快照查询、`fdn.authz.changed`、`fdn.person.*`）在 S15 第 14 节列出，Tioka 侧按其接入。F2 增强批次（ADR-029 第 81 条）新增 `fdn.app.grant.changed`（[ADR-076](../architecture/adr/ADR-076-app-to-app-authorization.md)）与 `fdn.widget.changed`（[ADR-077](../architecture/adr/ADR-077-dashboard-widget-registry.md)），同样在 Foundation 仓库内定义。
+
 ## 迁移脚本
 
 本目录 `db/` 保留为**历史契约快照（非执行源）**：其 45 份 SQL 副本与 `tioka-server/src/main/resources/db/migration/` 下的 41 份 SQL 迁移、以及 `tioka-server/src/main/java/.../db/migration/` 下的 4 份 Java 迁移（`BaseJavaMigration`，V104 / V124 / V126 / V145）形成「同号不同形态」的演进记录；本目录不双跑、不作为迁移执行面。

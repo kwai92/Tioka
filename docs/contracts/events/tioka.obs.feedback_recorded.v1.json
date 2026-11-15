@@ -1,0 +1,90 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tioka.dev/schema/tioka.obs.feedback_recorded.v1.json",
+  "title": "tioka.obs.feedback_recorded.v1",
+  "description": "OBS-08：用户反馈落库的来源事件（ADR-075 §2「反馈项」）。由 eval 域发布于 tioka-governance topic，投影消费者据此落时间线 FEEDBACK 条目；主体固定为 turn:<turnId>。",
+  "type": "object",
+  "required": [
+    "category"
+  ],
+  "properties": {
+    "category": {
+      "type": "string",
+      "description": "时间线类别（ADR-075 §2）：反馈来源落 FEEDBACK",
+      "enum": [
+        "FEEDBACK"
+      ]
+    },
+    "title": {
+      "type": "string"
+    },
+    "summary": {
+      "type": "string",
+      "description": "不含 CONFIDENTIAL 原文"
+    },
+    "actor": {
+      "type": "string",
+      "description": "人 / Agent（带版本）/ 系统"
+    },
+    "outcome": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "OK",
+        "DENIED",
+        "ERROR",
+        "WAITING",
+        null
+      ]
+    },
+    "sourceType": {
+      "type": "string",
+      "const": "eval_feedback"
+    },
+    "sourceId": {
+      "type": "string"
+    },
+    "traceId": {
+      "type": "string"
+    },
+    "dataLabel": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "PUBLIC",
+        "INTERNAL",
+        "CONFIDENTIAL",
+        "SECRET",
+        null
+      ]
+    },
+    "seq": {
+      "type": "integer",
+      "description": "来源内序号，用于同一毫秒内排序"
+    },
+    "requestId": {
+      "type": "string"
+    },
+    "parentRequestId": {
+      "type": "string"
+    },
+    "subjectType": {
+      "type": "string"
+    },
+    "subjectId": {
+      "type": "string"
+    },
+    "workspaceId": {
+      "type": "string"
+    },
+    "occurredAt": {
+      "type": "string",
+      "description": "ISO-8601 时刻；缺失时回落信封 occurredAt"
+    }
+  },
+  "additionalProperties": true
+}

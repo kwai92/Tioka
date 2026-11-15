@@ -17,6 +17,9 @@ tioka-ui/dist/
 data/workspaces/
 data/objects/
 
+# Foundation 独立仓库（ADR-051，自成 git 仓库，不并入 Tioka）
+tioka-foundation/
+
 # Diagram export temp files (scripts/export-diagram-pngs.mjs)
 .tmp-mmd/
 .worktrees/

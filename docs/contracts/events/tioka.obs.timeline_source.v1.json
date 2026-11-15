@@ -1,0 +1,101 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tioka.dev/schema/tioka.obs.timeline_source.v1.json",
+  "title": "tioka.obs.timeline_source.v1",
+  "description": "OBS-08 统一时间线来源事件（ADR-075 §2）：各域把领域事件投影源发布到 tioka-governance topic，由投影消费者写入 timeline_entry。投影不是事实源，条目可按时间段重建。",
+  "type": "object",
+  "required": [
+    "category"
+  ],
+  "properties": {
+    "category": {
+      "type": "string",
+      "description": "时间线类别（ADR-075 §2）",
+      "enum": [
+        "INBOUND",
+        "RUN",
+        "MODEL",
+        "TOOL",
+        "DECISION",
+        "APPROVAL",
+        "CHANGE",
+        "OUTBOUND",
+        "NOTIFY",
+        "FEEDBACK",
+        "CONFIG",
+        "SECURITY"
+      ]
+    },
+    "title": {
+      "type": "string"
+    },
+    "summary": {
+      "type": "string",
+      "description": "不含 CONFIDENTIAL 原文"
+    },
+    "actor": {
+      "type": "string",
+      "description": "人 / Agent（带版本）/ 系统"
+    },
+    "outcome": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "OK",
+        "DENIED",
+        "ERROR",
+        "WAITING",
+        null
+      ]
+    },
+    "sourceType": {
+      "type": "string",
+      "description": "指回原记录：audit_event / ext_interaction / runtime_item / model_usage / runtime_approval / run_manifest / cfg_change 等"
+    },
+    "sourceId": {
+      "type": "string"
+    },
+    "traceId": {
+      "type": "string"
+    },
+    "dataLabel": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "PUBLIC",
+        "INTERNAL",
+        "CONFIDENTIAL",
+        "SECRET",
+        null
+      ]
+    },
+    "seq": {
+      "type": "integer",
+      "description": "来源内序号，用于同一毫秒内排序"
+    },
+    "requestId": {
+      "type": "string"
+    },
+    "parentRequestId": {
+      "type": "string"
+    },
+    "subjectType": {
+      "type": "string"
+    },
+    "subjectId": {
+      "type": "string"
+    },
+    "workspaceId": {
+      "type": "string"
+    },
+    "occurredAt": {
+      "type": "string",
+      "description": "ISO-8601 时刻；缺失时回落信封 occurredAt"
+    }
+  },
+  "additionalProperties": true
+}

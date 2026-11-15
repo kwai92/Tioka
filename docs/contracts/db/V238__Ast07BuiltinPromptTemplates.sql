@@ -1,0 +1,14 @@
+-- V238__Ast07BuiltinPromptTemplates.sql（契约说明）
+-- AST-07（ADR-041 §4）：内置 Prompt 模板（sys.*）登记第 1 版。
+-- 落地为 Java 迁移 V238__Ast07BuiltinPromptTemplates（本文件仅契约说明，不进 server migration）。
+-- 说明：ADR-041 §9 将 prm_template 登记在 V154，但该号已被 GOV-13 等占用；
+--       身份表 DDL 落 V237（V237__m3_ast07_prompt_template.sql），种子登记落本 V238。
+-- 逻辑与 V151（MH-08 存量对象登记）同构，spec 构造共用 model-api：
+-- 1. 对 BuiltinPromptTemplates.list() 的每个 sys.* 模板：
+--    - 身份行写 prm_template（id=prmtpl_sys_<名>，ON CONFLICT(id) DO NOTHING）；
+--    - 内容写 cfg_version（object_type=prm_template，version_no=1，status=PUBLISHED，
+--      spec 由 PromptTemplateSpec#toJson 序列化，content_hash 与 ConfigSpecNormalizer 同口径）；
+--    - 写 cfg_change（action=register）。
+-- 2. 回填 prm_template.current_version_id / current_version_no=1。
+-- 幂等：身份行按固定 ID 去重；cfg_version 已有该对象版本时跳过登记、仅回填指针。
+-- 内置集合：sys.decider / sys.competence / sys.summarize / sys.memory.extract / sys.compaction。
