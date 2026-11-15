@@ -126,6 +126,10 @@ tioka:
     bridge:
       enabled: false
       channels: noop
+  # GOV-13：告警规则与通知（默认开启；紧急开关 tioka.alerts.enabled=false）
+  alerts:
+    enabled: true
+    evaluate-interval-ms: 30000
 
   # —— M2 配置键（PK-00c；实现包只追加自己的子键）——
   messaging:

@@ -1,6 +1,7 @@
 package com.tioka.server.gate.support;
 
 import com.tioka.agent.api.spec.AgentSpec;
+import com.tioka.agent.api.spec.OutputContract;
 import com.tioka.agent.application.AgentService;
 import com.tioka.agent.domain.AgentStore;
 import com.tioka.framework.id.Ids;
@@ -35,13 +36,20 @@ public final class GateSeed {
                          String agentVersionId, String routingPlanId) {}
 
     public static Bundle seedPublishedAgent(ConfigurableApplicationContext ctx, String llmBaseUrl) {
-        return seedPublishedAgent(ctx, llmBaseUrl, false);
+        return seedPublishedAgent(ctx, llmBaseUrl, false, null);
+    }
+
+    public static Bundle seedPublishedAgent(ConfigurableApplicationContext ctx, String llmBaseUrl, boolean withMcp) {
+        return seedPublishedAgent(ctx, llmBaseUrl, withMcp, null);
     }
 
     /**
      * @param withMcp 为 true 时注册 GateCluster MCP 桩、刷新工具、PATCH risk，并把 mcp 绑定写入 AgentSpec。
+     * @param output  SCH-06 结构化输出契约（{@code schemaRef} 须已在 Schema 登记表中 PUBLISHED）；
+     *                null 表示该 Agent 无结构化输出（其余闸门默认口径）。
      */
-    public static Bundle seedPublishedAgent(ConfigurableApplicationContext ctx, String llmBaseUrl, boolean withMcp) {
+    public static Bundle seedPublishedAgent(ConfigurableApplicationContext ctx, String llmBaseUrl,
+                                            boolean withMcp, OutputContract output) {
         AuthService auth = ctx.getBean(AuthService.class);
         PrincipalHolder principals = ctx.getBean(PrincipalHolder.class);
         ModelAdminService models = ctx.getBean(ModelAdminService.class);
@@ -93,7 +101,7 @@ public final class GateSeed {
                     AgentSpec.SandboxPolicy.defaults(),
                     AgentSpec.ApprovalSettings.empty(),
                     AgentSpec.Limits.defaults(),
-                null, null, null, null, null, null, null, null);
+                null, output, null, null, null, null, null, null);
             AgentService.PublishResult published = agents.publishSpec(agent.id(), spec);
             return new Bundle(userId, ws, login.accessToken(), published.versionId(), planId);
         });
