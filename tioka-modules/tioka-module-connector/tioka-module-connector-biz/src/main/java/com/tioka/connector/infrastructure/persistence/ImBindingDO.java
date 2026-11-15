@@ -3,7 +3,7 @@ package com.tioka.connector.infrastructure.persistence;
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
-import com.tioka.framework.persistence.BaseDO;
+import com.foundation.starter.data.BaseDO;
 
 /**
  * IM 渠道绑定（V140 {@code im_binding}）。无 owner_id，不继承 WorkspaceAwareDO。

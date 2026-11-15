@@ -1,7 +1,7 @@
 package com.tioka.governance.infrastructure.persistence;
 
 import com.baomidou.mybatisplus.annotation.TableName;
-import com.tioka.framework.persistence.AppendOnlyDO;
+import com.foundation.starter.data.AppendOnlyDO;
 
 /**
  * {@code timeline_entry_subject}（V229 / ADR-075 §2）：时间线条目与主体的多值关联。

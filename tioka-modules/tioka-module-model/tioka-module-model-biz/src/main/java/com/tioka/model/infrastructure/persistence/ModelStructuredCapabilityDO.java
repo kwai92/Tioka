@@ -3,7 +3,7 @@ package com.tioka.model.infrastructure.persistence;
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
-import com.tioka.framework.persistence.MutableRecordDO;
+import com.foundation.starter.data.MutableRecordDO;
 
 /**
  * SCH-06（ADR-066 §4；V177 {@code model_structured_capability}）：模型结构化输出能力记录。

@@ -2,6 +2,7 @@ package com.tioka.framework.persistence;
 
 import com.baomidou.mybatisplus.annotation.FieldFill;
 import com.baomidou.mybatisplus.annotation.TableField;
+import com.foundation.starter.data.BaseDO;
 
 /**
  * 空间级资源实体基类（workspace_id + owner_id；禁止 tenantId）。

@@ -1,7 +1,7 @@
 package com.tioka.model.infrastructure.persistence;
 
 import com.baomidou.mybatisplus.annotation.TableName;
-import com.tioka.framework.persistence.AppendOnlyDO;
+import com.foundation.starter.data.AppendOnlyDO;
 
 import java.time.LocalDateTime;
 

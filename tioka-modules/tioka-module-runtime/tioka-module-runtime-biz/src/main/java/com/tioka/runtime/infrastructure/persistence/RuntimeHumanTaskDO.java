@@ -1,6 +1,6 @@
 package com.tioka.runtime.infrastructure.persistence;
 
-import com.tioka.framework.persistence.MutableRecordDO;
+import com.foundation.starter.data.MutableRecordDO;
 
 import java.time.LocalDateTime;
 

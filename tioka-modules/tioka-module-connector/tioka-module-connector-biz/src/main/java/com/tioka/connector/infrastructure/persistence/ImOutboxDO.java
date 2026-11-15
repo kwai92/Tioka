@@ -3,7 +3,7 @@ package com.tioka.connector.infrastructure.persistence;
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
-import com.tioka.framework.persistence.AppendOnlyDO;
+import com.foundation.starter.data.AppendOnlyDO;
 
 @TableName("im_outbox")
 public class ImOutboxDO extends AppendOnlyDO {

@@ -3,7 +3,7 @@ package com.tioka.model.infrastructure.persistence;
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
-import com.tioka.framework.persistence.AppendOnlyDO;
+import com.foundation.starter.data.AppendOnlyDO;
 
 /**
  * MH-06 路由事件时间线（V214 {@code model_route_event}；ADR-024「一次选模」每步一条；只增不改）。

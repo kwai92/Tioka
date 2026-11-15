@@ -25,6 +25,16 @@
             <groupId>com.foundation</groupId>
             <artifactId>foundation-common-api</artifactId>
         </dependency>
+        <!-- F-02 BAS-26 第 2 步（data）：persistence 的 4 个通用 DO 基类合流到 starter-data。
+             空间过滤（ScopeLineHandler / ScopedTables / WorkspaceAwareDO / WorkspaceScoped）、
+             TiokaMetaObjectHandler 与 MybatisPlusConfiguration 等 Tioka 特有部分仍留在本地。
+             注意：starter 的自动装配默认激活（foundation.data.enabled 缺省 true），会尝试注册
+             MetaObjectHandler / MybatisPlusInterceptor，与 Tioka 本地实现并存；故 application.yml
+             显式置 foundation.data.enabled=false，只取用其 POJO 基类，待该能力真正迁移时再打开。 -->
+        <dependency>
+            <groupId>com.foundation</groupId>
+            <artifactId>foundation-starter-data</artifactId>
+        </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter</artifactId>

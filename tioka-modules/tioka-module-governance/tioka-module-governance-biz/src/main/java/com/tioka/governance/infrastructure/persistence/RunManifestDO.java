@@ -3,7 +3,7 @@ package com.tioka.governance.infrastructure.persistence;
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
-import com.tioka.framework.persistence.AppendOnlyDO;
+import com.foundation.starter.data.AppendOnlyDO;
 
 /**
  * {@code run_manifest}（V228 / ADR-075 §3 运行清单）：Turn / 编排 Run / Flow Run 开始时一条，

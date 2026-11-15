@@ -3,7 +3,7 @@
 > 配套：S0/S8/S10–S14；全局实施方案 30/31；F-02 BAS-26、F-11 BAS-20、36 号专项  
 > 更新：2026-11-09（X8 回写：补 ontology / governance / eval；模块树 15 个业务模块，事实基线）  
 > 更新：2026-11-15（BAS-26 第一批：补 Foundation 外部构件依赖节点与接入进度，见 §7）  
-> 更新：2026-11-15（BAS-26 第三批：主键生成合流到 Foundation 公共域，见 §7.3）
+> 更新：2026-11-15（BAS-26 第四批：F-02 第 1 步收敛 + 第 2 步 data 合流，见 §7.4）
 
 ## 1. 仓库模块树
 
@@ -179,31 +179,65 @@ F-02 迁移表第 1 步写的是整包 `com.tioka.framework.{error,id,jackson,co
 | `context.RequestContext` / `RequestContextHolder` | Tioka 侧是带 `subject` / `workspaceId` / 父子请求信息的 record + 线程上下文（属空间与归属过滤），S15 §5.4 明确应留在 `tioka-framework`；Foundation 同名 `RequestContext` 是 `traceId` / `appCode` 静态工具，语义不同 |
 | `jackson.JacksonConfiguration` | 属迁移表第 3 步 web starter 范围，且 Foundation 侧对应实现需另核；本批不动 |
 
-### 7.4 尚未完成
+### 7.4 第四批已落地（F-02 第 1 步收敛 + BAS-26 第 2 步 data 合流）
+
+**设计回写（A 方案）**：F-02 §BAS-26 迁移表第 1 步原写「整包 `{error,id,jackson,context}` → `com.foundation.starter.core.*`」，实测 Foundation 侧无等价实现，已收敛为「只合流 core 中可共用的 `id.Ids`」，并逐条登记 `error` / `context` / `jackson` 按 S15 §5.4 留在 `tioka-framework` 的依据。同时修正 F-02 的配置示例与配置项表：`foundation.base-url` / `foundation.app-code` 是根级键（原写 `foundation.client.*` 实际无此绑定），补登记 `foundation.<capability>.enabled` 逐能力开关与 `foundation.client.mode` 三值键。**第 1 步判定为「已完成（收敛后范围）」**，未合流的包不再作为 BAS-26 待办，也不在 Tioka 侧建兼容层；若日后统一错误码模型，属 BAS-24 的 Foundation 侧改造。
+
+| 项 | 位置 | 说明 |
+| --- | --- | --- |
+| 编译期依赖 | `tioka-framework/pom.xml` | 引入 `com.foundation:foundation-starter-data`；其传递依赖（mybatis-plus starter / jsqlparser / spring-boot-starter / starter-core）Tioka 原本已显式声明，**未引入新的第三方库** |
+| 代码合流 | 全仓 **50 个 Java 文件**（main 49 / test 1，共 53 处 import） | `com.tioka.framework.persistence.{BaseDO,AppendOnlyDO,ImmutableSnapshotDO,MutableRecordDO}` → `com.foundation.starter.data.*`；同包的 `WorkspaceAwareDO` 补显式 import |
+| 删除副本 | `tioka-framework/.../persistence/` 下 4 个 DO 基类 | 已删除，不保留兼容层；规范化比对仅差 `implements Serializable` + `serialVersionUID`，以及 `BaseDO` 的 `@TableLogic(value="false", delval="true")` 显式化（与 Tioka 全局 `logic-delete-value: true` / `logic-not-delete-value: false` 一致） |
+| 保留项 | `tioka-framework/persistence/` 剩余 11 个类 | `WorkspaceAwareDO` / `WorkspaceScoped` / `Owned` / `ScopeLineHandler` / `ScopedTables` / `TiokaMetaObjectHandler` / `MybatisPlusConfiguration` / `PersistenceProperties` / `TechnicalRecordDO` / `OperatorAuditor` / `UtcLocalDateTimeTypeHandler`，即 F-02 第 2 步要求的「空间过滤留在 `tioka-framework`」 |
+| 能力开关 | `tioka-server/application.yml` | 新增 `foundation.data.enabled: false`。所有 starter 自动配置的总开关与能力开关缺省均为 `true`，**仅加依赖即会装配**；data 本批只取用其 POJO 基类，显式关闭可避免与 Tioka 本地 `MetaObjectHandler` / `MybatisPlusInterceptor` 并存 |
+| 契约守护 | `FoundationDataContractTest` | 6 例全绿：4 个基类来自 Foundation、`WorkspaceAwareDO` 继承 Foundation 基类、Tioka 特有类仍在本地、逻辑删值与全局配置一致、capability 开关确实门控自动配置、yml 显式关闭 data |
+
+**第 3〜9 步可行性比对（本批完成，供后续按步推进）**：Tioka `tioka-framework` 与 8 个 Foundation starter 共 12 个同名类，规范化比对（去包名 / 导包 / 注释 / 空白）后**只有 data 的 4 个 DO 基类可安全合流**：
+
+| 步 | starter | 结论 |
+| --- | --- | --- |
+| 3 | web | `PageQuery` / `PageResult` / `GlobalExceptionHandler` / `IdempotencyFilter` 在 Tioka `tioka-framework` 无同名实现，属新增能力而非替换；`JacksonConfiguration` 需单独评估与 Tioka Jackson 配置的覆盖关系 |
+| 4 | cache | Tioka framework 无 `DistributedLock` / `RateLimiter` 同名类；需先定位 Tioka 的 Redis / 限流实现所在模块 |
+| 5 | mq | `DomainEvent`（43 行差异）、`IdempotentConsumer`（40 行差异）语义不同，Tioka 另有 `sys_outbox` 既有约定；须逐类设计迁移，不可按名替换 |
+| 6 | observability | Tioka `TraceContext` 与 starter 的 `TraceIdFilter` / `OtelConfig` 无同名冲突；GOV-08 对齐需单独评估 |
+| 7 | security | `Principal`（31 行）、`PrincipalHolder`（63 行）、`PublicApi`（5 行）、`RequirePermission`（4 行）语义不同；F-02 第 7 步明文「授权快照接线留 BAS-20，本步保留 Tioka 本地实现」，应与 BAS-20 / FND-09/10 删除一并收口 |
+| 8 | audit | Tioka framework 无 `@Audited` 同名类；哈希链与归档（GOV-09 / OBS-10）按 F-00 §5 约定 5 原样保留 |
+| 9 | client | 9 个 starter 构件均已在本地 m2 可用；但 `foundation.client.mode` 缺省 `foundation`（会连中台），引入前必须先设 `local` 并处理 §7.7 的双键不同步 |
+
+### 7.5 尚未完成
 
 | 项 | 状态 | 依据 |
 | --- | --- | --- |
 | `tioka-dependencies` 退化为对 `foundation-dependencies` 的导入（清理重复版本定义与重复 BOM 导入） | 未开始；当前 parent 与 `tioka-dependencies` **双重导入** Foundation BOM（版本同为 `0.1.0-SNAPSHOT`，实测无告警、无冲突），保留是为了 Tioka BOM 自包含，收尾时统一退化 | F-02 §BAS-26「父工程与清单」 |
-| 第 1 步 core 剩余（error / context / jackson 合流） | **阻塞**，需先在 Foundation 侧扩展错误码模型并确认各包归属，见 §7.3 偏差表 | F-02 §BAS-26 迁移表第 1 步 |
-| 第 2〜9 步 starter 替换（data / web / cache / mq / observability / security / audit / client）与包名一次性重构 | 未开始 | F-02 §BAS-26 迁移表 |
+| 第 1 步 core 未合流部分（error / context / jackson） | **已收敛关闭**：按 S15 §5.4「Tioka 特有部分」保留在 `tioka-framework`，F-02 迁移表与配置项表已回写（§7.4），不再是 BAS-26 待办 | F-02 §BAS-26 第 1 步收敛说明 |
+| 第 2 步 data | **已完成**（§7.4）：4 个 DO 基类合流，本地副本删除，data 能力显式关闭 | F-02 §BAS-26 迁移表第 2 步 |
+| 第 3〜9 步 starter 替换（web / cache / mq / observability / security / audit / client）与包名一次性重构 | 可行性已逐项比对（§7.4 矩阵）；同名类语义不等价部分须逐类设计迁移，security 随 BAS-20 收口 | F-02 §BAS-26 迁移表 |
+| Foundation 发布构件 PF-00b（子模块发布 pom 无效） | **待修**，见 §7.6 末段；当前以 Tioka 显式声明依赖规避 | 本批实测 |
 | `tioka-framework` 只留特有部分、ArchUnit 规则集移到 `foundation-test`、冻结库保持为空 | 未开始 | F-00 §5 约定 2、S15 §5.4 |
 | BAS-20 中台接线（`PrincipalLoader` 读授权快照、starter 权限注解、离职事件、FND-09/10 删除）、BAS-28、BAS-22 的 GF 12 条闸门 | 未开始 | F-11 §1；36 号 §4 的 F1 债务清零 |
 | `foundation-ui` 前端包与门户基座 | 空壳 | 36 号 §1.3 D2 |
 
-### 7.5 父工程切换的前置问题与修复（PF-00a）
+### 7.6 父工程切换的前置问题与修复（PF-00a）
 
 第一批时 `com.foundation:foundation-parent:0.1.0-SNAPSHOT` 的安装产物带 `<parent>foundation-build</parent>`（聚合器按 BAS-23 设计「不对外发布」）、`${env.FOUNDATION_REPO_URL}` 的 `distributionManagement`、同名 `gate` profile，以及 `enforcer` / `failsafe` 的实际执行。直接继承会造成三类问题：下游必须能解析一个未发布的聚合器；Tioka 的 deploy 目标被改写；Foundation 的闸门插件会与 Tioka 自身的 `gate` profile 叠加。
 
-第二批没有在 Tioka 侧逐项覆盖来绕开，而是修正发布形态本身：`foundation-parent` 的**源码 pom** 保持 Foundation 内部继承链不变（模块通过 `relativePath` 读源码 pom），**安装到仓库的 flattened pom** 裁剪为「坐标 + 属性 + `dependencyManagement` + `pluginManagement`（仅插件版本契约）」。PF-00a 验收与下游零副作用由此同时成立。两种模式下的 G0〜G3 全绿仍属 BAS-20/28 收尾范围，见 7.7。
+第二批没有在 Tioka 侧逐项覆盖来绕开，而是修正发布形态本身：`foundation-parent` 的**源码 pom** 保持 Foundation 内部继承链不变（模块通过 `relativePath` 读源码 pom），**安装到仓库的 flattened pom** 裁剪为「坐标 + 属性 + `dependencyManagement` + `pluginManagement`（仅插件版本契约）」。PF-00a 验收与下游零副作用由此同时成立。两种模式下的 G0〜G3 全绿仍属 BAS-20/28 收尾范围，见 7.8。
 
-### 7.6 配置约定
+**PF-00b 遗留缺陷（第四批实测发现，本批未修）**：PF-00a 的 `<pomElements><parent>remove</parent></pomElements>` 写在 `foundation-parent/pom.xml` 的 `<build><plugins>` 中，**会被所有 Foundation 子模块继承**，导致 `foundation-common-api` / `foundation-starter-core` / `foundation-starter-data` 等子模块的安装产物也剥掉了 `<parent>`。这些源码 pom 未显式写 `groupId`、依赖版本来自父工程的 `dependencyManagement`，于是发布 pom 变成「无 groupId + 依赖无 version」的无效模型，Maven 报 `The POM ... is invalid, transitive dependencies (if any) will not be available` 及 `'groupId' is missing` / `'dependencies.dependency.version' ... is missing`。
+
+影响面：Tioka 目前构建**能过**（前三批与本批都显式声明了所需依赖，版本由 Foundation BOM 提供），只是有告警；但只要后续引入的 starter 带有 Tioka 未显式声明的传递依赖，就会编译失败。本批试过两种修法并实测否决：① 给裁剪插件加 `<inherited>false</inherited>` → 子模块彻底失去 flatten 插件，发布 pom 保留 `${revision}` 与 `relativePath`，Tioka 报 `foundation-parent:pom:${revision}` 无法解析、**构建直接断链**；② 把 `<parent>remove</parent>` 换成 `<parent>expand</parent>` → 子模块发布 pom 有效，但 `foundation-parent` 自身发布 pom 重新带上未发布的 `foundation-build` 父与 `build` 段，**破坏 PF-00a 的零副作用目标**。两者均已回退，m2 恢复到 PF-00a 形态并验证 Tioka `test-compile` 通过。
+
+建议的正解是让**源码形态即发布形态**：解除 `foundation-parent` 对 `foundation-build` 聚合器的继承（把聚合器的构建配置迁入 `foundation-parent` 作为子模块继承源），这样不需要任何裁剪，子模块保留 parent 并由标准 flatten 把 `${revision}` 解析为具体版本；或发布一个零副作用的 `foundation-build` pom。属 Foundation 侧独立任务，且该仓库当前带 99+ 个 F3 未提交改动，动手前先确认归属。临时规避：Tioka 每引入一个 starter，都显式声明其直接依赖，不依赖传递。
+
+### 7.7 配置约定
 
 - Tioka 自身配置一律 `tioka.*`；`foundation.*` 属于底座/中台前缀（F-02 §BAS-26、00-施工总纲 §2.5）。
 - 默认 `local` 不要求 Foundation 服务可达（F-00 §5 约定 3）；切到 `foundation` 前需完成 BAS-20，否则 `FoundationModeGuard` 会拒绝启动。
 - **BAS-20 接线待办（F3 第四批发现）**：starter 侧 `foundation.client.mode`（`FoundationRuntimeMode`，三值）与应用侧 `tioka.foundation.mode`（两值）**不自动同步**。接线时须由同一环境变量派生两键，并补启动期一致性校验；否则会出现「应用以为单飞、starter 仍连中台」的半接线状态。当前 `FoundationModeGuard` 只校验 starter 契约是否装配与 `foundation.base-url` 是否显式配置，不校验这两键的一致性。
-- **待回写的偏差**：F-02 示例写 `foundation.client.base-url` / `foundation.client.app-code`，而 `foundation-starter-core` 的 `FoundationProperties` 实际绑定 `foundation.base-url` / `foundation.app-code`（无 `client` 层级）。本文按实现记录，需在 F-02 或 starter 侧统一。
+- **配置前缀偏差已回写（第四批）**：F-02 原示例写 `foundation.client.base-url` / `foundation.client.app-code`，实际 `FoundationProperties` 绑定根级 `foundation.base-url` / `foundation.app-code`（`foundation.client.*` 下是 `mode` / 超时 / 重试 / 降级 / local）。已修正 F-02 的 yaml 示例、配置项表并加实现实证注记；`tioka-server/application.yml` 与本文记录一致。
+- **逐能力开关（ADP-05）**：`foundation.enabled` 与 `foundation.<capability>.enabled` 在 starter 侧缺省均为 `true`，故 Tioka 对尚未迁移的能力必须显式置 `false`（当前仅 `data` 已置）。每步迁移时单独打开，并先核对与 Tioka 本地 bean 的冲突。
 
-### 7.7 验证结果（2026-11-15，JDK 17 / `mvn -o`）
+### 7.8 验证结果（2026-11-15，JDK 17 / `mvn -o`）
 
 | 项 | 结果 |
 | --- | --- |
@@ -219,5 +253,9 @@ F-02 迁移表第 1 步写的是整包 `com.tioka.framework.{error,id,jackson,co
 | **第三批**：`mvn -o -q test-compile -pl tioka-server -am` | 通过（exit 0）；137 个改 import 的文件（含 59 个测试类）全部编译通过，删除本地 `Ids` 后无遗漏引用 |
 | **第三批**：定向测试 `-Dtest='FoundationIdsContractTest,FoundationModeSwitchTest,ModuleDependencyRulesTest'` | 13 例全绿（新增契约 4 + 双模式 8 + framework ArchUnit 1），`BUILD SUCCESS` |
 | **第三批**：`mvn -o -fae test` 全量 reactor | 失败集合**未扩大**：仅 `governance-biz`（Cedar JNI 7 errors）FAILURE、`tioka-server` SKIPPED；`orchestration-biz` 本次 SUCCESS（CEL 超时为偶发）；`FoundationIdsContractTest` 4 例在全量中同样全绿 |
+| **第四批**：`mvn -o -q test-compile -pl tioka-server -am` | 通过（exit 0）；50 个改 import 的文件与删除 4 个本地 DO 后无遗漏引用，`WorkspaceAwareDO` 补 import 生效 |
+| **第四批**：定向测试 `-Dtest='FoundationDataContractTest,FoundationIdsContractTest,FoundationModeSwitchTest,ModuleDependencyRulesTest'` | **19 例全绿**（新增 data 契约 6 + Ids 契约 4 + 双模式 8 + framework ArchUnit 1），`BUILD SUCCESS` |
+| **第四批**：`mvn -o -fae test` 全量 reactor | 失败集合**未扩大**：仍仅 `governance-biz`（Cedar JNI 7 errors）FAILURE、`tioka-server` SKIPPED；`orchestration-biz` SUCCESS；`FoundationDataContractTest` 6 例在全量中同样全绿 |
+| **第四批**：Foundation 发布形态实验与回退 | `inherited=false` / `parent=expand` 两种修法均实测否决（详见 §7.6 末段 PF-00b），已 `git checkout` 回退 `foundation-parent/pom.xml` 并重新 install 三个构件；回退后 Tioka `test-compile` 再次通过 |
 | 已知既有失败（与本批无关） | ① `CedarEvaluatorTest` / `CharterCompilerTest`：`UnsatisfiedLinkError: BasicAuthorizationEngine.getCedarJNIVersion()`，本机缺 Cedar JNI 原生库；**改动前 stash 对照同样 5 errors**。② `CelRuleConditionTest.simpleAttrMatch`：CEL 求值硬超时 50ms，偶发；**改动前 stash 对照同样失败**，全量 `-fae` 复跑时该模块 SUCCESS。③ `PersistenceArchTest.applicationAndKernelMustNotDependOnMappers`：`StructuredOutputStatsService` 直连 `RuntimeItemStatsMapper` 的 3 处既有违例，违例明细中不含本次新增包 |
 | 未覆盖 | `*IT`（Testcontainers）需 Docker，本机不可用，按既有约定归 CI；G0〜G3、GF 12 条闸门、`-Pgate` 与 `local` / `foundation` 双模式的闸门验证，仍待 BAS-20/28 收尾时在具备环境的 CI 上重跑 |

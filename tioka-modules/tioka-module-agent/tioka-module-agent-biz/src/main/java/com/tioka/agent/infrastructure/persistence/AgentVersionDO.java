@@ -3,7 +3,7 @@ package com.tioka.agent.infrastructure.persistence;
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
-import com.tioka.framework.persistence.ImmutableSnapshotDO;
+import com.foundation.starter.data.ImmutableSnapshotDO;
 
 import java.time.LocalDateTime;
 

@@ -2,7 +2,7 @@ package com.tioka.connector.infrastructure.persistence;
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
-import com.tioka.framework.persistence.BaseDO;
+import com.foundation.starter.data.BaseDO;
 /** DocSyncMapping 现行落点（47-GL §1.8）；表名暂 feishu 专用。 */
 @TableName("feishu_doc_map")
 public class FeishuDocMapDO extends BaseDO {

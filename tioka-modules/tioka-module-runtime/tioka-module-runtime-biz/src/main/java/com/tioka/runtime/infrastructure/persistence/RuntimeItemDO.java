@@ -1,7 +1,7 @@
 package com.tioka.runtime.infrastructure.persistence;
 
 import com.baomidou.mybatisplus.annotation.TableName;
-import com.tioka.framework.persistence.AppendOnlyDO;
+import com.foundation.starter.data.AppendOnlyDO;
 
 @TableName("runtime_item")
 public class RuntimeItemDO extends AppendOnlyDO {
