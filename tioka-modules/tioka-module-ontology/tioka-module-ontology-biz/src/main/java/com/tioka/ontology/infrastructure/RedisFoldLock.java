@@ -1,6 +1,6 @@
 package com.tioka.ontology.infrastructure;
 
-import com.tioka.framework.id.Ids;
+import com.foundation.common.id.Ids;
 import com.tioka.ontology.application.fold.FoldLock;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;

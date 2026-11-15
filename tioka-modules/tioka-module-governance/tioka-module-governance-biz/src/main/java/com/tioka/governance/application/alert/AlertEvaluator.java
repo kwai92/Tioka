@@ -1,6 +1,6 @@
 package com.tioka.governance.application.alert;
 
-import com.tioka.framework.id.Ids;
+import com.foundation.common.id.Ids;
 import com.tioka.framework.security.PrincipalHolder;
 import com.tioka.framework.security.SystemPrincipals;
 import com.tioka.governance.api.alert.AlertRuleRef;

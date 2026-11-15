@@ -1,6 +1,6 @@
 package com.tioka.knowledge.application;
 
-import com.tioka.framework.id.Ids;
+import com.foundation.common.id.Ids;
 
 import com.tioka.connector.api.spi.FeishuDocContentSpi;
 import com.tioka.framework.error.BizException;

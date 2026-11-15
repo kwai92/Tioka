@@ -2,7 +2,7 @@ package com.tioka.runtime.kernel.application;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.tioka.framework.id.Ids;
+import com.foundation.common.id.Ids;
 import com.tioka.framework.security.PrincipalHolder;
 import com.tioka.framework.security.SystemPrincipals;
 import com.tioka.runtime.api.kernel.ItemType;

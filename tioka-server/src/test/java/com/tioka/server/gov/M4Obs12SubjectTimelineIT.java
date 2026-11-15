@@ -3,7 +3,7 @@ package com.tioka.server.gov;
 import com.tioka.agent.infrastructure.AgentRepository;
 import com.tioka.agent.infrastructure.persistence.AgentDO;
 import com.tioka.agent.infrastructure.persistence.AgentVersionDO;
-import com.tioka.framework.id.Ids;
+import com.foundation.common.id.Ids;
 import com.tioka.framework.security.Principal;
 import com.tioka.framework.security.PrincipalHolder;
 import com.tioka.framework.security.PrincipalType;

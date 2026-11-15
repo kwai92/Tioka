@@ -1,6 +1,6 @@
 package com.tioka.model.domain;
 
-import com.tioka.framework.id.Ids;
+import com.foundation.common.id.Ids;
 import com.tioka.model.infrastructure.RoutingTelemetryRepository;
 import com.tioka.model.infrastructure.persistence.ModelCompetenceDO;
 import com.tioka.model.infrastructure.persistence.ModelRouteEventDO;

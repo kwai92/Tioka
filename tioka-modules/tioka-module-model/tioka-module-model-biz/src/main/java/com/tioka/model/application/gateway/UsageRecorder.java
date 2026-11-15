@@ -2,7 +2,7 @@ package com.tioka.model.application.gateway;
 
 import com.tioka.framework.context.RequestContext;
 import com.tioka.framework.context.RequestContextHolder;
-import com.tioka.framework.id.Ids;
+import com.foundation.common.id.Ids;
 import com.tioka.governance.api.timeline.TimelineProjector;
 import com.tioka.governance.api.timeline.TimelineSourceEvent;
 import com.tioka.model.api.gateway.ModelCallContext;

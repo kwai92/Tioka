@@ -5,7 +5,7 @@ import com.tioka.chat.infrastructure.ChatRepository;
 import com.tioka.chat.infrastructure.persistence.ChatConversationDO;
 import com.tioka.framework.error.BizException;
 import com.tioka.framework.error.ErrorCode;
-import com.tioka.framework.id.Ids;
+import com.foundation.common.id.Ids;
 import com.tioka.framework.security.Principal;
 import com.tioka.framework.security.PrincipalHolder;
 import com.tioka.framework.security.PrincipalType;

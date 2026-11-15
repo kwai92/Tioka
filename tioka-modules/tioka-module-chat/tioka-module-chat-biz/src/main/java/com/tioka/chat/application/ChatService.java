@@ -5,7 +5,7 @@ import com.tioka.chat.domain.ChatStore;
 import com.tioka.chat.domain.ChatStore.Conversation;
 import com.tioka.framework.error.BizException;
 import com.tioka.framework.error.ErrorCode;
-import com.tioka.framework.id.Ids;
+import com.foundation.common.id.Ids;
 import com.tioka.model.api.CostQueryApi;
 import com.tioka.runtime.api.kernel.RuntimeApi;
 import com.tioka.system.api.audit.Audited;

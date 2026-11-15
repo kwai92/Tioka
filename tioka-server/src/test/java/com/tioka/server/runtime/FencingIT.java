@@ -2,7 +2,7 @@ package com.tioka.server.runtime;
 
 import com.tioka.framework.error.BizException;
 import com.tioka.framework.error.ErrorCode;
-import com.tioka.framework.id.Ids;
+import com.foundation.common.id.Ids;
 import com.tioka.runtime.api.kernel.TurnStatus;
 import com.tioka.runtime.infrastructure.RuntimeThreadRepository;
 import com.tioka.runtime.infrastructure.persistence.RuntimeThreadDO;

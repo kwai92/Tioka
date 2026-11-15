@@ -3,7 +3,7 @@ package com.tioka.runtime.application;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tioka.framework.error.BizException;
 import com.tioka.framework.error.ErrorCode;
-import com.tioka.framework.id.Ids;
+import com.foundation.common.id.Ids;
 import com.tioka.framework.security.Principal;
 import com.tioka.governance.api.autonomy.AutonomyDecision;
 import com.tioka.runtime.api.approval.ApprovalPolicy;

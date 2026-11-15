@@ -1,6 +1,6 @@
 package com.tioka.server.gate;
 
-import com.tioka.framework.id.Ids;
+import com.foundation.common.id.Ids;
 import com.tioka.runtime.api.kernel.ItemType;
 import com.tioka.runtime.api.kernel.RuntimeEventType;
 import com.tioka.runtime.api.kernel.TurnStatus;

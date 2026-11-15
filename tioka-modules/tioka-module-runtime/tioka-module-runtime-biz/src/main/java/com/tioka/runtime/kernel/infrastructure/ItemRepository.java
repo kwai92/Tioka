@@ -2,7 +2,7 @@ package com.tioka.runtime.kernel.infrastructure;
 
 import com.tioka.framework.error.BizException;
 import com.tioka.framework.error.ErrorCode;
-import com.tioka.framework.id.Ids;
+import com.foundation.common.id.Ids;
 import com.tioka.runtime.infrastructure.mapper.RuntimeItemMapper;
 import com.tioka.runtime.infrastructure.persistence.RuntimeItemDO;
 import org.springframework.stereotype.Repository;

@@ -11,7 +11,7 @@ import com.tioka.connector.api.sdk.ConnectorSyncAction;
 import com.tioka.connector.api.sdk.ConnectorSyncContext;
 import com.tioka.connector.api.sdk.ConnectorTypeHandler;
 import com.tioka.connector.api.sdk.RetryableConnectorException;
-import com.tioka.framework.id.Ids;
+import com.foundation.common.id.Ids;
 import com.tioka.framework.security.CredentialCipher;
 import com.tioka.system.api.spi.EgressGuard;
 import org.springframework.beans.factory.ObjectProvider;

@@ -1,6 +1,6 @@
 package com.tioka.governance.application.timeline;
 
-import com.tioka.framework.id.Ids;
+import com.foundation.common.id.Ids;
 import com.tioka.framework.label.DataLabel;
 import com.tioka.governance.api.timeline.TimelineCategory;
 import com.tioka.governance.api.timeline.TimelineOutcome;

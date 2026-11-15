@@ -1,6 +1,6 @@
 package com.tioka.agent.application;
 
-import com.tioka.framework.id.Ids;
+import com.foundation.common.id.Ids;
 
 import com.tioka.agent.infrastructure.AgentMarketplaceRepository;
 import com.tioka.agent.infrastructure.persistence.AgentMarketplaceDO;

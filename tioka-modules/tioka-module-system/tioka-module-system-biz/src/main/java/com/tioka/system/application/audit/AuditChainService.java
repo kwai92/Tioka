@@ -1,6 +1,6 @@
 package com.tioka.system.application.audit;
 
-import com.tioka.framework.id.Ids;
+import com.foundation.common.id.Ids;
 import com.tioka.system.infrastructure.AuditEventRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

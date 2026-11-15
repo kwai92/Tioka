@@ -1,6 +1,6 @@
 package com.tioka.model.application.health;
 
-import com.tioka.framework.id.Ids;
+import com.foundation.common.id.Ids;
 import com.tioka.model.infrastructure.ModelEntitiesRepository;
 import com.tioka.model.infrastructure.persistence.ModelBindingDO;
 import com.tioka.model.infrastructure.persistence.ModelProviderDO;

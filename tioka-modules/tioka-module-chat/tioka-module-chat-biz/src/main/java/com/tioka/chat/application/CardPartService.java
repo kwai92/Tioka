@@ -1,6 +1,6 @@
 package com.tioka.chat.application;
 
-import com.tioka.framework.id.Ids;
+import com.foundation.common.id.Ids;
 
 import com.tioka.chat.domain.ChatStore;
 import com.tioka.chat.domain.ChatStore.CardMessage;

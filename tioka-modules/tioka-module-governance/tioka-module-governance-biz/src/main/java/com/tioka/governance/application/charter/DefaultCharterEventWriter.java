@@ -1,6 +1,6 @@
 package com.tioka.governance.application.charter;
 
-import com.tioka.framework.id.Ids;
+import com.foundation.common.id.Ids;
 import com.tioka.governance.api.charter.CharterEventWriter;
 import com.tioka.governance.infrastructure.charter.TrustCharterEventRepository;
 import com.tioka.governance.infrastructure.persistence.TrustCharterEventDO;

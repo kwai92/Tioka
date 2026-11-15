@@ -1,6 +1,6 @@
 package com.tioka.governance.application.alert;
 
-import com.tioka.framework.id.Ids;
+import com.foundation.common.id.Ids;
 import com.tioka.governance.api.alert.AlertState;
 import com.tioka.governance.infrastructure.alert.OpsAlertRepository;
 import com.tioka.governance.infrastructure.persistence.OpsAlertEventDO;

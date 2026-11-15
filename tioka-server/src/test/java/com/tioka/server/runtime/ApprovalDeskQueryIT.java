@@ -2,7 +2,7 @@ package com.tioka.server.runtime;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.tioka.framework.id.Ids;
+import com.foundation.common.id.Ids;
 import com.tioka.server.support.IntegrationTestSupport;
 import com.tioka.server.support.TestFixtures;
 import org.junit.jupiter.api.Tag;

@@ -2,7 +2,7 @@ package com.tioka.system.application.authz;
 
 import com.tioka.framework.error.BizException;
 import com.tioka.framework.error.ErrorCode;
-import com.tioka.framework.id.Ids;
+import com.foundation.common.id.Ids;
 import com.tioka.framework.persistence.OperatorAuditor;
 import com.tioka.system.application.auth.PrincipalLoader;
 import com.tioka.system.infrastructure.SysGroupRepository;

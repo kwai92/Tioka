@@ -4,7 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tioka.framework.error.BizException;
 import com.tioka.framework.error.ErrorCode;
-import com.tioka.framework.id.Ids;
+import com.foundation.common.id.Ids;
 import com.tioka.governance.api.config.ConfigSpecValidator;
 import com.tioka.governance.api.config.ConfigVersionApi;
 import com.tioka.governance.infrastructure.config.CfgStore;

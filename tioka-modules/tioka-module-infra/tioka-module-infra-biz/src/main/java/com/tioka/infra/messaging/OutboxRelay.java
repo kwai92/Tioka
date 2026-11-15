@@ -1,6 +1,6 @@
 package com.tioka.infra.messaging;
 
-import com.tioka.framework.id.Ids;
+import com.foundation.common.id.Ids;
 import com.tioka.infra.messaging.infrastructure.SysOutboxRepository;
 import com.tioka.infra.messaging.infrastructure.persistence.SysOutboxDO;
 import org.slf4j.Logger;

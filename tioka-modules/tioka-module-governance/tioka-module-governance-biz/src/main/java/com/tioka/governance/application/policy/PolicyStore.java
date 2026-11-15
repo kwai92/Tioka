@@ -2,7 +2,7 @@ package com.tioka.governance.application.policy;
 
 import com.tioka.framework.error.BizException;
 import com.tioka.framework.error.ErrorCode;
-import com.tioka.framework.id.Ids;
+import com.foundation.common.id.Ids;
 import com.tioka.governance.api.policy.PolicyAdminApi;
 import com.tioka.governance.api.policy.PolicyDecision;
 import com.tioka.governance.api.policy.PolicyMode;

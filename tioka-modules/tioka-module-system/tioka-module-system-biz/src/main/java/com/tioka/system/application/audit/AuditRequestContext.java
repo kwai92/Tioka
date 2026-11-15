@@ -1,6 +1,6 @@
 package com.tioka.system.application.audit;
 
-import com.tioka.framework.id.Ids;
+import com.foundation.common.id.Ids;
 import org.slf4j.MDC;
 
 /**

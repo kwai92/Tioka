@@ -4,7 +4,7 @@ import com.tioka.connector.api.oauth.UserTokenVault;
 import com.tioka.connector.config.OAuthProviderProperties;
 import com.tioka.connector.infrastructure.UserCredentialRepository;
 import com.tioka.connector.infrastructure.persistence.UserCredentialDO;
-import com.tioka.framework.id.Ids;
+import com.foundation.common.id.Ids;
 import com.tioka.framework.security.CredentialCipher;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

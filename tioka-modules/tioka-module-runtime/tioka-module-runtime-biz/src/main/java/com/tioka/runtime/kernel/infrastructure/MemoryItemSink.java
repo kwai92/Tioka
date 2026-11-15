@@ -1,7 +1,7 @@
 package com.tioka.runtime.kernel.infrastructure;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.tioka.framework.id.Ids;
+import com.foundation.common.id.Ids;
 import com.tioka.governance.api.timeline.TimelineProjector;
 import com.tioka.governance.api.timeline.TimelineSourceEvent;
 import com.tioka.runtime.api.kernel.ItemType;

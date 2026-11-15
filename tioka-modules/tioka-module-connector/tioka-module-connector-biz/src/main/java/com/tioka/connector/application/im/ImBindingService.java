@@ -7,7 +7,7 @@ import com.tioka.connector.infrastructure.ImBindingRepository;
 import com.tioka.connector.infrastructure.persistence.ImBindingDO;
 import com.tioka.framework.error.BizException;
 import com.tioka.framework.error.ErrorCode;
-import com.tioka.framework.id.Ids;
+import com.foundation.common.id.Ids;
 import com.tioka.framework.security.Principal;
 import com.tioka.framework.security.PrincipalHolder;
 import com.tioka.system.api.spi.EgressClient;

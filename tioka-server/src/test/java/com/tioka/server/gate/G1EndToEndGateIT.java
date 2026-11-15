@@ -5,7 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tioka.agent.api.spec.AgentSpec;
 import com.tioka.agent.application.AgentService;
 import com.tioka.agent.domain.AgentStore;
-import com.tioka.framework.id.Ids;
+import com.foundation.common.id.Ids;
 import com.tioka.framework.security.Principal;
 import com.tioka.framework.security.PrincipalHolder;
 import com.tioka.mcp.application.McpAdminService;

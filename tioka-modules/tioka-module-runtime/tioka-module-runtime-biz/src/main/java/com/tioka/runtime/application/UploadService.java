@@ -2,7 +2,7 @@ package com.tioka.runtime.application;
 
 import com.tioka.framework.error.BizException;
 import com.tioka.framework.error.ErrorCode;
-import com.tioka.framework.id.Ids;
+import com.foundation.common.id.Ids;
 import com.tioka.infra.api.ObjectStorageApi;
 import com.tioka.runtime.api.spi.WorkspaceFs;
 import com.tioka.runtime.infrastructure.RuntimeThreadRepository;

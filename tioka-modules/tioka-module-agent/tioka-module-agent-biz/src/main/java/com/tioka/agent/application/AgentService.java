@@ -17,7 +17,7 @@ import com.tioka.agent.infrastructure.persistence.AgentDraftDO;
 import com.tioka.agent.infrastructure.persistence.AgentVersionDO;
 import com.tioka.framework.error.BizException;
 import com.tioka.framework.error.ErrorCode;
-import com.tioka.framework.id.Ids;
+import com.foundation.common.id.Ids;
 import com.tioka.framework.json.CanonicalJson;
 import com.tioka.framework.security.AccessLevel;
 import com.tioka.framework.security.PrincipalHolder;

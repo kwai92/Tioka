@@ -2,7 +2,7 @@ package com.tioka.runtime.application.grant;
 
 import com.tioka.framework.error.BizException;
 import com.tioka.framework.error.ErrorCode;
-import com.tioka.framework.id.Ids;
+import com.foundation.common.id.Ids;
 import com.tioka.framework.label.DataLabel;
 import com.tioka.runtime.api.grant.Budget;
 import com.tioka.runtime.api.grant.ChainHop;

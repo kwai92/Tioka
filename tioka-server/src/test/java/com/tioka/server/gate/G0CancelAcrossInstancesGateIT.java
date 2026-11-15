@@ -1,6 +1,6 @@
 package com.tioka.server.gate;
 
-import com.tioka.framework.id.Ids;
+import com.foundation.common.id.Ids;
 import com.tioka.framework.security.SystemPrincipals;
 import com.tioka.framework.security.TiokaAuthentication;
 import com.tioka.runtime.infrastructure.RuntimeThreadRepository;

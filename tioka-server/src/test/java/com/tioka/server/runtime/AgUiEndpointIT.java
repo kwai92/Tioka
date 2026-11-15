@@ -2,7 +2,7 @@ package com.tioka.server.runtime;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.tioka.framework.id.Ids;
+import com.foundation.common.id.Ids;
 import com.tioka.runtime.agui.AgUiEventType;
 import com.tioka.server.gate.support.DualInstance;
 import com.tioka.server.gate.support.GateSeed;

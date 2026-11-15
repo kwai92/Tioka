@@ -1,6 +1,6 @@
 package com.tioka.runtime.infrastructure;
 
-import com.tioka.framework.id.Ids;
+import com.foundation.common.id.Ids;
 
 import com.tioka.framework.error.BizException;
 import com.tioka.framework.error.ErrorCode;

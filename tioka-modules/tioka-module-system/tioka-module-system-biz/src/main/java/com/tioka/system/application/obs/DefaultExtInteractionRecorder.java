@@ -1,6 +1,6 @@
 package com.tioka.system.application.obs;
 
-import com.tioka.framework.id.Ids;
+import com.foundation.common.id.Ids;
 import com.tioka.governance.api.timeline.TimelineProjector;
 import com.tioka.system.api.obs.ExtInteractionRecorder;
 import com.tioka.system.application.audit.AuditRequestContext;

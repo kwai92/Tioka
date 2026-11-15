@@ -1,6 +1,6 @@
 package com.tioka.testkit;
 
-import com.tioka.framework.id.Ids;
+import com.foundation.common.id.Ids;
 import com.tioka.runtime.api.approval.ToolRisk;
 import com.tioka.runtime.api.spi.ChangeOp;
 import com.tioka.runtime.api.spi.ChangeSet;

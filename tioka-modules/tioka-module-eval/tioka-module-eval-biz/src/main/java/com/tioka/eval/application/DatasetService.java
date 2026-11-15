@@ -11,7 +11,7 @@ import com.tioka.eval.infrastructure.persistence.EvalCaseDO;
 import com.tioka.eval.infrastructure.persistence.EvalDatasetDO;
 import com.tioka.framework.error.BizException;
 import com.tioka.framework.error.ErrorCode;
-import com.tioka.framework.id.Ids;
+import com.foundation.common.id.Ids;
 import com.tioka.framework.security.Permissions;
 import com.tioka.framework.security.PrincipalHolder;
 import org.springframework.transaction.annotation.Transactional;

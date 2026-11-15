@@ -18,6 +18,13 @@
             <groupId>com.foundation</groupId>
             <artifactId>foundation-starter-core</artifactId>
         </dependency>
+        <!-- F-02 BAS-26 第 1 步（core 子步骤 1a）：主键生成统一到 Foundation 公共域。
+             全仓 Ids.newId 调用方已改引 com.foundation.common.id.Ids，Tioka 本地副本删除。
+             显式声明而非依赖 starter-core 的传递，便于 dependency:analyze 与后续升级。 -->
+        <dependency>
+            <groupId>com.foundation</groupId>
+            <artifactId>foundation-common-api</artifactId>
+        </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter</artifactId>
