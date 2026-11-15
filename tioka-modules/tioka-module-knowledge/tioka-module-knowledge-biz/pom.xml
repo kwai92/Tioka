@@ -43,6 +43,11 @@
             <groupId>com.tioka</groupId>
             <artifactId>tioka-module-ontology-api</artifactId>
         </dependency>
+        <!-- OBS-12：时间线来源事件与重建 SPI（TimelineSourceEvent / TimelineRebuildSource / GovernanceMqTopics） -->
+        <dependency>
+            <groupId>com.tioka</groupId>
+            <artifactId>tioka-module-governance-api</artifactId>
+        </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>

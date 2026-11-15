@@ -12,6 +12,7 @@ import com.tioka.infra.api.notify.NotificationChannel;
 import com.tioka.infra.api.notify.Recipient;
 import com.tioka.infra.infrastructure.NtfDeliveryRepository;
 import com.tioka.infra.infrastructure.persistence.NtfDeliveryDO;
+import com.tioka.system.api.obs.ExtInteractionRecorder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
@@ -62,6 +63,8 @@ public class NtfDeliveryConsumer extends IdempotentConsumer<Map<String, Object>>
     private final NtfDeliveryAlertHook alertHook;
     private final ObjectMapper mapper;
     private final TransactionTemplate requiresNewTx;
+    /** OBS-07：外部交互台账可选注入（未装配环境静默；台账不阻断投递）。 */
+    private final ObjectProvider<ExtInteractionRecorder> ledger;
 
     /** 测试 / 离线装配（固定依赖，SinkGuard / 告警钩子可空）。 */
     public NtfDeliveryConsumer(NtfDeliveryRepository deliveries,
@@ -71,6 +74,18 @@ public class NtfDeliveryConsumer extends IdempotentConsumer<Map<String, Object>>
                                NtfDeliveryAlertHook alertHook,
                                ObjectMapper mapper,
                                PlatformTransactionManager txManager) {
+        this(deliveries, resolver, registry, sinkGuard, alertHook, mapper, txManager, null);
+    }
+
+    /** 全参数（含台账可选注入）。 */
+    public NtfDeliveryConsumer(NtfDeliveryRepository deliveries,
+                               RecipientResolver resolver,
+                               NotificationChannelRegistry registry,
+                               SinkGuard sinkGuard,
+                               NtfDeliveryAlertHook alertHook,
+                               ObjectMapper mapper,
+                               PlatformTransactionManager txManager,
+                               ObjectProvider<ExtInteractionRecorder> ledger) {
         this.deliveries = deliveries;
         this.resolver = resolver;
         this.registry = registry;
@@ -79,18 +94,20 @@ public class NtfDeliveryConsumer extends IdempotentConsumer<Map<String, Object>>
         this.mapper = mapper;
         this.requiresNewTx = new TransactionTemplate(txManager);
         this.requiresNewTx.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+        this.ledger = ledger;
     }
 
-    /** Spring 装配（InfraNotifyAutoConfiguration；SinkGuard / 告警钩子弱依赖——条件装配缺席不阻塞）。 */
+    /** Spring 装配（InfraNotifyAutoConfiguration；SinkGuard / 告警钩子 / 台账弱依赖——条件装配缺席不阻塞）。 */
     public NtfDeliveryConsumer(NtfDeliveryRepository deliveries,
                                RecipientResolver resolver,
                                NotificationChannelRegistry registry,
                                ObjectProvider<SinkGuard> sinkGuard,
                                ObjectProvider<NtfDeliveryAlertHook> alertHook,
                                ObjectMapper mapper,
-                               PlatformTransactionManager txManager) {
+                               PlatformTransactionManager txManager,
+                               ObjectProvider<ExtInteractionRecorder> ledger) {
         this(deliveries, resolver, registry, sinkGuard.getIfAvailable(),
-                alertHook.getIfAvailable(), mapper, txManager);
+                alertHook.getIfAvailable(), mapper, txManager, ledger);
     }
 
     @Override
@@ -178,12 +195,15 @@ public class NtfDeliveryConsumer extends IdempotentConsumer<Map<String, Object>>
 
     private void send(NtfDeliveryDO row, NotificationChannel channel, Recipient to, Notice notice) {
         String deliveryId = row.getDeliveryId();
+        long startNanos = System.nanoTime();
         try {
             DeliveryRef ref = channel.send(to, notice);
             deliveries.markSent(deliveryId, ref == null ? null : ref.externalRef(), Instant.now());
+            recordLedger(row, ref == null ? null : ref.externalRef(), null, startNanos);
             log.info("ntf 投递成功 deliveryId={} channel={} ref={}",
                     deliveryId, row.getChannel(), ref == null ? null : ref.externalRef());
         } catch (RuntimeException e) {
+            recordLedger(row, null, e, startNanos);
             // REQUIRES_NEW 记账：attempts / last_error 在重试回滚后仍保留
             int attempts = requiresNewTx.execute(status ->
                     deliveries.recordAttempt(deliveryId, truncate(e.toString())));
@@ -206,6 +226,41 @@ public class NtfDeliveryConsumer extends IdempotentConsumer<Map<String, Object>>
             log.warn("ntf 投递失败待重试 deliveryId={} attempts={}/{}: {}",
                     deliveryId, attempts, MAX_ATTEMPTS, e.toString());
             throw e; // 事务回滚（含 sys_consumed 标记）→ 既有重试机制重投
+        }
+    }
+
+    /**
+     * OBS-07 / ADR-074 §2：通知实发写一条 OUT {@code notify} 台账行（对方回执号 external_ref +
+     * 时延 + 幂等键）。台账失败只吞异常——观测面不得阻断投递。
+     */
+    private void recordLedger(NtfDeliveryDO row, String externalRef, RuntimeException error, long startNanos) {
+        if (ledger == null) {
+            return;
+        }
+        ExtInteractionRecorder recorder = ledger.getIfAvailable();
+        if (recorder == null) {
+            return;
+        }
+        try {
+            long latencyMs = (System.nanoTime() - startNanos) / 1_000_000;
+            Map<String, String> attrs = new java.util.LinkedHashMap<>();
+            if (row.getDedupKey() != null) {
+                attrs.put("idempotency_key", row.getDedupKey());
+            }
+            recorder.record(new ExtInteractionRecorder.ExtInteractionRecord(
+                    ExtInteractionRecorder.Direction.OUT,
+                    "notify",
+                    row.getChannel(),
+                    null,
+                    "notify." + row.getChannel() + ".send",
+                    error == null ? ExtInteractionRecorder.Status.OK : ExtInteractionRecorder.Status.ERROR,
+                    null,
+                    externalRef,
+                    null,
+                    latencyMs,
+                    attrs));
+        } catch (RuntimeException ignored) {
+            // 台账不能影响投递主流程
         }
     }
 

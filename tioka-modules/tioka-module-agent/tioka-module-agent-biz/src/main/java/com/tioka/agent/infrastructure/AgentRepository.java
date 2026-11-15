@@ -5,10 +5,12 @@ import com.tioka.agent.infrastructure.mapper.AgentMapper;
 import com.tioka.agent.infrastructure.mapper.AgentVersionMapper;
 import com.tioka.agent.infrastructure.persistence.AgentDO;
 import com.tioka.agent.infrastructure.persistence.AgentVersionDO;
+import com.tioka.agent.infrastructure.persistence.AgentVersionTimelineDO;
 import com.tioka.framework.error.BizException;
 import com.tioka.framework.error.ErrorCode;
 import org.springframework.stereotype.Repository;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
@@ -80,6 +82,15 @@ public class AgentRepository {
         }
         existing.setStatus("RETIRED");
         versions.updateById(existing);
+    }
+
+    /**
+     * OBS-12 时间线重建只读端口：按 {@code COALESCE(published_at, create_at)} 时间段读回版本（升序）。
+     * 异步重建无 Principal，Mapper 级旁路 ScopeLine；空间由左连 {@code agent_agent} 带出。
+     */
+    public List<AgentVersionTimelineDO> listByRange(Instant from, Instant to) {
+        return versions.listByRange(LocalDateTime.ofInstant(from, ZoneOffset.UTC),
+                LocalDateTime.ofInstant(to, ZoneOffset.UTC));
     }
 
     // ---- TRU-03：授权书生命周期（charter_status / reviewed_at / owner_id，V201）----

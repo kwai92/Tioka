@@ -103,6 +103,29 @@ public class RuleEvaluator {
             return t;
         });
         this.evalTimeoutMs = evalTimeoutMs;
+        warmUp();
+    }
+
+    /**
+     * 冷启动预热：JVM 首次求值要加载 CEL 运行时类并创建求值线程，这些一次性开销若计入
+     * {@link #EVAL_TIMEOUT_MS} 预算，会让启动后最初几条规则的合法求值被判为超时
+     * （{@code cel_timeout} → 结论 MISSING）。故在构造线程上先私有求值一次并预建求值线程，
+     * 把类加载/JIT 移出 50 ms 计时窗口。任何预热异常都忽略（不影响正确性）。
+     */
+    private void warmUp() {
+        try {
+            dev.cel.common.CelValidationResult r = compiler.compile("1 + 1");
+            if (!r.hasError()) {
+                runtime.createProgram(r.getAst()).eval(Map.of());
+            }
+        } catch (Throwable ignore) {
+            // 预热失败不影响正确性
+        }
+        try {
+            evalPool.submit(() -> { }).get(5, TimeUnit.SECONDS);
+        } catch (Throwable ignore) {
+            // 预建求值线程失败不影响正确性
+        }
     }
 
     /**

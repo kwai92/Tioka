@@ -84,9 +84,10 @@ public class InfraNotifyAutoConfiguration {
                                             ObjectProvider<com.tioka.governance.api.label.SinkGuard> sinkGuard,
                                             ObjectProvider<NtfDeliveryAlertHook> alertHook,
                                             ObjectMapper mapper,
-                                            PlatformTransactionManager txManager) {
+                                            PlatformTransactionManager txManager,
+                                            ObjectProvider<com.tioka.system.api.obs.ExtInteractionRecorder> ledger) {
         return new NtfDeliveryConsumer(deliveries, resolver, registry, sinkGuard, alertHook,
-                mapper, txManager);
+                mapper, txManager, ledger);
     }
 
     /**

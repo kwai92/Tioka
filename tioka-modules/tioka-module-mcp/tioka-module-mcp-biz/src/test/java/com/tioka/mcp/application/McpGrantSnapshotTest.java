@@ -24,7 +24,7 @@ class McpGrantSnapshotTest {
                 new McpStore.Tool("tool_a", "a", Map.of()),
                 new McpStore.Tool("tool_b", "b", Map.of())));
         McpAdminService admin = new McpAdminService(
-                mock(SecretStore.class), store, mock(EgressClient.class), true, new ObjectMapper());
+                mock(SecretStore.class), store, mock(EgressClient.class), true, new ObjectMapper(), null);
 
         assertThrows(BizException.class, () ->
                 admin.callToolWithMcpBindings(
@@ -39,7 +39,7 @@ class McpGrantSnapshotTest {
                 new McpStore.Tool("tool_a", "a", Map.of()),
                 new McpStore.Tool("tool_b", "b", Map.of())));
         McpAdminService admin = new McpAdminService(
-                mock(SecretStore.class), store, mock(EgressClient.class), true, new ObjectMapper());
+                mock(SecretStore.class), store, mock(EgressClient.class), true, new ObjectMapper(), null);
 
         List<McpStore.Tool> tools = admin.toolsForMcpBindings(
                 List.of(new McpAdminService.McpBinding("srv_1", List.of("tool_a"))));

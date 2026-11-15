@@ -279,6 +279,49 @@ class FlowDslValidationTest {
         assertFalse(r.hasErrors(), () -> r.issues().toString());
     }
 
+    @Test
+    void outcome_structuredNodeWithoutFailedPortIsError() {
+        FlowDslDocument doc = baseFlow();
+        doc.nodes().add(node("se", "transform", Map.of("schema", "order@1")));
+        wireThrough(doc, "se");
+        ValidationResult r = validator.validate(doc, FlowPublishContext.permissive());
+        assertTrue(r.hasCode("OUTCOME_FAILED_PORT_MISSING"), () -> r.issues().toString());
+        assertTrue(r.errors().stream().anyMatch(i -> "OUTCOME_FAILED_PORT_MISSING".equals(i.code())),
+                () -> r.issues().toString());
+    }
+
+    @Test
+    void outcome_structuredNodeWithFailedPortPasses() {
+        FlowDslDocument doc = baseFlow();
+        doc.nodes().add(node("se", "transform", Map.of("schema", "order@1")));
+        doc.edges().clear();
+        doc.edges().add(edge("in", "out", "se", "in"));
+        doc.edges().add(edge("se", "valid", "out", "in"));
+        doc.edges().add(edge("se", "failed", "out", "in"));
+        ValidationResult r = validator.validate(doc, FlowPublishContext.permissive());
+        assertFalse(r.hasCode("OUTCOME_FAILED_PORT_MISSING"), () -> r.issues().toString());
+    }
+
+    @Test
+    void outcome_structuredNodeWithFailFastConfigPasses() {
+        FlowDslDocument doc = baseFlow();
+        doc.nodes().add(node("se", "transform", Map.of("schema", "order@1", "onOutcomeFailure", "fail_fast")));
+        wireThrough(doc, "se");
+        ValidationResult r = validator.validate(doc, FlowPublishContext.permissive());
+        assertFalse(r.hasCode("OUTCOME_FAILED_PORT_MISSING"), () -> r.issues().toString());
+    }
+
+    @Test
+    void outcome_validPortEdgeHasNoTypePortError() {
+        FlowDslDocument doc = baseFlow();
+        doc.nodes().add(node("se", "transform", Map.of("schema", "order@1", "onOutcomeFailure", "fail_fast")));
+        doc.edges().clear();
+        doc.edges().add(edge("in", "out", "se", "in"));
+        doc.edges().add(edge("se", "valid", "out", "in"));
+        ValidationResult r = validator.validate(doc, FlowPublishContext.permissive());
+        assertFalse(r.hasCode("TYPE_PORT"), () -> r.issues().toString());
+    }
+
     private static void assertError(ValidationResult r, String code) {
         assertTrue(r.hasErrors(), () -> "expected errors, got: " + r.issues());
         assertTrue(r.hasCode(code), () -> "expected " + code + " in " + r.issues());

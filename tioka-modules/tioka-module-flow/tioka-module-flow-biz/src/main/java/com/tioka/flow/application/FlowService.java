@@ -10,12 +10,18 @@ import com.tioka.flow.infrastructure.persistence.FlowRunDO;
 import com.tioka.flow.infrastructure.persistence.FlowVersionDO;
 import com.tioka.framework.error.BizException;
 import com.tioka.framework.error.ErrorCode;
+import com.tioka.framework.context.RequestContextHolder;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
 
 @Service
 public class FlowService {
+    private static final Logger log = LoggerFactory.getLogger(FlowService.class);
+
     public static final List<String> NODE_TYPES = List.of(
             "IO", "LLM", "Agent", "Retrieve", "HTTP", "MCP",
             "Branch", "HumanCard", "Loop", "Output", "Embedding", "Prompt", "Parser"
@@ -24,11 +30,15 @@ public class FlowService {
     private final FlowRepository repo;
     private final FlowEngine engine;
     private final ObjectMapper mapper;
+    /** OBS-06（ADR-075 §3）：Flow Run 开始时写运行清单；端口缺失（离线 / 单测）时跳过。 */
+    private final ObjectProvider<com.tioka.governance.api.manifest.RunManifestWriter> runManifests;
 
-    public FlowService(FlowRepository repo, FlowEngine engine, ObjectMapper mapper) {
+    public FlowService(FlowRepository repo, FlowEngine engine, ObjectMapper mapper,
+                       ObjectProvider<com.tioka.governance.api.manifest.RunManifestWriter> runManifests) {
         this.mapper = mapper;
         this.repo = repo;
         this.engine = engine;
+        this.runManifests = runManifests;
     }
 
     public List<String> nodeTypes() {
@@ -86,7 +96,27 @@ public class FlowService {
         row.setTraceJson(toJsonList(result.trace()));
         row.setGrantId(grantId);
         repo.insertRun(row);
+        writeRunManifest(versionId, id, grantId);
         return run;
+    }
+
+    /**
+     * OBS-06（ADR-075 §3）：Flow Run 开始时写运行清单（Flow 版本、授予 ID 等快照），
+     * 供统一时间线展开与同类运行差异对比。清单写入失败只记日志不阻断 Run（观测面）。
+     */
+    private void writeRunManifest(String versionId, String runId, String grantId) {
+        var writer = runManifests.getIfAvailable();
+        if (writer == null) {
+            return;
+        }
+        try {
+            var correlation = RequestContextHolder.getCorrelation();
+            writer.write(new com.tioka.governance.api.manifest.RunManifestWriteRequest(
+                    "FLOW_RUN", runId, correlation.requestId(), null, null, grantId, null,
+                    Map.of("flowVersionId", versionId)));
+        } catch (RuntimeException e) {
+            log.warn("run_manifest 写入失败 flowRunId={}: {}", runId, e.toString());
+        }
     }
 
     /** 供单测 / 内部直接跑图（不落库）。 */

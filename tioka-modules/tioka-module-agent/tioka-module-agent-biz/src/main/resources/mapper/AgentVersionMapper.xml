@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tioka.agent.infrastructure.mapper.AgentVersionMapper">
+
+    <!-- OBS-12：时间线重建读回（C-20：驼峰列别名一律加双引号）。
+         agent_version 无 workspace_id 列（workspace-scope-exempt），左连 agent_agent 补齐空间，
+         否则投影条目 workspace_id 为空会绕过查询侧空间隔离。 -->
+    <select id="listByRange" resultType="com.tioka.agent.infrastructure.persistence.AgentVersionTimelineDO">
+        <![CDATA[
+SELECT v.id,
+       v.agent_id     AS "agentId",
+       v.version_no   AS "versionNo",
+       v.status,
+       v.note,
+       v.published_by AS "publishedBy",
+       a.workspace_id AS "workspaceId",
+       COALESCE(v.published_at, v.create_at) AS "occurredAt"
+  FROM agent_version v
+  LEFT JOIN agent_agent a ON a.id = v.agent_id
+ WHERE COALESCE(v.published_at, v.create_at) >= #{from}
+   AND COALESCE(v.published_at, v.create_at) <= #{to}
+ ORDER BY COALESCE(v.published_at, v.create_at), v.id
+]]>
+    </select>
+
+</mapper>

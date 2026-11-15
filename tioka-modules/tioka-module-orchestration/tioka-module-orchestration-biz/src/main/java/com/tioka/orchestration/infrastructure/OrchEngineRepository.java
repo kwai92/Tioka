@@ -11,6 +11,7 @@ import com.tioka.orchestration.infrastructure.mapper.OrchRunMapper;
 import com.tioka.orchestration.infrastructure.mapper.OrchSubscriptionMapper;
 import com.tioka.orchestration.infrastructure.mapper.OrchWorkItemMapper;
 import com.tioka.orchestration.infrastructure.persistence.OrchDecisionDO;
+import com.tioka.orchestration.infrastructure.persistence.OrchDecisionTimelineDO;
 import com.tioka.orchestration.infrastructure.persistence.OrchEventDO;
 import com.tioka.orchestration.infrastructure.persistence.OrchFactDO;
 import com.tioka.orchestration.infrastructure.persistence.OrchMandateDO;
@@ -22,7 +23,9 @@ import com.tioka.orchestration.infrastructure.persistence.OrchWorkItemDO;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Repository;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -98,6 +101,15 @@ public class OrchEngineRepository {
                 .eq(OrchDecisionDO::getRuleVersionId, ruleVersionId)
                 .eq(decision != null, OrchDecisionDO::getDecision, decision)
                 .orderByDesc(OrchDecisionDO::getCreateAt));
+    }
+
+    /**
+     * OBS-08 / ADR-075 §2、§6：按时间段读回规则求值（左连 {@code orch_event} 补主体与空间），
+     * 供 {@code OrchDecisionTimelineRebuildSource} 重建 {@code DECISION} 条目。
+     */
+    public List<OrchDecisionTimelineDO> listDecisionsByRange(Instant from, Instant to) {
+        return decisions.listByRange(LocalDateTime.ofInstant(from, ZoneOffset.UTC),
+                LocalDateTime.ofInstant(to, ZoneOffset.UTC));
     }
 
     public OrchWorkItemDO findWorkItemByRuleAndSubject(String ruleId, String subjectKey) {

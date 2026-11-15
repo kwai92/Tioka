@@ -41,6 +41,7 @@ public class DefaultFlowDslValidator implements FlowDslValidator {
         FlowPublishContext ctx = context == null ? FlowPublishContext.permissive() : context;
         checkStructure(document, issues);
         checkTypesAndExpr(document, issues);
+        checkOutcomePorts(document, issues);
         checkRefsAndPerm(document, ctx, issues);
         checkSubflow(ctx, issues);
         checkLimits(document, issues);
@@ -114,6 +115,32 @@ public class DefaultFlowDslValidator implements FlowDslValidator {
         Set<String> constNames = doc.constants() == null ? Set.of() : doc.constants().keySet();
         for (Map<String, Object> n : nodesOf(doc)) {
             collectExprs(n).forEach(expr -> validateExpr(expr, nodeIds, inputNames, constNames, str(n.get("id")), issues));
+        }
+    }
+
+    /**
+     * ADR-043「修订：结构化输出的结局端口（2026-11-07）」：声明了输出契约的节点，
+     * failed 端口必须有连线，或在 config 声明 onOutcomeFailure=fail_fast（失败时终止并通知）。
+     */
+    private void checkOutcomePorts(FlowDslDocument doc, List<ValidationIssue> issues) {
+        List<Map<String, Object>> edges = edgesOf(doc);
+        for (Map<String, Object> n : nodesOf(doc)) {
+            if (!declaresOutputContract(n)) {
+                continue;
+            }
+            String id = str(n.get("id"));
+            boolean failedWired = edges.stream().anyMatch(e ->
+                    Objects.equals(str(e.get("fromNode")), id) && "failed".equals(str(e.get("fromPort"))));
+            if (failedWired) {
+                continue;
+            }
+            String onOutcomeFailure = str(map(n.get("config")).get("onOutcomeFailure"));
+            if (onOutcomeFailure != null && "fail_fast".equalsIgnoreCase(onOutcomeFailure.trim())) {
+                continue;
+            }
+            issues.add(err("OUTCOME_FAILED_PORT_MISSING",
+                    "声明了输出契约的节点必须连 failed 端口，或在 config 声明 onOutcomeFailure=fail_fast（失败时终止并通知）：" + id,
+                    "nodes." + id));
         }
     }
 
@@ -290,6 +317,15 @@ public class DefaultFlowDslValidator implements FlowDslValidator {
             String id = str(n.get("id"));
             String type = str(n.get("type"));
             Map<String, String> ports = new LinkedHashMap<>();
+            // ADR-043「修订：结构化输出的结局端口（2026-11-07）」：声明输出契约的节点改用 valid/pending/failed 三结局端口
+            if (declaresOutputContract(n)) {
+                ports.put("in", "any");
+                ports.put("valid", "any");
+                ports.put("pending", "any");
+                ports.put("failed", "any");
+                out.put(id, ports);
+                continue;
+            }
             switch (type == null ? "" : type) {
                 case "input" -> ports.put("out", inputOut);
                 case "output" -> ports.put("in", outputIn);
@@ -492,6 +528,21 @@ public class DefaultFlowDslValidator implements FlowDslValidator {
             return (Map<String, Object>) m;
         }
         return Map.of();
+    }
+
+    /** 是否声明了输出契约：config.schema 为非空字符串，或 config.output.schemaRef 为非空字符串。 */
+    private static boolean declaresOutputContract(Map<String, Object> node) {
+        Map<String, Object> config = map(node.get("config"));
+        String schema = str(config.get("schema"));
+        if (schema != null && !schema.isBlank()) {
+            return true;
+        }
+        Object output = config.get("output");
+        if (output instanceof Map<?, ?> out) {
+            String schemaRef = str(out.get("schemaRef"));
+            return schemaRef != null && !schemaRef.isBlank();
+        }
+        return false;
     }
 
     private static String str(Object o) {

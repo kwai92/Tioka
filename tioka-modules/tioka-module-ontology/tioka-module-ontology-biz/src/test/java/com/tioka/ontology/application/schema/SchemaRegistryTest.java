@@ -1,5 +1,6 @@
 package com.tioka.ontology.application.schema;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.tioka.ontology.api.schema.SchemaDef;
@@ -112,5 +113,63 @@ class SchemaRegistryTest {
         ObjectNode ok = mapper.createObjectNode();
         ok.put("name", "ab");
         assertTrue(registry.validate("demo.minlen@1", ok).isEmpty());
+    }
+
+    /**
+     * SCH-08 / ADR-066 §5.1：checkRules 路由到求值器（ERROR 记 RULE + 规则 message），
+     * warnPaths 返回 WARN 路径（结局 VALID_WITH_UNKNOWN 的来源）。
+     */
+    @Test
+    void checkRulesAndWarnPathsRouteToEvaluator() throws Exception {
+        JsonNode schema = mapper.readTree("""
+                {
+                  "type": "object",
+                  "properties": {
+                    "startDate": {"type": "string"},
+                    "endDate": {"type": "string"}
+                  },
+                  "x-tioka-rules": [
+                    {"id": "lease.period", "expr": "self.endDate >= self.startDate",
+                     "message": "到期日不早于起租日", "severity": "ERROR"},
+                    {"id": "lease.review", "expr": "self.endDate >= self.startDate",
+                     "message": "建议复核", "severity": "WARN"}
+                  ]
+                }""");
+        registry.publish("lease.period", 1, schema, "platform");
+
+        JsonNode bad = mapper.readTree("{\"startDate\":\"2026-01-01\",\"endDate\":\"2025-01-01\"}");
+        List<SchemaError> errors = registry.checkRules("lease.period@1", bad);
+        assertEquals(1, errors.size());
+        assertEquals("RULE", errors.get(0).code());
+        assertEquals("到期日不早于起租日", errors.get(0).message());
+        assertEquals(List.of("#lease.review"), registry.warnPaths("lease.period@1", bad));
+
+        JsonNode ok = mapper.readTree("{\"startDate\":\"2026-01-01\",\"endDate\":\"2027-01-01\"}");
+        assertTrue(registry.checkRules("lease.period@1", ok).isEmpty());
+        assertTrue(registry.warnPaths("lease.period@1", ok).isEmpty());
+    }
+
+    /**
+     * SCH-08 / ADR-066 §5.2：checkRefs 对无解析器的引用类型跳过（弱依赖降级口径），
+     * 未登记 schema 时三处检查记 SCHEMA_NOT_FOUND（warnPaths 返回空清单）。
+     */
+    @Test
+    void checkRefsSkipsUnresolvableTypeAndReportsSchemaNotFound() throws Exception {
+        JsonNode schema = mapper.readTree("""
+                {
+                  "type": "object",
+                  "properties": {
+                    "chunkRef": {"type": "string", "x-tioka-ref": "kb.chunk"}
+                  }
+                }""");
+        registry.publish("lease.ref", 1, schema, "platform");
+
+        JsonNode payload = mapper.readTree("{\"chunkRef\":\"kb-1\"}");
+        // kb.chunk 无解析器 → 跳过，不记失败
+        assertTrue(registry.checkRefs("lease.ref@1", payload, List.of()).isEmpty());
+        // 未登记 schema：三处检查的一致口径
+        assertEquals("SCHEMA_NOT_FOUND", registry.checkRefs("nope@9", payload, List.of()).get(0).code());
+        assertEquals("SCHEMA_NOT_FOUND", registry.checkRules("nope@9", payload).get(0).code());
+        assertTrue(registry.warnPaths("nope@9", payload).isEmpty());
     }
 }

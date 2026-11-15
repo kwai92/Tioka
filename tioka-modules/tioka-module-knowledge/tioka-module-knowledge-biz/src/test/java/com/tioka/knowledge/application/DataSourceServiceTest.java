@@ -40,7 +40,11 @@ class DataSourceServiceTest {
             ObjectProvider<FeishuDocContentSpi> feishu = mock(ObjectProvider.class);
             when(feishu.getIfAvailable()).thenReturn(null);
 
-            DataSourceService dsService = new DataSourceService(knowledge, repo, egress, feishu);
+            @SuppressWarnings("unchecked")
+            ObjectProvider<com.tioka.system.api.obs.ExtInteractionRecorder> ledger = mock(ObjectProvider.class);
+            when(ledger.getIfAvailable()).thenReturn(null);
+
+            DataSourceService dsService = new DataSourceService(knowledge, repo, egress, feishu, ledger);
 
             var ds = dsService.bind(kb.id(), "web", url);
             assertNotNull(ds.id());
