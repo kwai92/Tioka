@@ -28,7 +28,9 @@
         <!-- Boot 3.2 自带 1.19.x，连不上 GitHub 运行器的 Docker 29（最低 API 1.44）；1.21.4 起兼容 -->
         <testcontainers.version>1.21.4</testcontainers.version>
         <revision>0.1.0-SNAPSHOT</revision>
-        <!-- F-02 BAS-26：Foundation 底座构件版本（独立仓库 com.foundation，可独立升级） -->
+        <!-- F-02 BAS-26：Foundation 底座构件版本（独立仓库 com.foundation，可独立升级）。
+             须与根 pom.xml 中 <parent>foundation-parent</parent> 的版本保持同步（当前双源，
+             BAS-26 收尾清理版本清单时统一退化），见 architecture/module-dependencies.md §7.3。 -->
         <foundation.version>0.1.0-SNAPSHOT</foundation.version>
     </properties>
 

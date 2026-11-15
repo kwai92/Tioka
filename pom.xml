@@ -4,6 +4,17 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
+    <!-- F-02 BAS-26：Tioka 改以 foundation-parent 为父工程。
+         Foundation 是独立仓库，<relativePath/> 强制从 Maven 仓库解析，避免误取上级目录的 pom。
+         版本显式固定（不与 Tioka 的 ${revision} 绑定），升级按 S15 §5.3 附升级说明，
+         并须同步 tioka-dependencies 的 foundation.version（当前双源）。 -->
+    <parent>
+        <groupId>com.foundation</groupId>
+        <artifactId>foundation-parent</artifactId>
+        <version>0.1.0-SNAPSHOT</version>
+        <relativePath/>
+    </parent>
+
     <groupId>com.tioka</groupId>
     <artifactId>tioka</artifactId>
     <version>${revision}</version>
