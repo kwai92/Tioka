@@ -170,6 +170,9 @@ class DefaultModelGatewayRerankTest {
         public List<ModelProviderDO> providers() { return List.copyOf(providers.values()); }
 
         @Override
+        public void updateProviderHealth(String providerId, String health) { /* unused */ }
+
+        @Override
         public void putAlias(ModelAliasDO row) { /* unused */ }
 
         @Override
@@ -224,6 +227,25 @@ class DefaultModelGatewayRerankTest {
 
         @Override
         public List<ModelTurnFreezeDO> listFreezes(String threadId) { return List.of(); }
+
+        @Override
+        public void putPromptTemplate(com.tioka.model.infrastructure.persistence.PromptTemplateDO row) { /* unused */ }
+
+        @Override
+        public Optional<com.tioka.model.infrastructure.persistence.PromptTemplateDO> getPromptTemplate(String id) {
+            return Optional.empty();
+        }
+
+        @Override
+        public List<com.tioka.model.infrastructure.persistence.PromptTemplateDO> promptTemplates() {
+            return List.of();
+        }
+
+        @Override
+        public Optional<com.tioka.model.infrastructure.persistence.PromptTemplateDO> findPromptTemplateByName(
+                String name) {
+            return Optional.empty();
+        }
     }
 
     static final class MemorySecretStore implements SecretStore {

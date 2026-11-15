@@ -23,6 +23,8 @@ public final class ModelHubSpecs {
     public static final String OT_BINDING = "model_binding";
     public static final String OT_ALIAS = "model_alias";
     public static final String OT_ROUTING_PLAN = "model_routing_plan";
+    /** AST-07（ADR-041 §1/§4）：Prompt 模板（发布型；内容进 cfg_*，身份表 prm_template 只存名称与作用域）。 */
+    public static final String OT_PROMPT_TEMPLATE = "prm_template";
 
     /** 别名指向类型（ADR-041 §1：一个路由计划或一个 binding）。 */
     public static final String TARGET_ROUTING_PLAN = "routing_plan";
@@ -33,7 +35,8 @@ public final class ModelHubSpecs {
 
     public static boolean isSupportedType(String objectType) {
         return OT_PROVIDER.equals(objectType) || OT_BINDING.equals(objectType)
-                || OT_ALIAS.equals(objectType) || OT_ROUTING_PLAN.equals(objectType);
+                || OT_ALIAS.equals(objectType) || OT_ROUTING_PLAN.equals(objectType)
+                || OT_PROMPT_TEMPLATE.equals(objectType);
     }
 
     /** 供应商（发布型）：协议、Base URL、密钥引用（只存引用）、名称；密钥值不进版本。 */
@@ -101,6 +104,15 @@ public final class ModelHubSpecs {
             n.put("fallbackChain", fallbackChain);
         }
         return n;
+    }
+
+    /**
+     * AST-07（ADR-041 §4）：Prompt 模板 spec。
+     * 内容口径由 {@link com.tioka.model.api.prompt.PromptTemplateSpec#toJson(ObjectMapper)} 单点定义。
+     */
+    public static ObjectNode promptSpec(ObjectMapper mapper,
+                                        com.tioka.model.api.prompt.PromptTemplateSpec spec) {
+        return spec.toJson(mapper);
     }
 
     /** 系统别名固定名：sys.chat / sys.flow / sys.embedding / sys.rerank / sys.decision（按 purpose 小写）。 */

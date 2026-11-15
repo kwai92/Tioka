@@ -4,8 +4,12 @@ import com.tioka.system.api.audit.Audited;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.tioka.framework.error.ApiResponse;
+import com.tioka.model.api.dto.PromptDtos.*;
 import com.tioka.model.api.dto.ProviderDtos.*;
 import com.tioka.model.application.ModelAdminService;
+import com.tioka.model.application.health.ModelHealthService;
+import com.tioka.model.application.health.ModelHealthSnapshot;
+import com.tioka.model.application.prompt.PromptTemplateService;
 import com.tioka.model.application.versioning.ModelConfigVersionService;
 import org.springframework.web.bind.annotation.*;
 
@@ -19,10 +23,15 @@ import com.tioka.framework.security.Permissions;
 public class ModelAdminController {
     private final ModelAdminService service;
     private final ModelConfigVersionService versioning;
+    private final ModelHealthService health;
+    private final PromptTemplateService prompts;
 
-    public ModelAdminController(ModelAdminService service, ModelConfigVersionService versioning) {
+    public ModelAdminController(ModelAdminService service, ModelConfigVersionService versioning,
+                                ModelHealthService health, PromptTemplateService prompts) {
         this.service = service;
         this.versioning = versioning;
+        this.health = health;
+        this.prompts = prompts;
     }
 
     @GetMapping("/providers")
@@ -138,5 +147,63 @@ public class ModelAdminController {
                 .map(v -> new CurrentConfigView(objectType, objectId, v.versionId(), v.versionNo(),
                         v.status(), v.spec()))
                 .orElse(new CurrentConfigView(objectType, objectId, null, null, "NO_VERSION", null)));
+    }
+
+    // ------------------------------------------------- MH-10 运行状态
+
+    /** MH-10（ADR-041 §5.1）：全部供应商运行健康快照。 */
+    @GetMapping("/health/providers")
+    public ApiResponse<List<ModelHealthSnapshot>> providerHealth() {
+        return ApiResponse.ok(health.providerSnapshots());
+    }
+
+    /** MH-10（ADR-041 §5.1）：指定作用对象（provider / binding / alias）运行健康快照。 */
+    @GetMapping("/health/{dim}/{id}")
+    public ApiResponse<ModelHealthSnapshot> health(@PathVariable String dim, @PathVariable String id) {
+        return ApiResponse.ok(health.snapshot(dim, id));
+    }
+
+    // ------------------------------------------------- AST-07 Prompt 模板
+
+    /** AST-07（ADR-041 §4）：全部 Prompt 模板。 */
+    @GetMapping("/prompt-templates")
+    public ApiResponse<List<PromptTemplateView>> listPromptTemplates() {
+        return ApiResponse.ok(prompts.list());
+    }
+
+    /** AST-07：模板详情（身份 + 当前生效 spec）。 */
+    @GetMapping("/prompt-templates/{id}")
+    public ApiResponse<PromptTemplateView> getPromptTemplate(@PathVariable String id) {
+        return ApiResponse.ok(prompts.get(id));
+    }
+
+    /** AST-07：创建模板身份（publish=true 同时发布第 1 版）。 */
+    @PostMapping("/prompt-templates")
+    @Audited(action = "model.prompt.create", resourceType = "prm_template")
+    public ApiResponse<PromptTemplateView> createPromptTemplate(@RequestBody CreatePromptTemplateRequest req) {
+        return ApiResponse.ok(prompts.create(req));
+    }
+
+    /** AST-07：保存草稿（复用 GOV-12；发布/回滚走 /configs/prm_template/{id}/*）。 */
+    @PostMapping("/prompt-templates/{id}/draft")
+    public ApiResponse<PromptTemplateView> savePromptDraft(@PathVariable String id,
+                                                           @RequestBody SavePromptDraftRequest req) {
+        prompts.saveDraft(id, req.spec(), req.expectedRevision());
+        return ApiResponse.ok(prompts.get(id));
+    }
+
+    /** AST-07：渲染（无模型调用）。 */
+    @PostMapping("/prompt-templates/{id}/render")
+    public ApiResponse<RenderResultView> renderPrompt(@PathVariable String id,
+                                                      @RequestBody(required = false) RenderPromptRequest req) {
+        return ApiResponse.ok(prompts.render(id, req == null ? null : req.variables()));
+    }
+
+    /** AST-07：编辑器试运行（渲染 + 统一网关调用；用途 prompt_test）。 */
+    @PostMapping("/prompt-templates/{id}/test-run")
+    @Audited(action = "model.prompt.test_run", resourceType = "prm_template", resourceIdArg = "#id")
+    public ApiResponse<TestRunResultView> testRunPrompt(@PathVariable String id,
+                                                        @RequestBody(required = false) TestRunPromptRequest req) {
+        return ApiResponse.ok(prompts.testRun(id, req));
     }
 }

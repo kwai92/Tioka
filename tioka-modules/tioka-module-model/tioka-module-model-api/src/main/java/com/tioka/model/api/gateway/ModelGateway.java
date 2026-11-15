@@ -57,10 +57,20 @@ public interface ModelGateway {
     /**
      * @param bindingId     实际使用的模型绑定
      * @param failoverCount 本次调用发生的接力次数
+     * @param refused       SCH-07（ADR-066 §5 第 1 步）：供应商拒答信号（{@code message.refusal}）
      */
     record ChatResult(String content, String reasoning, List<ToolCall> toolCalls,
                       int promptTokens, int completionTokens,
-                      String bindingId, String modelRef, int failoverCount, String finishReason) {}
+                      String bindingId, String modelRef, int failoverCount, String finishReason,
+                      boolean refused) {
+        /** 兼容 9 参口径（未携带拒答信号）。 */
+        public ChatResult(String content, String reasoning, List<ToolCall> toolCalls,
+                          int promptTokens, int completionTokens,
+                          String bindingId, String modelRef, int failoverCount, String finishReason) {
+            this(content, reasoning, toolCalls, promptTokens, completionTokens,
+                    bindingId, modelRef, failoverCount, finishReason, false);
+        }
+    }
 
     /** 流式增量。{@code discarded=true} 表示此前增量作废。 */
     record StreamDelta(String textDelta, String reasoningDelta, boolean discarded) {

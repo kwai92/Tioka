@@ -17,6 +17,18 @@ public class RuntimeItemDO extends AppendOnlyDO {
     /** DAT-02（V164）：工具结果携带的数据标签（M3-02）；null = 未打标。 */
     private String dataLabel;
     private Boolean discarded;
+    /** SCH-07（V232）：data item 的权威 Schema 引用（精确到版本）；非 data item 为 null。 */
+    private String schemaRef;
+    /** SCH-07（V232）：四种结局（VALID / VALID_WITH_UNKNOWN / HUMAN_PENDING / FAILED）；非 data item 为 null。 */
+    private String outcome;
+    /** SCH-07（V232）：失败原因码（TRUNCATED / REFUSED / SCHEMA / RULE …）；成功为 null。 */
+    private String reasonCode;
+    /** SCH-10（V234）：data item 的产出模型 ref（producedBy.model）；非 data item 为 null。 */
+    private String modelRef;
+    /** SCH-10（V234）：结构化输出提交方式（OutputMode：FINAL / TOOL）；非 data item 为 null。 */
+    private String outputMode;
+    /** SCH-10（V234）：修复轮数（producedBy.repairRounds）；非 data item 为 null。 */
+    private Integer repairRounds;
 
     public String getThreadId() { return threadId; }
     public void setThreadId(String threadId) { this.threadId = threadId; }
@@ -40,4 +52,16 @@ public class RuntimeItemDO extends AppendOnlyDO {
     public void setDataLabel(String dataLabel) { this.dataLabel = dataLabel; }
     public Boolean getDiscarded() { return discarded; }
     public void setDiscarded(Boolean discarded) { this.discarded = discarded; }
+    public String getSchemaRef() { return schemaRef; }
+    public void setSchemaRef(String schemaRef) { this.schemaRef = schemaRef; }
+    public String getOutcome() { return outcome; }
+    public void setOutcome(String outcome) { this.outcome = outcome; }
+    public String getReasonCode() { return reasonCode; }
+    public void setReasonCode(String reasonCode) { this.reasonCode = reasonCode; }
+    public String getModelRef() { return modelRef; }
+    public void setModelRef(String modelRef) { this.modelRef = modelRef; }
+    public String getOutputMode() { return outputMode; }
+    public void setOutputMode(String outputMode) { this.outputMode = outputMode; }
+    public Integer getRepairRounds() { return repairRounds; }
+    public void setRepairRounds(Integer repairRounds) { this.repairRounds = repairRounds; }
 }

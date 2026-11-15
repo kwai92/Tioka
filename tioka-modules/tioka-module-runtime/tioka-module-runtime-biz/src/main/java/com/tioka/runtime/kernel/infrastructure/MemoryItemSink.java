@@ -2,6 +2,8 @@ package com.tioka.runtime.kernel.infrastructure;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tioka.framework.id.Ids;
+import com.tioka.governance.api.timeline.TimelineProjector;
+import com.tioka.governance.api.timeline.TimelineSourceEvent;
 import com.tioka.runtime.api.kernel.ItemType;
 import com.tioka.runtime.api.kernel.RuntimeEventType;
 import com.tioka.runtime.kernel.domain.LoopContext;
@@ -10,32 +12,48 @@ import com.tioka.runtime.kernel.events.EventId;
 import com.tioka.runtime.kernel.events.EventStream;
 import com.tioka.runtime.kernel.events.RuntimeEventFactory;
 import com.tioka.runtime.infrastructure.persistence.RuntimeItemDO;
+import com.tioka.runtime.infrastructure.persistence.RuntimeTurnDO;
+import com.tioka.runtime.timeline.RuntimeItemTimelineProjection;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Component;
 
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /** Item 落库并发布 Redis 事件流（RT-04）。 */
 @Component
 public class MemoryItemSink implements LoopPorts.ItemSink {
+    private static final Logger log = LoggerFactory.getLogger(MemoryItemSink.class);
+
     private final ItemRepository items;
     private final ObjectMapper mapper;
     private final EventStream streams;
     private final RuntimeEventFactory events;
     private final com.tioka.runtime.application.label.TurnLabelTracker labelTracker;
+    private final TurnRepository turns;
+    private final ObjectProvider<TimelineProjector> timelineProjector;
+    private final RuntimeItemTimelineProjection timelineProjection;
     private final ConcurrentHashMap<String, StreamState> streaming = new ConcurrentHashMap<>();
 
     public MemoryItemSink(ItemRepository items,
                           ObjectMapper mapper,
                           EventStream streams,
                           RuntimeEventFactory events,
-                          com.tioka.runtime.application.label.TurnLabelTracker labelTracker) {
+                          com.tioka.runtime.application.label.TurnLabelTracker labelTracker,
+                          TurnRepository turns,
+                          ObjectProvider<TimelineProjector> timelineProjector) {
         this.items = items;
         this.mapper = mapper;
         this.streams = streams;
         this.events = events;
         this.labelTracker = labelTracker;
+        this.turns = turns;
+        this.timelineProjector = timelineProjector;
+        this.timelineProjection = new RuntimeItemTimelineProjection(mapper);
     }
 
     @Override
@@ -127,10 +145,59 @@ public class MemoryItemSink implements LoopPorts.ItemSink {
 
     @Override
     public void complete(LoopContext ctx, int step, String type, String role, String contentJson) {
-        RuntimeItemDO item = items.append(ItemWrite.append(ctx.threadId(), ctx.turnId(), ctx.leaseVersion(), step, type, role, contentJson, null));
+        // SCH-07（V232）：data item 的结局三列是 content_json 的投影（仅 type=data 有值）
+        ItemWrite write = ItemType.DATA.wire().equals(type)
+                ? dataWrite(ctx, step, type, role, contentJson)
+                : ItemWrite.append(ctx.threadId(), ctx.turnId(), ctx.leaseVersion(), step, type, role,
+                        contentJson, null);
+        RuntimeItemDO item = items.append(write);
         streams.publish(ctx.threadId(), EventId.of(item.getSeq()).toString(),
                 RuntimeEventType.ITEM_COMPLETED.wire(),
                 events.itemCompleted(ctx.threadId(), item));
+    }
+
+    /** SCH-07 / SCH-10：data item 写入命令，结局与维度列取自 content_json（唯一事实来源）。 */
+    private ItemWrite dataWrite(LoopContext ctx, int step, String type, String role, String contentJson) {
+        DataItemColumns cols = dataColumns(mapper, contentJson);
+        return ItemWrite.appendData(ctx.threadId(), ctx.turnId(), ctx.leaseVersion(), step, type, role,
+                contentJson, cols.schemaRef(), cols.outcome(), cols.reasonCode(),
+                cols.modelRef(), cols.outputMode(), cols.repairRounds());
+    }
+
+    /** data item 指标维度投影（供 §10.1 聚合；内容解析失败降级为全 null，不阻断写入）。 */
+    record DataItemColumns(String schemaRef, String outcome, String reasonCode,
+                           String modelRef, String outputMode, Integer repairRounds) {}
+
+    static DataItemColumns dataColumns(ObjectMapper mapper, String contentJson) {
+        try {
+            com.fasterxml.jackson.databind.JsonNode node = mapper.readTree(contentJson);
+            if (node == null || node.isMissingNode() || !node.isObject()) {
+                return new DataItemColumns(null, null, null, null, null, null);
+            }
+            com.fasterxml.jackson.databind.JsonNode producedBy = node.path("producedBy");
+            return new DataItemColumns(textOrNull(node, "schemaRef"), textOrNull(node, "outcome"),
+                    textOrNull(node, "reasonCode"),
+                    textOrNull(producedBy, "model"), textOrNull(producedBy, "mode"),
+                    intOrNull(producedBy, "repairRounds"));
+        } catch (Exception e) {
+            return new DataItemColumns(null, null, null, null, null, null);
+        }
+    }
+
+    private static String textOrNull(com.fasterxml.jackson.databind.JsonNode node, String field) {
+        if (node == null || node.isMissingNode() || node.isNull()) {
+            return null;
+        }
+        com.fasterxml.jackson.databind.JsonNode v = node.path(field);
+        return v.isMissingNode() || v.isNull() ? null : v.asText();
+    }
+
+    private static Integer intOrNull(com.fasterxml.jackson.databind.JsonNode node, String field) {
+        if (node == null || node.isMissingNode() || node.isNull()) {
+            return null;
+        }
+        com.fasterxml.jackson.databind.JsonNode v = node.path(field);
+        return v.isMissingNode() || v.isNull() || !v.isNumber() ? null : v.asInt();
     }
 
     @Override
@@ -177,6 +244,34 @@ public class MemoryItemSink implements LoopPorts.ItemSink {
         streams.publish(ctx.threadId(), EventId.of(item.getSeq()).toString(),
                 RuntimeEventType.ITEM_COMPLETED.wire(),
                 events.itemCompleted(ctx.threadId(), item));
+        // OBS-08：工具结果落库即投影 TOOL 条目（不再仅依赖按时间段重建）
+        projectTool(ctx, step);
+    }
+
+    /**
+     * OBS-08（ADR-075 §2）：工具结果落库即投影 {@code TOOL} 条目——按 {@code turnId + step}
+     * 合并调用与结果为一条，与 {@code RuntimeItemTimelineRebuildSource} 共用映射（同 {@code sourceEventId}，幂等）。
+     *
+     * <p>投影器缺席（时间线关闭 / 离线单测）时跳过；投影为观测面，失败静默降级不阻断主流程
+     * （与 {@code DefaultExtInteractionRecorder} 同口径）。
+     */
+    private void projectTool(LoopContext ctx, int step) {
+        TimelineProjector projector = timelineProjector == null ? null : timelineProjector.getIfAvailable();
+        if (projector == null) {
+            return;
+        }
+        try {
+            RuntimeTurnDO turn = turns.findById(ctx.turnId()).orElse(null);
+            List<RuntimeItemDO> turnItems = items.listByTurn(ctx.turnId());
+            TimelineSourceEvent event = timelineProjection.toSourceEvent(
+                    turnItems, ctx.turnId(), step, id -> turn);
+            if (event != null) {
+                projector.project(event);
+            }
+        } catch (RuntimeException e) {
+            log.warn("timeline tool projection skipped turnId={} step={}: {}",
+                    ctx.turnId(), step, e.toString());
+        }
     }
 
     @Override

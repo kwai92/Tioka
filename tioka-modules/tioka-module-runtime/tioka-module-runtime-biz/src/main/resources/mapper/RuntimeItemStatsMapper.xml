@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tioka.runtime.infrastructure.mapper.RuntimeItemStatsMapper">
+
+    <!-- SCH-10（ADR-066 §10.1）：按（schemaRef, 模型, 生成方式）聚合 data item 的结局与修复轮数 -->
+    <select id="aggregateDataItems" resultType="RuntimeItemStatsRow">
+        SELECT schema_ref AS schemaRef, model_ref AS modelRef, output_mode AS outputMode,
+               COUNT(*) AS total,
+               COUNT(*) FILTER (WHERE outcome = 'VALID' AND COALESCE(repair_rounds, 0) = 0) AS firstPass,
+               COUNT(*) FILTER (WHERE outcome IN ('VALID', 'VALID_WITH_UNKNOWN')) AS finalPass,
+               COUNT(*) FILTER (WHERE outcome = 'VALID_WITH_UNKNOWN') AS fallback,
+               COUNT(*) FILTER (WHERE outcome = 'HUMAN_PENDING') AS humanPending,
+               COUNT(*) FILTER (WHERE outcome = 'FAILED') AS failed,
+               COALESCE(AVG(repair_rounds), 0) AS avgRepairRounds
+          FROM runtime_item
+         WHERE type = 'data'
+        <if test="from != null">
+           AND create_at &gt;= #{from}
+        </if>
+        <if test="to != null">
+           AND create_at &lt; #{to}
+        </if>
+         GROUP BY schema_ref, model_ref, output_mode
+    </select>
+
+</mapper>

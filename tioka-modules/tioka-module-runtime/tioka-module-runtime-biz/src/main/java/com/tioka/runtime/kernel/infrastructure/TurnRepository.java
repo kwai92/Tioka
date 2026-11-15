@@ -63,6 +63,19 @@ public class TurnRepository {
         return mapper.saveTraceparent(turnId, traceparent);
     }
 
+    /**
+     * GRD-00 / ADR-065 §3：写入本 Turn 污点与来源清单。
+     *
+     * @param taint        {@code CLEAN} / {@code TAINTED}
+     * @param taintSources JSON 数组字符串（元素形如 {@code sourceType#sourceRef}），可为空
+     */
+    public int saveTaint(String turnId, String taint, String taintSources) {
+        if (turnId == null || taint == null || taint.isBlank()) {
+            return 0;
+        }
+        return mapper.saveTaint(turnId, taint, taintSources);
+    }
+
     public int renew(String turnId, long leaseVersion, Instant leaseUntil) {
         return mapper.renew(turnId, leaseVersion, LocalDateTime.ofInstant(leaseUntil, ZoneOffset.UTC));
     }
@@ -101,6 +114,11 @@ public class TurnRepository {
 
     public int cancelWaitingApproval(String turnId, String errorCode, String errorMessage) {
         return mapper.cancelWaitingApproval(turnId, errorCode, errorMessage);
+    }
+
+    /** SCH-09 / ADR-066 §7.4：人工补录超时，WAITING_APPROVAL → FAILED（HUMAN_TIMEOUT）。 */
+    public int failWaitingApproval(String turnId, String errorCode, String errorMessage) {
+        return mapper.failWaitingApproval(turnId, errorCode, errorMessage);
     }
 
     /** MAS-03 / 级联取消：WAITING_CHILD 无 worker，直接 CANCELLED。 */

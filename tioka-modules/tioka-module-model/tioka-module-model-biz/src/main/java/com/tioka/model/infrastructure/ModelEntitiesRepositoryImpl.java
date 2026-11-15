@@ -7,11 +7,13 @@ import com.tioka.model.infrastructure.mapper.ModelProviderMapper;
 import com.tioka.model.infrastructure.mapper.ModelRoutingPlanLockMapper;
 import com.tioka.model.infrastructure.mapper.ModelRoutingPlanMapper;
 import com.tioka.model.infrastructure.mapper.ModelTurnFreezeMapper;
+import com.tioka.model.infrastructure.mapper.PromptTemplateMapper;
 import com.tioka.model.infrastructure.persistence.ModelAliasDO;
 import com.tioka.model.infrastructure.persistence.ModelBindingDO;
 import com.tioka.model.infrastructure.persistence.ModelProviderDO;
 import com.tioka.model.infrastructure.persistence.ModelRoutingPlanDO;
 import com.tioka.model.infrastructure.persistence.ModelTurnFreezeDO;
+import com.tioka.model.infrastructure.persistence.PromptTemplateDO;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -25,17 +27,20 @@ public class ModelEntitiesRepositoryImpl implements ModelEntitiesRepository {
     private final ModelRoutingPlanMapper plans;
     private final ModelRoutingPlanLockMapper planLocks;
     private final ModelTurnFreezeMapper freezes;
+    private final PromptTemplateMapper promptTemplates;
 
     public ModelEntitiesRepositoryImpl(ModelProviderMapper providers, ModelAliasMapper aliases,
                                        ModelBindingMapper bindings, ModelRoutingPlanMapper plans,
                                        ModelRoutingPlanLockMapper planLocks,
-                                       ModelTurnFreezeMapper freezes) {
+                                       ModelTurnFreezeMapper freezes,
+                                       PromptTemplateMapper promptTemplates) {
         this.providers = providers;
         this.aliases = aliases;
         this.bindings = bindings;
         this.plans = plans;
         this.planLocks = planLocks;
         this.freezes = freezes;
+        this.promptTemplates = promptTemplates;
     }
 
     @Override
@@ -52,6 +57,18 @@ public class ModelEntitiesRepositoryImpl implements ModelEntitiesRepository {
     @Override
     public List<ModelProviderDO> providers() {
         return providers.selectList(null);
+    }
+
+    @Override
+    public void updateProviderHealth(String providerId, String health) {
+        if (providerId == null || providerId.isBlank()) {
+            return;
+        }
+        ModelProviderDO patch = new ModelProviderDO();
+        patch.setId(providerId);
+        patch.setHealth(health);
+        patch.setUpdateBy("system");
+        providers.updateById(patch);
     }
 
     @Override
@@ -171,5 +188,28 @@ public class ModelEntitiesRepositoryImpl implements ModelEntitiesRepository {
     @Override
     public List<ModelTurnFreezeDO> listFreezes(String threadId) {
         return freezes.listByThread(threadId);
+    }
+
+    // ------------------------------------------------- AST-07 Prompt 模板
+
+    @Override
+    public void putPromptTemplate(PromptTemplateDO row) {
+        if (promptTemplates.selectById(row.getId()) == null) promptTemplates.insert(row);
+        else promptTemplates.updateById(row);
+    }
+
+    @Override
+    public Optional<PromptTemplateDO> getPromptTemplate(String id) {
+        return Optional.ofNullable(promptTemplates.selectById(id));
+    }
+
+    @Override
+    public List<PromptTemplateDO> promptTemplates() {
+        return promptTemplates.selectList(null);
+    }
+
+    @Override
+    public Optional<PromptTemplateDO> findPromptTemplateByName(String name) {
+        return Optional.ofNullable(promptTemplates.findByName(name));
     }
 }

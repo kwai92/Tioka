@@ -74,7 +74,8 @@ public class GatewayModelPort implements LoopPorts.ModelPort {
                     calls.add(new LoopPorts.ToolCall(tc.id(), tc.name(), tc.argumentsJson()));
                 }
             }
-            return new Result(r.content(), r.reasoning(), calls, r.promptTokens(), r.completionTokens(), r.modelRef());
+            return new Result(r.content(), r.reasoning(), calls, r.promptTokens(), r.completionTokens(),
+                    r.modelRef(), r.finishReason(), r.refused());
         } catch (CancelledSignal e) {
             throw e;
         } catch (BizException e) {

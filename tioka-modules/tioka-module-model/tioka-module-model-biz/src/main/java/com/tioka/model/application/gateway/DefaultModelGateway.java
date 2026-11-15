@@ -10,12 +10,17 @@ import com.tioka.model.api.constraint.StructuredDemand;
 import com.tioka.model.api.gateway.ModelCallContext;
 import com.tioka.model.api.gateway.ModelGateway;
 import com.tioka.model.api.profile.ModelProfile;
+import com.tioka.model.api.profile.StructuredCapabilityQueryApi;
 import com.tioka.model.api.profile.StructuredOutputCapability;
+import com.tioka.model.application.health.ModelCallSample;
+import com.tioka.model.application.health.ModelCallStatsWindow;
 import com.tioka.model.application.routing.RoutingPlanExecutor;
 import com.tioka.model.domain.ModelEntities;
+import com.tioka.model.infrastructure.metrics.ModelMetrics;
 import com.tioka.model.infrastructure.provider.OcrEngine;
 import com.tioka.model.infrastructure.provider.ProviderClient;
 import com.tioka.model.infrastructure.provider.ProviderHttpException;
+import com.tioka.system.api.obs.ExtInteractionRecorder;
 import com.tioka.system.api.spi.QuotaGuard;
 import io.opentelemetry.api.GlobalOpenTelemetry;
 import io.opentelemetry.api.trace.Span;
@@ -51,6 +56,14 @@ public class DefaultModelGateway implements ModelGateway {
     private final RetryBackoff backoff;
     private final ObjectProvider<RoutingPlanExecutor> routing;
     private final StructuredRequestBuilder structuredRequestBuilder;
+    /** SCH-06（ADR-066 §4）：结构化输出能力记录；未接线时按 legacy 兜底。 */
+    private final ObjectProvider<StructuredCapabilityQueryApi> capabilities;
+    /** OBS-07（ADR-074 §2）：非 Turn 云端模型调用写 {@code model} 台账，可选注入，未装配环境静默。 */
+    private final ObjectProvider<ExtInteractionRecorder> ledger;
+    /** MH-10（ADR-041 §5.1）：调用滚动窗口统计；未装配（离线单测直接 new）时为空操作。 */
+    private ModelCallStatsWindow statsWindow;
+    /** MH-10（ADR-041 §5.2）：Prometheus 指标出口；未装配时为空操作。 */
+    private ModelMetrics metrics;
     private final int failoverMax;
 
     public DefaultModelGateway(ModelBindingResolver resolver,
@@ -71,7 +84,7 @@ public class DefaultModelGateway implements ModelGateway {
         // ENG-05：不得 new ObjectMapper；兼容构造不接方言编译器（structured 调用只在 Spring 装配生效）
         this(resolver, provider, ocrEngine, entities, events, usage, quota, rateLimiter,
                 cooldown, budget, failoverMax, retryMaxAttempts, retryBaseDelay, retryBudget,
-                routing, null);
+                routing, null, null, null);
     }
 
     @org.springframework.beans.factory.annotation.Autowired
@@ -90,7 +103,9 @@ public class DefaultModelGateway implements ModelGateway {
                                @Value("${tioka.model.retry.base-delay:500ms}") Duration retryBaseDelay,
                                @Value("${tioka.model.retry.budget:20s}") Duration retryBudget,
                                ObjectProvider<RoutingPlanExecutor> routing,
-                               StructuredRequestBuilder structuredRequestBuilder) {
+                               StructuredRequestBuilder structuredRequestBuilder,
+                               ObjectProvider<StructuredCapabilityQueryApi> capabilities,
+                               ObjectProvider<ExtInteractionRecorder> ledger) {
         this.resolver = resolver;
         this.provider = provider;
         this.ocrEngine = ocrEngine;
@@ -105,6 +120,21 @@ public class DefaultModelGateway implements ModelGateway {
         this.backoff = new RetryBackoff(retryMaxAttempts, retryBaseDelay, retryBudget);
         this.routing = routing;
         this.structuredRequestBuilder = structuredRequestBuilder;
+        this.capabilities = capabilities;
+        this.ledger = ledger;
+    }
+
+    /**
+     * MH-10：可选装配运行状态观测（调用统计窗口 + 指标）。
+     *
+     * <p>用 setter 注入而非构造参数，保证既有（大量）直接 new 的离线单测与兼容构造零改动；
+     * 未装配时两者为 null，全部观测退化为空操作。
+     */
+    @org.springframework.beans.factory.annotation.Autowired
+    void setObservability(ObjectProvider<ModelCallStatsWindow> window,
+                          ObjectProvider<ModelMetrics> modelMetrics) {
+        this.statsWindow = window == null ? null : window.getIfAvailable();
+        this.metrics = modelMetrics == null ? null : modelMetrics.getIfAvailable();
     }
 
     @Override
@@ -180,16 +210,17 @@ public class DefaultModelGateway implements ModelGateway {
             } catch (ProviderHttpException e) {
                 int latency = elapsedMs(t0);
                 cooldown.recordFailure(sel.bindingId());
+                String cls = errorClass(e.statusCode());
                 if (!e.switchable()) {
-                    account(ctx, sel, 0, 0, latency, "ERROR");
+                    account(ctx, sel, 0, 0, latency, "ERROR", cls, errorMessageOf(e));
                     throw new BizException(ErrorCode.MODEL_ERROR, upstreamMessage(e));
                 }
                 if (failovers >= failoverMax || chain.isEmpty()) {
-                    account(ctx, sel, 0, 0, latency, "ERROR");
+                    account(ctx, sel, 0, 0, latency, "ERROR", cls, errorMessageOf(e));
                     throw new BizException(ErrorCode.MODEL_UNAVAILABLE,
                             "故障接力链耗尽: " + upstreamMessage(e));
                 }
-                account(ctx, sel, 0, 0, latency, "FAILOVER");
+                account(ctx, sel, 0, 0, latency, "FAILOVER", cls, errorMessageOf(e));
                 String nextId = chain.remove(0);
                 String reason = "http-" + e.statusCode();
                 failoverTo(ctx, sel, nextId, chain, reason, emitted, sink);
@@ -198,12 +229,13 @@ public class DefaultModelGateway implements ModelGateway {
             } catch (Exception e) {
                 int latency = elapsedMs(t0);
                 cooldown.recordFailure(sel.bindingId());
+                String cls = errorClassOf(e);
                 if (failovers >= failoverMax || chain.isEmpty()) {
-                    account(ctx, sel, 0, 0, latency, "ERROR");
+                    account(ctx, sel, 0, 0, latency, "ERROR", cls, errorMessageOf(e));
                     throw new BizException(ErrorCode.MODEL_UNAVAILABLE,
                             "故障接力链耗尽: " + e.getMessage());
                 }
-                account(ctx, sel, 0, 0, latency, "FAILOVER");
+                account(ctx, sel, 0, 0, latency, "FAILOVER", cls, errorMessageOf(e));
                 String nextId = chain.remove(0);
                 failoverTo(ctx, sel, nextId, chain, "error:" + e.getClass().getSimpleName(),
                         emitted, sink);
@@ -343,15 +375,14 @@ public class DefaultModelGateway implements ModelGateway {
                 sink.accept(StreamDelta.text(d.textDelta()));
             }
         };
-        // SCH-02：结构化需求按实际路由到的模型能力编译方言并进请求体（ADR-066 §2/§4.1）。
-        // 本批能力记录未接线（SCH-06），按 legacy("schema"/"tool") 缺省能力编译（登记偏差）。
+        // SCH-02 / SCH-06：结构化需求按实际路由到的模型能力记录编译方言并进请求体（ADR-066 §2/§4.1）。
+        // 能力记录未接线时按 legacy("schema"/"tool") 兜底，行为与本批之前一致。
         List<Map<String, Object>> messages = request == null ? null : request.messages();
         List<Map<String, Object>> tools = request == null ? null : request.tools();
         Map<String, Object> responseFormat = null;
         StructuredDemand demand = request == null ? null : request.structured();
         if (demand != null && demand.authoritativeSchema() != null && structuredRequestBuilder != null) {
-            ModelProfile profile = new ModelProfile(sel.modelRef(),
-                    StructuredOutputCapability.legacy(demand.emitAsTool() ? "tool" : "schema"));
+            ModelProfile profile = new ModelProfile(sel.modelRef(), resolveCapability(sel.modelRef(), demand));
             StructuredConstraintRequest scr =
                     structuredRequestBuilder.build(profile, demand.authoritativeSchema(), false);
             if (scr.responseFormat() != null) {
@@ -374,9 +405,8 @@ public class DefaultModelGateway implements ModelGateway {
                 tools == null ? List.of() : tools,
                 responseFormat,
                 providerSink);
-        if ("content_filter".equalsIgnoreCase(r.finishReason())) {
-            throw new BizException(ErrorCode.MODEL_ERROR, "内容安全拦截（content_filter）");
-        }
+        // SCH-09（ADR-066 §5 第 1 步 / §6）：content_filter 不再作为模型调用异常上抛，
+        // 而是以 finishReason 透传，由 OutputStage 映射为 CONTENT_FILTERED 结局（可修复分类 + 降级阶梯）。
         List<ToolCall> calls = new ArrayList<>();
         if (r.toolCalls() != null) {
             for (ProviderClient.ToolCall tc : r.toolCalls()) {
@@ -384,7 +414,19 @@ public class DefaultModelGateway implements ModelGateway {
             }
         }
         return new ChatResult(r.content(), null, calls, r.promptTokens(), r.completionTokens(),
-                sel.bindingId(), sel.modelRef(), failovers, r.finishReason());
+                sel.bindingId(), sel.modelRef(), failovers, r.finishReason(), r.refused());
+    }
+
+    /** SCH-06（ADR-066 §4）：取该模型的能力记录；未登记按结构化需求形态兜底 legacy。 */
+    private StructuredOutputCapability resolveCapability(String modelRef, StructuredDemand demand) {
+        StructuredCapabilityQueryApi api = capabilities == null ? null : capabilities.getIfAvailable();
+        if (api != null) {
+            java.util.Optional<StructuredCapabilityQueryApi.CapabilityRecord> record = api.current(modelRef);
+            if (record.isPresent()) {
+                return record.get().capability();
+            }
+        }
+        return StructuredOutputCapability.legacy(demand.emitAsTool() ? "tool" : "schema");
     }
 
     private void failoverTo(ModelCallContext ctx,
@@ -402,6 +444,9 @@ public class DefaultModelGateway implements ModelGateway {
             entities.recordFailover(ctx.threadId(), ctx.turnId(), nextBindingId,
                     reason == null ? "failover" : reason);
         }
+        if (metrics != null) {
+            metrics.recordFailover(from.bindingId(), reason == null ? "failover" : reason);
+        }
         ModelBindingResolver.Resolution to =
                 resolver.ofBinding(nextBindingId, remaining, "failover",
                         from.aliasId(), from.aliasVersionNo(), from.planVersionNo());
@@ -413,6 +458,12 @@ public class DefaultModelGateway implements ModelGateway {
 
     private void account(ModelCallContext ctx, ModelBindingResolver.Resolution sel,
                          int promptTokens, int completionTokens, int latencyMs, String status) {
+        account(ctx, sel, promptTokens, completionTokens, latencyMs, status, null, null);
+    }
+
+    private void account(ModelCallContext ctx, ModelBindingResolver.Resolution sel,
+                         int promptTokens, int completionTokens, int latencyMs, String status,
+                         String errorClass, String errorMessage) {
         long in = sel.binding() == null ? 0L : sel.binding().inputPriceMicros();
         long out = sel.binding() == null ? 0L : sel.binding().outputPriceMicros();
         // P2-L5：供给侧分摊维度由绑定快照解析（binding → providerId）
@@ -422,7 +473,46 @@ public class DefaultModelGateway implements ModelGateway {
         usage.record(new UsageRecordCommand(ctx, sel.bindingId(), providerId, sel.modelRef(),
                 promptTokens, completionTokens, in, out, latencyMs, status,
                 bindingVersionNo, sel.aliasVersionNo(), sel.planVersionNo()));
+        // OBS-07（ADR-074 §2）：非 Turn 云端调用写 model 台账，与 model_usage 一一对应
+        recordModelLedger(ctx, sel.bindingId(), providerId, sel.modelRef(), sel.baseUrl(), latencyMs, status);
         consume(ctx, promptTokens, completionTokens);
+        // MH-10：运行状态滚动窗口 + Prometheus 指标
+        observe(ctx, sel, promptTokens, completionTokens, latencyMs, status, errorClass, errorMessage);
+    }
+
+    /** MH-10（ADR-041 §5）：把一次调用终态写滚动窗口并打指标；观测缺席即空操作。 */
+    private void observe(ModelCallContext ctx, ModelBindingResolver.Resolution sel,
+                         int promptTokens, int completionTokens, int latencyMs, String status,
+                         String errorClass, String errorMessage) {
+        if (sel == null || (statsWindow == null && metrics == null)) {
+            return;
+        }
+        String providerId = sel.binding() == null ? null : sel.binding().providerId();
+        String bindingId = sel.bindingId();
+        String aliasId = sel.aliasId();
+        String purpose = ctx == null || ctx.purpose() == null ? null : ctx.purpose().name();
+        boolean success = "SUCCESS".equals(status);
+        String cls = success ? null : (errorClass == null || errorClass.isBlank() ? "other" : errorClass);
+        long costMicros = UsageRecorder.costMicros(promptTokens, completionTokens,
+                sel.binding() == null ? 0L : sel.binding().inputPriceMicros(),
+                sel.binding() == null ? 0L : sel.binding().outputPriceMicros());
+        if (statsWindow != null) {
+            statsWindow.record(new ModelCallSample(providerId, bindingId, aliasId, latencyMs, null,
+                    promptTokens, completionTokens, 0, costMicros, cls, errorMessage, null));
+        }
+        if (metrics != null) {
+            metrics.recordCall(providerId, bindingId, aliasId, purpose, status);
+            metrics.recordLatency(providerId, bindingId, purpose, latencyMs);
+            metrics.recordTokens(providerId, bindingId, "in", promptTokens);
+            metrics.recordTokens(providerId, bindingId, "out", completionTokens);
+            metrics.recordCostMicros(providerId, bindingId, costMicros);
+            if (!success) {
+                metrics.recordError(providerId, bindingId, cls);
+                metrics.setCircuitState(bindingId, cooldown.isCooling(bindingId) ? 1d : 0d);
+            } else {
+                metrics.setCircuitState(bindingId, 0d);
+            }
+        }
     }
 
     /** 故障接力后保留别名/计划版本上下文（MH-08：同一调用的版本口径不变）。 */
@@ -454,6 +544,35 @@ public class DefaultModelGateway implements ModelGateway {
     private static String upstreamMessage(ProviderHttpException e) {
         String m = e.getMessage();
         return m == null || m.isBlank() ? ErrorCode.MODEL_ERROR.getMessage() : m;
+    }
+
+    /** MH-10（ADR-041 §5.1）：HTTP 状态码 → 错误类别（429 / 5xx / auth / other）。 */
+    private static String errorClass(int statusCode) {
+        if (statusCode == 429) {
+            return "429";
+        }
+        if (statusCode == 401 || statusCode == 403) {
+            return "auth";
+        }
+        if (statusCode >= 500 && statusCode < 600) {
+            return "5xx";
+        }
+        return "other";
+    }
+
+    /** MH-10：通用异常 → 错误类别（timeout / other）。 */
+    private static String errorClassOf(Exception e) {
+        if (e instanceof java.net.http.HttpTimeoutException
+                || e instanceof java.util.concurrent.TimeoutException) {
+            return "timeout";
+        }
+        String m = e.getMessage();
+        return m != null && m.toLowerCase().contains("timeout") ? "timeout" : "other";
+    }
+
+    private static String errorMessageOf(Exception e) {
+        String m = e.getMessage();
+        return m == null || m.isBlank() ? e.getClass().getSimpleName() : m;
     }
 
     private static void sleepQuiet(long ms) {
@@ -496,14 +615,14 @@ public class DefaultModelGateway implements ModelGateway {
             if (sel != null) {
                 cooldown.recordFailure(sel.bindingId());
             }
-            accountError(ctx, sel, forced, elapsedMs(t0));
+            accountError(ctx, sel, forced, elapsedMs(t0), errorClass(e.statusCode()), errorMessageOf(e));
             throw new BizException(e.switchable() ? ErrorCode.MODEL_UNAVAILABLE : ErrorCode.MODEL_ERROR,
                     upstreamMessage(e));
         } catch (Exception e) {
             if (sel != null) {
                 cooldown.recordFailure(sel.bindingId());
             }
-            accountError(ctx, sel, forced, elapsedMs(t0));
+            accountError(ctx, sel, forced, elapsedMs(t0), errorClassOf(e), errorMessageOf(e));
             throw new BizException(ErrorCode.DEPENDENCY, "嵌入调用失败: " + e.getMessage());
         }
     }
@@ -553,14 +672,14 @@ public class DefaultModelGateway implements ModelGateway {
             if (sel != null) {
                 cooldown.recordFailure(sel.bindingId());
             }
-            accountError(ctx, sel, forced, elapsedMs(t0));
+            accountError(ctx, sel, forced, elapsedMs(t0), errorClass(e.statusCode()), errorMessageOf(e));
             throw new BizException(e.switchable() ? ErrorCode.MODEL_UNAVAILABLE : ErrorCode.MODEL_ERROR,
                     upstreamMessage(e));
         } catch (Exception e) {
             if (sel != null) {
                 cooldown.recordFailure(sel.bindingId());
             }
-            accountError(ctx, sel, forced, elapsedMs(t0));
+            accountError(ctx, sel, forced, elapsedMs(t0), errorClassOf(e), errorMessageOf(e));
             throw new BizException(ErrorCode.DEPENDENCY, "rerank 调用失败: " + e.getMessage());
         }
     }
@@ -604,14 +723,14 @@ public class DefaultModelGateway implements ModelGateway {
             if (sel != null) {
                 cooldown.recordFailure(sel.bindingId());
             }
-            accountError(ctx, sel, forced, elapsedMs(t0));
+            accountError(ctx, sel, forced, elapsedMs(t0), errorClass(e.statusCode()), errorMessageOf(e));
             throw new BizException(e.switchable() ? ErrorCode.MODEL_UNAVAILABLE : ErrorCode.MODEL_ERROR,
                     upstreamMessage(e));
         } catch (Exception e) {
             if (sel != null) {
                 cooldown.recordFailure(sel.bindingId());
             }
-            accountError(ctx, sel, forced, elapsedMs(t0));
+            accountError(ctx, sel, forced, elapsedMs(t0), errorClassOf(e), errorMessageOf(e));
             // ocr_unavailable 等适配器原因原样透传，供文档层 FAILED 原因归因
             throw new BizException(ErrorCode.DEPENDENCY, e.getMessage() == null
                     ? "ocr 调用失败" : e.getMessage());
@@ -621,11 +740,59 @@ public class DefaultModelGateway implements ModelGateway {
     /** 非成功调用统一错误记账（embed / rerank / ocr 共用）：ERROR / 0 token。 */
     private void accountError(ModelCallContext ctx, ModelBindingResolver.Resolution sel,
                               String forced, int latencyMs) {
+        accountError(ctx, sel, forced, latencyMs, null, null);
+    }
+
+    private void accountError(ModelCallContext ctx, ModelBindingResolver.Resolution sel,
+                              String forced, int latencyMs, String errorClass, String errorMessage) {
         if (sel != null) {
-            account(ctx, sel, 0, 0, latencyMs, "ERROR");
+            account(ctx, sel, 0, 0, latencyMs, "ERROR", errorClass, errorMessage);
         } else {
             usage.record(new UsageRecordCommand(ctx, forced, null, forced, 0, 0, 0L, 0L, latencyMs, "ERROR",
                     null, null, null));
+            recordModelLedger(ctx, forced, null, forced, null, latencyMs, "ERROR");
+        }
+    }
+
+    /**
+     * OBS-07（ADR-074 §2）：非 Turn 云端模型调用写 OUT {@code model} 台账，只记来源与去向、不记内容。
+     * Turn 内调用由 {@code model_usage} + 上下文清单覆盖，此处只在 {@code ctx.turnId() == null} 时记一条。
+     * 台账失败只吞异常，不阻断模型调用。
+     */
+    private void recordModelLedger(ModelCallContext ctx, String bindingId, String providerId,
+                                   String modelRef, String endpoint, int latencyMs, String status) {
+        if (ctx == null || ctx.turnId() != null || ledger == null) {
+            return;
+        }
+        ExtInteractionRecorder recorder = ledger.getIfAvailable();
+        if (recorder == null) {
+            return;
+        }
+        try {
+            Map<String, String> attrs = new java.util.LinkedHashMap<>();
+            if (bindingId != null) {
+                attrs.put("binding_id", bindingId);
+            }
+            if (modelRef != null) {
+                attrs.put("model_ref", modelRef);
+            }
+            if (providerId != null) {
+                attrs.put("provider_id", providerId);
+            }
+            if (ctx.agentId() != null) {
+                attrs.put("agent_id", ctx.agentId());
+            }
+            if (ctx.purpose() != null) {
+                attrs.put("purpose", ctx.purpose().name());
+            }
+            String operation = "model." + (ctx.purpose() == null ? "call" : ctx.purpose().name().toLowerCase());
+            recorder.record(new ExtInteractionRecorder.ExtInteractionRecord(
+                    ExtInteractionRecorder.Direction.OUT, "model", providerId, endpoint, operation,
+                    "SUCCESS".equals(status)
+                            ? ExtInteractionRecorder.Status.OK : ExtInteractionRecorder.Status.ERROR,
+                    null, null, null, (long) latencyMs, attrs));
+        } catch (RuntimeException ignored) {
+            // 台账不影响模型调用
         }
     }
 }

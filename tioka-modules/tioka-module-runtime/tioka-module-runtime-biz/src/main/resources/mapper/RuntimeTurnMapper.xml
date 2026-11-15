@@ -12,7 +12,8 @@
                    lease_until AS leaseUntil, error_code AS errorCode, error_message AS errorMessage,
                    prompt_tokens AS promptTokens, completion_tokens AS completionTokens,
                    started_at AS startedAt, ended_at AS endedAt, create_at AS createAt, update_at AS updateAt,
-                   traceparent, request_id AS requestId, subject
+                   traceparent, request_id AS requestId, subject,
+                   taint, taint_sources AS taintSources
             FROM runtime_turn WHERE id = #{id}
             
 ]]>
@@ -27,7 +28,8 @@
                    lease_until AS leaseUntil, error_code AS errorCode, error_message AS errorMessage,
                    prompt_tokens AS promptTokens, completion_tokens AS completionTokens,
                    started_at AS startedAt, ended_at AS endedAt, create_at AS createAt, update_at AS updateAt,
-                   traceparent, request_id AS requestId, subject
+                   traceparent, request_id AS requestId, subject,
+                   taint, taint_sources AS taintSources
             FROM runtime_turn
             WHERE thread_id = #{threadId} AND client_msg_id = #{clientMsgId}
             
@@ -185,6 +187,7 @@ SELECT 1 FROM runtime_thread WHERE id = #{threadId} FOR UPDATE
                    prompt_tokens AS promptTokens, completion_tokens AS completionTokens,
                    started_at AS startedAt, ended_at AS endedAt,
                    request_id AS requestId, subject,
+                   taint, taint_sources AS taintSources,
                    create_at AS createAt, update_at AS updateAt
               FROM runtime_turn
              WHERE status = 'WAITING_CHILD'
@@ -220,6 +223,20 @@ SELECT 1 FROM runtime_thread WHERE id = #{threadId} FOR UPDATE
         ]]>
     </update>
 
+    <update id="failWaitingApproval">
+        <![CDATA[
+            UPDATE runtime_turn
+               SET status = 'FAILED',
+                   error_code = #{errorCode},
+                   error_message = #{errorMessage},
+                   ended_at = now(),
+                   lease_until = NULL,
+                   update_at = now()
+             WHERE id = #{turnId} AND status = 'WAITING_APPROVAL'
+            
+]]>
+    </update>
+
     <update id="cancelQueued">
         <![CDATA[
             UPDATE runtime_turn
@@ -244,6 +261,7 @@ SELECT 1 FROM runtime_thread WHERE id = #{threadId} FOR UPDATE
                    t.error_message AS errorMessage,
                    t.prompt_tokens AS promptTokens, t.completion_tokens AS completionTokens,
                    t.started_at AS startedAt, t.ended_at AS endedAt,
+                   t.taint AS taint, t.taint_sources AS taintSources,
                    t.create_at AS createAt, t.update_at AS updateAt
               FROM runtime_turn t
               JOIN runtime_thread s ON s.id = t.thread_id
@@ -306,7 +324,8 @@ SELECT 1 FROM runtime_thread WHERE id = #{threadId} FOR UPDATE
                    worker_id AS workerId, lease_version AS leaseVersion,
                    lease_until AS leaseUntil, error_code AS errorCode, error_message AS errorMessage,
                    prompt_tokens AS promptTokens, completion_tokens AS completionTokens,
-                   started_at AS startedAt, ended_at AS endedAt, create_at AS createAt, update_at AS updateAt
+                   started_at AS startedAt, ended_at AS endedAt, create_at AS createAt, update_at AS updateAt,
+                   taint, taint_sources AS taintSources
             FROM runtime_turn
             WHERE thread_id = #{threadId} AND status = 'QUEUED'
             ORDER BY seq
@@ -323,7 +342,8 @@ SELECT 1 FROM runtime_thread WHERE id = #{threadId} FOR UPDATE
                    worker_id AS workerId, lease_version AS leaseVersion,
                    lease_until AS leaseUntil, error_code AS errorCode, error_message AS errorMessage,
                    prompt_tokens AS promptTokens, completion_tokens AS completionTokens,
-                   started_at AS startedAt, ended_at AS endedAt, create_at AS createAt, update_at AS updateAt
+                   started_at AS startedAt, ended_at AS endedAt, create_at AS createAt, update_at AS updateAt,
+                   taint, taint_sources AS taintSources
             FROM runtime_turn
             WHERE thread_id = #{threadId}
               AND status IN ('RUNNING', 'WAITING_APPROVAL', 'WAITING_CHILD', 'QUEUED')
@@ -378,7 +398,8 @@ SELECT pg_advisory_unlock(hashtext('tioka.runtime.queued-sweeper'))
                    lease_until AS leaseUntil, error_code AS errorCode, error_message AS errorMessage,
                    prompt_tokens AS promptTokens, completion_tokens AS completionTokens,
                    started_at AS startedAt, ended_at AS endedAt, create_at AS createAt, update_at AS updateAt,
-                   traceparent, request_id AS requestId, subject
+                   traceparent, request_id AS requestId, subject,
+                   taint, taint_sources AS taintSources
             FROM runtime_turn
             WHERE thread_id = #{threadId}
             ORDER BY seq
@@ -391,6 +412,15 @@ SELECT pg_advisory_unlock(hashtext('tioka.runtime.queued-sweeper'))
         <![CDATA[
             UPDATE runtime_turn
                SET traceparent = #{traceparent}, update_at = now()
+             WHERE id = #{turnId}
+            
+]]>
+    </update>
+
+    <update id="saveTaint">
+        <![CDATA[
+            UPDATE runtime_turn
+               SET taint = #{taint}, taint_sources = #{taintSources}, update_at = now()
              WHERE id = #{turnId}
             
 ]]>

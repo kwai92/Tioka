@@ -72,6 +72,8 @@ public class KernelRuntimeService implements RuntimeApi {
     private final GrantService grants;
     private final ToolRegistry tools;
     private final ObjectProvider<com.tioka.governance.api.charter.AgentCharterPort> charterPort;
+    /** OBS-06（ADR-075 §3）：Turn 开始写运行清单；端口缺失（离线 / 单测）时跳过。 */
+    private final ObjectProvider<com.tioka.governance.api.manifest.RunManifestWriter> runManifests;
 
     public KernelRuntimeService(RuntimeThreadRepository threads,
                                 TurnRepository turns,
@@ -87,7 +89,8 @@ public class KernelRuntimeService implements RuntimeApi {
                                 ApprovalDecideService approvalDecide,
                                 GrantService grants,
                                 ToolRegistry tools,
-                                ObjectProvider<com.tioka.governance.api.charter.AgentCharterPort> charterPort) {
+                                ObjectProvider<com.tioka.governance.api.charter.AgentCharterPort> charterPort,
+                                ObjectProvider<com.tioka.governance.api.manifest.RunManifestWriter> runManifests) {
         this.threads = threads;
         this.turns = turns;
         this.items = items;
@@ -103,6 +106,7 @@ public class KernelRuntimeService implements RuntimeApi {
         this.grants = grants;
         this.tools = tools;
         this.charterPort = charterPort;
+        this.runManifests = runManifests;
     }
 
     @Override
@@ -195,6 +199,7 @@ public class KernelRuntimeService implements RuntimeApi {
         }
         streams.publish(threadId, null, RuntimeEventType.TURN_STARTED.wire(),
                 events.turnStatus(RuntimeEventType.TURN_STARTED, threadId, turnId, TurnStatus.QUEUED.name()));
+        writeRunManifest(thread, t, correlation);
         // 必须在事务提交后再 XADD，否则 worker 可能读不到刚 insert 的 Turn（永久 QUEUED）
         offerAfterCommit(turnId, threadId);
         return new TurnHandle(turnId, TurnStatus.QUEUED, eventsUrl(threadId));
@@ -210,6 +215,38 @@ public class KernelRuntimeService implements RuntimeApi {
             });
         } else {
             dispatchQueue.offer(turnId, threadId);
+        }
+    }
+
+    /**
+     * OBS-06（ADR-075 §3）：Turn 开始时写一条运行清单（Agent 版本、spec 哈希、授予 ID 等快照），
+     * 供统一时间线展开与同类运行差异对比。清单写入失败只记日志不阻断 Turn（观测面）。
+     */
+    private void writeRunManifest(RuntimeThreadDO thread, RuntimeTurnDO turn, RequestContext correlation) {
+        var writer = runManifests.getIfAvailable();
+        if (writer == null) {
+            return;
+        }
+        RuntimeThreadDO current = threads.find(thread.getId());
+        String grantId = current == null ? null : current.getGrantId();
+        try {
+            writer.write(new com.tioka.governance.api.manifest.RunManifestWriteRequest(
+                    "TURN", turn.getId(), correlation.requestId(), thread.getWorkspaceId(),
+                    thread.getAgentVersionId(), grantId, specHashOf(thread.getAgentVersionId()), Map.of()));
+        } catch (RuntimeException e) {
+            log.warn("run_manifest 写入失败 turnId={}: {}", turn.getId(), e.toString());
+        }
+    }
+
+    private String specHashOf(String agentVersionId) {
+        if (agentVersionId == null || agentVersionId.isBlank()) {
+            return null;
+        }
+        try {
+            AgentSnapshotApi.AgentSnapshot snap = agents.get(agentVersionId);
+            return snap == null ? null : snap.contentHash();
+        } catch (RuntimeException e) {
+            return null;
         }
     }
 

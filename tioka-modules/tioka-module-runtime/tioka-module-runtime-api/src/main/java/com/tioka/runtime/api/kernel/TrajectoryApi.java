@@ -18,7 +18,10 @@ public interface TrajectoryApi {
     record Step(int step, List<RuntimeApi.ItemView> items, String modelRef, Integer promptTokens,
                 Integer completionTokens, Long latencyMs, Long costMicros, boolean failover) {}
 
+    /**
+     * @param taint GRD-00 / ADR-065 §3：本 Turn 污点（{@code CLEAN} / {@code TAINTED}），供轨迹视图展示
+     */
     record TurnSummary(String turnId, int seq, TurnStatus status, String origin, int stepCount,
                        Integer promptTokens, Integer completionTokens, Long costMicros,
-                       Instant startedAt, Instant endedAt) {}
+                       Instant startedAt, Instant endedAt, String taint) {}
 }

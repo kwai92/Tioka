@@ -11,6 +11,7 @@ import com.tioka.model.application.gateway.ModelBindingFilter;
 import com.tioka.model.application.gateway.ModelBindingResolver;
 import com.tioka.model.domain.ModelEntities;
 import com.tioka.model.domain.RoutingTelemetry;
+import com.tioka.model.infrastructure.metrics.ModelMetrics;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
@@ -49,6 +50,8 @@ public class RoutingPlanExecutor {
     private final int defaultTimeoutMs;
     /** DAT-03：plan 级去向许可闸（非会话调用 / 组件缺失时不过滤）。 */
     private final PlanLabelGate planLabelGate;
+    /** MH-10（ADR-041 §5.2）：路由决策指标；未装配时为空操作。 */
+    private ModelMetrics metrics;
 
     public RoutingPlanExecutor(ModelBindingResolver resolver,
                                ModelEntities entities,
@@ -73,6 +76,12 @@ public class RoutingPlanExecutor {
             t.setDaemon(true);
             return t;
         });
+    }
+
+    /** MH-10：可选装配路由决策指标（setter 注入，保证既有直接 new 的测试零改动）。 */
+    @org.springframework.beans.factory.annotation.Autowired
+    void setMetrics(ObjectProvider<ModelMetrics> modelMetrics) {
+        this.metrics = modelMetrics == null ? null : modelMetrics.getIfAvailable();
     }
 
     /**
@@ -125,6 +134,9 @@ public class RoutingPlanExecutor {
                     RoutingTelemetry.KIND_DECIDE, spec.mode().name(), deciderId, null, null,
                     decision.confidence(), decision.reason(), elapsedMs(t0));
             group = resolveTargetGroup(spec, decision);
+            if (metrics != null) {
+                metrics.recordRouteDecision(planId, group, deciderId, "decide");
+            }
         } catch (Exception e) {
             String reason = e instanceof java.util.concurrent.TimeoutException
                     ? "决策超时(" + (spec.decision() == null ? defaultTimeoutMs : spec.decision().timeoutMs()) + "ms)"
@@ -132,6 +144,9 @@ public class RoutingPlanExecutor {
             telemetry.recordEvent(workspaceId, ctx.threadId(), ctx.turnId(), planId, planVersionNo,
                     RoutingTelemetry.KIND_FAIL, spec.mode().name(), deciderId, fallbackGroup, null,
                     null, reason, elapsedMs(t0));
+            if (metrics != null) {
+                metrics.recordRouteDecision(planId, fallbackGroup, deciderId, "fail");
+            }
             log.warn("路由决策失败走兜底组 group={}: {}", fallbackGroup, reason);
             group = fallbackGroup;
         }

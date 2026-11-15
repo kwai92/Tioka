@@ -25,14 +25,29 @@
     <insert id="insert">
         <![CDATA[
             INSERT INTO runtime_item (
-              thread_id, seq, id, turn_id, step, type, role, content_json, token_count, data_label, discarded, create_at, create_by
+              thread_id, seq, id, turn_id, step, type, role, content_json, token_count, data_label, discarded,
+              schema_ref, outcome, reason_code, model_ref, output_mode, repair_rounds, create_at, create_by
             ) VALUES (
               #{threadId}, #{seq}, #{id}, #{turnId}, #{step}, #{type}, #{role}, #{contentJson},
-              #{tokenCount}, #{dataLabel}, COALESCE(#{discarded}, FALSE), now(), 'system'
+              #{tokenCount}, #{dataLabel}, COALESCE(#{discarded}, FALSE),
+              #{schemaRef}, #{outcome}, #{reasonCode}, #{modelRef}, #{outputMode}, #{repairRounds}, now(), 'system'
             )
 
 ]]>
     </insert>
+
+    <select id="findById" resultType="RuntimeItemDO">
+        <![CDATA[
+            SELECT thread_id AS threadId, seq, id, turn_id AS turnId, step, type, role,
+                   content_json AS contentJson, token_count AS tokenCount, discarded,
+                   data_label AS dataLabel, schema_ref AS schemaRef, outcome, reason_code AS reasonCode,
+                   model_ref AS modelRef, output_mode AS outputMode, repair_rounds AS repairRounds,
+                   create_at AS createAt
+            FROM runtime_item
+            WHERE id = #{id}
+
+]]>
+    </select>
 
     <select id="listByThread" resultType="RuntimeItemDO">
         <![CDATA[
@@ -67,6 +82,19 @@
             FROM runtime_item
             WHERE turn_id = #{turnId}
             ORDER BY seq
+
+]]>
+    </select>
+
+    <!-- OBS-08 时间线重建：按时间段读回运行项（工具调用/结果按步合并投影） -->
+    <select id="listByRange" resultType="RuntimeItemDO">
+        <![CDATA[
+            SELECT thread_id AS threadId, seq, id, turn_id AS turnId, step, type, role,
+                   content_json AS contentJson, token_count AS tokenCount, discarded,
+                   data_label AS dataLabel, create_at AS createAt
+            FROM runtime_item
+            WHERE create_at >= #{from} AND create_at <= #{to}
+            ORDER BY create_at, id
 
 ]]>
     </select>

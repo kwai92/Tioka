@@ -65,6 +65,11 @@ public interface RuntimeTurnMapper {
                               @Param("errorCode") String errorCode,
                               @Param("errorMessage") String errorMessage);
 
+        /** SCH-09 / ADR-066 §7.4：人工补录超时，WAITING_APPROVAL → FAILED（HUMAN_TIMEOUT）。 */
+        int failWaitingApproval(@Param("turnId") String turnId,
+                                @Param("errorCode") String errorCode,
+                                @Param("errorMessage") String errorMessage);
+
         int cancelQueued(@Param("turnId") String turnId,
                      @Param("errorCode") String errorCode,
                      @Param("errorMessage") String errorMessage);
@@ -106,4 +111,9 @@ public interface RuntimeTurnMapper {
 
     /** GOV-08：写入 W3C traceparent（跨实例恢复）。 */
     int saveTraceparent(@Param("turnId") String turnId, @Param("traceparent") String traceparent);
+
+    /** GRD-00 / ADR-065 §3：写入本 Turn 污点与来源清单。 */
+    int saveTaint(@Param("turnId") String turnId,
+                  @Param("taint") String taint,
+                  @Param("taintSources") String taintSources);
 }

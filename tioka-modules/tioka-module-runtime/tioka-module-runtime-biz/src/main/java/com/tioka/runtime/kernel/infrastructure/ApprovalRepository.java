@@ -60,4 +60,10 @@ public class ApprovalRepository {
     public List<WaitingTurnRow> findWaitingWithoutPending() {
         return mapper.findWaitingWithoutPending();
     }
+
+    /** OBS-08 时间线重建：按时间段读回审批（ADR-075 §2）。 */
+    public List<RuntimeApprovalDO> listByRange(Instant from, Instant to) {
+        return mapper.listByRange(LocalDateTime.ofInstant(from, ZoneOffset.UTC),
+                LocalDateTime.ofInstant(to, ZoneOffset.UTC));
+    }
 }

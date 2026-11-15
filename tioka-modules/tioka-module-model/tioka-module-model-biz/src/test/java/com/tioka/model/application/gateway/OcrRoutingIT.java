@@ -206,6 +206,9 @@ class OcrRoutingIT {
         }
 
         @Override
+        public void updateProviderHealth(String providerId, String health) { /* unused */ }
+
+        @Override
         public void putAlias(com.tioka.model.infrastructure.persistence.ModelAliasDO row) {
             // unused
         }
@@ -293,6 +296,27 @@ class OcrRoutingIT {
         @Override
         public List<com.tioka.model.infrastructure.persistence.ModelTurnFreezeDO> listFreezes(String threadId) {
             return List.of();
+        }
+
+        @Override
+        public void putPromptTemplate(com.tioka.model.infrastructure.persistence.PromptTemplateDO row) {
+            // unused
+        }
+
+        @Override
+        public Optional<com.tioka.model.infrastructure.persistence.PromptTemplateDO> getPromptTemplate(String id) {
+            return Optional.empty();
+        }
+
+        @Override
+        public List<com.tioka.model.infrastructure.persistence.PromptTemplateDO> promptTemplates() {
+            return List.of();
+        }
+
+        @Override
+        public Optional<com.tioka.model.infrastructure.persistence.PromptTemplateDO> findPromptTemplateByName(
+                String name) {
+            return Optional.empty();
         }
     }
 }

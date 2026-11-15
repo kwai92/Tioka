@@ -34,6 +34,10 @@ public class RuntimeTurnDO extends MutableRecordDO {
     /** OBS-03 / V133：关联上下文。 */
     private String requestId;
     private String subject;
+    /** GRD-00 / V231：本 Turn 污点（CLEAN / TAINTED）。 */
+    private String taint;
+    /** GRD-00 / V231：污点来源清单（JSON 数组，元素形如 sourceType#sourceRef）。 */
+    private String taintSources;
 
     public String getId() { return id; }
     public void setId(String id) { this.id = id; }
@@ -81,4 +85,8 @@ public class RuntimeTurnDO extends MutableRecordDO {
     public void setRequestId(String requestId) { this.requestId = requestId; }
     public String getSubject() { return subject; }
     public void setSubject(String subject) { this.subject = subject; }
+    public String getTaint() { return taint; }
+    public void setTaint(String taint) { this.taint = taint; }
+    public String getTaintSources() { return taintSources; }
+    public void setTaintSources(String taintSources) { this.taintSources = taintSources; }
 }

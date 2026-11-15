@@ -15,6 +15,8 @@ public class ModelProviderDO extends BaseDO {
     /** GOV-12（V150）：当前生效版本指针。 */
     private String currentVersionId;
     private Integer currentVersionNo;
+    /** MH-10（V236 / ADR-041 §5.1）：运行健康状态结论（DISABLED / BUDGET_EXHAUSTED / COOLDOWN / DOWN / DEGRADED / UP）。 */
+    private String health;
 
     public String getId() { return id; }
     public void setId(String id) { this.id = id; }
@@ -28,4 +30,6 @@ public class ModelProviderDO extends BaseDO {
     public void setCurrentVersionId(String currentVersionId) { this.currentVersionId = currentVersionId; }
     public Integer getCurrentVersionNo() { return currentVersionNo; }
     public void setCurrentVersionNo(Integer currentVersionNo) { this.currentVersionNo = currentVersionNo; }
+    public String getHealth() { return health; }
+    public void setHealth(String health) { this.health = health; }
 }

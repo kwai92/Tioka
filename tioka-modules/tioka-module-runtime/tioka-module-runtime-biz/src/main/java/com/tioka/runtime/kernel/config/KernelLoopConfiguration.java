@@ -76,9 +76,11 @@ public class KernelLoopConfiguration {
                         ObjectMapper mapper,
                         ToolApprovalCoordinator approvals,
                         ChildWaitService childWait,
+                        LoopPorts.HumanTaskPort humanTasks,
                         ObjectProvider<AgentSnapshotApi> agentSnapshots,
                         ObjectProvider<SchemaApi> schemaApis) {
         // SCH-03：OutputStage 依赖弱装配——快照/Schema 未启用时契约解析为 null，OutputStage 直通
+        // SCH-09：HumanTaskPort 承接降级阶梯的 HUMAN 步骤（含任务表 V233 与挂起）
         OutputStage outputStage = new OutputStage(mapper,
                 agentVersionId -> {
                     if (agentVersionId == null || agentVersionId.isBlank()) {
@@ -91,7 +93,7 @@ public class KernelLoopConfiguration {
                     return snapshots.get(agentVersionId).spec().output();
                 },
                 schemaApis.getIfAvailable(),
-                modelPort, contextBuilder, items::listByThread, sink);
+                modelPort, contextBuilder, items::listByThread, sink, humanTasks);
         return new AgentLoop(modelPort, toolPort, sink, contextBuilder, turns,
                 items::listByThread, mapper, approvals, childWait, outputStage);
     }

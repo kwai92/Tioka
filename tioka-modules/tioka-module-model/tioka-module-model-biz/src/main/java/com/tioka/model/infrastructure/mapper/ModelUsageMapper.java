@@ -53,4 +53,12 @@ public interface ModelUsageMapper extends BaseMapper<ModelUsageDO> {
     /** P2-L5（GAP-L5-1）：binding 自月初以来的成本合计（微美分，供给侧预算窗口）。 */
     Long sumCostByBinding(@Param("bindingId") String bindingId,
                           @Param("from") Instant from);
+
+    /** MH-09：供应商自月初以来的 token 消耗合计（供给侧预算窗口）。 */
+    Long sumTokensByProvider(@Param("providerId") String providerId,
+                             @Param("from") Instant from);
+
+    /** MH-09：供应商自月初以来的成本合计（微美分，供给侧预算窗口）。 */
+    Long sumCostByProvider(@Param("providerId") String providerId,
+                           @Param("from") Instant from);
 }

@@ -13,6 +13,7 @@ import com.tioka.model.infrastructure.persistence.ModelProviderDO;
 import com.tioka.model.infrastructure.persistence.ModelRouteEventDO;
 import com.tioka.model.infrastructure.persistence.ModelRoutingPlanDO;
 import com.tioka.model.infrastructure.persistence.ModelTurnFreezeDO;
+import com.tioka.model.infrastructure.persistence.PromptTemplateDO;
 import com.tioka.system.api.spi.SecretStore;
 import org.springframework.beans.factory.ObjectProvider;
 
@@ -63,6 +64,7 @@ public final class ModelTestSupport {
         private final Map<String, ModelAliasDO> aliases = new ConcurrentHashMap<>();
         private final Map<String, ModelBindingDO> bindings = new ConcurrentHashMap<>();
         private final Map<String, ModelRoutingPlanDO> plans = new ConcurrentHashMap<>();
+        private final Map<String, PromptTemplateDO> promptTemplates = new ConcurrentHashMap<>();
         private final Map<String, String> freezes = new ConcurrentHashMap<>();
         private final Map<String, String> freezeReasons = new ConcurrentHashMap<>();
 
@@ -74,6 +76,14 @@ public final class ModelTestSupport {
 
         @Override
         public List<ModelProviderDO> providers() { return new ArrayList<>(providers.values()); }
+
+        @Override
+        public void updateProviderHealth(String providerId, String health) {
+            ModelProviderDO row = providers.get(providerId);
+            if (row != null) {
+                row.setHealth(health);
+            }
+        }
 
         @Override
         public void putAlias(ModelAliasDO row) { aliases.put(row.getId(), row); }
@@ -117,6 +127,24 @@ public final class ModelTestSupport {
 
         @Override
         public List<ModelRoutingPlanDO> plans() { return new ArrayList<>(plans.values()); }
+
+        @Override
+        public void putPromptTemplate(PromptTemplateDO row) { promptTemplates.put(row.getId(), row); }
+
+        @Override
+        public Optional<PromptTemplateDO> getPromptTemplate(String id) {
+            return Optional.ofNullable(promptTemplates.get(id));
+        }
+
+        @Override
+        public List<PromptTemplateDO> promptTemplates() { return new ArrayList<>(promptTemplates.values()); }
+
+        @Override
+        public Optional<PromptTemplateDO> findPromptTemplateByName(String name) {
+            return promptTemplates.values().stream()
+                    .filter(t -> name != null && name.equals(t.getName()))
+                    .findFirst();
+        }
 
         @Override
         public Optional<String> getFreeze(String threadId, String turnId) {
