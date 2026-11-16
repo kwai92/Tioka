@@ -263,6 +263,26 @@ check(multiCtorNoAutowire.length === 0,
   'Spring 组件多构造器时必须标注 @Autowired，否则 CI 上装配失败'
   + (multiCtorNoAutowire.length ? '：' + multiCtorNoAutowire.join(', ') : ''));
 
+// 默认关闭的能力开关所提供的 Bean，无条件组件不得硬依赖，否则默认配置下整条依赖链
+// 装配失败、所有 @SpringBootTest 起不来（CI run 43912036682 实证 93 处 No qualifying bean）。
+// 必须用 ObjectProvider 弱依赖 + 缺席时跳过该段。
+//
+// 已逐个核实并排除的误报（写死在此，避免后人重复排查或误改）：
+//  - EvalDatasetController 自身带全限定 @ConditionalOnProperty(tioka.eval)，eval 关时不装配；
+//  - SignalBus 依赖的 RedisMessageListenerContainer 由无条件的 RuntimeAutoConfiguration 提供，
+//    GovernanceAutoConfiguration 那份是 @ConditionalOnMissingBean 补充；
+//  - TimelineController / FlowService / OrchAssignService / KernelRuntimeService 依赖的
+//    obs.timeline 与 obs.run-manifest 均 matchIfMissing=true，默认开启；
+//  - OutboxRelay 属 tioka-foundation，由 Foundation 自动装配管理，不在 Tioka 扫描范围。
+const evidencePack = read('tioka-modules/tioka-module-system/tioka-module-system-biz/src/main/java/com/tioka/system/application/evidence/EvidencePackService.java');
+check(/ObjectProvider<ConfigVersionApi>\s+configVersionApi/.test(evidencePack),
+  'EvidencePackService 对默认关闭的 ConfigVersionApi 用 ObjectProvider 弱依赖');
+check(evidencePack.includes('configVersionApi.getIfAvailable()')
+  && evidencePack.includes('warnedNoConfigVersion'),
+  'ConfigVersionApi 缺席时跳过配置版本段且只告警一次');
+check(!/(?:^|[^.\w])ConfigVersionApi\s+configVersionApi/.test(evidencePack),
+  'EvidencePackService 不再硬依赖 ConfigVersionApi（硬依赖会使默认配置下上下文起不来）');
+
 
 console.log(`capability ownership: ${ok.length} passed, ${fail.length} failed`);
 if (fail.length > 0) {

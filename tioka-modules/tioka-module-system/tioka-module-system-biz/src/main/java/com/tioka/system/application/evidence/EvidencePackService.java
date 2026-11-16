@@ -31,6 +31,7 @@ import com.tioka.system.infrastructure.EvidencePackRepository;
 import com.tioka.system.infrastructure.persistence.EvidencePackDO;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
 
 import java.nio.charset.StandardCharsets;
@@ -82,7 +83,21 @@ public class EvidencePackService {
 
     private final TimelineQuery timelineQuery;
     private final RunManifestQuery runManifestQuery;
-    private final ConfigVersionApi configVersionApi;
+    /**
+     * GOV-12 配置版本框架<b>默认关闭</b>（{@code tioka.config.version.enabled=false}），
+     * 其 {@code ConfigVersionApi} Bean 由条件装配的 {@code GovernanceAutoConfiguration} 提供，
+     * 故这里必须用 {@link ObjectProvider} 弱依赖。
+     *
+     * <p>曾写成硬依赖：默认配置下 Bean 缺席 → {@code UnsatisfiedDependencyException} →
+     * 沿 {@code evidencePackService} 拖垮整个上下文，所有 {@code @SpringBootTest} 起不来
+     * （CI run 43912036682 实证，93 处 "No qualifying bean"）。
+     * 处置与 C-8 的 {@code CoverageService}/{@code DefinitionService} 先例一致：弱依赖 + 缺席时
+     * 跳过该段并只告警一次。证据包的配置版本段是**可选增强**，不是签名的必要输入。
+     */
+    private final ObjectProvider<ConfigVersionApi> configVersionApi;
+    /** ConfigVersionApi 缺席（GOV-12 默认关闭）时只告警一次，避免每个证据包刷屏。 */
+    private final java.util.concurrent.atomic.AtomicBoolean warnedNoConfigVersion =
+            new java.util.concurrent.atomic.AtomicBoolean(false);
     private final ApprovalQueryApi approvalQuery;
     private final ExtInteractionQueryApi extInteraction;
     private final AuditService auditService;
@@ -95,7 +110,7 @@ public class EvidencePackService {
 
     public EvidencePackService(TimelineQuery timelineQuery,
                                RunManifestQuery runManifestQuery,
-                               ConfigVersionApi configVersionApi,
+                               ObjectProvider<ConfigVersionApi> configVersionApi,
                                ApprovalQueryApi approvalQuery,
                                ExtInteractionQueryApi extInteraction,
                                AuditService auditService,
@@ -336,7 +351,15 @@ public class EvidencePackService {
 
     private List<ConfigVersionApi.ConfigVersion> loadConfigVersions(List<String> objects) {
         List<ConfigVersionApi.ConfigVersion> versions = new ArrayList<>();
-        if (objects == null) {
+        if (objects == null || objects.isEmpty()) {
+            return versions;
+        }
+        ConfigVersionApi api = configVersionApi.getIfAvailable();
+        if (api == null) {
+            // GOV-12 默认关闭：配置版本段是可选增强，缺席不影响证据包其余部分与签名
+            if (warnedNoConfigVersion.compareAndSet(false, true)) {
+                log.warn("evidence pack: tioka.config.version.enabled=false，跳过配置版本段（GOV-12）");
+            }
             return versions;
         }
         for (String ref : objects) {
@@ -348,7 +371,7 @@ public class EvidencePackService {
                 continue;
             }
             try {
-                configVersionApi.getCurrent(new ConfigVersionApi.ObjectRef(ref.substring(0, i), ref.substring(i + 1)))
+                api.getCurrent(new ConfigVersionApi.ObjectRef(ref.substring(0, i), ref.substring(i + 1)))
                         .ifPresent(versions::add);
             } catch (RuntimeException ex) {
                 log.debug("evidence pack: config {} skipped: {}", ref, ex.getMessage());
