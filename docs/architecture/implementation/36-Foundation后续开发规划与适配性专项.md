@@ -526,7 +526,7 @@ F3 五批完成后，暴露出一个比 git 分叉更隐蔽的风险：`main`（
 | 轨道 | 坐标 | 所在分支 | 内容 |
 | --- | --- | --- | --- |
 | 稳定基座 | `0.1.0-SNAPSHOT` | `main`（`6cca930`） | PF-00a / 发布 pom 回归修复，不含 F3 适配性代码 |
-| 适配性剖面 | `0.2.0-adapt-SNAPSHOT` | `feat/f3-adaptability`（`b31a450`） | 稳定基座 + F3 五批全部成果；**Tioka 当前提交锁定此轨** |
+| 适配性剖面 | `0.2.0-adapt-SNAPSHOT` | `feat/f3-adaptability`（版本分轨 `b31a450`，最终 `5124542`） | 稳定基座 + F3 五批全部成果；**Tioka 当前提交锁定此轨** |
 
 Foundation 侧同步 4 处：聚合器、父工程、BOM 的三处 `<revision>`，以及模板工程的 parent 版本；
 新增 `tioka-foundation/docs/version-tracks.md` 固化「改版本清单 / 双轨用法 / 远程配套要求」，
@@ -544,11 +544,14 @@ Helm 与离线清单里的 `0.1.0` 是镜像 tag、模板自身 `<version>` 是�
 | Tioka `test-compile -pl tioka-server -am` / `validate` | 均 exit 0；validate 日志无新增告警 |
 | 坐标生效实证 | 根 flattened pom 的 parent 为 `0.2.0-adapt-SNAPSHOT`；surefire classpath 实测加载 `foundation-starter-core-0.2.0-adapt-SNAPSHOT.jar` |
 | git 状态 | `main` 未混入任何 F3 文件；F3 分支成果完整；两仓库工作树干净、共享工作区 HEAD 未切换 |
+| F3 全量回归（行尾修复后） | JDK 17 `mvn -o -q test` **814 例 / 138 测试类，0 失败 / 0 错误 / 0 跳过**；Node 18/18、兼容矩阵守门通过；接口基线仍 181 条、profile 基线 4 行 |
+| **本批发现并修复的既有缺陷** | 用独立 worktree 全新检出时，`core.autocrlf=true` 把两份 `.txt` 契约基线转成 CRLF，令 `ApiInventoryContractTest` / `GaModularityGateTest` 在内容完全未变时误报「契约变更」（Linux CI 不暴露，`expected` 与 `but was` 肉眼看相同）。已在 `.gitattributes` 为该目录基线加 `text eol=lf`（`5124542`），blob 与工作树逐字节一致、无内容改动，Windows 全新克隆不再复现 |
 
 **§15.5 第 2 条的「103 个改动未提交」风险已解除**：五批成果已提交在
-`feat/f3-adaptability`（`0ac8115` / `ceda814` / `bba1b0f` / `b31a450`），
-36 号文档已提交到主仓库（`01273939`），并有 3 个 tag 与
-`.workbuddy/backups/foundation-20261116.bundle` 全历史备份。
+`feat/f3-adaptability`（`0ac8115` / `ceda814` / `bba1b0f` / `b31a450` / `5124542`），
+36 号文档与版本锁定已提交到主仓库，并有 5 个 tag 与
+`.workbuddy/backups/foundation-20261116.bundle` 全历史备份（含 `5124542`、
+`refs/heads/feat/f3-adaptability` 与 `main`）。
 
 ### 16.5 后续顺序（本批未做）
 

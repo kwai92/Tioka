@@ -252,7 +252,7 @@ F-02 迁移表第 1 步写的是整包 `com.tioka.framework.{error,id,jackson,co
 | 轨道 | 坐标 | 内容 |
 | --- | --- | --- |
 | 稳定基座 | `0.1.0-SNAPSHOT`（Foundation `main` = `6cca930`） | PF-00a 与发布 pom 回归修复，无 F3 适配性代码 |
-| 适配性剖面 | `0.2.0-adapt-SNAPSHOT`（Foundation `feat/f3-adaptability` = `b31a450`） | 含 F3 五批成果，**Tioka 当前提交锁定此轨** |
+| 适配性剖面 | `0.2.0-adapt-SNAPSHOT`（Foundation `feat/f3-adaptability` = `5124542`） | 含 F3 五批成果，**Tioka 当前提交锁定此轨** |
 
 Tioka 侧两处版本源（根 `pom.xml` 的 parent 与 `tioka-dependencies` 的 `foundation.version`）已同步锁定；
 Foundation 侧同步三处 `<revision>` 与模板 parent，并新增 `docs/version-tracks.md` 说明改版本清单与用法。
