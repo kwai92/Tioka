@@ -9,6 +9,14 @@
     "sharedSource": "${TIOKA_FOUNDATION_MODE:local}",
     "guardTest": "tioka-framework/src/test/java/com/tioka/framework/foundation/FoundationModeConfigConsistencyTest.java"
   },
+  "permissionContract": {
+    "file": "tioka-framework/src/main/resources/contracts/permission-code-mapping-v1.json",
+    "source": "tioka-framework/src/main/java/com/tioka/framework/security/Permissions.java#ALL_CONCRETE",
+    "guardScript": "scripts/verify-permission-code-mapping.mjs",
+    "evaluatorPort": "tioka-framework/src/main/java/com/tioka/framework/security/PermissionEvaluator.java",
+    "snapshotSource": "tioka-framework/src/main/java/com/tioka/framework/security/AuthorizationSnapshotSource.java",
+    "wildcardPolicy": "deny-elevation"
+  },
   "frozenDuplicates": [
     {
       "className": "Principal",
@@ -176,14 +184,14 @@
     {
       "capability": "身份上下文适配",
       "pairs": ["Principal", "PrincipalHolder", "RequirePermission"],
-      "status": "pending",
-      "note": "双实现 local / foundation，由 FoundationMode 切换"
+      "status": "done",
+      "note": "权限判定已抽为 PermissionEvaluator 端口，local / foundation 双实现由 FoundationMode 互斥装配；认证链路与两套同名类均未改动，真实中台快照适配器仍待 F2 接线"
     },
     {
       "capability": "权限码映射",
       "pairs": ["RolePermissionExpander", "AuthzSnapshot"],
-      "status": "pending",
-      "note": "Tioka 权限码与中台授权快照的权限项需要显式映射表"
+      "status": "done",
+      "note": "permission-code-mapping-v1.json 显式登记全部权限点；通配不提升、未知码忽略、超管需显式授权，由 verify-permission-code-mapping.mjs 守门"
     },
     {
       "capability": "Workspace 与组织树映射",

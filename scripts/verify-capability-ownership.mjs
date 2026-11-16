@@ -108,6 +108,25 @@ for (const d of list.frozenDuplicates) {
   check(doc.includes(d.className), `文档覆盖冻结类 ${d.className}`);
 }
 
+// 5. 权限判定双实现与映射契约（36 号文档 §18）
+const perm = list.permissionContract;
+check(perm !== undefined, '清单登记了权限码映射契约');
+if (perm !== undefined) {
+  check(exists(perm.file), '权限码映射契约文件存在');
+  check(exists(perm.guardScript), '权限码映射守门脚本存在');
+  check(exists(perm.evaluatorPort), '权限判定端口存在');
+  check(exists(perm.snapshotSource), '中台授权快照端口存在');
+  check(perm.wildcardPolicy === 'deny-elevation', '通配不提升策略已冻结');
+  const permJson = exists(perm.file) ? JSON.parse(read(perm.file)) : null;
+  check(permJson !== null && permJson.version === 1
+    && permJson.wildcardPolicy === 'deny-elevation',
+    '映射契约版本与通配策略与清单一致');
+}
+for (const name of ['身份上下文适配', '权限码映射']) {
+  const item = list.adapterRequired.find((c) => c.capability === name);
+  check(item !== undefined && item.status === 'done', `适配项「${name}」已完成`);
+}
+
 console.log(`capability ownership: ${ok.length} passed, ${fail.length} failed`);
 if (fail.length > 0) {
   for (const f of fail) console.error('  FAIL ' + f);

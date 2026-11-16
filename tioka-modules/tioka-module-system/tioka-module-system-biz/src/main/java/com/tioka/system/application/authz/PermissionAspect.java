@@ -4,6 +4,7 @@ import com.tioka.framework.error.BizException;
 import com.tioka.framework.error.ErrorCode;
 import com.tioka.framework.security.Principal;
 import com.tioka.framework.security.PrincipalHolder;
+import com.tioka.framework.security.PermissionEvaluator;
 import com.tioka.framework.security.PublicApi;
 import com.tioka.framework.security.RequirePermission;
 import com.tioka.system.api.audit.AuditApi;
@@ -25,16 +26,22 @@ import java.util.stream.Collectors;
 
 /**
  * {@link RequirePermission} 功能权限切面（FND-04）。order 早于事务。
+ *
+ * <p>判定来源委托给 {@link PermissionEvaluator}：{@code local} 模式读应用自建权限集，
+ * {@code foundation} 模式读中台授权快照（经权限码映射）。切面只负责注解解析、
+ * 拒绝审计与 403 语义，不关心权限从哪里来；两个判定器由模式开关互斥装配。
  */
 @Aspect
 @Component
 @Order(Ordered.HIGHEST_PRECEDENCE + 40)
 public class PermissionAspect {
     private final PrincipalHolder principals;
+    private final PermissionEvaluator permissions;
     private final AuditApi audit;
 
-    public PermissionAspect(PrincipalHolder principals, AuditApi audit) {
+    public PermissionAspect(PrincipalHolder principals, PermissionEvaluator permissions, AuditApi audit) {
         this.principals = principals;
+        this.permissions = permissions;
         this.audit = audit;
     }
 
@@ -58,10 +65,9 @@ public class PermissionAspect {
             return pjp.proceed();
         }
         Principal p = principals.current();
-        for (String perm : required) {
-            if (!p.hasPermission(perm)) {
-                deny(p, required, perm);
-            }
+        String missing = permissions.firstMissing(p, required);
+        if (missing != null) {
+            deny(p, required, missing);
         }
         return pjp.proceed();
     }

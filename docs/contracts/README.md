@@ -50,3 +50,15 @@ Foundation 是独立仓库与独立部署（[ADR-051](../architecture/adr/ADR-05
 - `RuntimeEventSchemaContractTest`：SSE Schema 与 Java 枚举一致、关键事件形状。
 
 M1 起按 ADR-030 第 4 条补充租约失效、审批、Flow 调度的表驱动契约测试。
+
+## Foundation 中台化：权限码映射契约（2026-11-16）
+
+`tioka-framework/src/main/resources/contracts/permission-code-mapping-v1.json` 随 framework jar
+分发，是 Tioka 权限码与 Foundation 中台授权快照权限项之间的**显式映射契约**，派生业务应用可直接复用。
+它与 `Permissions.ALL_CONCRETE` 由 `scripts/verify-permission-code-mapping.mjs` 双向守门：
+新增权限点必须同时改两处；契约策略（通配不提升、未知码忽略、超管需显式授权）不得放宽。
+接入模式的判定实现不得回落应用本地权限集，也由该脚本静态校验。
+
+- `PermissionCodeMapperTest` / `PermissionEvaluatorTest`：映射、通配、别名、超管、fail-closed 与双模式等价性。
+- `PermissionAspectUnitTest`：切面委托后的放行、403、DENIED 审计与公开接口语义（不依赖容器）。
+- `FoundationModeSwitchTest`：`local` / `foundation` 判定器互斥装配，缺中台数据源时启动期拒绝。

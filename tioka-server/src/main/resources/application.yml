@@ -190,6 +190,9 @@ foundation:
   # 若注入该值会在启动期显式失败，而不是静默按 local 运行。
   client:
     mode: ${TIOKA_FOUNDATION_MODE:local}
+  # 权限判定按模式分叉：local 用应用自建权限；foundation 用中台授权快照经权限码映射后判定。
+  # foundation 模式必须由应用装配层注册 AuthorizationSnapshotSource Bean，否则启动期拒绝，
+  # 不允许「配置写着接入中台、运行时却静默按本地权限跑」的半接线状态。
   # F-02 BAS-26 逐能力开关（ADP-05）：starter 缺省 enabled=true，仅加依赖即会自动装配。
   # data 本批只取用其 4 个 DO 基类（纯 POJO），空间过滤与审计填充仍由 Tioka 本地实现负责；
   # 自动装配若激活会额外注册 MetaObjectHandler / MybatisPlusInterceptor，故显式关闭。

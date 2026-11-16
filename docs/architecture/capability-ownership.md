@@ -41,8 +41,8 @@ DO 基类与配置属性；`security` / `client` / `audit` / `web` / `mq` / `cac
 
 | 适配项 | 涉及实现 | 状态 | 说明 |
 | --- | --- | --- | --- |
-| 身份上下文适配 | `Principal`、`PrincipalHolder`、`RequirePermission` | 待做 | 双实现 `local` / `foundation`，由模式开关切换 |
-| 权限码映射 | `RolePermissionExpander`、`AuthzSnapshot` | 待做 | Tioka 权限码与中台授权快照权限项需要显式映射表 |
+| 身份上下文适配 | `Principal`、`PrincipalHolder`、`RequirePermission` | **已完成** | 权限判定抽为 `PermissionEvaluator` 端口，`local` / `foundation` 双实现互斥装配；认证链路未动，中台快照适配器待 F2 |
+| 权限码映射 | `RolePermissionExpander`、`AuthzSnapshot` | **已完成** | `permission-code-mapping-v1.json` 显式登记 37 个权限点；通配不提升、未知码忽略、超管需显式授权 |
 | Workspace 与组织树映射 | `WorkspaceAwareDO`、`ScopeLineHandler`、`DataScopeFilterProvider` | 待做 | 仅 Tioka 保留 Workspace；派生应用走组织树与数据范围 |
 | 双模式键同源 | `tioka.foundation.mode`、`foundation.client.mode` | **已完成** | `application.yml` 同源派生，`FoundationModeConfigConsistencyTest` 守门 |
 
@@ -102,4 +102,33 @@ node scripts/verify-capability-ownership.mjs
 - 本轮**零删除**：没有删除任何类、表、列或迁移，也没有改动 Tioka 业务代码。
 - 不变更 ADR-029 第 60 条；Workspace 的存废属于独立立项。
 - Foundation 已收敛为单轨 `main` / `0.2.0-SNAPSHOT`；不配远程、不 deploy、不改 CI 发布链路。
-- 能力迁移（身份权限双实现、权限码映射、模块拆分）是后续工作，本文只固化边界与顺序。
+- 身份权限双实现与权限码映射已于 2026-11-16 下午落地，见第 5 节；模块拆分与 Workspace 存废仍属后续立项。
+
+## 5. 权限判定双实现与映射契约（2026-11-16 下午）
+
+按「Foundation 成为中台底座」的方向，把权限判定的**来源**从切面里抽出来，
+但没有引入新的 starter 依赖、没有替换两套同名身份类、没有碰认证链路：
+
+| 层 | 实现 | 约束 |
+| --- | --- | --- |
+| 端口 | `PermissionEvaluator.firstMissing(...)` | 返回第一个缺失权限码，沿用既有 403 与 DENIED 审计语义 |
+| 数据源端口 | `AuthorizationSnapshotSource.permissionsFor(personId)` | 由应用装配层提供真实中台适配器；框架层不绑定 SDK |
+| 本地实现 | `LocalPermissionEvaluator` | 逐字等价改造前的 `Principal.hasPermission`，`local` 模式零行为变化 |
+| 接入实现 | `FoundationPermissionEvaluator` | 先经权限码映射再判定；**绝不读取本地权限集**；数据源不可用一律拒绝 |
+| 映射 | `PermissionCodeMapper` + `permission-code-mapping-v1.json` | 37 个权限点与 `Permissions.ALL_CONCRETE` 逐项一致；含 `*` 的中台码全部丢弃 |
+| 装配 | `FoundationModeConfiguration` | 两实现按模式互斥；`foundation` 模式缺数据源或 Spring `ObjectMapper` 时启动期拒绝 |
+| 切面 | `PermissionAspect` | 只把判定循环换成端口调用，deny 审计与异常类型不变 |
+
+**为什么必须显式映射**：Tioka 的 `*` 是超管、`agent:*` 是通配；Foundation 授权快照只做精确匹配。
+若把中台返回的 `*` 直接灌进 `Principal.permissions()`，普通用户会被静默提升为超管。
+契约默认 `superAdminCodes` 为空，中台无法直接授予 Tioka 全量权限。
+
+**守门**：`scripts/verify-permission-code-mapping.mjs`（36 项）校验契约与代码目录同步、
+策略不被放宽、接入实现不回落本地权限、切面确实委托端口；
+`PermissionCodeMapperTest` / `PermissionEvaluatorTest` / `PermissionAspectUnitTest` 覆盖
+通配、别名、超管、fail-closed、403 与审计。`FoundationModeSwitchTest` 固化互斥装配与缺源拒绝。
+
+**边界**：本批是纯本地代码逻辑改造。`foundation` 模式所需的真实中台快照适配器
+（`AuthorizationSnapshotSource` 实现）尚未接线，属 F2；因此该模式目前会启动期拒绝，
+不会出现「配了接入中台却静默按本地权限跑」的半接线状态。权限 IT 依赖 Testcontainers，
+本机无 Docker 环境，改由不依赖容器的切面单测覆盖。

@@ -1,8 +1,15 @@
 package com.tioka.framework.foundation;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.foundation.starter.core.config.CoreAutoConfiguration;
 import com.foundation.starter.core.config.FoundationProperties;
+import com.tioka.framework.security.AuthorizationSnapshotSource;
+import com.tioka.framework.security.FoundationPermissionEvaluator;
+import com.tioka.framework.security.LocalPermissionEvaluator;
+import com.tioka.framework.security.PermissionEvaluator;
 import org.junit.jupiter.api.Test;
+
+import java.util.Set;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
@@ -15,6 +22,8 @@ import static org.mockito.Mockito.when;
 /** F-02 BAS-26：双模式开关与「Tioka 已真实依赖 Foundation 底座」的启动期守护。 */
 class FoundationModeSwitchTest {
 
+    private static final AuthorizationSnapshotSource SNAPSHOT_SOURCE = personId -> Set.of();
+
     private final ApplicationContextRunner runner =
             new ApplicationContextRunner().withUserConfiguration(FoundationModeConfiguration.class);
 
@@ -26,6 +35,9 @@ class FoundationModeSwitchTest {
             assertThat(context.getBean(TiokaFoundationProperties.class).getMode())
                     .isEqualTo(FoundationMode.LOCAL);
             assertThat(context).doesNotHaveBean(FoundationModeGuard.class);
+            assertThat(context).hasSingleBean(PermissionEvaluator.class);
+            assertThat(context.getBean(PermissionEvaluator.class))
+                    .isInstanceOf(LocalPermissionEvaluator.class);
         });
     }
 
@@ -41,6 +53,8 @@ class FoundationModeSwitchTest {
     @Test
     void foundationModeFailsFastWhenStarterContractIsMissing() {
         runner.withPropertyValues("tioka.foundation.mode=foundation")
+                .withBean(AuthorizationSnapshotSource.class, () -> SNAPSHOT_SOURCE)
+                .withBean(ObjectMapper.class, ObjectMapper::new)
                 .run(context -> {
                     assertThat(context).hasFailed();
                     assertThat(context.getStartupFailure())
@@ -57,11 +71,32 @@ class FoundationModeSwitchTest {
 
         runner.withPropertyValues("tioka.foundation.mode=foundation")
                 .withBean(FoundationProperties.class, () -> foundation)
+                .withBean(AuthorizationSnapshotSource.class, () -> SNAPSHOT_SOURCE)
+                .withBean(ObjectMapper.class, ObjectMapper::new)
                 .run(context -> {
                     assertThat(context).hasNotFailed();
                     assertThat(context).hasSingleBean(FoundationModeGuard.class);
                     assertThat(context.getBean(TiokaFoundationProperties.class).isFoundationMode())
                             .isTrue();
+                    assertThat(context).hasSingleBean(PermissionEvaluator.class);
+                    assertThat(context.getBean(PermissionEvaluator.class))
+                            .isInstanceOf(FoundationPermissionEvaluator.class);
+                });
+    }
+
+    @Test
+    void foundationModeFailsFastWithoutSnapshotSourceAdapter() {
+        FoundationProperties foundation = new FoundationProperties();
+        foundation.setAppCode("tioka");
+        foundation.setBaseUrl("https://foundation.example.com");
+
+        runner.withPropertyValues("tioka.foundation.mode=foundation")
+                .withBean(FoundationProperties.class, () -> foundation)
+                .withBean(ObjectMapper.class, ObjectMapper::new)
+                .run(context -> {
+                    assertThat(context).hasFailed();
+                    assertThat(context.getStartupFailure())
+                            .hasStackTraceContaining("AuthorizationSnapshotSource");
                 });
     }
 

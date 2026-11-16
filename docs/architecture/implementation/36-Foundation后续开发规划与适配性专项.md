@@ -601,3 +601,51 @@ Helm 与离线清单里的 `0.1.0` 是镜像 tag、模板自身 `<version>` 是�
 `RequirePermission`、SCIM 同步、Workspace 与组织树的重叠显式登记并冻结，防止向派生应用扩散。
 直接删除会破坏功能且需变更 ADR-029，本批不做。清单见 `docs/architecture/capability-ownership.md`，
 守门脚本见 `scripts/verify-capability-ownership.mjs`。
+
+## 18. 身份权限双实现与权限码映射（2026-11-16 晚）
+
+用户明确「Foundation 是整个 Tioka 及后续业务应用的中台底座」，并延续上一批的边界：
+只做本地代码逻辑、不配远程、不 deploy、不碰 Tioka 业务行为、不变更 ADR。
+本批把「权限从哪里来」从切面里抽出来，是底座接线的第一处实质改造。
+
+### 18.1 落地内容
+
+| 项 | 内容 |
+| --- | --- |
+| 判定端口 | `PermissionEvaluator.firstMissing(...)`，返回第一个缺失权限码，沿用既有 403 与 DENIED 审计 |
+| 数据源端口 | `AuthorizationSnapshotSource.permissionsFor(personId)`，框架层不绑定任何中台 SDK |
+| 本地实现 | `LocalPermissionEvaluator`，逐字等价改造前 `Principal.hasPermission`，`local` 零行为变化 |
+| 接入实现 | `FoundationPermissionEvaluator`，先映射后判定，绝不读取本地权限集，数据源不可用一律拒绝 |
+| 映射契约 | `permission-code-mapping-v1.json` 显式登记 37 个权限点，与 `Permissions.ALL_CONCRETE` 逐项一致 |
+| 装配 | `FoundationModeConfiguration` 按模式互斥装配；接入模式缺数据源或 Spring `ObjectMapper` 时启动期拒绝 |
+| 守门 | `scripts/verify-permission-code-mapping.mjs`（36 项）+ 3 组契约单测 + `FoundationModeSwitchTest` 扩展 |
+
+### 18.2 关键逻辑约束
+
+Tioka 的 `*` 是超管、`agent:*` 是通配，而 Foundation 授权快照只做精确匹配。
+若把中台返回的 `*` 直接灌进当前主体权限集，普通用户会被静默提升为超管。
+因此契约规定：含 `*` 的中台码全部丢弃；未登记码忽略；`superAdminCodes` 默认空，
+中台无法直接授予 Tioka 全量权限。接入模式还禁止回落本地权限集，避免本地残留授权绕过中台。
+
+### 18.3 验证结果
+
+| 项 | 结果 |
+| --- | --- |
+| `tioka-framework` 全量单测 | 69 例全绿（新增映射 11 例、双实现 11 例、模式装配扩展） |
+| 全仓 `test-compile -pl tioka-server -am` | exit 0 |
+| 全仓架构规则 `*ArchitectureTest` | 27 例全绿（ENG-05 的 `new ObjectMapper()` 违规已改为 Spring 注入） |
+| `PermissionAspectUnitTest` | 4 例全绿：放行 / 403 / DENIED 审计 / 公开接口 |
+| 两个守门脚本 | 映射 36 项、能力归属 70 项，均 0 失败 |
+
+权限 IT（`PermissionAspectIT` / `G1PermissionGateIT`）依赖 Testcontainers，本机无 Docker 环境，
+属既有环境限制；本批用不依赖容器的切面单测覆盖同一段切面逻辑。
+
+### 18.4 仍未完成（显式登记，不冒充已完成）
+
+1. `AuthorizationSnapshotSource` 的**真实中台适配器**未接线（F2）：需要应用装配层把
+   Foundation 授权快照客户端适配进来。在此之前 `foundation` 模式会启动期拒绝，不会半接线运行。
+2. 两套同名 `PrincipalHolder` / `RequirePermission` 未合并，`Workspace` 与组织树映射未做，
+   模块拆分与 `tioka-ai` 派生仍待立项；本批零删除。
+3. 能力归属清单 `adapterRequired` 中「身份上下文适配」「权限码映射」已标为 `done`，
+   「Workspace 与组织树映射」仍为 `pending`。
+
