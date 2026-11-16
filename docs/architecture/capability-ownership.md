@@ -162,3 +162,27 @@ node scripts/verify-permission-code-mapping.mjs
 **刻意不做**：不引入 `foundation-starter-security`（服务端安全 starter 会装配认证过滤器，
 与 Tioka 本地认证链路冲突）；不缓存授权快照（本切片每次回源，避免陈旧授权放行，
 缓存与版本失效属后续优化）；不配远程、不 deploy、不改 CI 发布链路。
+
+## 9. 接入平面产品化（P0，2026-11-16 晚）
+
+从平台视角复核发现，第 7、8 节虽然打通了链路，但**平台资产长在业务应用里**：映射契约随
+`tioka-framework` jar 分发、接入样板写在 `tioka-server`、判定端口在 Tioka framework。
+第二个应用接入会变成复制适配类 + 反向依赖第一个业务应用。本批按「规则归平台、实例归应用」
+收敛，全部为增量，零删除、零业务行为变化。
+
+| 能力 | 归属 | 落点 |
+| --- | --- | --- |
+| 权限码映射规则 | 平台 | `tioka-foundation/docs/contracts/permission-code-mapping-v1.schema.json`（冻结字段与三条策略） |
+| 权限码目录实例 | 应用 | `tioka-framework/.../permission-code-mapping-v1.json`，改为应用无关的 `applicationPermissionCodes` 并声明 `platformContract` |
+| 接入护栏 | 平台 | `foundation-starter-client` 的 `FoundationIntegrationAutoConfiguration` |
+| 六项自检包 | 平台 | `FoundationIntegrationSelfCheck` / `IntegrationSelfCheckReport`，任意派生应用可复用 |
+| 快照失效钩子 | 平台 SPI | `SnapshotInvalidationHook`，不绑定缓存实现 |
+| 第二接入方验收 | 平台 | `foundation-it-example` 的 `SecondAppOnboardingTest`，不依赖任何 `com.tioka` 类 |
+
+**平台判据**（用于后续验收，不靠数模块）：① 第二个应用接入零改中台代码；② 契约变更由平台守门
+而不是应用自觉；③ 中台不可用时 N 个应用一致 fail-closed。本批让 ① 有了可复现证据，
+② 由两仓脚本双向守门，③ 由自检的 `fail-closed` 项可验证；P1 再解决「中台退出请求热路径」。
+
+**仍未做**：快照版本化缓存与 `fdn.authz.changed` 失效（P1，平台侧 `SnapshotCache` /
+`AuthzChangedListener` 已存在，待接入验证）、应用间授权与门户卡片注册、能力目录注册表与
+破坏性变更流程（P2）、`tioka-ai` 拆分（P3）。Workspace 与组织树映射仍为 `pending`。

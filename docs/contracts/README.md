@@ -53,11 +53,17 @@ M1 起按 ADR-030 第 4 条补充租约失效、审批、Flow 调度的表驱动
 
 ## Foundation 中台化：权限码映射契约（2026-11-16）
 
-`tioka-framework/src/main/resources/contracts/permission-code-mapping-v1.json` 随 framework jar
-分发，是 Tioka 权限码与 Foundation 中台授权快照权限项之间的**显式映射契约**，派生业务应用可直接复用。
-它与 `Permissions.ALL_CONCRETE` 由 `scripts/verify-permission-code-mapping.mjs` 双向守门：
-新增权限点必须同时改两处；契约策略（通配不提升、未知码忽略、超管需显式授权）不得放宽。
-接入模式的判定实现不得回落应用本地权限集，也由该脚本静态校验。
+**规则归平台、实例归应用**：`tioka-foundation/docs/contracts/permission-code-mapping-v1.schema.json`
+是平台契约（`$id` = `urn:foundation:contract:permission-code-mapping:v1`），冻结字段名、
+`additionalProperties: false` 与三条策略 const；`tioka-framework/src/main/resources/contracts/permission-code-mapping-v1.json`
+是 Tioka 的**应用实例**，通过 `platformContract` 声明遵守平台契约，权限码目录使用应用无关的
+`applicationPermissionCodes`。实例随 framework jar 分发只是运行时需要，规则不得由应用自行放宽。
+
+新增权限点必须同时改 `Permissions.ALL_CONCRETE` 与实例，并由
+`scripts/verify-permission-code-mapping.mjs`（主仓库）与
+`tioka-foundation/scripts/verify-app-integration-contract.mjs`（平台）双向守门：
+契约策略（通配不提升、未知码忽略、超管需显式授权）不得放宽、字段不得改回绑定第一个应用的旧名、
+接入模式的判定实现不得回落应用本地权限集。
 
 - `PermissionCodeMapperTest` / `PermissionEvaluatorTest`：映射、通配、别名、超管、fail-closed 与双模式等价性。
 - `PermissionAspectUnitTest`：切面委托后的放行、403、DENIED 审计与公开接口语义（不依赖容器）。
@@ -74,3 +80,19 @@ M1 起按 ADR-030 第 4 条补充租约失效、审批、Flow 调度的表驱动
 - `HttpAuthorizationSnapshotClientTest`：路径编码、版本头、服务账号令牌、身份一致性、结构非法、版本错配不重试。
 - `FoundationAuthorizationChainTest` / `FoundationAuthzConfigurationTest`：端到端链路与双模式装配。
 - `scripts/verify-permission-code-mapping.mjs` / `verify-capability-ownership.mjs`：静态守门两仓库接线不被拆散。
+
+## Foundation 中台化：平台接入契约与自检（2026-11-16 晚，P0）
+
+派生应用接入不再靠复制 `tioka-server` 里的适配样板，而是由平台提供自动装配护栏与可复用自检包：
+
+- `foundation-starter-client` 的 `FoundationIntegrationAutoConfiguration`：只在 `FOUNDATION` 模式
+  激活，静态校验 `foundation.app-code` 登记规则与 `foundation.base-url`，本地 / 自管模式零装配。
+- `FoundationIntegrationSelfCheck` + `IntegrationSelfCheckReport`：六项自检（应用编码、基座地址、
+  服务账号、快照往返、fail-closed、快照失效钩子），按需调用、启动期不发网络请求；
+  `WARN` 不阻塞接入结论，只有 `FAIL` 才算接不上。
+- `SnapshotInvalidationHook`：平台 SPI，供 P1 的事件失效链路注册，不绑定任何缓存实现。
+- `foundation-it-example` 的 `SecondAppOnboardingTest`：第二接入方骨架，只加
+  `foundation-starter-client` 依赖与配置，不依赖任何 Tioka 类，验证「零改中台代码即可接入」。
+
+平台侧守门 `tioka-foundation/scripts/verify-app-integration-contract.mjs` 校验 schema、
+应用实例与应用侧实现三者一致；详见 36 号规划 §20。

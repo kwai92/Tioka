@@ -1,7 +1,8 @@
 {
   "version": 1,
+  "platformContract": "urn:foundation:contract:permission-code-mapping:v1",
   "date": "2026-11-16",
-  "note": "Tioka 权限码与 Foundation 中台授权快照权限项的显式映射契约。foundation 模式下，中台权限码必须先经本表转换才能参与 Tioka 的权限判定；新增权限点必须同步 Permissions.ALL_CONCRETE 与本表，并由 scripts/verify-permission-code-mapping.mjs 守门。",
+  "note": "Tioka 应用实例，遵守 Foundation 平台契约 tioka-foundation/docs/contracts/permission-code-mapping-v1.schema.json：规则与字段名由平台定义，本实例只登记 Tioka 自己的具体权限码。新增权限点必须同步 Permissions.ALL_CONCRETE 与本实例，并由两仓守门脚本双向校验。",
   "source": "tioka-framework/src/main/java/com/tioka/framework/security/Permissions.java#ALL_CONCRETE",
   "guardScript": "scripts/verify-permission-code-mapping.mjs",
   "wildcardPolicy": "deny-elevation",
@@ -9,7 +10,7 @@
   "requiredCodePolicy": "deny-unregistered",
   "superAdminCodes": [],
   "aliases": {},
-  "tiokaPermissionCodes": [
+  "applicationPermissionCodes": [
     "agent:read",
     "agent:write",
     "agent:publish",

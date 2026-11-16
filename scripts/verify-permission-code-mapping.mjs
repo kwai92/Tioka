@@ -34,6 +34,10 @@ const paths = {
   serverPom: 'tioka-server/pom.xml',
   chainTest: 'tioka-server/src/test/java/com/tioka/server/foundation/FoundationAuthorizationChainTest.java',
   adapterTest: 'tioka-server/src/test/java/com/tioka/server/foundation/FoundationAuthzConfigurationTest.java',
+  platformSchema: 'tioka-foundation/docs/contracts/permission-code-mapping-v1.schema.json',
+  integrationSelfCheck: 'tioka-foundation/foundation-starter-client/src/main/java/com/foundation/starter/client/integration/FoundationIntegrationSelfCheck.java',
+  onboardingTest: 'tioka-foundation/foundation-it-example/src/test/java/com/foundation/example/onboarding/SecondAppOnboardingTest.java',
+  itExamplePom: 'tioka-foundation/foundation-it-example/pom.xml',
 };
 
 check(exists(CONTRACT), '权限码映射契约存在');
@@ -74,7 +78,7 @@ check(block !== null, 'Permissions.ALL_CONCRETE 数组可解析');
 const declaredNames = block === null ? [] : [...block[1].matchAll(/\b([A-Z][A-Z0-9_]*)\b/g)].map((m) => m[1]);
 const declaredCodes = declaredNames.map((n) => consts.get(n));
 check(declaredCodes.every((c) => typeof c === 'string'), 'ALL_CONCRETE 中的常量都能解析出权限码字面量');
-const contractCodes = contract.tiokaPermissionCodes;
+const contractCodes = contract.applicationPermissionCodes;
 check(Array.isArray(contractCodes) && contractCodes.length > 0, '契约权限码目录非空');
 check(new Set(contractCodes).size === contractCodes.length, '契约权限码无重复项');
 check(contractCodes.every((c) => typeof c === 'string' && c.trim() !== '' && !c.includes('*')),
@@ -146,6 +150,25 @@ check(httpClientJava.includes('matches(root, "personId", personId)')
 check(exists(paths.snapshotClient), '底座快照客户端接口存在');
 check(exists(paths.chainTest) && exists(paths.adapterTest),
   '端到端链路测试与装配测试存在');
+
+// 6. 平台契约归位（P0 接入平面）：规则由 Foundation 定义，应用实例与实现都不得漂移
+const schema = JSON.parse(read(paths.platformSchema));
+check(schema.$id === contract.platformContract, '应用实例声明遵守平台契约标识');
+check(schema.additionalProperties === false, '平台 schema 禁止应用自造字段');
+check(schema.properties.wildcardPolicy.const === contract.wildcardPolicy
+  && schema.properties.unknownCodePolicy.const === contract.unknownCodePolicy
+  && schema.properties.requiredCodePolicy.const === contract.requiredCodePolicy,
+  '应用实例策略与平台 schema 的 const 完全一致');
+check(schema.properties.applicationPermissionCodes !== undefined
+  && schema.properties.tiokaPermissionCodes === undefined,
+  '平台 schema 使用应用无关字段名，不绑定第一个业务应用');
+check(mapperJava.includes('root.path("applicationPermissionCodes")')
+  && !mapperJava.includes('tiokaPermissionCodes'),
+  '应用映射器按平台字段名读取，不残留旧字段名');
+check(exists(paths.integrationSelfCheck) && exists(paths.onboardingTest),
+  '平台接入自检器与第二接入方骨架存在');
+check(!read(paths.itExamplePom).includes('<groupId>com.tioka</groupId>'),
+  '第二接入方骨架不依赖第一个业务应用构件');
 
 console.log(`permission-code-mapping: ${ok.length} passed, ${fail.length} failed`);
 if (fail.length > 0) {

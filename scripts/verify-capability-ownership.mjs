@@ -146,6 +146,40 @@ const appYml = read(list.configContract.file);
 check(appYml.includes('FOUNDATION_CLIENT_ID') && appYml.includes('FOUNDATION_TOKEN_URI'),
   '接入模式的服务账号凭据有环境变量入口');
 
+// 7. 接入平面（36 号 §20）：平台资产归位与第二接入方验收
+const ic = list.integrationContract;
+check(ic !== undefined, '清单登记了平台接入契约');
+if (ic !== undefined) {
+  for (const [label, key] of [['平台 schema', 'platformSchema'],
+    ['应用实例', 'applicationInstance'], ['接入护栏', 'platformGuard'],
+    ['自检器', 'selfCheck'], ['自检报告', 'selfCheckReport'],
+    ['失效钩子', 'invalidationHook'], ['骨架 POM', 'secondAppExample'],
+    ['骨架验收', 'onboardingTest']]) {
+    check(typeof ic[key] === 'string' && exists(ic[key]), `清单登记并存在${label}：${key}`);
+  }
+  for (const s of ic.guardScripts) {
+    check(exists(s), `平台契约守门脚本存在：${s}`);
+  }
+  const platformSchema = JSON.parse(read(ic.platformSchema));
+  const appInstance = JSON.parse(read(ic.applicationInstance));
+  check(platformSchema.$id === ic.platformId, '平台 schema 标识与清单一致');
+  check(appInstance.platformContract === ic.platformId, '应用实例声明遵守平台契约');
+  check(platformSchema.additionalProperties === false, '平台 schema 禁止应用自造字段');
+  check(platformSchema.properties[ic.fieldNaming] !== undefined, '平台 schema 使用应用无关字段名');
+  check(platformSchema.properties[ic.bannedLegacyField] === undefined,
+    '平台 schema 不含绑定第一个应用的旧字段名');
+  check(Array.isArray(appInstance[ic.fieldNaming]) && appInstance[ic.bannedLegacyField] === undefined,
+    '应用实例按平台字段名登记权限码');
+  const examplePom = read(ic.secondAppExample);
+  check(examplePom.includes('<groupId>com.tioka</groupId>') === false,
+    '第二接入方骨架不依赖第一个业务应用构件');
+  check(read(ic.onboardingTest).includes('com.tioka.framework.security.PermissionEvaluator'),
+    '骨架验收显式断言不存在 Tioka 框架类');
+  check(read('tioka-foundation/foundation-starter-client/src/main/resources/META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports')
+    .includes('FoundationIntegrationAutoConfiguration'), '接入护栏已注册为平台自动装配');
+  check(ic.selfCheckItems === 6, '六项自检数量冻结');
+}
+
 console.log(`capability ownership: ${ok.length} passed, ${fail.length} failed`);
 if (fail.length > 0) {
   for (const f of fail) console.error('  FAIL ' + f);

@@ -21,7 +21,7 @@ import java.util.Set;
  *
  * <ol>
  *   <li><b>通配不提升</b>：任何含 {@code *} 的中台权限项一律丢弃，不转成 Tioka 通配码；</li>
- *   <li><b>未知码忽略</b>：未登记在契约 {@code tiokaPermissionCodes} 中的码不授任何权限；</li>
+ *   <li><b>未知码忽略</b>：未登记在契约 {@code applicationPermissionCodes} 中的码不授任何权限；</li>
  *   <li><b>超管需显式授权</b>：只有契约 {@code superAdminCodes} 精确命中才授予 Tioka 超管，
  *       默认该集合为空，即中台无法直接授予 Tioka 全量权限。</li>
  * </ol>
@@ -76,7 +76,7 @@ public final class PermissionCodeMapper {
                 "requiredCodePolicy 必须为 deny-unregistered");
 
         Set<String> codes = new LinkedHashSet<>();
-        JsonNode codesNode = root.path("tiokaPermissionCodes");
+        JsonNode codesNode = root.path("applicationPermissionCodes");
         require(codesNode.isArray() && !codesNode.isEmpty(), "权限码目录不得为空");
         for (JsonNode node : codesNode) {
             String code = node.asText("").trim();

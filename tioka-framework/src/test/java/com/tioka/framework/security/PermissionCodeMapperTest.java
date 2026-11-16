@@ -109,13 +109,13 @@ class PermissionCodeMapperTest {
     @Test
     void 目录含重复项或通配项时拒绝加载() throws IOException {
         ObjectNode duplicated = contract();
-        ((ArrayNode) duplicated.get("tiokaPermissionCodes")).add("agent:read");
+        ((ArrayNode) duplicated.get("applicationPermissionCodes")).add("agent:read");
         assertThatThrownBy(() -> PermissionCodeMapper.fromContract(duplicated))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("重复");
 
         ObjectNode wildcard = contract();
-        ((ArrayNode) wildcard.get("tiokaPermissionCodes")).add("agent:*");
+        ((ArrayNode) wildcard.get("applicationPermissionCodes")).add("agent:*");
         assertThatThrownBy(() -> PermissionCodeMapper.fromContract(wildcard))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("通配");

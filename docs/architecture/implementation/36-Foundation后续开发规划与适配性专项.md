@@ -697,3 +697,66 @@ Tioka 的 `*` 是超管、`agent:*` 是通配，而 Foundation 授权快照只�
 - 仍未做：Workspace 与组织树映射、两套同名身份类合并、模块拆分与 `tioka-ai` 派生、
   F2 剩余能力（应用间授权 / 卡片注册 / 多源同步）、F1 债务。
 
+## 20. 接入平面产品化（2026-11-16 晚，P0）
+
+用户要求后续设计与设想都从平台、中台角度出发。以 ADR-051 三条定案复核 F4 后确认：
+第 3 条「令牌只带身份、应用取快照」已对齐，但权限点未走平台清单登记；
+第 4 条「接入靠 SDK 与契约、六项自检」与第 5 条「Foundation 不在请求热路径」尚未落实。
+更关键的是**平台资产长在业务应用里**：映射契约随 `tioka-framework` jar 分发、接入样板写在
+`tioka-server`、守门脚本在主仓库、判定端口在 Tioka framework。第二个应用要接入就得复制适配类
+并反向依赖第一个业务应用——这是分叉，不是平台。
+
+同时核实到一个既有事实：`foundation-starter-security` 已含 `SnapshotCache`（版本化缓存）、
+`AuthzChangedListener`（事件失效）与 `PermissionAspect`（注解判定）。因此 P0 不是再造一套，
+而是把「标准路径 + 轻量只读路径」变成可自助接入、可自检、契约归平台的产品；缓存与事件失效
+的接入验证属 P1，不在本批重复实现。
+
+### 20.1 平台侧：接入护栏与自检包
+
+`foundation-starter-client` 新增 `integration` 包与 `FoundationIntegrationAutoConfiguration`：
+
+- 静态护栏只在 `FOUNDATION` 模式且 `client` 能力开启时激活，只拒绝「显式配置但非法」的
+  `foundation.app-code` / `foundation.base-url`；app-code 缺省不拒绝，避免误伤 Foundation 自身
+  模块与存量接入方；`local` / `self-managed` 一个 Bean 都不装配。
+- `FoundationIntegrationSelfCheck` 提供六项自检：应用编码登记、基座地址、服务账号凭据、
+  快照往返、判定链路 fail-closed、快照失效钩子（`SnapshotInvalidationHook` 可选 SPI）。
+  自检**按需调用**，启动期不发任何网络请求；`WARN` 不阻塞接入结论（网关注入令牌、P1 事件失效
+  待接），只有 `FAIL` 才算接不上。
+- 自检器不依赖任何业务应用端口，也不引 `foundation-starter-security`，任意派生应用可直接复用。
+
+### 20.2 契约归位
+
+平台新增 `tioka-foundation/docs/contracts/permission-code-mapping-v1.schema.json`
+（`$id` = `urn:foundation:contract:permission-code-mapping:v1`），冻结 `additionalProperties: false`
+与三条策略 const；应用实例改用**应用无关**的 `applicationPermissionCodes`（原
+`tiokaPermissionCodes` 绑定第一个业务应用名），并新增 `platformContract` 声明遵守平台契约。
+Tioka 运行时行为不变：`PermissionCodeMapper` 只换了读取的 JSON 键名，映射规则、37 个权限点、
+fail-closed 语义逐字未动。
+
+`tioka-foundation/scripts/verify-app-integration-contract.mjs` 与主仓库
+`scripts/verify-permission-code-mapping.mjs` 双向守门：schema 自身、实例字段集合、策略 const、
+权限码格式、别名目标、应用侧实现不得改回旧键或放宽策略，以及「平台 schema 不得绑定第一个
+应用名称」「第二接入方骨架不得依赖 `com.tioka`」。
+
+### 20.3 第二接入方验收
+
+`foundation-it-example` 作为最小骨架，只加 `foundation-starter-client`（test scope）+ 配置，
+不引 security starter、不依赖任何 Tioka 类。`SecondAppOnboardingTest` 用
+`ApplicationContextRunner` 证明：自动装配出接入自检器与快照客户端、六项自检通过；
+非法 app-code / base-url 启动期拒绝；本地模式零装配；自检按需执行，启动期零 HTTP 调用。
+这是第一次给出「第二个应用零改中台代码即可接入」的可复现证据。
+
+### 20.4 验证与边界
+
+| 项 | 结果 |
+| --- | --- |
+| `FoundationIntegrationSelfCheckTest` | 12 例全绿（含 null 快照、快照异常、判定器放行 null、告警不阻塞等） |
+| `SecondAppOnboardingTest` | 6 例全绿（零代码接入、无 Tioka 类、启动期护栏、本地模式零装配、按需自检） |
+| 三个守门 + 兼容矩阵 | 权限映射 67 / 能力归属 87 / 平台契约 42，兼容矩阵通过 |
+| Tioka 定向 | 映射、判定、模式互斥、切面 4 类 RC=0，字段改名零回归 |
+
+**边界**：不配远程、不 deploy、不改 CI 发布链路；未动 Tioka 业务行为、未删任何类或表、
+未变更 ADR-029；`local` 模式零行为变化。P0 刻意不实现快照缓存与事件失效（P1），
+不做应用间授权 / 卡片注册 / 能力目录注册表（P2），不拆 `tioka-ai`（P3）。
+两项待定决策（Tioka 是否退化为纯派生壳、Workspace 是否整体废止）仍不阻塞 P0/P1，只阻塞 P3。
+
