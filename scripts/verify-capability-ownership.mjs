@@ -236,6 +236,34 @@ check(offenders.length === 0,
   '依赖容器的测试类均命名为 *IT.java，不被 surefire 抓进离线单测阶段'
   + (offenders.length ? '：' + offenders.join(', ') : ''));
 
+// Spring 组件若声明多个 public 构造器，必须恰好一个标 @Autowired，否则 Spring 回退找无参
+// 构造器并抛 "No default constructor found"，整条依赖链装配失败、所有 @SpringBootTest 起不来。
+// 该缺陷离线单测无法暴露（单测直接 new），只在 CI backend job 爆发。
+//
+// 两处必须注意，否则守门会假通过（两者都曾实际踩到）：
+//  1) @Autowired 有「简写 import」与「全限定 @org.springframework...Autowired」两种写法；
+//  2) 必须先剥离 Java 注释——javadoc 里提到 @Autowired 会让裸 includes('Autowired') 误判为已标注。
+const SPRING_STEREOTYPES = ['@Component', '@Service', '@Repository', '@Configuration',
+  '@RestController', '@Controller'];
+const stripJavaComments = (src) => src
+  .replace(/\/\*[\s\S]*?\*\//g, '')
+  .replace(/\/\/[^\n]*/g, '');
+const multiCtorNoAutowire = walk('tioka-modules').concat(walk('tioka-server'), walk('tioka-framework'))
+  .map((p) => rel(p))
+  .filter((p) => p.endsWith('.java') && p.includes('/src/main/'))
+  .filter((p) => {
+    const src = stripJavaComments(read(p));
+    if (!SPRING_STEREOTYPES.some((a) => new RegExp('^' + a + '\\b', 'm').test(src))) return false;
+    const cls = path.basename(p, '.java');
+    const ctors = src.match(new RegExp('public\\s+' + cls + '\\s*\\(', 'g')) || [];
+    if (ctors.length < 2) return false;
+    return !src.includes('Autowired');
+  });
+check(multiCtorNoAutowire.length === 0,
+  'Spring 组件多构造器时必须标注 @Autowired，否则 CI 上装配失败'
+  + (multiCtorNoAutowire.length ? '：' + multiCtorNoAutowire.join(', ') : ''));
+
+
 console.log(`capability ownership: ${ok.length} passed, ${fail.length} failed`);
 if (fail.length > 0) {
   for (const f of fail) console.error('  FAIL ' + f);

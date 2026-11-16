@@ -43,6 +43,17 @@ public class ModelMetrics {
     private final ConcurrentMap<String, AtomicReference<Double>> circuitStates = new ConcurrentHashMap<>();
     private final ConcurrentMap<String, AtomicReference<Double>> quotaRatios = new ConcurrentHashMap<>();
 
+    /**
+     * Spring 装配用构造器。
+     *
+     * <p><b>必须显式标注 {@code @Autowired}</b>：本类有两个 public 构造器（另一个供离线单测直接
+     * 注入 {@code MeterRegistry}）。Spring 在多候选构造器且无标注时会回退去找无参构造器，
+     * 找不到即抛 {@code Failed to instantiate [...]: No default constructor found}，
+     * 导致依赖它的 {@code DefaultModelGateway} → {@code KnowledgeService} →
+     * {@code TiokaMcpOutboundServer} 整条链装配失败，所有 {@code @SpringBootTest} 起不来。
+     * 该缺陷由 CI 的 backend job 暴露（run 43907040425），本地离线单测因直接 new 而不复现。
+     */
+    @org.springframework.beans.factory.annotation.Autowired
     public ModelMetrics(ObjectProvider<MeterRegistry> registries) {
         this.registries = registries;
     }
