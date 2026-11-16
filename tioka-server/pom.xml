@@ -16,6 +16,13 @@
             <groupId>com.tioka</groupId>
             <artifactId>tioka-framework</artifactId>
         </dependency>
+        <!-- F4 第一处真实接线：接入模式复用底座的授权快照只读客户端。
+             刻意不引 foundation-starter-security（服务端安全 starter 会与本地认证链路冲突）；
+             本地模式由 foundation.client.mode 同源关闭出站通道，零行为变化。 -->
+        <dependency>
+            <groupId>com.foundation</groupId>
+            <artifactId>foundation-starter-client</artifactId>
+        </dependency>
         <dependency>
             <groupId>com.tioka</groupId>
             <artifactId>tioka-module-system-api</artifactId>

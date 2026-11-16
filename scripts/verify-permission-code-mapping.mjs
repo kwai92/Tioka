@@ -26,6 +26,14 @@ const paths = {
   snapshotSource: SEC + 'AuthorizationSnapshotSource.java',
   aspect: 'tioka-modules/tioka-module-system/tioka-module-system-biz/src/main/java/com/tioka/system/application/authz/PermissionAspect.java',
   configuration: 'tioka-framework/src/main/java/com/tioka/framework/foundation/FoundationModeConfiguration.java',
+  snapshotClient: 'tioka-foundation/foundation-starter-client/src/main/java/com/foundation/starter/client/authz/AuthorizationSnapshotClient.java',
+  httpSnapshotClient: 'tioka-foundation/foundation-starter-client/src/main/java/com/foundation/starter/client/authz/HttpAuthorizationSnapshotClient.java',
+  clientConfiguration: 'tioka-foundation/foundation-starter-client/src/main/java/com/foundation/starter/client/config/FoundationClientAutoConfiguration.java',
+  snapshotAdapter: 'tioka-server/src/main/java/com/tioka/server/foundation/FoundationAuthorizationSnapshotSource.java',
+  adapterConfiguration: 'tioka-server/src/main/java/com/tioka/server/foundation/FoundationAuthzConfiguration.java',
+  serverPom: 'tioka-server/pom.xml',
+  chainTest: 'tioka-server/src/test/java/com/tioka/server/foundation/FoundationAuthorizationChainTest.java',
+  adapterTest: 'tioka-server/src/test/java/com/tioka/server/foundation/FoundationAuthzConfigurationTest.java',
 };
 
 check(exists(CONTRACT), '权限码映射契约存在');
@@ -106,6 +114,38 @@ check(configJava.includes('ConditionalOnFoundationMode(FoundationMode.LOCAL)')
   '两种模式互斥装配判定器');
 check(configJava.includes('AuthorizationSnapshotSource') && configJava.includes('no AuthorizationSnapshotSource bean'),
   '接入模式缺少授权数据源时启动期拒绝');
+
+// 5. 授权快照接入链路（36 号 §19）：底座提供客户端，应用只做端口适配
+const adapterJava = read(paths.snapshotAdapter);
+const adapterConfigJava = read(paths.adapterConfiguration);
+const clientConfigJava = read(paths.clientConfiguration);
+const httpClientJava = read(paths.httpSnapshotClient);
+const serverPom = read(paths.serverPom);
+
+check(adapterJava.includes('implements AuthorizationSnapshotSource'), '适配器实现框架层授权快照端口');
+check(!/hasPermission\(|\.permissions\(\)|new ObjectMapper\(|OkHttpClient/.test(adapterJava),
+  '适配器不读本地权限集、不自建 ObjectMapper 或 HTTP 客户端');
+check(adapterConfigJava.includes('@ConditionalOnFoundationMode(FoundationMode.FOUNDATION)'),
+  '应用装配层只在接入模式注册授权数据源');
+check(!adapterConfigJava.includes('FoundationMode.LOCAL'), '本地模式不注册中台授权数据源');
+check(adapterConfigJava.includes('no AuthorizationSnapshotClient bean'),
+  '接入模式缺底座客户端时启动期拒绝');
+check(serverPom.includes('<artifactId>foundation-starter-client</artifactId>'),
+  '应用层引入底座只读客户端');
+check(!serverPom.includes('<artifactId>foundation-starter-security</artifactId>'),
+  '未引入会冲突的服务端安全 starter');
+check(clientConfigJava.includes('AuthorizationSnapshotClient authorizationSnapshotClient('),
+  '底座在接入模式注册授权快照客户端');
+check(clientConfigJava.includes('BearerTokenSupplier serviceAccountTokenProvider')
+  && clientConfigJava.includes('serviceAccountTokenProvider, foundationCircuitBreaker'),
+  '底座 HTTP 客户端注入服务账号令牌，出站不再传 null');
+check(httpClientJava.includes('matches(root, "personId", personId)')
+  && httpClientJava.includes('matches(root, "appCode", appCode)')
+  && httpClientJava.includes('!permissions.isArray()'),
+  '快照客户端校验身份一致性、应用编码与权限项结构');
+check(exists(paths.snapshotClient), '底座快照客户端接口存在');
+check(exists(paths.chainTest) && exists(paths.adapterTest),
+  '端到端链路测试与装配测试存在');
 
 console.log(`permission-code-mapping: ${ok.length} passed, ${fail.length} failed`);
 if (fail.length > 0) {

@@ -62,3 +62,15 @@ M1 起按 ADR-030 第 4 条补充租约失效、审批、Flow 调度的表驱动
 - `PermissionCodeMapperTest` / `PermissionEvaluatorTest`：映射、通配、别名、超管、fail-closed 与双模式等价性。
 - `PermissionAspectUnitTest`：切面委托后的放行、403、DENIED 审计与公开接口语义（不依赖容器）。
 - `FoundationModeSwitchTest`：`local` / `foundation` 判定器互斥装配，缺中台数据源时启动期拒绝。
+
+## Foundation 中台化：授权快照接入契约（2026-11-16 晚）
+
+`foundation-starter-client` 的 `AuthorizationSnapshotClient` 是派生应用读取中台授权的**唯一只读入口**，
+调用 `GET /api/fdn/apps/{appCode}/persons/{personId}/snapshot`，只交出中台原始权限项：
+空集合表示「成功查询且确实无权限」，`null` 或异常表示不可用，调用方一律 fail-closed。
+响应必须满足 `personId` / `appCode` 与请求一致且 `permissions` 为文本数组，否则整份快照作废；
+语义转换仍由接入方的映射契约负责，底座不解释权限码。
+
+- `HttpAuthorizationSnapshotClientTest`：路径编码、版本头、服务账号令牌、身份一致性、结构非法、版本错配不重试。
+- `FoundationAuthorizationChainTest` / `FoundationAuthzConfigurationTest`：端到端链路与双模式装配。
+- `scripts/verify-permission-code-mapping.mjs` / `verify-capability-ownership.mjs`：静态守门两仓库接线不被拆散。

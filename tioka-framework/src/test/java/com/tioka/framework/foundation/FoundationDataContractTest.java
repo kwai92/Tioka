@@ -16,6 +16,8 @@ import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import java.io.Serializable;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -85,8 +87,12 @@ class FoundationDataContractTest {
         String yml = serverApplicationYml();
         int foundation = yml.indexOf("\nfoundation:");
         assertTrue(foundation >= 0, "application.yml 应含 foundation 配置段");
-        // 精确断言：foundation 段下的 data.enabled=false（避免被其它同名片段误判）
-        String section = yml.substring(foundation, Math.min(yml.length(), foundation + 800));
+        // 精确断言：foundation 段下的 data.enabled=false（避免被其它同名片段误判）。
+        // 按「下一个无缩进顶层键」截取整段，而不是固定字符窗口：新增合法子键（如服务账号
+        // 凭据）不应把 data 段挤出窗口造成误报。
+        Matcher nextTopLevel = Pattern.compile("(?m)^[a-z][a-z0-9-]*:").matcher(yml);
+        int end = nextTopLevel.find(foundation + 2) ? nextTopLevel.start() : yml.length();
+        String section = yml.substring(foundation, end);
         assertTrue(section.matches("(?s).*\\n\\s+data:\\s*\\n\\s+enabled:\\s*false\\b.*"),
                 "Tioka 必须在 foundation 段显式关闭 data 能力，避免仅加依赖就自动装配出冲突 bean");
     }

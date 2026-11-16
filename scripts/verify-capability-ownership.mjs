@@ -127,6 +127,25 @@ for (const name of ['身份上下文适配', '权限码映射']) {
   check(item !== undefined && item.status === 'done', `适配项「${name}」已完成`);
 }
 
+// 6. 授权快照接入（36 号 §19）：清单、代码、装配接线三者同步
+for (const [label, key] of [['底座快照客户端', 'snapshotClient'],
+  ['应用适配器', 'snapshotAdapter'], ['装配入口', 'adapterConfiguration']]) {
+  check(typeof perm[key] === 'string' && exists(perm[key]), `清单登记并存在${label}：${key}`);
+}
+const snapshotAdapterItem = list.adapterRequired.find((c) => c.capability === '授权快照接入');
+check(snapshotAdapterItem !== undefined && snapshotAdapterItem.status === 'done',
+  '适配项「授权快照接入」已完成');
+const clientConfiguration = read('tioka-foundation/foundation-starter-client/src/main/java/com/foundation/starter/client/config/FoundationClientAutoConfiguration.java');
+check(clientConfiguration.includes('BearerTokenSupplier serviceAccountTokenProvider'),
+  '底座出站客户端已接上服务账号令牌');
+const serverPom = read('tioka-server/pom.xml');
+check(serverPom.includes('<artifactId>foundation-starter-client</artifactId>')
+  && !serverPom.includes('<artifactId>foundation-starter-security</artifactId>'),
+  '应用层只引入底座只读客户端，不引入服务端安全 starter');
+const appYml = read(list.configContract.file);
+check(appYml.includes('FOUNDATION_CLIENT_ID') && appYml.includes('FOUNDATION_TOKEN_URI'),
+  '接入模式的服务账号凭据有环境变量入口');
+
 console.log(`capability ownership: ${ok.length} passed, ${fail.length} failed`);
 if (fail.length > 0) {
   for (const f of fail) console.error('  FAIL ' + f);

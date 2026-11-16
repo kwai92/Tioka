@@ -49,7 +49,8 @@ management:
 
 tioka:
   # F-02 BAS-26 / F-11 BAS-20：local=私有化单 Tioka（默认，不连中台）| foundation=接入中台
-  # 接入模式的实际接线（授权快照、starter、离职联动）由 BAS-20 完成；切换前请勿开启
+  # 授权快照链路已接线（foundation-starter-client + 应用装配层适配器），见 36 号规划 §19；
+  # 离职联动等其余 BAS-20 能力仍待接，切换到 foundation 前须配齐 FOUNDATION_URL 与服务账号凭据
   foundation:
     mode: ${TIOKA_FOUNDATION_MODE:local}
   env:
@@ -184,6 +185,13 @@ foundation:
   enabled: true
   app-code: tioka
   base-url: ${FOUNDATION_URL:http://localhost:8080}
+  # 服务账号凭据（client_credentials）：接入模式下由 foundation-starter-client 换取 access token，
+  # 出站带 Authorization 才能通过中台快照端点的应用编码校验。未配置时令牌提供者返回空，
+  # 中台端点会拒绝请求，权限判定保持 fail-closed（不会静默回落到本地权限集）。
+  service-account:
+    client-id: ${FOUNDATION_CLIENT_ID:}
+    client-secret: ${FOUNDATION_CLIENT_SECRET:}
+    token-uri: ${FOUNDATION_TOKEN_URI:}
   # F-02 BAS-26 / ADP-08：与上面的 tioka.foundation.mode 由同一环境变量派生。
   # 底座 starter 未显式配置时按 FOUNDATION（连中台）判定，不同步会出现「应用以为单飞、
   # starter 仍连中台」；同源派生后两侧恒一致。self-managed 目前未被 Tioka 侧支持，
@@ -191,7 +199,8 @@ foundation:
   client:
     mode: ${TIOKA_FOUNDATION_MODE:local}
   # 权限判定按模式分叉：local 用应用自建权限；foundation 用中台授权快照经权限码映射后判定。
-  # foundation 模式必须由应用装配层注册 AuthorizationSnapshotSource Bean，否则启动期拒绝，
+  # 接入模式由 FoundationAuthzConfiguration 注册 AuthorizationSnapshotSource（F4 已接线）；
+  # 若 starter-client 未激活（两个 mode 键不同步或依赖缺失）则启动期拒绝，
   # 不允许「配置写着接入中台、运行时却静默按本地权限跑」的半接线状态。
   # F-02 BAS-26 逐能力开关（ADP-05）：starter 缺省 enabled=true，仅加依赖即会自动装配。
   # data 本批只取用其 4 个 DO 基类（纯 POJO），空间过滤与审计填充仍由 Tioka 本地实现负责；

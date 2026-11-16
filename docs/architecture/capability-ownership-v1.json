@@ -15,6 +15,9 @@
     "guardScript": "scripts/verify-permission-code-mapping.mjs",
     "evaluatorPort": "tioka-framework/src/main/java/com/tioka/framework/security/PermissionEvaluator.java",
     "snapshotSource": "tioka-framework/src/main/java/com/tioka/framework/security/AuthorizationSnapshotSource.java",
+    "snapshotClient": "tioka-foundation/foundation-starter-client/src/main/java/com/foundation/starter/client/authz/AuthorizationSnapshotClient.java",
+    "snapshotAdapter": "tioka-server/src/main/java/com/tioka/server/foundation/FoundationAuthorizationSnapshotSource.java",
+    "adapterConfiguration": "tioka-server/src/main/java/com/tioka/server/foundation/FoundationAuthzConfiguration.java",
     "wildcardPolicy": "deny-elevation"
   },
   "frozenDuplicates": [
@@ -185,7 +188,13 @@
       "capability": "身份上下文适配",
       "pairs": ["Principal", "PrincipalHolder", "RequirePermission"],
       "status": "done",
-      "note": "权限判定已抽为 PermissionEvaluator 端口，local / foundation 双实现由 FoundationMode 互斥装配；认证链路与两套同名类均未改动，真实中台快照适配器仍待 F2 接线"
+      "note": "权限判定已抽为 PermissionEvaluator 端口，local / foundation 双实现由 FoundationMode 互斥装配；认证链路与两套同名类均未改动；真实中台快照适配器已于 F4 接线"
+    },
+    {
+      "capability": "授权快照接入",
+      "pairs": ["AuthorizationSnapshotSource", "AuthorizationSnapshotClient"],
+      "status": "done",
+      "note": "foundation-starter-client 提供只读快照客户端，tioka-server 装配层适配为框架端口；接入模式不再启动期拒绝，任何快照异常均 fail-closed"
     },
     {
       "capability": "权限码映射",

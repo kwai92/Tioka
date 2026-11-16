@@ -9,7 +9,8 @@
 Foundation 要成为整个 Tioka 的中台底座，后续业务应用（如 `tioka-ai`）都应从它派生。但按代码核实，
 当前接线并不是「底座」：`tioka-framework/pom.xml` 只引 3 个构件
 （`foundation-starter-core`、`foundation-common-api`、`foundation-starter-data`），用途仅为 `Ids`、
-DO 基类与配置属性；`security` / `client` / `audit` / `web` / `mq` / `cache` 六个 starter 一个都没引。
+DO 基类与配置属性；除 F4 在 `tioka-server` 引入 `foundation-starter-client` 用于授权快照外，
+`security` / `audit` / `web` / `mq` / `cache` 五个 starter 仍未引。
 身份、账号、组织、角色权限、字典、审计、SCIM 全在 Tioka 自建。
 
 如果此时直接把 Agent 平台模块拆成 `tioka-ai`，会把 `tioka-framework` 这套自建身份权限一起复制过去
@@ -41,7 +42,8 @@ DO 基类与配置属性；`security` / `client` / `audit` / `web` / `mq` / `cac
 
 | 适配项 | 涉及实现 | 状态 | 说明 |
 | --- | --- | --- | --- |
-| 身份上下文适配 | `Principal`、`PrincipalHolder`、`RequirePermission` | **已完成** | 权限判定抽为 `PermissionEvaluator` 端口，`local` / `foundation` 双实现互斥装配；认证链路未动，中台快照适配器待 F2 |
+| 身份上下文适配 | `Principal`、`PrincipalHolder`、`RequirePermission` | **已完成** | 权限判定抽为 `PermissionEvaluator` 端口，`local` / `foundation` 双实现互斥装配；认证链路未动 |
+| 授权快照接入 | `AuthorizationSnapshotSource`、`AuthorizationSnapshotClient` | **已完成** | 底座提供只读快照客户端，应用装配层适配为框架端口；见第 8 节 |
 | 权限码映射 | `RolePermissionExpander`、`AuthzSnapshot` | **已完成** | `permission-code-mapping-v1.json` 显式登记 37 个权限点；通配不提升、未知码忽略、超管需显式授权 |
 | Workspace 与组织树映射 | `WorkspaceAwareDO`、`ScopeLineHandler`、`DataScopeFilterProvider` | 待做 | 仅 Tioka 保留 Workspace；派生应用走组织树与数据范围 |
 | 双模式键同源 | `tioka.foundation.mode`、`foundation.client.mode` | **已完成** | `application.yml` 同源派生，`FoundationModeConfigConsistencyTest` 守门 |
@@ -90,10 +92,12 @@ Workspace 不是多租户残留，而是 **ADR-029 第 60 条**定案的现任�
 
 ```bash
 node scripts/verify-capability-ownership.mjs
+node scripts/verify-permission-code-mapping.mjs
 ```
 
 脚本只读校验：冻结类的实际路径与清单逐字一致、Workspace 渗透度数字未漂移、双键同源、
-单轨版本坐标 `0.2.0-SNAPSHOT` 未被改回分轨、文档覆盖所有能力与冻结类。
+单轨版本坐标 `0.2.0-SNAPSHOT` 未被改回分轨、文档覆盖所有能力与冻结类；
+第二个脚本额外校验权限码契约同步、判定实现不回落本地、接入链路的装配与出站令牌接线。
 失败时不要直接改脚本放宽断言——先判断是「真实新增了重复实现」还是「能力已按归属迁移」，
 再更新 JSON 与本文。
 
@@ -102,9 +106,10 @@ node scripts/verify-capability-ownership.mjs
 - 本轮**零删除**：没有删除任何类、表、列或迁移，也没有改动 Tioka 业务代码。
 - 不变更 ADR-029 第 60 条；Workspace 的存废属于独立立项。
 - Foundation 已收敛为单轨 `main` / `0.2.0-SNAPSHOT`；不配远程、不 deploy、不改 CI 发布链路。
-- 身份权限双实现与权限码映射已于 2026-11-16 下午落地，见第 5 节；模块拆分与 Workspace 存废仍属后续立项。
+- 身份权限双实现与权限码映射已于 2026-11-16 下午落地，见第 7 节；授权快照接入见第 8 节；
+  模块拆分与 Workspace 存废仍属后续立项。
 
-## 5. 权限判定双实现与映射契约（2026-11-16 下午）
+## 7. 权限判定双实现与映射契约（2026-11-16 下午）
 
 按「Foundation 成为中台底座」的方向，把权限判定的**来源**从切面里抽出来，
 但没有引入新的 starter 依赖、没有替换两套同名身份类、没有碰认证链路：
@@ -123,12 +128,37 @@ node scripts/verify-capability-ownership.mjs
 若把中台返回的 `*` 直接灌进 `Principal.permissions()`，普通用户会被静默提升为超管。
 契约默认 `superAdminCodes` 为空，中台无法直接授予 Tioka 全量权限。
 
-**守门**：`scripts/verify-permission-code-mapping.mjs`（36 项）校验契约与代码目录同步、
+**守门**：`scripts/verify-permission-code-mapping.mjs` 校验契约与代码目录同步、
 策略不被放宽、接入实现不回落本地权限、切面确实委托端口；
 `PermissionCodeMapperTest` / `PermissionEvaluatorTest` / `PermissionAspectUnitTest` 覆盖
 通配、别名、超管、fail-closed、403 与审计。`FoundationModeSwitchTest` 固化互斥装配与缺源拒绝。
 
-**边界**：本批是纯本地代码逻辑改造。`foundation` 模式所需的真实中台快照适配器
-（`AuthorizationSnapshotSource` 实现）尚未接线，属 F2；因此该模式目前会启动期拒绝，
-不会出现「配了接入中台却静默按本地权限跑」的半接线状态。权限 IT 依赖 Testcontainers，
-本机无 Docker 环境，改由不依赖容器的切面单测覆盖。
+## 8. 授权快照接入（F4，2026-11-16 晚）
+
+第 7 节只完成了「判定来源可插拔」，`foundation` 模式因缺少真实数据源仍在启动期拒绝。
+本批把链路接通，让底座第一次能被第二个业务应用照着接入。
+
+| 层 | 实现 | 约束 |
+| --- | --- | --- |
+| 底座客户端 | `foundation-starter-client` 的 `AuthorizationSnapshotClient` / `HttpAuthorizationSnapshotClient` | 只在 `foundation.client.mode=foundation` 装配；复用 `FoundationHttpClient` 的版本头、服务账号令牌、重试、熔断与 trace 透传 |
+| 快照校验 | `HttpAuthorizationSnapshotClient` | 响应必须为对象，`personId` / `appCode` 与请求一致，`permissions` 为文本数组；任一不满足返回 null；`personId` 做 URL 编码，`app-code` 按登记正则校验 |
+| 应用装配 | `tioka-server` 的 `FoundationAuthzConfiguration` | 按 `tioka.foundation.mode=foundation` 注册 `AuthorizationSnapshotSource`；缺底座客户端时启动期拒绝 |
+| 端口适配 | `FoundationAuthorizationSnapshotSource` | 只转发原始权限项，不改码、不缓存、不读本地权限集 |
+| 判定 | `FoundationPermissionEvaluator` + `PermissionCodeMapper` | 先映射后判定；快照 null、抛异常或版本错配一律拒绝 |
+
+**同时修掉的真实缺陷**：`FoundationClientAutoConfiguration` 原先构造 `FoundationHttpClient` 时把
+`BearerTokenSupplier` 传成 `null`，服务账号令牌 Bean 虽然注册却从未被出站请求使用；
+接入中台快照端点时不会带 `Authorization`，会被服务端的 `requireSameApp` 拒绝。本批改为注入令牌提供者。
+
+**配置**：接入模式需显式设置 `FOUNDATION_URL`、`foundation.app-code`，以及
+`FOUNDATION_CLIENT_ID` / `FOUNDATION_CLIENT_SECRET` / `FOUNDATION_TOKEN_URI`。
+凭据缺失时令牌提供者返回空，中台端点拒绝请求，链路保持 fail-closed，不会静默回落本地权限。
+
+**验证**：`FoundationAuthorizationChainTest`（10 例，本地 HTTP 桩走完整链路）与
+`FoundationAuthzConfigurationTest`（4 例，模式互斥、缺源拒绝、接入模式不再拒绝启动）全绿。
+覆盖正常授权、缺权限、本地超管权限集不参与判定、中台通配码不提升、未登记码不回源、
+500/404、空响应、结构非法、版本错配不重试、令牌与版本头出站。
+
+**刻意不做**：不引入 `foundation-starter-security`（服务端安全 starter 会装配认证过滤器，
+与 Tioka 本地认证链路冲突）；不缓存授权快照（本切片每次回源，避免陈旧授权放行，
+缓存与版本失效属后续优化）；不配远程、不 deploy、不改 CI 发布链路。

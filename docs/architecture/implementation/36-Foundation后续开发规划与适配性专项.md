@@ -642,10 +642,58 @@ Tioka 的 `*` 是超管、`agent:*` 是通配，而 Foundation 授权快照只�
 
 ### 18.4 仍未完成（显式登记，不冒充已完成）
 
-1. `AuthorizationSnapshotSource` 的**真实中台适配器**未接线（F2）：需要应用装配层把
-   Foundation 授权快照客户端适配进来。在此之前 `foundation` 模式会启动期拒绝，不会半接线运行。
+1. `AuthorizationSnapshotSource` 的**真实中台适配器**已由第 19 节（F4）接线，
+   `foundation` 模式不再启动期拒绝；F2 剩余范围（应用间授权 / 卡片注册 / 多源同步）仍未做。
 2. 两套同名 `PrincipalHolder` / `RequirePermission` 未合并，`Workspace` 与组织树映射未做，
    模块拆分与 `tioka-ai` 派生仍待立项；本批零删除。
-3. 能力归属清单 `adapterRequired` 中「身份上下文适配」「权限码映射」已标为 `done`，
+3. 能力归属清单 `adapterRequired` 中「身份上下文适配」「权限码映射」「授权快照接入」已标为 `done`，
    「Workspace 与组织树映射」仍为 `pending`。
+
+## 19. 授权快照接入链路打通（2026-11-16 晚，F4 第一处真实接线）
+
+用户选择「打通接入链路」后，按「只做本地代码实现与逻辑准确、不配远程、不 deploy」推进。
+目标不是再补一个接口，而是让 `foundation` 模式从「启动期拒绝」变成「能运行且全程 fail-closed」。
+
+### 19.1 为什么改两个仓库
+
+`foundation-starter-security` 里的 `AuthzSnapshotClient` 属于服务端安全 starter，引入它会装配
+`PrincipalAuthenticationFilter` 并把 aop / okhttp / nimbus 传给全部业务模块，与 Tioka 本地认证冲突
+（第 18 节已刻意不引）。因此正确做法是由底座提供一个**不依赖安全 starter 的只读客户端**，
+派生应用只做端口适配——这也是「第二个应用能照着接」的前提。
+
+### 19.2 落地内容
+
+| 仓库 | 文件 | 作用 |
+| --- | --- | --- |
+| Foundation | `AuthorizationSnapshotClient` / `HttpAuthorizationSnapshotClient` | 调 `GET /api/fdn/apps/{appCode}/persons/{personId}/snapshot`，只交出原始权限项 |
+| Foundation | `FoundationClientAutoConfiguration` | 仅在 FOUNDATION 模式注册客户端；并把 `BearerTokenSupplier` 注入 `FoundationHttpClient`（原先传 null） |
+| Tioka | `tioka-server/pom.xml` | 只加 `foundation-starter-client`，不引 security starter |
+| Tioka | `FoundationAuthzConfiguration` | 按 `tioka.foundation.mode=foundation` 注册 `AuthorizationSnapshotSource`，缺底座客户端启动期拒绝 |
+| Tioka | `FoundationAuthorizationSnapshotSource` | 纯转发适配器，不改权限码、不缓存、不读本地权限集 |
+| Tioka | `application.yml` | 补服务账号凭据三个环境变量，并更新「切换前请勿开启」的过期注释 |
+
+`HttpAuthorizationSnapshotClient` 的严格校验：响应必须是对象；`personId` / `appCode` 必须与请求一致；
+`permissions` 必须是文本数组；任一不满足返回 null，由 `FoundationPermissionEvaluator` 按 fail-closed 拒绝。
+`personId` 做 URL 编码，`app-code` 按 `^[a-z][a-z0-9-]{1,31}$` 校验，避免路径注入。
+空数组是「中台明确授予零个权限」，与「取不到数据」严格区分。
+
+### 19.3 验证结果
+
+| 项 | 结果 |
+| --- | --- |
+| Foundation 全量 `mvn -o test` + `install -DskipTests` | RC=0（新增客户端 10 例、`RuntimeModeAssemblyTest` 7 例） |
+| Tioka `FoundationAuthorizationChainTest` | 10 例全绿，本地 HTTP 桩走完整链路 |
+| Tioka `FoundationAuthzConfigurationTest` | 4 例全绿：local 不注册、缺客户端拒绝、接入模式不再拒绝启动 |
+| 覆盖的失败路径 | 500/404、空响应、结构非法、错人/错应用快照、版本错配不重试、本地超管权限集不参与判定、中台通配码不提升 |
+
+`foundation` 模式现在能启动并完成判定；所有快照异常都走既有 403 与 DENIED 审计路径，不新增放行分支。
+
+### 19.4 边界与仍未完成
+
+- 不缓存授权快照：本切片每次判定回源，避免陈旧授权放行；缓存与版本失效属后续优化。
+- 服务账号凭据未配置时中台端点会拒绝请求，链路保持 fail-closed；未把「必须有令牌」做成启动期硬校验，
+  以免误伤网关注入令牌的部署形态。
+- 不配远程、不 deploy、不改 CI 发布链路；`local` 模式零行为变化。
+- 仍未做：Workspace 与组织树映射、两套同名身份类合并、模块拆分与 `tioka-ai` 派生、
+  F2 剩余能力（应用间授权 / 卡片注册 / 多源同步）、F1 债务。
 
