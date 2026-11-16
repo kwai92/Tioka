@@ -184,6 +184,12 @@ foundation:
   enabled: true
   app-code: tioka
   base-url: ${FOUNDATION_URL:http://localhost:8080}
+  # F-02 BAS-26 / ADP-08：与上面的 tioka.foundation.mode 由同一环境变量派生。
+  # 底座 starter 未显式配置时按 FOUNDATION（连中台）判定，不同步会出现「应用以为单飞、
+  # starter 仍连中台」；同源派生后两侧恒一致。self-managed 目前未被 Tioka 侧支持，
+  # 若注入该值会在启动期显式失败，而不是静默按 local 运行。
+  client:
+    mode: ${TIOKA_FOUNDATION_MODE:local}
   # F-02 BAS-26 逐能力开关（ADP-05）：starter 缺省 enabled=true，仅加依赖即会自动装配。
   # data 本批只取用其 4 个 DO 基类（纯 POJO），空间过滤与审计填充仍由 Tioka 本地实现负责；
   # 自动装配若激活会额外注册 MetaObjectHandler / MybatisPlusInterceptor，故显式关闭。
