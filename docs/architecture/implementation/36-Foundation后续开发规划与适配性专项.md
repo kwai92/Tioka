@@ -811,3 +811,102 @@ envelope 两种形态都兼容），按 appCode / personId 精确失效；JSON �
 （`policyFor("authz")` 恒为 `FAIL_CLOSED`）。P2 再做能力目录注册表、破坏性变更守门、应用间授权与
 门户卡片；P3 拆 `tioka-ai` 时应是「配置接入」而不是复制一套权限。
 
+> 注：本节的「不提供过期放行开关」在 §22 已修正——缓存改为消费 `policyFor("authz")` 注入的策略，
+> 默认仍是 `FAIL_CLOSED`（行为不变），但代码保留了 D4 拍板后的唯一改点。
+
+## 22. 第一性原理复盘：三出口矛盾与永久红的门禁（2026-11-16 夜）
+
+本批不是新功能，而是对 P0/P1 产出的**自我反查**。触发点是用户问「后续处理是否遵循第一性原理」，
+按该原则复核后发现三条自己制造的矛盾，全部有代码证据。
+
+### 22.1 三条被反查出来的矛盾
+
+| # | 事实 | 根因 | 处置 |
+| --- | --- | --- | --- |
+| ① | `application.yml:55` 与 `:200` 均为 `${TIOKA_FOUNDATION_MODE:local}`，而 `FoundationIntegrationAutoConfiguration` 是 `@ConditionalOnFoundationRuntimeMode(FOUNDATION)` | P0 接入护栏、六项自检与 P1 版本化缓存在 Tioka 默认部署下**一个 Bean 都不装配**，正确性证据只有平台自身单测与骨架，没有真实流量 | 未修（属产品决策）：登记为「Foundation 模式缺真实运行时验证入口」，见 22.4 |
+| ② | 同一降级语义有**三个**决策出口：`Degrade.policyFor("authz")`（starter-client，恒 FAIL_CLOSED）、`FoundationAuthzProperties.isStaleAllowed()`（starter-security，可 stale）、P1 硬编码 `return null`（轻量缓存）；而 `degradation.md` §2 声称 `policyFor` 是「唯一判定出口」、§1 规则 2 又说 authz 可配 stale 放行 | 我 P1 新增缓存时**没有复用平台已有的降级出口**，而是自带第三个决策；文档三处自相矛盾 | 已收敛轻量路径（见 22.2）；标准路径归 D4 管辖，刻意不动 |
+| ③ | `CedarEvaluatorTest:25` 的 `static final PolicyEvaluator EVALUATOR = new PolicyEvaluator()` 触发 cedar-java JNI 绑定 → 测试类 `<clinit>` 失败 → 5 例全 error 并连带污染 `CharterCompilerTest` 2 例 → `mvn -fae test` **永久 RC=1**，`tioka-server` 被上游失败 SKIPPED | 把「本机缺原生库」这一环境限制表达成了代码失败；一个永久红的门禁等于没有门禁，我连续多轮用口头标准「失败集合未扩大」替代确定信号 | 已修（见 22.3） |
+
+### 22.2 ②的修复：降级决策收敛为单一真相源
+
+轻量路径 `AuthorizationSnapshotCache` 不再自带决策，改为**消费注入的 `DegradePolicy`**，
+装配层传入 `Degrade.policyFor("authz")`：
+
+- 默认行为**逐字不变**：`authz` 不在降级白名单，`policyFor` 恒返回 `FAIL_CLOSED`，过期即拒绝，
+  接入方无任何配置可放宽。
+- 代码保留 `STALE_CACHE` 分支作为 D4 拍板后的**唯一改点**：若允许授权降级，只需把 `authz`
+  加进 `foundation.client.degrade.capabilities`，本类零改动即生效。
+- 两条与降级策略**解耦**的硬拒绝：版本回退、身份串号——数据错误不等于「中台不可用」，
+  任何策略下都拒绝，与标准路径对 `BizException` 不降级的处理一致。
+
+**刻意不动标准路径**：`foundation-starter-security` 的 `fail-mode=stale` 是**待决策 D4**
+（授权是否允许 fail-open）的管辖对象，D4 在 36 号规划第 9 节仍属「待负责人决策」，
+代其拍板属越权决策。已在 `degradation.md` §2.1 用表格如实记录「两个决策出口并存」为已知欠账，
+并写明两种拍板结果下各自的改动点。
+
+### 22.3 ③的修复：让回归信号恢复可判定
+
+新增测试专用 `CedarNativeSupport`：用**字符串反射**（而非 import）触发
+`com.cedarpolicy.BasicAuthorizationEngine` 的 `<clinit>` 探测原生库，避免给测试源码引入编译期
+Cedar 依赖（ArchUnit `cedarOnlyInGovernance` 要求只有 `PolicyEvaluator` 依赖 cedar-java）。
+
+- `CedarEvaluatorTest`：eager 字段改为 `@BeforeAll` + `assumeTrue` 惰性构造 → 整类按 assumption 跳过。
+- `CharterCompilerTest`：**不用类级 `@BeforeAll`**，只让「编译 → 求值联动」2 条用例受原生库影响，
+  其余 10 条纯编译产物断言在任何机器上都必须继续执行。
+- 未用 `@Disabled`：装好原生库后用例自动恢复，不是长期屏蔽。
+
+结果：`CedarEvaluatorTest` 跳过、`CharterCompilerTest` 12 例中 2 skipped / 10 通过，
+**BUILD SUCCESS，RC=0**。IT（`PolicyModeIT` / `ChainForbiddenIT`）被 surefire `**/*IT.java` 排除，
+不受影响，改动保持最小。
+
+### 22.4 后续每批的三条硬判据（本批起生效）
+
+1. **消费方先行**：开工前必须回答「这个能力当前谁在消费」。若答案是「未来的第二个应用」，
+   则该应用的骨架或 IT 必须先存在，否则不写生产代码。
+2. **语义不得并存**：新增配置键/降级策略前，先查平台是否已有同类语义；有则统一，不许两套并行。
+3. **回归信号必须可自动判定**：RC≠0 不允许用「失败集合未扩大」收尾——要么修根因，
+   要么让门禁自动区分已知环境限制（Assumptions / 条件跳过）。
+
+①的遗留：Foundation 模式至今没有一条真实运行时验证入口（Tioka 默认 `local`），
+平台能力的证据仍停在单测与骨架层。这是「消费方先行」判据下最该补的一块，建议列为 P2 前置。
+
+### 22.5 修好 ③ 之后立刻暴露的两个既有缺陷（判据③的价值实证）
+
+③ 修复让 `tioka-server` 不再被上游失败 SKIPPED，该模块**多轮以来第一次真正跑完**，
+随即暴露 1 Failure + 9 Errors。两者都**不是本批引入**，而是长期被 SKIPPED 掩盖的既有缺陷——
+这正好证明「永久红的门禁 = 没有门禁」：上游一红，下游所有真实失败都被静默吞掉。
+按判据③，不允许用「既有问题、失败集合未扩大」收尾，两者均修根因：
+
+| 现象 | 根因 | 修法 |
+| --- | --- | --- |
+| 9 Errors：`RuntimeApiContractTest` 全部 `ExceptionInInitializerError` ← `Could not find a valid Docker environment` | **命名违反本仓分层契约**：该类经 `IntegrationTestSupport` 启动 Testcontainers（PG + Redis），本质是集成测试，却命名为 `*Test`。本仓契约是 `*Test` = 离线单测（surefire）、`*IT` = 需容器（surefire `**/*IT.java` 排除、failsafe 执行），**99 个同类都叫 `*IT.java`，只有它例外**，于是被 surefire 抓进 `mvn test`，在无 Docker 的机器上必然失败并把整个模块判红 | `git mv` 为 `RuntimeApiContractIT.java`（类名同步、补 javadoc 说明命名理由）。CI 的 `mvn -B verify` 由 failsafe 执行本类，**覆盖未减少**。刻意**不**给 surefire 加 `excludedGroups=it`：那会让「文件名」与「标签」两套机制决定同一件事，属判据②禁止的语义并存 |
+| 1 Failure：`PersistenceArchTest.applicationAndKernelMustNotDependOnMappers` 3 处违规 | 真实架构违规：`StructuredOutputStatsService`（`runtime.application.metrics`）直持 `RuntimeItemStatsMapper`，违反「application/kernel 只能依赖 Repository，禁止直持 Mapper」（SCH-10 引入时未被发现，因该模块测试当时未真正执行） | 按本仓既有惯例（`GovPolicyRepository`、`ItemRepository`、`TrustActionRepository` 同构）新增 `infrastructure/RuntimeItemStatsRepository`（`@Repository`，纯转发，聚合语义仍留在 `mapper/*.xml` 不落两处），service 改注入 Repository。**不改 ArchUnit 规则、不加豁免** |
+
+新增守门把分层命名契约固化为自动检查（`verify-capability-ownership.mjs`，117 → **118** 项）：
+扫描 `tioka-server/src/test` 与 `tioka-modules`，凡含 `@Test` 且引用容器基建
+（`IntegrationTestSupport` / `TestContainers.register` / `@IntegrationTest`）的类，
+文件名必须以 `IT.java` 或 `E2E.java` 结尾；排除 `support/` 测试基建自身。
+
+**守门可证伪验证（含一次自我纠错）**：首次实现时把「注入违规后守门应 FAIL」的反向验证
+当作走过场，结果抓到的 3 条 FAIL 全是 Workspace 渗透度计数（临时副本含 Workspace 字样），
+命名守门**并未命中**——排查发现 Windows 上 `walk()` 返回的路径分隔符是 `\`，
+`p.includes('/src/test/')` 恒为 false，使该断言退化成**空集合恒真通过**（即 P0 批次出现过的
+「假守门」）。改为先 `rel(p)` 归一化再比较，重做反向验证：注入 `RuntimeApiContractTest.java`
+后报 `114 passed / 4 failed` 且明确点名该文件，删除后恢复 `118 passed / 0 failed`。
+教训：**守门必须先证明它会失败，才算存在**；这条已写入项目级 `MEMORY.md`。
+
+### 22.6 守门与验证
+
+守门脚本新增断言把三条判据钉死，并做了**反向验证**（临时注入违规代码后守门确实 FAIL，
+还原后恢复全绿），证明守门可证伪而非假通过：
+
+| 守门 | 项数 | 新增断言 |
+| --- | --- | --- |
+| `verify-app-integration-contract.mjs` | 64 → **70** | 缓存消费注入策略而非自行决定、不解析任何降级配置键、缺省构造器一律 FAIL_CLOSED、陈旧兜底仅在 STALE_CACHE 可达、版本回退与身份串号与策略解耦、装配层注入 `policyFor("authz")` |
+| `verify-capability-ownership.mjs` | 112 → **118** | 应用未自行放宽降级白名单、平台白名单不含 authz/security、Cedar 测试不在字段初始化处构造求值器、`CedarNativeSupport` + `assumeTrue` 存在、未用 `@Disabled` 长期屏蔽、**依赖容器的测试类必须命名为 `*IT.java`** |
+
+反向验证均实际执行：注入 eager 构造 `PolicyEvaluator` → 守门报 `116 passed / 1 failed`；
+注入 `RuntimeApiContractTest.java`（违规命名副本）→ 报 `114 passed / 4 failed` 并点名该文件；
+还原后两者均恢复 `118 passed / 0 failed`。其中命名守门首版因 Windows 路径分隔符
+（`\` vs `/`）退化为空集合恒真，经反向验证暴露并修复，详见 §22.5。
+

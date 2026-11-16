@@ -37,10 +37,18 @@ import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * RT-08a：RuntimeApi 各方法参数校验与错误码；TurnAwaiter 等待语义（M1-02）。
+ *
+ * <p><b>命名为 {@code *IT} 而非 {@code *Test}</b>：本类经 {@code IntegrationTestSupport}
+ * 启动 Testcontainers（PostgreSQL + Redis），属集成测试。本仓分层契约是
+ * {@code *Test} = 离线单测（surefire 执行）、{@code *IT} = 需容器（surefire 排除、
+ * failsafe 执行）；曾误命名为 {@code *Test} 而被 surefire 抓进 {@code mvn test}，
+ * 在无 Docker 的机器上必然 {@code ExceptionInInitializerError} 并把整个
+ * {@code tioka-server} 模块判红，长期掩盖了同模块其它真实失败。
+ * CI 的 {@code mvn -B verify} 由 failsafe 执行本类，覆盖未减少。
  */
 @SpringBootTest
 @Tag("it")
-class RuntimeApiContractTest {
+class RuntimeApiContractIT {
 
     @DynamicPropertySource
     static void containers(DynamicPropertyRegistry registry) {

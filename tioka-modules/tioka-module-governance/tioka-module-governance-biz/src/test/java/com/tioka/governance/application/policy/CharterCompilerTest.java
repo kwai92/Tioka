@@ -15,6 +15,7 @@ import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyList;
@@ -55,6 +56,19 @@ class CharterCompilerTest {
 
     private static PolicyStore.CedarPolicySpec specOf(List<PolicyStore.CedarPolicySpec> specs, String rule) {
         return specs.stream().filter(s -> s.policyId().endsWith(":" + rule)).findFirst().orElseThrow();
+    }
+
+    /**
+     * 构造真实 Cedar 求值器；原生库缺失时按 assumption 跳过本用例。
+     *
+     * <p>本类绝大多数用例是纯编译产物断言，不依赖 cedar-java，因此不用类级
+     * {@code @BeforeAll} 整类跳过——只让「编译 → 求值联动」这两条用例受原生库影响，
+     * 编译侧断言在任何机器上都必须继续执行。
+     */
+    private static PolicyEvaluator cedarEvaluatorOrSkip() {
+        assumeTrue(CedarNativeSupport.available(),
+                () -> "本机缺少 cedar-java 原生库，跳过编译产物求值联动用例：" + CedarNativeSupport.reason());
+        return new PolicyEvaluator();
     }
 
     @Test
@@ -162,7 +176,7 @@ class CharterCompilerTest {
         // 编译产物直接喂给真实 Cedar 求值器（编译 → 求值联动）
         PolicyStore.CedarPolicySpec s = specOf(
                 compiler.compileToSpecs(cmd(List.of(fullPayClass()), List.of())), "escalate-amount");
-        PolicyEvaluator evaluator = new PolicyEvaluator();
+        PolicyEvaluator evaluator = cedarEvaluatorOrSkip();
         Map<String, Object> ctx = new HashMap<>();
         ctx.put("agentVersion", AGV);
         ctx.put("chain", List.of(AGV));
@@ -180,7 +194,7 @@ class CharterCompilerTest {
     void compiledOutputBelowLimitAllows() throws Exception {
         PolicyStore.CedarPolicySpec s = specOf(
                 compiler.compileToSpecs(cmd(List.of(fullPayClass()), List.of())), "escalate-amount");
-        PolicyEvaluator evaluator = new PolicyEvaluator();
+        PolicyEvaluator evaluator = cedarEvaluatorOrSkip();
         Map<String, Object> ctx = new HashMap<>();
         ctx.put("agentVersion", AGV);
         ctx.put("chain", List.of(AGV));

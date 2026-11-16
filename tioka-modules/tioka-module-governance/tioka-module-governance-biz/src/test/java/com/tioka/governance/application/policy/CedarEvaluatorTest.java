@@ -6,6 +6,7 @@ import com.tioka.governance.api.policy.PolicyEvalResult;
 import com.tioka.governance.api.policy.PolicyMode;
 import com.tioka.governance.application.policy.PolicyEvaluator.PolicyEvalException;
 import com.tioka.governance.application.policy.PolicyEvaluator.ResolvedPolicy;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -14,6 +15,7 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 /**
  * GOV-07 两遍求值器离线表驱动（M3-05 §1.3，cedar-java 4.11.0 本机原生库）：
@@ -22,8 +24,22 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class CedarEvaluatorTest {
 
-    private static final PolicyEvaluator EVALUATOR = new PolicyEvaluator();
+    /**
+     * 真实 Cedar 求值器。<b>刻意不在字段初始化处构造</b>：{@code new PolicyEvaluator()}
+     * 会触发 cedar-java 的 JNI 绑定，若原生库缺失则本类的 {@code <clinit>} 直接失败，
+     * 全部用例报 error 并连带污染同 JVM 内其它测试类，使 {@code mvn test} 退出码永久非 0。
+     * 改为 {@link #initEvaluator()} 惰性构造，配合 assumption 在原生库缺失时整类跳过。
+     */
+    private static PolicyEvaluator evaluator;
+
     private static final long TIMEOUT_MS = 5000;
+
+    @BeforeAll
+    static void initEvaluator() {
+        assumeTrue(CedarNativeSupport.available(),
+                () -> "本机缺少 cedar-java 原生库，跳过 Cedar 求值用例：" + CedarNativeSupport.reason());
+        evaluator = new PolicyEvaluator();
+    }
 
     /** 授权书编译产物同款动作组/边界写法。 */
     private static final String AGV_COND =
@@ -123,7 +139,7 @@ class CedarEvaluatorTest {
     @Test
     void tableDriven() throws PolicyEvalException {
         for (Row row : ROWS) {
-            PolicyEvalResult r = EVALUATOR.evaluate(req(row.resourceAttrs(), row.contextOverrides()),
+            PolicyEvalResult r = evaluator.evaluate(req(row.resourceAttrs(), row.contextOverrides()),
                     row.policies(), 3, TIMEOUT_MS);
             assertEquals(row.expected(), r.decision(), row.name());
             assertEquals("3", r.policySetVersion(), row.name());
@@ -133,7 +149,7 @@ class CedarEvaluatorTest {
 
     @Test
     void escalateHitsReportPolicyIdModeEffect() throws PolicyEvalException {
-        PolicyEvalResult r = EVALUATOR.evaluate(req(Map.of("amountMicros", 20000L), null),
+        PolicyEvalResult r = evaluator.evaluate(req(Map.of("amountMicros", 20000L), null),
                 List.of(AMOUNT_CAP), 7, TIMEOUT_MS);
         assertEquals(1, r.hits().size());
         assertEquals("charter:av1:pay:escalate-amount", r.hits().get(0).policyId());
@@ -144,7 +160,7 @@ class CedarEvaluatorTest {
     @Test
     void denyHitsReportAllMatchedPolicies() throws PolicyEvalException {
         ResolvedPolicy scope2 = deny("scope2", AGV_COND + " && resource.amountMicros > 1");
-        PolicyEvalResult r = EVALUATOR.evaluate(req(Map.of("amountMicros", 20000L, "customerLevel", "A"), null),
+        PolicyEvalResult r = evaluator.evaluate(req(Map.of("amountMicros", 20000L, "customerLevel", "A"), null),
                 List.of(SCOPE, scope2), 1, TIMEOUT_MS);
         assertEquals(PolicyDecision.DENY, r.decision());
         assertEquals(2, r.hits().size());
@@ -156,13 +172,13 @@ class CedarEvaluatorTest {
     void parseErrorRaisesPolicyEvalException() {
         ResolvedPolicy broken = ResolvedPolicy.forbid("broken", "forbid(principal", PolicyDecision.DENY, PolicyMode.ENFORCE);
         PolicyEvalException e = assertThrows(PolicyEvalException.class, () ->
-                EVALUATOR.evaluate(req(Map.of("amountMicros", 1L), null), List.of(broken), 1, TIMEOUT_MS));
+                evaluator.evaluate(req(Map.of("amountMicros", 1L), null), List.of(broken), 1, TIMEOUT_MS));
         assertTrue(e.getMessage().contains("failed to parse policy"), e.getMessage());
     }
 
     @Test
     void emptyPolicySetAllowsWithoutErrors() throws PolicyEvalException {
-        PolicyEvalResult r = EVALUATOR.evaluate(req(Map.of("amountMicros", 1L), null), List.of(), 0, TIMEOUT_MS);
+        PolicyEvalResult r = evaluator.evaluate(req(Map.of("amountMicros", 1L), null), List.of(), 0, TIMEOUT_MS);
         assertEquals(PolicyDecision.ALLOW, r.decision());
         assertTrue(r.hits().isEmpty());
     }

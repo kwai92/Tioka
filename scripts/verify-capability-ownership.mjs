@@ -197,6 +197,45 @@ check(read('tioka-foundation/foundation-starter-client/src/main/java/com/foundat
   .includes('foundation.client.authz.*'),
   '轻量路径缓存配置收敛在 client starter 命名空间，不与 security starter 串线');
 
+// 降级策略单一真相源：应用不得自行把授权能力加进降级白名单（ADP-08 / 待决策 D4）
+check(!appYml.includes('foundation.client.degrade.capabilities')
+  && !appYml.includes('stale-cache'),
+  '应用未自行放宽降级白名单，授权降级策略仍由平台唯一出口决定');
+check(read('tioka-foundation/foundation-starter-client/src/main/java/com/foundation/starter/client/config/FoundationClientProperties.java')
+  .includes('List.of("dict", "param", "org", "person")'),
+  '平台降级白名单不含 authz / security，授权类恒 FAIL_CLOSED');
+
+// 回归信号可判定：不得让测试类在字段初始化处构造依赖 JNI 原生库的求值器
+const cedarTest = read('tioka-modules/tioka-module-governance/tioka-module-governance-biz/src/test/java/com/tioka/governance/application/policy/CedarEvaluatorTest.java');
+check(!/static final PolicyEvaluator/.test(cedarTest),
+  'Cedar 测试不在字段初始化处构造求值器，避免类初始化失败污染整个模块');
+check(exists('tioka-modules/tioka-module-governance/tioka-module-governance-biz/src/test/java/com/tioka/governance/application/policy/CedarNativeSupport.java')
+  && cedarTest.includes('assumeTrue(CedarNativeSupport.available()'),
+  '缺 cedar-java 原生库时按 Assumptions 跳过并计入 skipped，而非报 error');
+check(!cedarTest.includes('@Disabled'),
+  '未用 @Disabled 长期屏蔽用例，装好原生库后自动恢复执行');
+
+// 分层命名契约：*Test = 离线单测（surefire），*IT = 需容器（surefire 排除、failsafe 执行）。
+// 依赖容器的类若命名为 *Test，会被 surefire 抓进 mvn test，在无 Docker 的机器上必然失败，
+// 并把整个模块判红、掩盖同模块其它真实失败（RuntimeApiContractTest 曾如此多轮）。
+const containerMarkers = ['IntegrationTestSupport', 'TestContainers.register', '@IntegrationTest'];
+// 注意：Windows 上 walk() 返回的路径分隔符是 '\'，必须先归一化再比较，
+// 否则 includes('/src/test/') 恒为 false，本守门会退化成空集合恒真通过。
+const offenders = walk('tioka-server/src/test').concat(walk('tioka-modules'))
+  .map((p) => rel(p))
+  .filter((p) => p.endsWith('.java') && p.includes('/src/test/'))
+  // 排除测试基建（IntegrationTestSupport / TestContainers / GateSeed 等辅助类自身含这些标记）
+  .filter((p) => !p.includes('/support/'))
+  .filter((p) => !/(IT|E2E)\.java$/.test(path.basename(p)))
+  .filter((p) => {
+    const src = read(p);
+    // 必须真的是测试类（有 @Test），而非注解或工具类
+    return src.includes('@Test') && containerMarkers.some((m) => src.includes(m));
+  });
+check(offenders.length === 0,
+  '依赖容器的测试类均命名为 *IT.java，不被 surefire 抓进离线单测阶段'
+  + (offenders.length ? '：' + offenders.join(', ') : ''));
+
 console.log(`capability ownership: ${ok.length} passed, ${fail.length} failed`);
 if (fail.length > 0) {
   for (const f of fail) console.error('  FAIL ' + f);
