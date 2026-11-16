@@ -142,7 +142,7 @@ flowchart TB
 
 | 项 | 位置 | 说明 |
 | --- | --- | --- |
-| 版本契约 | `tioka-dependencies/pom.xml` | 导入 `com.foundation:foundation-dependencies:${foundation.version}`（当前 `0.2.0-adapt-SNAPSHOT`，F3 适配性剖面，见 §7.6 版本分轨）；Tioka 原有版本定义优先 |
+| 版本契约 | `tioka-dependencies/pom.xml` | 导入 `com.foundation:foundation-dependencies:${foundation.version}`（当前 `0.2.0-SNAPSHOT`，Foundation 唯一版本轨，见 §7.6）；Tioka 原有版本定义优先 |
 | 编译期依赖 | `tioka-framework/pom.xml` | 引入 `com.foundation:foundation-starter-core`，版本由 BOM 管理；`CoreAutoConfiguration` 只绑定 `foundation.*` 配置属性，不接管 Jackson 与异常处理 |
 | 双模式开关 | `com.tioka.framework.foundation.*` | `tioka.foundation.mode`（默认 `local`）、`@ConditionalOnFoundationMode` 条件注解、`FoundationModeConfiguration` |
 | 启动期守卫 | `FoundationModeGuard` | `foundation` 模式下校验 starter 契约已装配且 `foundation.base-url` 显式配置（拒绝默认 localhost），`local` 模式不校验 |
@@ -154,7 +154,7 @@ flowchart TB
 | 项 | 位置 | 说明 |
 | --- | --- | --- |
 | PF-00a 发布形态 | `tioka-foundation/foundation-parent/pom.xml`（分支 `fix/pf00a-parent-publishable`） | 源码 pom 显式写出 `groupId` / `version` / `properties`，并单独覆盖 `flatten-maven-plugin`：发布 pom 剥离 `parent`、`distributionManagement`、`profiles` 与 `build` 中实际执行的插件，只保留 `pluginManagement` 插件版本契约。Foundation 内部仍继承 `foundation-build` 的完整构建链（源码 pom + `relativePath`），两者互不影响 |
-| 根 `pom.xml` 的 `parent` | `com.foundation:foundation-parent:0.2.0-adapt-SNAPSHOT`，`<relativePath/>`（第二批切换时为 `0.1.0-SNAPSHOT`，2026-11-16 版本分轨后改锁 F3 轨） | 跨仓库强制从 Maven 仓库解析；版本显式固定、不与 Tioka 的 `${revision}` 绑定（S15 §5.3 升级说明）；两处版本源须同轨，见 §7.6 |
+| 根 `pom.xml` 的 `parent` | `com.foundation:foundation-parent:0.2.0-SNAPSHOT`，`<relativePath/>`（第一批为 `0.1.0-SNAPSHOT`，2026-11-16 单轨收敛后统一为 `0.2.0-SNAPSHOT`） | 跨仓库强制从 Maven 仓库解析；版本显式固定、不与 Tioka 的 `${revision}` 绑定（S15 §5.3 升级说明）；两处版本源须同值，见 §7.6 |
 | 副作用隔离 | 发布 pom | 下游不再依赖未发布的 `foundation-build` 聚合器、不再继承 Foundation 私有仓库发布目标、不再继承 `enforcer` / `failsafe` 实际执行与同名 `gate` profile |
 | PF-00a 验收 | 独立示例工程（仓库外） | 只引 `foundation-parent`、依赖 `foundation-starter-core` **不写版本**即可 `mvn -o clean compile` 成功（F-01 §3「示例工程只引父工程可编译」） |
 
@@ -209,7 +209,7 @@ F-02 迁移表第 1 步写的是整包 `com.tioka.framework.{error,id,jackson,co
 
 | 项 | 状态 | 依据 |
 | --- | --- | --- |
-| `tioka-dependencies` 退化为对 `foundation-dependencies` 的导入（清理重复版本定义与重复 BOM 导入） | 未开始；当前 parent 与 `tioka-dependencies` **双重导入** Foundation BOM（版本同为 `0.2.0-adapt-SNAPSHOT`，实测无告警、无冲突），保留是为了 Tioka BOM 自包含，收尾时统一退化 | F-02 §BAS-26「父工程与清单」 |
+| `tioka-dependencies` 退化为对 `foundation-dependencies` 的导入（清理重复版本定义与重复 BOM 导入） | 未开始；当前 parent 与 `tioka-dependencies` 双重导入 Foundation BOM（版本同为 `0.2.0-SNAPSHOT`，实测无告警、无冲突），保留是为了 Tioka BOM 自包含，收尾时统一退化 | F-02 §BAS-26 |
 | 第 1 步 core 未合流部分（error / context / jackson） | **已收敛关闭**：按 S15 §5.4「Tioka 特有部分」保留在 `tioka-framework`，F-02 迁移表与配置项表已回写（§7.4），不再是 BAS-26 待办 | F-02 §BAS-26 第 1 步收敛说明 |
 | 第 2 步 data | **已完成**（§7.4）：4 个 DO 基类合流，本地副本删除，data 能力显式关闭 | F-02 §BAS-26 迁移表第 2 步 |
 | 第 3〜9 步 starter 替换（web / cache / mq / observability / security / audit / client）与包名一次性重构 | 可行性已逐项比对（§7.4 矩阵）；同名类语义不等价部分须逐类设计迁移，security 随 BAS-20 收口 | F-02 §BAS-26 迁移表 |
@@ -244,27 +244,27 @@ F-02 迁移表第 1 步写的是整包 `com.tioka.framework.{error,id,jackson,co
 
 **分支与 m2 口径**：修复在 `main` 基点分支 `fix/fdn-publish-pom-regression`（`6cca930`）与 F3 分支 `feat/f3-adaptability`（cherry-pick `bba1b0f`）**各一份**；m2 最终由 F3 分支全量 install，与 Tioka 第四批契约测试依赖的 `foundation.data.enabled` 门控保持一致。曾在 main 基点上直接 install 过一次，导致 `FoundationDataContractTest.capabilitySwitchGatesStarterAutoConfiguration` 失败（main 版 `FoundationMigrationAutoConfiguration` 只认 `foundation.enabled`），恢复 F3 口径后该用例重新通过 —— 说明 **Tioka 当前提交依赖 F3 行为，切 Foundation 主干版本前须先统一口径**；这属 F3 归属决策，不在本批改动范围。
 
-**版本分轨（2026-11-16，已解决上述口径问题，未合并任何代码）**：分轨前 `main` 与
-`feat/f3-adaptability` 共用 `0.1.0-SNAPSHOT` 一个坐标却有两套行为（最典型的是
-`FoundationMigrationAutoConfiguration` 分别认 `foundation.enabled` / `foundation.data.enabled`），
-由「最近一次 install 哪个分支」隐式决定。现改为两条显式版本轨：
+**单轨收敛（2026-11-16 下午，取代上面的分轨方案）**：按「Foundation 作为中台产品、业务应用派生」的要求，双轨不再保留。
+`git merge --no-ff feat/f3-adaptability` 把 F3 全部成果合入 `main`（`af5fd6c`，145 文件 / +7889 行），
+唯一冲突是 `foundation-dependencies/pom.xml` 的 `<revision>` 行；随后统一为 `0.2.0-SNAPSHOT`（`585ae33`）。
 
-| 轨道 | 坐标 | 内容 |
-| --- | --- | --- |
-| 稳定基座 | `0.1.0-SNAPSHOT`（Foundation `main` = `6cca930`） | PF-00a 与发布 pom 回归修复，无 F3 适配性代码 |
-| 适配性剖面 | `0.2.0-adapt-SNAPSHOT`（Foundation `feat/f3-adaptability` = `5124542`） | 含 F3 五批成果，**Tioka 当前提交锁定此轨** |
+| 项 | 值 |
+| --- | --- |
+| 唯一坐标 | `com.foundation:*:0.2.0-SNAPSHOT` |
+| 唯一分支 | Foundation `main`（`585ae33`） |
+| 内容 | 稳定基座 + PF-00a/00b 发布 pom 修复 + F3 五批适配性成果 + ADP-08/03 逻辑修复 |
+| 下游 | 根 `pom.xml` parent 与 `tioka-dependencies` 的 `foundation.version` 同锁 `0.2.0-SNAPSHOT` |
+| 归档 | 旧 `main`（`6cca930`）由 tag `pre-single-track-20261116` 与全量 bundle 保护 |
 
-Tioka 侧两处版本源（根 `pom.xml` 的 parent 与 `tioka-dependencies` 的 `foundation.version`）已同步锁定；
-Foundation 侧同步三处 `<revision>` 与模板 parent，并新增 `docs/version-tracks.md` 说明改版本清单与用法。
-两轨在本地 m2 是不同目录、互不覆盖，行为由 pom 显式决定，不再依赖构建顺序；
-**但 Foundation 仓库目前无远程，双轨仅本地有效，配远程后须分别 deploy**，否则 CI / 其他机器
-无法解析 `0.2.0-adapt-SNAPSHOT`。本批验证见 §7.8，规划记录见 36 号文档 §16。
+旧分轨坐标已废弃，不再构建、不再发布。Foundation 仓库当前仍无远程，本阶段按约定只在本地 m2 使用；
+将来配远程只需发布一条版本线。改版本须同步 6 处（Foundation 4 + Tioka 2），清单见 Foundation `docs/version-tracks.md`。
+本批验证见 §7.8 末行，规划记录见 36 号文档 §17。
 
 ### 7.7 配置约定
 
 - Tioka 自身配置一律 `tioka.*`；`foundation.*` 属于底座/中台前缀（F-02 §BAS-26、00-施工总纲 §2.5）。
 - 默认 `local` 不要求 Foundation 服务可达（F-00 §5 约定 3）；切到 `foundation` 前需完成 BAS-20，否则 `FoundationModeGuard` 会拒绝启动。
-- **BAS-20 接线待办（F3 第四批发现）**：starter 侧 `foundation.client.mode`（`FoundationRuntimeMode`，三值）与应用侧 `tioka.foundation.mode`（两值）**不自动同步**。接线时须由同一环境变量派生两键，并补启动期一致性校验；否则会出现「应用以为单飞、starter 仍连中台」的半接线状态。当前 `FoundationModeGuard` 只校验 starter 契约是否装配与 `foundation.base-url` 是否显式配置，不校验这两键的一致性。
+- **双键一致性已接线（F1 收口）**：starter 侧 `foundation.client.mode` 与应用侧 `tioka.foundation.mode` 由 `application.yml` 的 `${TIOKA_FOUNDATION_MODE:local}` 同源派生，缺省均为 `local`；`FoundationModeConfigConsistencyTest` 守门两键同源、两解析器对共享取值一致、空白值不得静默回落。`self-managed` 在 Tioka 侧仍显式失败（属 F2）。
 - **配置前缀偏差已回写（第四批）**：F-02 原示例写 `foundation.client.base-url` / `foundation.client.app-code`，实际 `FoundationProperties` 绑定根级 `foundation.base-url` / `foundation.app-code`（`foundation.client.*` 下是 `mode` / 超时 / 重试 / 降级 / local）。已修正 F-02 的 yaml 示例、配置项表并加实现实证注记；`tioka-server/application.yml` 与本文记录一致。
 - **逐能力开关（ADP-05）**：`foundation.enabled` 与 `foundation.<capability>.enabled` 在 starter 侧缺省均为 `true`，故 Tioka 对尚未迁移的能力必须显式置 `false`（当前仅 `data` 已置）。每步迁移时单独打开，并先核对与 Tioka 本地 bean 的冲突。
 
@@ -294,5 +294,6 @@ Foundation 侧同步三处 `<revision>` 与模板 parent，并新增 `docs/versi
 | **第五批**：`mvn -o -fae test` 全量 reactor | 失败集合**未扩大**：仍仅 `governance-biz`（Cedar JNI 7 errors）FAILURE、`tioka-server` SKIPPED；`orchestration-biz` SUCCESS；19 例定向测试在全量中同样全绿 |
 | **版本分轨（2026-11-16）**：Foundation `mvn -o install -DskipTests`（F3 worktree，JDK 17） | exit 0；m2 新增 `0.2.0-adapt-SNAPSHOT` 共 **53 个发布 pom**，坐标正确、无 `${revision}` 残留；旧 `0.1.0-SNAPSHOT` 未被覆盖；新 jar 含 F3 运行模式与命名空间类 |
 | **版本分轨**：Tioka 定向测试 `-Dtest='Foundation*Test'` / `test-compile -pl tioka-server -am` / `validate` | 均 exit 0；**18 例全绿**（data 6 + Ids 4 + 双模式 8）；根 flattened pom 的 parent 为 `0.2.0-adapt-SNAPSHOT`，surefire classpath 实测加载 `foundation-starter-core-0.2.0-adapt-SNAPSHOT.jar` |
+| **单轨收敛（2026-11-16）**：Foundation `main` install + 全量单测；Tioka `validate` / `test-compile` / `Foundation*Test` | 均 exit 0；Foundation **140 类 / 827 例** 0 失败、Node 22/22、兼容矩阵通过；Tioka 契约 **4 类 / 22 例** 0 失败；m2 新增 `0.2.0-SNAPSHOT` 共 53 个发布 pom，surefire classpath 实测加载新坐标 jar |
 | 已知既有失败（与本批无关） | ① `CedarEvaluatorTest` / `CharterCompilerTest`：`UnsatisfiedLinkError: BasicAuthorizationEngine.getCedarJNIVersion()`，本机缺 Cedar JNI 原生库；**改动前 stash 对照同样 5 errors**。② `CelRuleConditionTest.simpleAttrMatch`：CEL 求值硬超时 50ms，偶发；**改动前 stash 对照同样失败**，全量 `-fae` 复跑时该模块 SUCCESS。③ `PersistenceArchTest.applicationAndKernelMustNotDependOnMappers`：`StructuredOutputStatsService` 直连 `RuntimeItemStatsMapper` 的 3 处既有违例，违例明细中不含本次新增包 |
 | 未覆盖 | `*IT`（Testcontainers）需 Docker，本机不可用，按既有约定归 CI；G0〜G3、GF 12 条闸门、`-Pgate` 与 `local` / `foundation` 双模式的闸门验证，仍待 BAS-20/28 收尾时在具备环境的 CI 上重跑 |

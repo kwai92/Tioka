@@ -494,6 +494,9 @@
    `notAdapted` 中的任一项，必须先改契约并走决策，不能只改代码。
 
 ## 16. 版本分轨与 git 收口（2026-11-16）
+> **状态：本节为 2026-11-16 上午的历史决策记录，其「不合并、双轨并行」结论已被 §17 取代。**
+> 保留原文是为了留存「同一个 GAV 对应两套行为」的取证与方案比较；当前仓库状态以 §17 为准。
+
 
 ### 16.1 问题：同一个坐标对应两套行为
 
@@ -526,7 +529,7 @@ F3 五批完成后，暴露出一个比 git 分叉更隐蔽的风险：`main`（
 | 轨道 | 坐标 | 所在分支 | 内容 |
 | --- | --- | --- | --- |
 | 稳定基座 | `0.1.0-SNAPSHOT` | `main`（`6cca930`） | PF-00a / 发布 pom 回归修复，不含 F3 适配性代码 |
-| 适配性剖面 | `0.2.0-adapt-SNAPSHOT` | `feat/f3-adaptability`（版本分轨 `b31a450`，最终 `5124542`） | 稳定基座 + F3 五批全部成果；**Tioka 当前提交锁定此轨** |
+| 适配性剖面 | `0.2.0-adapt-SNAPSHOT` | `feat/f3-adaptability`（版本分轨 `b31a450`，最终 `5124542`） | 稳定基座 + F3 五批全部成果；当时 Tioka 提交锁定此轨 |
 
 Foundation 侧同步 4 处：聚合器、父工程、BOM 的三处 `<revision>`，以及模板工程的 parent 版本；
 新增 `tioka-foundation/docs/version-tracks.md` 固化「改版本清单 / 双轨用法 / 远程配套要求」，
@@ -567,3 +570,34 @@ Helm 与离线清单里的 `0.1.0` 是镜像 tag、模板自身 `<version>` 是�
 ---
 
 > 本文只做规划与适配性约束，不替代 S15 的功能设计与 ADR 的决策地位。任何与 ADR-029 定案冲突的建议，以定案为准；如采纳本文 P3 边界，请走 ADR-030 变更流程落定。
+
+## 17. 单轨收敛与仓库整理（2026-11-16 下午）
+
+用户明确「不建议双轨」，并要求整理代码。只读盘点后按三项决策执行：合并 F3 进 `main`、
+统一版本号 `0.2.0-SNAPSHOT`、清理临时产物并收敛分支；同时同步矛盾文档，
+把重复概念固化为机器可校验的能力归属清单。
+
+### 17.1 执行结果
+
+| 项 | 结果 |
+| --- | --- |
+| 合并 | `af5fd6c`：`git merge --no-ff feat/f3-adaptability`，145 文件 / +7889 行；唯一冲突为 `foundation-dependencies/pom.xml` 的 `<revision>` |
+| 版本统一 | `585ae33`：Foundation 4 处 + Tioka 2 处坐标统一 `0.2.0-SNAPSHOT`，删除 `-adapt` 后缀 |
+| 保护 | tag `pre-single-track-20261116` 与 `.workbuddy/backups/foundation-pre-single-track-20261116.bundle`（完整历史，含 F3 HEAD） |
+| 仓库整理 | 顶层 41 个临时日志与生成物归档到 `.workbuddy/archive/logs-20261116/`；冗余分支与 worktree 收敛为一份 `main` 检出 |
+| 文档 | Foundation `docs/version-tracks.md` 重写为单轨约定、`runtime-modes.md` §4 改为同源派生；本文 §16 标注历史，`module-dependencies.md` §7.6 / §7.7 回写 |
+| 验证 | Foundation 140 类 / 827 例全绿、Node 22/22、兼容矩阵通过；Tioka `validate` / `test-compile` / `Foundation*Test`（22 例）均 exit 0；能力归属守门 70 项通过 |
+| 边界 | 不配远程、不 deploy、不改 CI 发布链路；不动 Tioka 业务代码，不变更 ADR-029 第 60 条 Workspace 定案；主仓库 `main` 分叉（并行会话）未触碰 |
+
+### 17.2 与 §16 的关系
+
+§16 的取证（同一 GAV 两套行为、并行会话实测用例变红）仍然成立，是本次收敛的动因；
+但「不合并、双轨并行」的结论与 §16.5 第 1、5 条已被本节取代：合并已完成，
+远程发布与「将来合并两轨」不再列为待办。
+
+### 17.3 能力归属（重复概念）
+
+「清理重复概念」按零删除落地：产出能力归属清单与机器守门脚本，把两套 `PrincipalHolder` /
+`RequirePermission`、SCIM 同步、Workspace 与组织树的重叠显式登记并冻结，防止向派生应用扩散。
+直接删除会破坏功能且需变更 ADR-029，本批不做。清单见 `docs/architecture/capability-ownership.md`，
+守门脚本见 `scripts/verify-capability-ownership.mjs`。
