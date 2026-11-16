@@ -4,6 +4,7 @@
 > 更新：2026-11-09（X8 回写：补 ontology / governance / eval；模块树 15 个业务模块，事实基线）  
 > 更新：2026-11-15（BAS-26 第一批：补 Foundation 外部构件依赖节点与接入进度，见 §7）  
 > 更新：2026-11-15（BAS-26 第四批：F-02 第 1 步收敛 + 第 2 步 data 合流，见 §7.4）
+> 更新：2026-11-16（PF-00a 回归缺陷修复：Foundation 发布 pom 全部合法，见 §7.6）
 
 ## 1. 仓库模块树
 
@@ -212,7 +213,7 @@ F-02 迁移表第 1 步写的是整包 `com.tioka.framework.{error,id,jackson,co
 | 第 1 步 core 未合流部分（error / context / jackson） | **已收敛关闭**：按 S15 §5.4「Tioka 特有部分」保留在 `tioka-framework`，F-02 迁移表与配置项表已回写（§7.4），不再是 BAS-26 待办 | F-02 §BAS-26 第 1 步收敛说明 |
 | 第 2 步 data | **已完成**（§7.4）：4 个 DO 基类合流，本地副本删除，data 能力显式关闭 | F-02 §BAS-26 迁移表第 2 步 |
 | 第 3〜9 步 starter 替换（web / cache / mq / observability / security / audit / client）与包名一次性重构 | 可行性已逐项比对（§7.4 矩阵）；同名类语义不等价部分须逐类设计迁移，security 随 BAS-20 收口 | F-02 §BAS-26 迁移表 |
-| Foundation 发布构件 PF-00b（子模块发布 pom 无效） | **待修**，见 §7.6 末段；当前以 Tioka 显式声明依赖规避 | 本批实测 |
+| Foundation 发布构件（子模块发布 pom 无效，PF-00a 回归缺陷） | **已修**，见 §7.6；Foundation 两条分支均已落地，m2 中 53 个发布 pom 全部合法 | 本批实测 |
 | `tioka-framework` 只留特有部分、ArchUnit 规则集移到 `foundation-test`、冻结库保持为空 | 未开始 | F-00 §5 约定 2、S15 §5.4 |
 | BAS-20 中台接线（`PrincipalLoader` 读授权快照、starter 权限注解、离职事件、FND-09/10 删除）、BAS-28、BAS-22 的 GF 12 条闸门 | 未开始 | F-11 §1；36 号 §4 的 F1 债务清零 |
 | `foundation-ui` 前端包与门户基座 | 空壳 | 36 号 §1.3 D2 |
@@ -223,11 +224,25 @@ F-02 迁移表第 1 步写的是整包 `com.tioka.framework.{error,id,jackson,co
 
 第二批没有在 Tioka 侧逐项覆盖来绕开，而是修正发布形态本身：`foundation-parent` 的**源码 pom** 保持 Foundation 内部继承链不变（模块通过 `relativePath` 读源码 pom），**安装到仓库的 flattened pom** 裁剪为「坐标 + 属性 + `dependencyManagement` + `pluginManagement`（仅插件版本契约）」。PF-00a 验收与下游零副作用由此同时成立。两种模式下的 G0〜G3 全绿仍属 BAS-20/28 收尾范围，见 7.8。
 
-**PF-00b 遗留缺陷（第四批实测发现，本批未修）**：PF-00a 的 `<pomElements><parent>remove</parent></pomElements>` 写在 `foundation-parent/pom.xml` 的 `<build><plugins>` 中，**会被所有 Foundation 子模块继承**，导致 `foundation-common-api` / `foundation-starter-core` / `foundation-starter-data` 等子模块的安装产物也剥掉了 `<parent>`。这些源码 pom 未显式写 `groupId`、依赖版本来自父工程的 `dependencyManagement`，于是发布 pom 变成「无 groupId + 依赖无 version」的无效模型，Maven 报 `The POM ... is invalid, transitive dependencies (if any) will not be available` 及 `'groupId' is missing` / `'dependencies.dependency.version' ... is missing`。
+**编号说明**：本文此前把下述缺陷暂称「PF-00b」，但 F-01 §3 已有官方编号 `PF-00b`（BAS-01 工程骨架 / Flyway / Keycloak 管理连接 / CI / 闸门基座，验收 `GfSmokeIT` 绿）。为避免与官方任务包冲突，本批去编号化，统一称「**PF-00a 回归缺陷（子模块发布 pom 无效）**」。
 
-影响面：Tioka 目前构建**能过**（前三批与本批都显式声明了所需依赖，版本由 Foundation BOM 提供），只是有告警；但只要后续引入的 starter 带有 Tioka 未显式声明的传递依赖，就会编译失败。本批试过两种修法并实测否决：① 给裁剪插件加 `<inherited>false</inherited>` → 子模块彻底失去 flatten 插件，发布 pom 保留 `${revision}` 与 `relativePath`，Tioka 报 `foundation-parent:pom:${revision}` 无法解析、**构建直接断链**；② 把 `<parent>remove</parent>` 换成 `<parent>expand</parent>` → 子模块发布 pom 有效，但 `foundation-parent` 自身发布 pom 重新带上未发布的 `foundation-build` 父与 `build` 段，**破坏 PF-00a 的零副作用目标**。两者均已回退，m2 恢复到 PF-00a 形态并验证 Tioka `test-compile` 通过。
+**缺陷（第四批实测发现）**：PF-00a 的 `<pomElements><parent>remove</parent></pomElements>` 写在 `foundation-parent/pom.xml` 的 `<build><plugins>` 中，会被所有 Foundation 子模块继承，导致子模块安装产物也剥掉 `<parent>`。这些源码 pom 未显式写 `groupId`、依赖版本来自父工程 `dependencyManagement`，发布 pom 因此变成「无 groupId + 依赖无 version」的无效模型，Maven 报 `The POM ... is invalid, transitive dependencies (if any) will not be available` 及 `'groupId' is missing` / `'dependencies.dependency.version' ... is missing`。当时 Tioka 靠显式声明依赖规避，但只要后续引入带新传递依赖的 starter 即会编译失败。
 
-建议的正解是让**源码形态即发布形态**：解除 `foundation-parent` 对 `foundation-build` 聚合器的继承（把聚合器的构建配置迁入 `foundation-parent` 作为子模块继承源），这样不需要任何裁剪，子模块保留 parent 并由标准 flatten 把 `${revision}` 解析为具体版本；或发布一个零副作用的 `foundation-build` pom。属 Foundation 侧独立任务，且该仓库当前带 99+ 个 F3 未提交改动，动手前先确认归属。临时规避：Tioka 每引入一个 starter，都显式声明其直接依赖，不依赖传递。
+**两种否决的修法（保留记录）**：① 给裁剪插件加 `<inherited>false</inherited>` → 子模块彻底失去 flatten 插件，发布 pom 保留 `${revision}` 与 `relativePath`，Tioka 报 `foundation-parent:pom:${revision}` 无法解析、**构建直接断链**；② 把 `<parent>remove</parent>` 换成 `<parent>expand</parent>` → 子模块发布 pom 有效，但 `foundation-parent` 自身发布 pom 重新带上未发布的 `foundation-build` 父与 `build` 段，**破坏 PF-00a 零副作用目标**。两者当时均已回退。
+
+**本批正解（2026-11-16，已修）**：让**源码形态即发布形态** —— 解除 `foundation-parent` 与 `foundation-dependencies` 对未发布聚合器 `foundation-build` 的继承，两者显式写出坐标、`revision` 属性与 flatten 插件版本 / 执行绑定；`foundation-parent` 的裁剪配置**去掉 `<parent>remove</parent>`**，只保留 `distributionManagement` / `profiles` / `build` 三项裁剪。于是：
+
+| 对象 | 发布 pom 形态 |
+| --- | --- |
+| `foundation-parent` / `foundation-dependencies` | 无 parent、自包含坐标与属性；父工程仅留「坐标 + 属性 + `dependencyManagement` + `pluginManagement` 插件版本契约」，PF-00a 的零副作用目标不变 |
+| Foundation 子模块 | **保留 `<parent>`** 指向已发布的 `foundation-parent`（或中间聚合父），由标准 flatten 把 `${revision}` 解析为具体版本；`groupId` 与依赖版本经 parent 链正常继承，模型合法、传递依赖可用 |
+| Foundation 内部构建链 | 子模块经 `relativePath` 读**源码 pom**，仍完整拿到 enforcer / failsafe / gate profile / 私有仓库发布配置；这些元素只从对外发布 pom 裁掉 |
+
+`foundation-build` 退化为纯 reactor 聚合器，不再作为任何模块的父。
+
+**实证**：Foundation 全量 `mvn -o install -DskipTests` 后，m2 中 **53 个发布 pom** 全部满足「parent 链可解析、无未发布聚合器、`groupId` 完整、无 `${revision}` 残留、无 `distributionManagement` / `gate` 污染」；裸工程（**不继承父工程**、只导入 BOM，仅依赖 `foundation-starter-data`）`clean compile` 与 `dependency:tree` 均通过、零告警；PF-00a 冒烟工程（只引父工程、starter 不写版本）仍绿；Tioka `mvn -o validate` 中 `'groupId' is missing` 等 Foundation 构件告警**全部消失**，只剩既有的 `json-schema-validator` 重复声明与 javassist 告警。
+
+**分支与 m2 口径**：修复在 `main` 基点分支 `fix/fdn-publish-pom-regression`（`6cca930`）与 F3 分支 `feat/f3-adaptability`（cherry-pick `bba1b0f`）**各一份**；m2 最终由 F3 分支全量 install，与 Tioka 第四批契约测试依赖的 `foundation.data.enabled` 门控保持一致。曾在 main 基点上直接 install 过一次，导致 `FoundationDataContractTest.capabilitySwitchGatesStarterAutoConfiguration` 失败（main 版 `FoundationMigrationAutoConfiguration` 只认 `foundation.enabled`），恢复 F3 口径后该用例重新通过 —— 说明 **Tioka 当前提交依赖 F3 行为，切 Foundation 主干版本前须先统一口径**；这属 F3 归属决策，不在本批改动范围。
 
 ### 7.7 配置约定
 
@@ -256,6 +271,10 @@ F-02 迁移表第 1 步写的是整包 `com.tioka.framework.{error,id,jackson,co
 | **第四批**：`mvn -o -q test-compile -pl tioka-server -am` | 通过（exit 0）；50 个改 import 的文件与删除 4 个本地 DO 后无遗漏引用，`WorkspaceAwareDO` 补 import 生效 |
 | **第四批**：定向测试 `-Dtest='FoundationDataContractTest,FoundationIdsContractTest,FoundationModeSwitchTest,ModuleDependencyRulesTest'` | **19 例全绿**（新增 data 契约 6 + Ids 契约 4 + 双模式 8 + framework ArchUnit 1），`BUILD SUCCESS` |
 | **第四批**：`mvn -o -fae test` 全量 reactor | 失败集合**未扩大**：仍仅 `governance-biz`（Cedar JNI 7 errors）FAILURE、`tioka-server` SKIPPED；`orchestration-biz` SUCCESS；`FoundationDataContractTest` 6 例在全量中同样全绿 |
-| **第四批**：Foundation 发布形态实验与回退 | `inherited=false` / `parent=expand` 两种修法均实测否决（详见 §7.6 末段 PF-00b），已 `git checkout` 回退 `foundation-parent/pom.xml` 并重新 install 三个构件；回退后 Tioka `test-compile` 再次通过 |
+| **第四批**：Foundation 发布形态实验与回退 | `inherited=false` / `parent=expand` 两种修法均实测否决（详见 §7.6），已 `git checkout` 回退 `foundation-parent/pom.xml` 并重新 install 三个构件；回退后 Tioka `test-compile` 再次通过 |
+| **第五批（发布 pom 回归修复）**：Foundation 全量 `mvn -o install -DskipTests` | exit 0；m2 中 **53 个发布 pom** 全部合法（parent 链可解析、无未发布聚合器、坐标完整、无 `${revision}`、无 `distributionManagement` / `gate` 污染）；裸工程 `clean compile` + `dependency:tree`、PF-00a 冒烟工程 `clean compile` 均 `BUILD SUCCESS` |
+| **第五批**：Tioka `mvn -o validate` / `test-compile -pl tioka-server -am` | validate exit 0，Foundation 构件的 invalid POM / `'groupId' is missing` 告警**全部消失**，仅剩既有 `json-schema-validator` 重复声明与 javassist 告警；test-compile exit 0 |
+| **第五批**：定向测试 `-Dtest='FoundationDataContractTest,FoundationIdsContractTest,FoundationModeSwitchTest,ModuleDependencyRulesTest'` | **19 例全绿**，`BUILD SUCCESS`（恢复 F3 口径后 `capabilitySwitchGatesStarterAutoConfiguration` 重新通过） |
+| **第五批**：`mvn -o -fae test` 全量 reactor | 失败集合**未扩大**：仍仅 `governance-biz`（Cedar JNI 7 errors）FAILURE、`tioka-server` SKIPPED；`orchestration-biz` SUCCESS；19 例定向测试在全量中同样全绿 |
 | 已知既有失败（与本批无关） | ① `CedarEvaluatorTest` / `CharterCompilerTest`：`UnsatisfiedLinkError: BasicAuthorizationEngine.getCedarJNIVersion()`，本机缺 Cedar JNI 原生库；**改动前 stash 对照同样 5 errors**。② `CelRuleConditionTest.simpleAttrMatch`：CEL 求值硬超时 50ms，偶发；**改动前 stash 对照同样失败**，全量 `-fae` 复跑时该模块 SUCCESS。③ `PersistenceArchTest.applicationAndKernelMustNotDependOnMappers`：`StructuredOutputStatsService` 直连 `RuntimeItemStatsMapper` 的 3 处既有违例，违例明细中不含本次新增包 |
 | 未覆盖 | `*IT`（Testcontainers）需 Docker，本机不可用，按既有约定归 CI；G0〜G3、GF 12 条闸门、`-Pgate` 与 `local` / `foundation` 双模式的闸门验证，仍待 BAS-20/28 收尾时在具备环境的 CI 上重跑 |
