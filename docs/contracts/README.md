@@ -96,3 +96,23 @@ M1 起按 ADR-030 第 4 条补充租约失效、审批、Flow 调度的表驱动
 
 平台侧守门 `tioka-foundation/scripts/verify-app-integration-contract.mjs` 校验 schema、
 应用实例与应用侧实现三者一致；详见 36 号规划 §20。
+
+## Foundation 中台化：运行平面契约（2026-11-16 夜，P1）
+
+轻量只读路径接上版本化缓存，中台退出请求热路径；接入方仍只依赖 `AuthorizationSnapshotClient`
+端口，Tioka 适配层一行未改。
+
+- **`AuthorizationSnapshot` / `AuthorizationSnapshotCache`**：`HttpAuthorizationSnapshotClient`
+  严格校验并保留 `version`（非负整数）；缓存按 `appCode + personId` 分键，命中未过期快照零回源。
+  `fdn.authz.changed` 经 `AuthorizationSnapshotInvalidationListener` 精确失效；TTL
+  （`foundation.client.authz.cache-ttl`，默认 5m）只是事件丢失兜底，**不是降级许可**：
+  过期且回源失败一律返回 `null` 并删除条目，版本回退或身份串号同样拒绝。
+- **事件通道契约**（`event-schemas-v1.json`，主版本仍为 1）：MQ body 新增平台保留字段
+  `deliveryId`（与 outbox 行主键同源、业务不可伪造），MQ 与 Webhook 共用同一幂等键；
+  Webhook envelope 新增**可选**字段 `sentAt`（epoch millis），因位于 HMAC 覆盖的 `raw_body`
+  内而不可篡改，不新增头、不改签名串，v1 接入方忽略即可。验签 → 时间窗 → `eventType +
+  deliveryId` 幂等，构成完整防重放。
+- **降级标记异步传递**：`DegradeContext.capture()` / `wrap()` / `call()` 让父子线程共享快照，
+  子线程 `mark()` 回写后外层过滤器仍能写 `X-Foundation-Degraded`；`clear()` 按线程清理，不串请求。
+
+守门：三个脚本新增运行平面断言（112 / 69 / 64 项）与 Node SDK 25 例自检；详见 36 号规划 §21。

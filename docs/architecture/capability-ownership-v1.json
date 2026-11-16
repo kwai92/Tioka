@@ -234,6 +234,38 @@
     "selfCheckItems": 6,
     "note": "P0 接入平面：规则与自检包归平台，应用只提供实例；第二接入方骨架不得依赖第一个业务应用。"
   },
+  "runtimePlane": {
+    "phase": "P1",
+    "goal": "中台退出请求热路径；N 个派生应用一致 fail-closed；事件与契约缺口由平台统一收敛",
+    "platformAssets": {
+      "snapshotView": "tioka-foundation/foundation-starter-client/src/main/java/com/foundation/starter/client/authz/AuthorizationSnapshot.java",
+      "versionedCache": "tioka-foundation/foundation-starter-client/src/main/java/com/foundation/starter/client/authz/AuthorizationSnapshotCache.java",
+      "cachingClient": "tioka-foundation/foundation-starter-client/src/main/java/com/foundation/starter/client/authz/CachingAuthorizationSnapshotClient.java",
+      "remoteClient": "tioka-foundation/foundation-starter-client/src/main/java/com/foundation/starter/client/authz/HttpAuthorizationSnapshotClient.java",
+      "invalidationListener": "tioka-foundation/foundation-starter-client/src/main/java/com/foundation/starter/client/authz/AuthorizationSnapshotInvalidationListener.java",
+      "eventContract": "tioka-foundation/foundation-starter-mq/src/main/resources/contracts/event-schemas-v1.json",
+      "deliveryAwareConsumer": "tioka-foundation/foundation-starter-mq/src/main/java/com/foundation/starter/mq/consumer/DeliveryAwareIdempotentConsumer.java"
+    },
+    "cacheTtlProperty": "foundation.client.authz.cache-ttl",
+    "invalidationEvent": "fdn.authz.changed",
+    "policies": [
+      "命中未过期快照零回源",
+      "缓存过期且回源失败一律返回 null 并删除陈旧条目，不提供过期放行开关",
+      "回源版本回退或身份串号一律拒绝",
+      "fdn.authz.changed 按 appCode 与 personId 精确失效，非法事件不静默吞"
+    ],
+    "contractDebts": {
+      "mqDeliveryId": "MybatisOutbox 把 outbox 行主键写入 payload 保留字段 deliveryId；MQ 与 Webhook 共用同一幂等键",
+      "webhookReplay": "WebhookEventSink 在已签名 body 内新增可选 sentAt；Node SDK assertReplayWindow 做时间窗校验；不新增头、不改签名串",
+      "degradeAsync": "DegradeContext 增加 capture/restore/wrap/call，DegradeHeaderFilter 绑定共享快照"
+    },
+    "guardScripts": [
+      "scripts/verify-capability-ownership.mjs",
+      "scripts/verify-permission-code-mapping.mjs",
+      "tioka-foundation/scripts/verify-app-integration-contract.mjs"
+    ],
+    "note": "Tioka 侧零改动：适配层仍只依赖 AuthorizationSnapshotClient 端口，缓存由平台自动装配；local 模式零装配。"
+  },
   "workspace": {
     "adr": "ADR-029 第 60 条",
     "javaFiles": 486,

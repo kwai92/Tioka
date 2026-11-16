@@ -180,6 +180,23 @@ if (ic !== undefined) {
   check(ic.selfCheckItems === 6, '六项自检数量冻结');
 }
 
+// P1 运行平面：缓存与失效归平台，Tioka 适配层不得自行实现或回落本地权限
+const cachePath = 'tioka-foundation/foundation-starter-client/src/main/java/com/foundation/starter/client/authz/';
+check(exists(cachePath + 'AuthorizationSnapshotCache.java')
+  && exists(cachePath + 'CachingAuthorizationSnapshotClient.java')
+  && exists(cachePath + 'AuthorizationSnapshotInvalidationListener.java'),
+  '平台侧版本化缓存、装饰器与事件失效监听器齐备');
+const adapterPath = 'tioka-server/src/main/java/com/tioka/server/foundation/FoundationAuthorizationSnapshotSource.java';
+const adapter = read(adapterPath);
+check(adapter.includes('client.permissionsFor(personId)'), 'Tioka 适配层仍只做端口转发');
+check(!adapter.includes('AuthorizationSnapshotCache')
+  && !adapter.includes('CachingAuthorizationSnapshotClient')
+  && !adapter.includes('PrincipalHolder'),
+  'Tioka 适配层不自建缓存、不回落本地权限集');
+check(read('tioka-foundation/foundation-starter-client/src/main/java/com/foundation/starter/client/config/FoundationClientProperties.java')
+  .includes('foundation.client.authz.*'),
+  '轻量路径缓存配置收敛在 client starter 命名空间，不与 security starter 串线');
+
 console.log(`capability ownership: ${ok.length} passed, ${fail.length} failed`);
 if (fail.length > 0) {
   for (const f of fail) console.error('  FAIL ' + f);

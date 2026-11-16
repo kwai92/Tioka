@@ -183,6 +183,27 @@ node scripts/verify-permission-code-mapping.mjs
 而不是应用自觉；③ 中台不可用时 N 个应用一致 fail-closed。本批让 ① 有了可复现证据，
 ② 由两仓脚本双向守门，③ 由自检的 `fail-closed` 项可验证；P1 再解决「中台退出请求热路径」。
 
-**仍未做**：快照版本化缓存与 `fdn.authz.changed` 失效（P1，平台侧 `SnapshotCache` /
-`AuthzChangedListener` 已存在，待接入验证）、应用间授权与门户卡片注册、能力目录注册表与
-破坏性变更流程（P2）、`tioka-ai` 拆分（P3）。Workspace 与组织树映射仍为 `pending`。
+## 10. 运行平面（P1，2026-11-16 夜）
+
+P0 让第二个应用能接上，但每次鉴权仍回源中台——ADR-051 第 5 条「Foundation 不在请求热路径」
+未落实。核实发现标准路径（`foundation-starter-security`）早已有 `SnapshotCache` /
+`AuthzChangedListener`，缺的是**轻量只读路径**的同一能力，以及三项「单应用是债务、N 个应用是事故」
+的契约缺口。本批仍按「规则归平台、实例归应用」：Tioka 侧零改动。
+
+| 能力 | 归属 | 落点 |
+| --- | --- | --- |
+| 版本化缓存 | 平台 | `AuthorizationSnapshotCache`（命中零回源、版本不回退、陈旧拒绝） |
+| 缓存化客户端 | 平台 | `CachingAuthorizationSnapshotClient`，端口仍是 `AuthorizationSnapshotClient` |
+| 事件失效 | 平台 | `AuthorizationSnapshotInvalidationListener` 解析 `fdn.authz.changed`，钩子自动指向缓存 |
+| 失效钩子 | 平台自动装配 | `SnapshotInvalidationHook` 由 `FoundationClientAutoConfiguration` 默认注册，自检第 6 项在真实接入中自动 PASS |
+| MQ 幂等键 | 平台 | `MybatisOutbox` 写 `deliveryId`；`DeliveryAwareIdempotentConsumer` 按 `eventType + deliveryId` 去重 |
+| Webhook 防重放 | 平台 + SDK | envelope 可选字段 `sentAt`（在 HMAC 覆盖的 body 内）；Node `assertReplayWindow` |
+| 降级标记异步传递 | 平台 | `DegradeContext.capture/restore/wrap/call`，`DegradeHeaderFilter` 绑定共享快照 |
+
+**三条治理原则**：平台只定义契约与能力、不定义应用语义；应用只依赖 SDK 与契约、禁止依赖另一个应用；
+不可用一律 fail-closed，降级策略由平台统一声明（缓存刻意不提供「过期放行」开关，配置收敛在
+`foundation.client.authz.cache-ttl`，不与 security starter 的 `foundation.authz.snapshot.*` 串线）。
+
+**仍未做**：应用间授权与门户卡片注册、能力目录注册表与破坏性变更流程（P2）、`tioka-ai` 拆分（P3）。
+Workspace 与组织树映射仍为 `pending`；两项待定决策（Tioka 是否退化为纯派生壳、Workspace 是否
+整体废止）仍只阻塞 P3。

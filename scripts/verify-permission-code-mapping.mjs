@@ -170,6 +170,14 @@ check(exists(paths.integrationSelfCheck) && exists(paths.onboardingTest),
 check(!read(paths.itExamplePom).includes('<groupId>com.tioka</groupId>'),
   '第二接入方骨架不依赖第一个业务应用构件');
 
+// P1：缓存归平台，判定语义不变（不因缓存引入超管提升或本地回落）
+const p1Cache = 'tioka-foundation/foundation-starter-client/src/main/java/com/foundation/starter/client/authz/AuthorizationSnapshotCache.java';
+check(exists(p1Cache) && read(p1Cache).includes('return null'),
+  '平台版本化缓存存在且陈旧授权一律拒绝');
+check(read(paths.foundation).includes('PermissionCodeMapper')
+  && !read(paths.foundation).includes('PrincipalHolder'),
+  '接入模式判定器仍按映射契约判定，不回落本地权限集');
+
 console.log(`permission-code-mapping: ${ok.length} passed, ${fail.length} failed`);
 if (fail.length > 0) {
   for (const f of fail) console.error('  FAIL ' + f);

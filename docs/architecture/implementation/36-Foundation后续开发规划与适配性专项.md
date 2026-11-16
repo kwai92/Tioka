@@ -760,3 +760,54 @@ fail-closed 语义逐字未动。
 不做应用间授权 / 卡片注册 / 能力目录注册表（P2），不拆 `tioka-ai`（P3）。
 两项待定决策（Tioka 是否退化为纯派生壳、Workspace 是否整体废止）仍不阻塞 P0/P1，只阻塞 P3。
 
+## 21. 运行平面：中台退出请求热路径（2026-11-16 夜，P1）
+
+P0 让第二个应用能接上，但每次鉴权仍同步回源，ADR-051 第 5 条未落实；单应用时这是延迟，
+N 个应用时中台即同步单点。复核确认标准路径（`foundation-starter-security`）早已有
+`SnapshotCache` / `AuthzChangedListener`，缺的是轻量只读路径（`foundation-starter-client`）
+的同一能力，以及三项单应用债务。本批继续从「平台的接入面 / 控制面 / 运行面是否成立」排期，
+不按「Tioka 还缺什么」补功能；Tioka 侧零改动。
+
+### 21.1 版本化缓存与事件失效
+
+`HttpAuthorizationSnapshotClient` 新增 `snapshotFor()`，严格校验 `version` 为非负整数并保留它；
+`permissionsFor()` 退化为它的窄视图，既有接入方零改动。平台新增 `AuthorizationSnapshotCache`：
+按 `appCode + personId` 分键，命中未过期快照零回源；`ConcurrentHashMap.compute` 按 key 串行回源，
+顺带避免缓存击穿；不引入 synchronized / ReentrantLock（48-CS §4）。
+
+三条不可放宽的语义：① 过期且回源失败（null / 异常）一律返回 `null` 并删除条目，**无过期放行分支**；
+② 回源版本小于已缓存版本（从库延迟、乱序、旧节点）视为不可用，避免权限回退；
+③ 回源结果的 `personId` / `appCode` 必须与请求一致，防网关串号。
+
+`fdn.authz.changed` 经 `AuthorizationSnapshotInvalidationListener` 解析（MQ body 与 Webhook
+envelope 两种形态都兼容），按 appCode / personId 精确失效；JSON 非法或缺关键字段**抛异常让通道
+重试**，绝不静默吞掉——吞掉失效事件等于让缓存一直用旧授权。`FoundationClientAutoConfiguration`
+自动装配缓存化 `AuthorizationSnapshotClient`、把 `SnapshotInvalidationHook` 指向缓存、注册事件入口；
+自检第 6 项在真实接入中自动 PASS。`foundation.client.authz.cache-ttl=0s` 可退回每次回源排障。
+
+### 21.2 三项契约缺口
+
+| 缺口 | 修复 |
+| --- | --- |
+| MQ body 无 `deliveryId`，`IdempotentConsumer` 按 MQ `messageId` 去重，中继重试会重复处理 | `MybatisOutbox` 把 outbox 行主键写入 payload 保留字段（强制覆盖业务同名字段）；`WebhookEventSink` 校验并移除 payload 内重复字段；新增 `EventDeliveryKeys` / `DeliveryAwareIdempotentConsumer` 按 `eventType + deliveryId` 去重，存量消费者默认行为不变 |
+| Webhook 有签名与 deliveryId，但无时间窗防重放 | envelope 顶层新增**可选** `sentAt`（epoch millis），位于 HMAC 覆盖的 `raw_body` 内不可篡改；不新增头、不改签名串，v1 接入方忽略即可。Node SDK 新增 `assertReplayWindow`，验签 → 时间窗 → `eventType + deliveryId` 幂等构成完整防重放，老中继无 `sentAt` 时明确返回「未启用」而非抛错 |
+| `DegradeContext` 纯 ThreadLocal，异步任务的降级标记主线程读不到 | 新增 `Snapshot` / `capture()` / `restore()` / `wrap()` / `call()`，父子线程共享快照且子线程 `mark()` 回写；`DegradeHeaderFilter` 在入口绑定快照，`clear()` 仍按线程清理 |
+
+事件契约 `event-schemas-v1.json` 主版本仍为 1、envelope 必需字段未增删，属兼容增补：
+`mqChannel.reservedFields`、`webhookChannel.envelopeOptionalFields` 与 `replayProtection` 说明。
+
+### 21.3 验证与边界
+
+| 项 | 结果 |
+| --- | --- |
+| 平台缓存 / 事件 / 客户端单测 | `AuthorizationSnapshotCacheTest` 10 例、`AuthorizationSnapshotInvalidationListenerTest` 6 例、`HttpAuthorizationSnapshotClientTest` 补 2 例 |
+| 契约缺口单测 | `DegradeContextTest` 6 例、`MybatisOutboxTest` +1、`WebhookEventSinkTest` +3、`IdempotentConsumerTest` +3 |
+| 第二接入方骨架 | `SecondAppOnboardingTest` +2：事件驱动失效、陈旧快照绝不放行；平台自动装配出缓存与钩子 |
+| Node SDK | 25 例全绿（含 3 例防重放） |
+| 守门 | 能力归属 112 / 权限映射 69 / 平台契约 64，兼容矩阵通过 |
+
+**边界**：不配远程、不 deploy、不改 CI 发布链路；未动 Tioka 业务行为、`local` 模式零装配、未删任何
+类或表、未变更 ADR-029。缓存刻意不提供过期放行开关，不与 `foundation.client.degrade.*` 白名单挂钩
+（`policyFor("authz")` 恒为 `FAIL_CLOSED`）。P2 再做能力目录注册表、破坏性变更守门、应用间授权与
+门户卡片；P3 拆 `tioka-ai` 时应是「配置接入」而不是复制一套权限。
+
