@@ -1,6 +1,6 @@
 # 36 — Foundation 后续开发规划：面向多业务项目的底座适配性专项
 
-- 状态：**规划建议（2026-11-15），部分已实施**。本文是 F 阶段之后的**增量规划**，不改 [F-00](../construction/F-00-F阶段实施计划.md) 已定的 W80–W89 范围、人天与分工，不改 [S15](../systems/S15-Foundation基础平台系统.md) §19.3 的 F2 增强批次（W90+）定案；新增批次命名 **F3（适配性专项）**，需单独立项。**F3 第一批（ADP-01/02/04/05 与 ADP-12 文档部分）见第 11 节、第二批（ADP-03/05 余下/08 前半）见第 12 节、第三批（ADP-06/07/12 余下）见第 13 节、第四批（ADP-08 余下前半与 GA 装配裁剪闸门）见第 14 节、第五批（ADP-09/11 与部署死键核实）见第 15 节，均已于 2026-11-15 落地**；待决策项（第 9 节）仍需负责人拍板。第 0 节的四处缺口是**规划基线时的状态**，已落地部分以 §11〜§15 为准。
+- 状态：**规划建议（2026-11-15），部分已实施**。本文是 F 阶段之后的**增量规划**，不改 [F-00](../construction/F-00-F阶段实施计划.md) 已定的 W80–W89 范围、人天与分工，不改 [S15](../systems/S15-Foundation基础平台系统.md) §19.3 的 F2 增强批次（W90+）定案；新增批次命名 **F3（适配性专项）**，需单独立项。**F3 第一批（ADP-01/02/04/05 与 ADP-12 文档部分）见第 11 节、第二批（ADP-03/05 余下/08 前半）见第 12 节、第三批（ADP-06/07/12 余下）见第 13 节、第四批（ADP-08 余下前半与 GA 装配裁剪闸门）见第 14 节、第五批（ADP-09/11 与部署死键核实）见第 15 节，均已于 2026-11-15 落地**；待决策项（第 9 节）仍需负责人拍板。第 0 节的四处缺口是**规划基线时的状态**，已落地部分以 §11〜§15 为准。**2026-11-16 完成版本分轨与 git 收口（不合并 F3、不污染主干、不丢代码），见第 16 节；§15.5 第 2 条的「103 个改动未提交」风险已解除。**
 - 上位与依据：[S15](../systems/S15-Foundation基础平台系统.md)（定位与设计）、[ADR-051](../adr/ADR-051-foundation-platform.md)〜054、[ADR-076](../adr/ADR-076-app-to-app-authorization.md)〜078、[F-00](../construction/F-00-F阶段实施计划.md)（排期权威）、[F-01](../construction/F-01-并行开发任务包.md)（仓库边界与号段）、[F-02](../construction/F-02-工程底座与骨架.md)（双模式）、[F-07](../construction/F-07-后端接入starter.md)（接入点）、[F-11](../construction/F-11-部署与Tioka接入与GF闸门.md)（接入与回退）、[F-12](../construction/F-12-应用间授权.md)〜[F-14](../construction/F-14-多源同步适配器.md)（F2 施工设计）、[34 号计划](34-M0至M4推进规划与工作项.md) 第 8 节（增强批次）。
 - 本文回答：**Foundation 从「Tioka + 合同业务系统共用的中台」走向「整个项目与后续所有业务项目的底座」，还差什么、按什么顺序补、做到什么算完、哪些边界刻意不适配**。
 - 写法：只用文字与表格，不附代码、SQL 或配置片段。
@@ -492,6 +492,74 @@
    第二个真实接入方验收、JDK 21 验证。**第 8 节最低放行线（ADP-01/02/04/05）已超额完成**。
 4. 第 9 节 D1〜D8 仍待拍板；**D2（适配边界）已被本批的兼容矩阵契约固化**，若将来要解除
    `notAdapted` 中的任一项，必须先改契约并走决策，不能只改代码。
+
+## 16. 版本分轨与 git 收口（2026-11-16）
+
+### 16.1 问题：同一个坐标对应两套行为
+
+F3 五批完成后，暴露出一个比 git 分叉更隐蔽的风险：`main`（稳定基座）与
+`feat/f3-adaptability`（适配性剖面）**共用** `com.foundation:*:0.1.0-SNAPSHOT` 这一坐标，
+但行为不同——最典型的 `FoundationMigrationAutoConfiguration`，`main` 版读
+`foundation.enabled`，F3 版读 `foundation.data.enabled`。Tioka 主仓库把后者设为 `false`，
+因此「下游实际跑哪套语义」完全取决于**最近一次在哪个分支执行了 `mvn install`**，
+而 pom 里看不出任何差别。换机器、进 CI、或有人在 `main` 上重装一次，行为就会静默变化。
+并行会话已实测：在 `main` 基点 install 后，
+`FoundationDataContractTest.capabilitySwitchGatesStarterAutoConfiguration` 直接变红。
+
+### 16.2 决策：方案 C（版本分轨），三条边界同时守住
+
+经代码级取证后，对上一轮提出的 A/B/C 三案选定 **C**：
+
+| 边界 | 做法 | 依据 |
+| --- | --- | --- |
+| 不污染 | **不把 F3 合进 `main`**；`tioka-foundation` 也不并入 Tioka 主仓库 | 用户明确要求；ADR-051 独立仓库约定 + 主仓库 `.gitignore` 第 21 行。主仓库直接 import 的 7 个 Foundation 类在 `main` 上齐备，F3 新增 134 个文件一个都未被引用 |
+| 不丢失 | F3 全部成果提交到专用分支并打 tag、建全分支 bundle；用**独立 worktree** 改 F3，不动共享工作区 HEAD | Foundation 仓库无远程，本地 refs 是唯一副本 |
+| 消除歧义 | 两轨使用**不同 Maven 坐标**，下游 pom 显式锁定所需轨 | 行为由坐标决定，与构建顺序无关 |
+
+否决 A（挑类回主干）：能力开关注解会牵出 `CoreAutoConfiguration` → `DeploymentNamespace` →
+`FoundationProperties`，越挑越多，等于合并半个 F3。否决 B（F3 成为主干）：直接违背
+「不要合并进来污染代码」。`main` 仍接收了纯修复类提交（PF-00a `38aabe0`、发布 pom 回归
+`6cca930`），因为下游继承父工程必须依赖它们，且不含任何 F3 适配性代码。
+
+### 16.3 两条版本轨与下游锁定
+
+| 轨道 | 坐标 | 所在分支 | 内容 |
+| --- | --- | --- | --- |
+| 稳定基座 | `0.1.0-SNAPSHOT` | `main`（`6cca930`） | PF-00a / 发布 pom 回归修复，不含 F3 适配性代码 |
+| 适配性剖面 | `0.2.0-adapt-SNAPSHOT` | `feat/f3-adaptability`（`b31a450`） | 稳定基座 + F3 五批全部成果；**Tioka 当前提交锁定此轨** |
+
+Foundation 侧同步 4 处：聚合器、父工程、BOM 的三处 `<revision>`，以及模板工程的 parent 版本；
+新增 `tioka-foundation/docs/version-tracks.md` 固化「改版本清单 / 双轨用法 / 远程配套要求」，
+`docs/README.md` 与根 `README.md` 加导览入口。Tioka 侧同步 2 处版本源：根 `pom.xml` 的
+`<parent>` 与 `tioka-dependencies/pom.xml` 的 `foundation.version`（当前双源，必须同轨）。
+Helm 与离线清单里的 `0.1.0` 是镜像 tag、模板自身 `<version>` 是新应用坐标，均未改动。
+
+### 16.4 验证结果
+
+| 项 | 结果 |
+| --- | --- |
+| Foundation `mvn -o install -DskipTests`（F3 worktree，JDK 17） | exit 0；m2 新增 `0.2.0-adapt-SNAPSHOT` 共 **53 个发布 pom**，版本正确、无 `${revision}` 残留；jar 内含 `FoundationRuntimeMode` / `DeploymentNamespace` / `ConditionalOnFoundation*` / `FoundationApiVersion` |
+| 旧坐标保护 | `0.1.0-SNAPSHOT` 仍是原有产物、未被覆盖；两轨在本地 m2 中是不同目录 |
+| Tioka 定向测试 `-Dtest='Foundation*Test'` | **18 例全绿**（data 6 + Ids 4 + 双模式 8），0 失败 / 0 错误 |
+| Tioka `test-compile -pl tioka-server -am` / `validate` | 均 exit 0；validate 日志无新增告警 |
+| 坐标生效实证 | 根 flattened pom 的 parent 为 `0.2.0-adapt-SNAPSHOT`；surefire classpath 实测加载 `foundation-starter-core-0.2.0-adapt-SNAPSHOT.jar` |
+| git 状态 | `main` 未混入任何 F3 文件；F3 分支成果完整；两仓库工作树干净、共享工作区 HEAD 未切换 |
+
+**§15.5 第 2 条的「103 个改动未提交」风险已解除**：五批成果已提交在
+`feat/f3-adaptability`（`0ac8115` / `ceda814` / `bba1b0f` / `b31a450`），
+36 号文档已提交到主仓库（`01273939`），并有 3 个 tag 与
+`.workbuddy/backups/foundation-20261116.bundle` 全历史备份。
+
+### 16.5 后续顺序（本批未做）
+
+1. **配远程并分别 deploy 两轨**：Foundation 目前无远程，双轨只在本地 m2 有效；这是分轨方案的
+   配套项而非可选项，否则 CI / 其他机器无法解析 `0.2.0-adapt-SNAPSHOT`。
+2. **双键一致性校验**：`foundation.client.mode`（starter 侧）与 `tioka.foundation.mode`
+   （应用侧）由同一环境变量派生并加启动期断言，避免「应用以为单飞、starter 仍连中台」。
+3. **F1 债务清零**：`foundation-ui` 空壳、GF 12 条闸门用例缺 11 条、BAS-20 / 28 / 22 收尾；
+   该工作由并行会话推进，本批刻意未触碰其业务代码。
+4. F3 剩余项与 §15.5 第 3 条一致；第 9 节 D1〜D8 仍待拍板（D2 已由兼容矩阵契约固化）。
+5. 将来若决定合并两条版本轨，`revision` 行必然冲突，须先决定保留哪个版本号并同步下游两处声明。
 
 ---
 

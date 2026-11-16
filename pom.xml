@@ -7,11 +7,15 @@
     <!-- F-02 BAS-26：Tioka 改以 foundation-parent 为父工程。
          Foundation 是独立仓库，<relativePath/> 强制从 Maven 仓库解析，避免误取上级目录的 pom。
          版本显式固定（不与 Tioka 的 ${revision} 绑定），升级按 S15 §5.3 附升级说明，
-         并须同步 tioka-dependencies 的 foundation.version（当前双源）。 -->
+         并须同步 tioka-dependencies 的 foundation.version（当前双源）。
+         版本分轨（2026-11-16）：本仓库契约测试依赖 F3 适配性行为，故锁定
+         0.2.0-adapt-SNAPSHOT（Foundation 的 feat/f3-adaptability 轨）；main 稳定基座仍为
+         0.1.0-SNAPSHOT，两者语义不同、不可互换。切换前须同步下游两处版本并重跑契约测试，
+         见 Foundation docs/version-tracks.md 与本仓库 docs/architecture/module-dependencies.md §7。 -->
     <parent>
         <groupId>com.foundation</groupId>
         <artifactId>foundation-parent</artifactId>
-        <version>0.1.0-SNAPSHOT</version>
+        <version>0.2.0-adapt-SNAPSHOT</version>
         <relativePath/>
     </parent>
 
