@@ -5,6 +5,9 @@ import com.tioka.knowledge.infrastructure.mapper.*;
 import com.tioka.knowledge.infrastructure.persistence.*;
 import org.springframework.stereotype.Repository;
 
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -95,6 +98,12 @@ public class KnowledgeRepository {
                 .eq(KbDocumentDO::getStatus, status)
                 .orderByAsc(KbDocumentDO::getUpdateAt)
                 .last("LIMIT " + Math.max(1, limit)));
+    }
+
+    /** OBS-12：时间线重建只读端口——按时间段读回文档（左连 kb_base 补空间，异步重建须无 Principal）。 */
+    public List<KbDocumentTimelineDO> listByRange(Instant from, Instant to) {
+        return documents.listByRange(LocalDateTime.ofInstant(from, ZoneOffset.UTC),
+                LocalDateTime.ofInstant(to, ZoneOffset.UTC));
     }
 
     /** FE-04：按知识库聚合文档状态计数（status → count）。 */

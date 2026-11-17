@@ -3,7 +3,7 @@ package com.tioka.chat.infrastructure.persistence;
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
-import com.tioka.framework.persistence.BaseDO;
+import com.foundation.starter.data.BaseDO;
 
 @TableName("chat_memory")
 public class ChatMemoryDO extends BaseDO {

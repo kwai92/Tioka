@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tioka.orchestration.infrastructure.mapper.OrchDecisionMapper">
+
+    <!-- OBS-08 / ADR-075 §2、§6：规则求值（DECISION）只读端口。左连 orch_event 补 subject_key / workspace_id。 -->
+    <select id="listByRange" resultType="com.tioka.orchestration.infrastructure.persistence.OrchDecisionTimelineDO">
+        SELECT d.id,
+               d.event_id,
+               d.rule_version_id,
+               d.strength,
+               d.decision,
+               d.reason,
+               d.work_item_id,
+               d.create_at,
+               e.subject_key,
+               e.workspace_id
+          FROM orch_decision d
+          LEFT JOIN orch_event e ON e.id = d.event_id
+         WHERE d.create_at &gt;= #{from} AND d.create_at &lt;= #{to}
+         ORDER BY d.create_at ASC, d.id ASC
+    </select>
+
+</mapper>

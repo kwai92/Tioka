@@ -2,6 +2,8 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+> **回写注记（2026-11-15，F1 / BAS-26 第 2 步）**：本文是 W0 施工记录，保留原文与代码块。文中的 `com.tioka.framework.persistence.{BaseDO,AppendOnlyDO,ImmutableSnapshotDO,MutableRecordDO}` 四个通用 DO 基类已迁至 `com.foundation.starter.data.*`（Foundation `foundation-starter-data`），Tioka 本地副本已删除、不保留兼容层；`WorkspaceAwareDO` 与空间过滤、审计填充、MyBatis 拦截器仍留在 `tioka-framework/persistence`。当前事实见 `architecture/module-dependencies.md` §7.4。
+
 **Goal:** 清除全仓 `JdbcTemplate` 业务持久化，统一 MyBatis-Plus + `BaseDO`（`createAt`/`updateAt`/`createBy`/`updateBy`/`deleted`，无 `tenantId`），并用 Cursor Rules + ArchUnit 永久卡住回退。
 
 **Architecture:** Framework 提供 `BaseDO` 族与 `MetaObjectHandler`；各 `*-biz` 的 Entity/Mapper/Repository 落在 `infrastructure`；`application` 只依赖 Repository；`tioka-server` ArchUnit 禁止 `org.springframework.jdbc` 与 application→mapper 直连。

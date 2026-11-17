@@ -12,6 +12,23 @@ public record AuditEventQuery(
         String outcome,
         Instant from,
         Instant to,
-        int limit,
-        int offset
-) {}
+        /* ADR-073 §1 关联键条件（OBS-09） */
+        String traceId,
+        String requestId,
+        String subject,
+        String turnId,
+        String runId,
+        /* (ts, id) 游标：DESC 序下取 ts < cursorTs 或 (ts = cursorTs 且 id < cursorId) */
+        Instant cursorTs,
+        String cursorId,
+        int limit
+) {
+
+    /** 兼容旧 10 参口径（关联键 / 游标为 null）。 */
+    public AuditEventQuery(String workspaceId, String actorId, String action, String resourceType,
+                           String resourceId, String outcome, Instant from, Instant to,
+                           int limit, int offset) {
+        this(workspaceId, actorId, action, resourceType, resourceId, outcome, from, to,
+                null, null, null, null, null, null, null, limit);
+    }
+}

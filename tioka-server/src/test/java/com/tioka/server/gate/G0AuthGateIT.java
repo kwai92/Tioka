@@ -4,7 +4,7 @@ import com.tioka.agent.infrastructure.AgentRepository;
 import com.tioka.agent.infrastructure.persistence.AgentDO;
 import com.tioka.chat.infrastructure.ChatRepository;
 import com.tioka.chat.infrastructure.persistence.ChatConversationDO;
-import com.tioka.framework.id.Ids;
+import com.foundation.common.id.Ids;
 import com.tioka.framework.security.Principal;
 import com.tioka.framework.security.PrincipalHolder;
 import com.tioka.framework.security.PrincipalType;

@@ -1,6 +1,6 @@
 package com.tioka.server.model;
 
-import com.tioka.framework.id.Ids;
+import com.foundation.common.id.Ids;
 import com.tioka.framework.security.Principal;
 import com.tioka.framework.security.PrincipalHolder;
 import com.tioka.model.api.dto.ProviderDtos.CreateModelBindingRequest;

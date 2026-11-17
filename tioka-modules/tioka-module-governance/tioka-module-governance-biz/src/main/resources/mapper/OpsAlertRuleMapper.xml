@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- GOV-13 ops_alert_rule 自定义 SQL（48-CS §4：自定义 SQL 须放 mapper/*.xml） -->
+<mapper namespace="com.tioka.governance.infrastructure.mapper.OpsAlertRuleMapper">
+
+    <sql id="ruleColumns">
+        id, name,
+        target_type     AS targetType,
+        target_id       AS targetId,
+        condition_type  AS conditionType,
+        comparator,
+        threshold_value AS thresholdValue,
+        threshold_text  AS thresholdText,
+        window_minutes  AS windowMinutes,
+        severity, channels, recipients,
+        silence_start   AS silenceStart,
+        silence_end     AS silenceEnd,
+        enabled, builtin,
+        last_fired_at   AS lastFiredAt,
+        description,
+        create_at       AS createAt,
+        update_at       AS updateAt,
+        create_by       AS createBy,
+        update_by       AS updateBy
+    </sql>
+
+    <select id="listEnabled" resultType="com.tioka.governance.infrastructure.persistence.OpsAlertRuleDO">
+        SELECT <include refid="ruleColumns"/> FROM ops_alert_rule
+        WHERE enabled = TRUE
+        ORDER BY create_at, id
+    </select>
+
+    <select id="listAll" resultType="com.tioka.governance.infrastructure.persistence.OpsAlertRuleDO">
+        SELECT <include refid="ruleColumns"/> FROM ops_alert_rule
+        ORDER BY builtin DESC, create_at, id
+    </select>
+
+    <select id="findByBuiltinName" resultType="com.tioka.governance.infrastructure.persistence.OpsAlertRuleDO">
+        SELECT <include refid="ruleColumns"/> FROM ops_alert_rule
+        WHERE builtin = TRUE AND name = #{name}
+        LIMIT 1
+    </select>
+
+    <!-- 事件型条件推进游标水位（仅取该时刻之后新发生的配置变更） -->
+    <update id="touchLastFired">
+        UPDATE ops_alert_rule
+           SET last_fired_at = #{at}, update_at = now()
+         WHERE id = #{id}
+    </update>
+</mapper>

@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tioka.governance.infrastructure.mapper.RunManifestMapper">
+
+    <!-- OBS-06 / ADR-075 §3：create_at / create_by 走列默认值（now() / 'system'）。 -->
+    <insert id="insert">
+        <![CDATA[
+            INSERT INTO run_manifest
+              (id, run_kind, run_id, seq, request_id, parent_request_id, workspace_id, subject, trace_id,
+               agent_version_id, spec_hash, grant_id, manifest_json, content_hash, prev_hash, hash)
+            VALUES
+              (#{id}, #{runKind}, #{runId}, #{seq}, #{requestId}, #{parentRequestId}, #{workspaceId}, #{subject},
+               #{traceId}, #{agentVersionId}, #{specHash}, #{grantId}, #{manifestJson}::jsonb, #{contentHash},
+               #{prevHash}, #{hash})
+        ]]>
+    </insert>
+
+    <select id="findById" resultType="com.tioka.governance.infrastructure.persistence.RunManifestDO">
+        <![CDATA[
+            SELECT id, run_kind AS runKind, run_id AS runId, seq, request_id AS requestId,
+                   parent_request_id AS parentRequestId, workspace_id AS workspaceId, subject,
+                   trace_id AS traceId, agent_version_id AS agentVersionId, spec_hash AS specHash,
+                   grant_id AS grantId, manifest_json::text AS manifestJson, content_hash AS contentHash,
+                   prev_hash AS prevHash, hash, create_at AS createAt, create_by AS createBy
+              FROM run_manifest
+             WHERE id = #{id}
+        ]]>
+    </select>
+
+    <select id="findLatest" resultType="com.tioka.governance.infrastructure.persistence.RunManifestDO">
+        <![CDATA[
+            SELECT id, run_kind AS runKind, run_id AS runId, seq, request_id AS requestId,
+                   parent_request_id AS parentRequestId, workspace_id AS workspaceId, subject,
+                   trace_id AS traceId, agent_version_id AS agentVersionId, spec_hash AS specHash,
+                   grant_id AS grantId, manifest_json::text AS manifestJson, content_hash AS contentHash,
+                   prev_hash AS prevHash, hash, create_at AS createAt, create_by AS createBy
+              FROM run_manifest
+             WHERE run_kind = #{runKind} AND run_id = #{runId}
+             ORDER BY seq DESC
+             LIMIT 1
+        ]]>
+    </select>
+
+    <select id="listByRun" resultType="com.tioka.governance.infrastructure.persistence.RunManifestDO">
+        <![CDATA[
+            SELECT id, run_kind AS runKind, run_id AS runId, seq, request_id AS requestId,
+                   parent_request_id AS parentRequestId, workspace_id AS workspaceId, subject,
+                   trace_id AS traceId, agent_version_id AS agentVersionId, spec_hash AS specHash,
+                   grant_id AS grantId, manifest_json::text AS manifestJson, content_hash AS contentHash,
+                   prev_hash AS prevHash, hash, create_at AS createAt, create_by AS createBy
+              FROM run_manifest
+             WHERE run_kind = #{runKind} AND run_id = #{runId}
+             ORDER BY seq ASC
+        ]]>
+    </select>
+
+    <select id="listRecentSameKind" resultType="com.tioka.governance.infrastructure.persistence.RunManifestDO">
+        <![CDATA[
+            SELECT id, run_kind AS runKind, run_id AS runId, seq, request_id AS requestId,
+                   parent_request_id AS parentRequestId, workspace_id AS workspaceId, subject,
+                   trace_id AS traceId, agent_version_id AS agentVersionId, spec_hash AS specHash,
+                   grant_id AS grantId, manifest_json::text AS manifestJson, content_hash AS contentHash,
+                   prev_hash AS prevHash, hash, create_at AS createAt, create_by AS createBy
+              FROM run_manifest
+             WHERE run_kind = #{runKind}
+        ]]>
+        <if test="workspaceId != null and workspaceId != ''">
+            <![CDATA[ AND workspace_id = #{workspaceId} ]]>
+        </if>
+        <if test="agentVersionId != null and agentVersionId != ''">
+            <![CDATA[ AND agent_version_id = #{agentVersionId} ]]>
+        </if>
+        <![CDATA[
+             ORDER BY create_at DESC, id DESC
+             LIMIT #{limit}
+        ]]>
+    </select>
+    <select id="listByRange" resultType="com.tioka.governance.infrastructure.persistence.RunManifestDO">
+        <![CDATA[
+            SELECT id, run_kind AS runKind, run_id AS runId, seq, request_id AS requestId,
+                   parent_request_id AS parentRequestId, workspace_id AS workspaceId, subject,
+                   trace_id AS traceId, agent_version_id AS agentVersionId, spec_hash AS specHash,
+                   grant_id AS grantId, manifest_json::text AS manifestJson, content_hash AS contentHash,
+                   prev_hash AS prevHash, hash, create_at AS createAt, create_by AS createBy
+              FROM run_manifest
+             WHERE 1 = 1
+        ]]>
+        <if test="from != null">
+            <![CDATA[ AND create_at >= #{from}::timestamptz ]]>
+        </if>
+        <if test="to != null">
+            <![CDATA[ AND create_at <= #{to}::timestamptz ]]>
+        </if>
+        <![CDATA[
+             ORDER BY create_at ASC, id ASC
+        ]]>
+    </select>
+
+    <!-- OBS-12 证据包：按请求 / 主体取关联清单；调用方保证两键至少一个非空。 -->
+    <select id="listByScope" resultType="com.tioka.governance.infrastructure.persistence.RunManifestDO">
+        <![CDATA[
+            SELECT id, run_kind AS runKind, run_id AS runId, seq, request_id AS requestId,
+                   parent_request_id AS parentRequestId, workspace_id AS workspaceId, subject,
+                   trace_id AS traceId, agent_version_id AS agentVersionId, spec_hash AS specHash,
+                   grant_id AS grantId, manifest_json::text AS manifestJson, content_hash AS contentHash,
+                   prev_hash AS prevHash, hash, create_at AS createAt, create_by AS createBy
+              FROM run_manifest
+             WHERE 1 = 1
+        ]]>
+        <if test="workspaceId != null and workspaceId != ''">
+            <![CDATA[ AND workspace_id = #{workspaceId} ]]>
+        </if>
+        <if test="requestId != null and requestId != ''">
+            <![CDATA[ AND request_id = #{requestId} ]]>
+        </if>
+        <if test="subject != null and subject != ''">
+            <![CDATA[ AND subject = #{subject} ]]>
+        </if>
+        <![CDATA[
+             ORDER BY create_at ASC, id ASC
+             LIMIT #{limit}
+        ]]>
+    </select>
+
+</mapper>

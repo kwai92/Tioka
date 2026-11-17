@@ -4,7 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tioka.framework.error.BizException;
 import com.tioka.framework.error.ErrorCode;
-import com.tioka.framework.id.Ids;
+import com.foundation.common.id.Ids;
 import com.tioka.runtime.api.approval.ToolRisk;
 import com.tioka.runtime.api.spi.ChangeSet;
 import com.tioka.runtime.api.spi.GateDecision;

@@ -3,7 +3,7 @@ package com.tioka.orchestration.infrastructure.persistence;
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
-import com.tioka.framework.persistence.ImmutableSnapshotDO;
+import com.foundation.starter.data.ImmutableSnapshotDO;
 
 /**
  * 规则版本内容不可变；仅 stage / canary_percent 与 F17 发布型字段可在发布时更新。

@@ -17,6 +17,12 @@ tioka-ui/dist/
 data/workspaces/
 data/objects/
 
+# Foundation 独立仓库（ADR-051：自成 git 仓库，源码不并入 Tioka 对象库）。
+# 本行原先忽略整个目录，使 CI checkout 拿不到 Foundation，根 pom 的
+# foundation-parent 无从解析而构建失败；现改为 git submodule 钉版引入，
+# 故必须从此处移除，否则 git 会忽略该路径、submodule 无法登记。
+# 远程：https://github.com/kwai92/tioka-foundation
+
 # Diagram export temp files (scripts/export-diagram-pngs.mjs)
 .tmp-mmd/
 .worktrees/

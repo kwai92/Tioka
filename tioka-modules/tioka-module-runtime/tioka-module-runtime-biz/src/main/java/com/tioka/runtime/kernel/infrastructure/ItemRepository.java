@@ -2,12 +2,15 @@ package com.tioka.runtime.kernel.infrastructure;
 
 import com.tioka.framework.error.BizException;
 import com.tioka.framework.error.ErrorCode;
-import com.tioka.framework.id.Ids;
+import com.foundation.common.id.Ids;
 import com.tioka.runtime.infrastructure.mapper.RuntimeItemMapper;
 import com.tioka.runtime.infrastructure.persistence.RuntimeItemDO;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 
 @Repository
@@ -33,7 +36,8 @@ public class ItemRepository {
         ItemWrite w = write.leaseVersion() == null ? write
                 : new ItemWrite(write.threadId(), write.turnId(), null, write.seq(),
                 write.step(), write.type(), write.role(), write.contentJson(), write.tokenCount(),
-                write.dataLabel());
+                write.dataLabel(), write.schemaRef(), write.outcome(), write.reasonCode(),
+                write.modelRef(), write.outputMode(), write.repairRounds());
         return write(w);
     }
 
@@ -54,6 +58,11 @@ public class ItemRepository {
         return mapper.listByThread(threadId);
     }
 
+    /** SCH-07：按 item id 读单条（DataItemReader 的唯一取数入口）。 */
+    public RuntimeItemDO findById(String id) {
+        return mapper.findById(id);
+    }
+
     public List<RuntimeItemDO> listAfterSeq(String threadId, long afterSeq, int limit) {
         int lim = Math.min(Math.max(limit, 1), MAX_LIST_AFTER_SEQ);
         return mapper.listAfterSeq(threadId, afterSeq, lim);
@@ -61,6 +70,12 @@ public class ItemRepository {
 
     public List<RuntimeItemDO> listByTurn(String turnId) {
         return mapper.listByTurn(turnId);
+    }
+
+    /** OBS-08 时间线重建：按时间段读回运行项（ADR-075 §2）。 */
+    public List<RuntimeItemDO> listByRange(Instant from, Instant to) {
+        return mapper.listByRange(LocalDateTime.ofInstant(from, ZoneOffset.UTC),
+                LocalDateTime.ofInstant(to, ZoneOffset.UTC));
     }
 
     private ItemWrite requireLease(ItemWrite write) {
@@ -92,6 +107,12 @@ public class ItemRepository {
         item.setContentJson(w.contentJson());
         item.setTokenCount(w.tokenCount());
         item.setDataLabel(w.dataLabel());
+        item.setSchemaRef(w.schemaRef());
+        item.setOutcome(w.outcome());
+        item.setReasonCode(w.reasonCode());
+        item.setModelRef(w.modelRef());
+        item.setOutputMode(w.outputMode());
+        item.setRepairRounds(w.repairRounds());
         item.setDiscarded(false);
         return item;
     }

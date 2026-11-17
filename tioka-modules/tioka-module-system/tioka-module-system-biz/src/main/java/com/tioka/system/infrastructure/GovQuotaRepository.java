@@ -28,12 +28,21 @@ public class GovQuotaRepository {
     }
 
     public void upsertLimit(String scopeType, String scopeId, String metric, long limitValue, String actor) {
+        upsertLimit(scopeType, scopeId, metric, limitValue, null, actor);
+    }
+
+    /**
+     * 写入上限；{@code warnRatio} 为预警比例（缺省 80，见 V152）。
+     */
+    public void upsertLimit(String scopeType, String scopeId, String metric, long limitValue,
+                            Integer warnRatio, String actor) {
         GovQuotaDO row = new GovQuotaDO();
         row.setScopeType(scopeType);
         row.setScopeId(scopeId);
         row.setMetric(metric);
         row.setLimitValue(limitValue);
         row.setUsedValue(0L);
+        row.setWarnRatio(warnRatio == null ? 80 : warnRatio);
         row.setCreateBy(actor);
         row.setUpdateBy(actor);
         mapper.upsertLimit(row);

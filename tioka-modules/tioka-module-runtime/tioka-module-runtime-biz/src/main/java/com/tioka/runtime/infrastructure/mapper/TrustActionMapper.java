@@ -54,4 +54,8 @@ public interface TrustActionMapper {
     int countCompensatedInWindow(@Param("agentId") String agentId,
                                  @Param("fromUtc") java.time.LocalDateTime fromUtc,
                                  @Param("toUtc") java.time.LocalDateTime toUtc);
+
+    /** OBS-08 时间线重建：按时间段读回变更动作（按最后状态时间升序）。 */
+    java.util.List<TrustActionDO> listByRange(@Param("from") java.time.LocalDateTime from,
+                                              @Param("to") java.time.LocalDateTime to);
 }

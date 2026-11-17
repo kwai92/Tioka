@@ -3,7 +3,7 @@ package com.tioka.model.infrastructure.persistence;
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
-import com.tioka.framework.persistence.ImmutableSnapshotDO;
+import com.foundation.starter.data.ImmutableSnapshotDO;
 
 @TableName("model_routing_plan")
 public class ModelRoutingPlanDO extends ImmutableSnapshotDO {

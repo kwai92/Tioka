@@ -1,0 +1,279 @@
+{
+  "version": 1,
+  "date": "2026-11-16",
+  "note": "Foundation 中台化能力归属与重复概念冻结清单。由 scripts/verify-capability-ownership.mjs 校验；新增、删除或改名重复实现必须先更新本清单。",
+  "singleTrackVersion": "0.2.0-SNAPSHOT",
+  "configContract": {
+    "file": "tioka-server/src/main/resources/application.yml",
+    "keys": ["tioka.foundation.mode", "foundation.client.mode"],
+    "sharedSource": "${TIOKA_FOUNDATION_MODE:local}",
+    "guardTest": "tioka-framework/src/test/java/com/tioka/framework/foundation/FoundationModeConfigConsistencyTest.java"
+  },
+  "permissionContract": {
+    "file": "tioka-framework/src/main/resources/contracts/permission-code-mapping-v1.json",
+    "source": "tioka-framework/src/main/java/com/tioka/framework/security/Permissions.java#ALL_CONCRETE",
+    "guardScript": "scripts/verify-permission-code-mapping.mjs",
+    "evaluatorPort": "tioka-framework/src/main/java/com/tioka/framework/security/PermissionEvaluator.java",
+    "snapshotSource": "tioka-framework/src/main/java/com/tioka/framework/security/AuthorizationSnapshotSource.java",
+    "snapshotClient": "tioka-foundation/foundation-starter-client/src/main/java/com/foundation/starter/client/authz/AuthorizationSnapshotClient.java",
+    "snapshotAdapter": "tioka-server/src/main/java/com/tioka/server/foundation/FoundationAuthorizationSnapshotSource.java",
+    "adapterConfiguration": "tioka-server/src/main/java/com/tioka/server/foundation/FoundationAuthzConfiguration.java",
+    "wildcardPolicy": "deny-elevation"
+  },
+  "frozenDuplicates": [
+    {
+      "className": "Principal",
+      "tiokaPaths": ["tioka-framework/src/main/java/com/tioka/framework/security/Principal.java"],
+      "foundationPaths": ["tioka-foundation/foundation-starter-security/src/main/java/com/foundation/starter/security/principal/Principal.java"],
+      "resolution": "adapter",
+      "note": "Tioka 版本含 workspaceId 与 onBehalfOf，Foundation 版本为单企业组织树；需适配器映射，不能直接替换"
+    },
+    {
+      "className": "PrincipalHolder",
+      "tiokaPaths": ["tioka-framework/src/main/java/com/tioka/framework/security/PrincipalHolder.java"],
+      "foundationPaths": ["tioka-foundation/foundation-starter-security/src/main/java/com/foundation/starter/security/principal/PrincipalHolder.java"],
+      "resolution": "adapter",
+      "note": "同名不同包；建议双实现 local / foundation，由模式开关切换"
+    },
+    {
+      "className": "RequirePermission",
+      "tiokaPaths": ["tioka-framework/src/main/java/com/tioka/framework/security/RequirePermission.java"],
+      "foundationPaths": ["tioka-foundation/foundation-starter-security/src/main/java/com/foundation/starter/security/permission/RequirePermission.java"],
+      "resolution": "adapter",
+      "note": "权限码体系不同；需权限码映射表后才会下沉"
+    },
+    {
+      "className": "RolePermissionExpander",
+      "tiokaPaths": ["tioka-framework/src/main/java/com/tioka/framework/security/RolePermissionExpander.java"],
+      "foundationPaths": [],
+      "resolution": "migrate",
+      "note": "Tioka 自有角色展开，Foundation 侧对应 RoleDataScope / AuthzSnapshot"
+    },
+    {
+      "className": "WorkspaceAwareDO",
+      "tiokaPaths": ["tioka-framework/src/main/java/com/tioka/framework/persistence/WorkspaceAwareDO.java"],
+      "foundationPaths": [],
+      "resolution": "keep-in-tioka",
+      "note": "Workspace 隔离基类，禁止向派生应用传播"
+    },
+    {
+      "className": "ScopeLineHandler",
+      "tiokaPaths": ["tioka-framework/src/main/java/com/tioka/framework/persistence/ScopeLineHandler.java"],
+      "foundationPaths": [],
+      "resolution": "keep-in-tioka",
+      "note": "行级 deny-by-default 过滤；Foundation 侧由 DataScopeFilterProvider 承接派生应用的数据范围"
+    },
+    {
+      "className": "PersistenceProperties",
+      "tiokaPaths": ["tioka-framework/src/main/java/com/tioka/framework/persistence/PersistenceProperties.java"],
+      "foundationPaths": [],
+      "resolution": "keep-in-tioka",
+      "note": "维护几十张行级过滤旁路表，与 Workspace 绑定"
+    },
+    {
+      "className": "ScimSyncService",
+      "tiokaPaths": ["tioka-modules/tioka-module-system/tioka-module-system-biz/src/main/java/com/tioka/system/application/ScimSyncService.java"],
+      "foundationPaths": [],
+      "resolution": "adapter",
+      "note": "两套 SCIM 同步并存；派生应用必须只接 Foundation 单一数据源"
+    },
+    {
+      "className": "ScimUser",
+      "tiokaPaths": [],
+      "foundationPaths": ["tioka-foundation/foundation-sync/foundation-sync-biz/src/main/java/com/foundation/sync/scim/domain/ScimUser.java"],
+      "resolution": "adapter",
+      "note": "Tioka 侧对应 ScimUserDO / ScimUserMapper / ScimUserRepository，类名不同但语义重叠"
+    },
+    {
+      "className": "AuthzSnapshot",
+      "tiokaPaths": [],
+      "foundationPaths": [
+        "tioka-foundation/foundation-authz/foundation-authz-biz/src/main/java/com/foundation/authz/domain/AuthzSnapshot.java",
+        "tioka-foundation/foundation-starter-security/src/main/java/com/foundation/starter/security/snapshot/AuthzSnapshot.java"
+      ],
+      "resolution": "foundation-internal",
+      "note": "Foundation 内部领域模型与 starter 视图同名，刻意保留"
+    },
+    {
+      "className": "OrgUnit",
+      "tiokaPaths": [],
+      "foundationPaths": [
+        "tioka-foundation/foundation-org/foundation-org-biz/src/main/java/com/foundation/org/domain/OrgUnit.java",
+        "tioka-foundation/foundation-starter-client/src/main/java/com/foundation/starter/client/org/OrgUnit.java"
+      ],
+      "resolution": "foundation-internal",
+      "note": "服务端领域模型与客户端 DTO 同名，刻意保留"
+    }
+  ],
+  "foundationOwned": [
+    {
+      "capability": "账号与登录",
+      "foundationModules": ["foundation-account", "foundation-auth"],
+      "tiokaDuplicates": [
+        "tioka-modules/tioka-module-system/tioka-module-system-biz/src/main/java/com/tioka/system/infrastructure/persistence/AuthUserDO.java",
+        "tioka-modules/tioka-module-system/tioka-module-system-biz/src/main/java/com/tioka/system/application/UserAdminService.java"
+      ],
+      "status": "dual",
+      "target": "下沉或改走中台"
+    },
+    {
+      "capability": "组织与人员",
+      "foundationModules": ["foundation-org", "foundation-starter-client/org"],
+      "tiokaDuplicates": [
+        "tioka-modules/tioka-module-system/tioka-module-system-biz/src/main/java/com/tioka/system/infrastructure/persistence/SysMemberDO.java",
+        "tioka-modules/tioka-module-system/tioka-module-system-biz/src/main/java/com/tioka/system/application/WorkspaceService.java"
+      ],
+      "status": "dual",
+      "target": "组织树归中台；Workspace 保留为 Tioka 历史概念"
+    },
+    {
+      "capability": "角色与权限",
+      "foundationModules": ["foundation-authz", "foundation-starter-security"],
+      "tiokaDuplicates": [
+        "tioka-modules/tioka-module-system/tioka-module-system-biz/src/main/java/com/tioka/system/infrastructure/persistence/SysRoleDO.java",
+        "tioka-modules/tioka-module-system/tioka-module-system-biz/src/main/java/com/tioka/system/infrastructure/persistence/SysUserRoleDO.java"
+      ],
+      "status": "dual",
+      "target": "授权快照归中台；权限码需映射"
+    },
+    {
+      "capability": "SCIM 用户同步",
+      "foundationModules": ["foundation-sync/scim"],
+      "tiokaDuplicates": [
+        "tioka-modules/tioka-module-system/tioka-module-system-biz/src/main/java/com/tioka/system/infrastructure/persistence/ScimUserDO.java",
+        "tioka-modules/tioka-module-system/tioka-module-system-biz/src/main/java/com/tioka/system/application/ScimSyncService.java"
+      ],
+      "status": "dual",
+      "target": "派生应用只接中台单一数据源"
+    },
+    {
+      "capability": "字典参数与编号",
+      "foundationModules": ["foundation-common", "foundation-sequence"],
+      "tiokaDuplicates": [],
+      "status": "planned",
+      "target": "派生应用直接复用 starter，禁止自建"
+    },
+    {
+      "capability": "文件审计与通知",
+      "foundationModules": ["foundation-file", "foundation-audit", "foundation-notify"],
+      "tiokaDuplicates": [],
+      "status": "planned",
+      "target": "派生应用直接复用 starter，禁止自建"
+    }
+  ],
+  "platformOwned": [
+    {
+      "capability": "Agent 委托授权",
+      "modules": ["tioka-module-runtime/grant"],
+      "note": "Grant / Charter 授权链是 Agent 平台自有语义，不属中台"
+    },
+    {
+      "capability": "模型路由与预算",
+      "modules": ["tioka-module-model", "tioka-module-governance"],
+      "note": "随 tioka-ai 派生"
+    },
+    {
+      "capability": "本体知识库与编排评测",
+      "modules": ["tioka-module-ontology", "tioka-module-runtime"],
+      "note": "随 tioka-ai 派生"
+    },
+    {
+      "capability": "Turn Skill MCP 与沙箱隔离",
+      "modules": ["tioka-module-runtime"],
+      "note": "ADR-014 沙箱目录隔离属安全边界，替换 Workspace 后仍需 session 级隔离键"
+    }
+  ],
+  "adapterRequired": [
+    {
+      "capability": "身份上下文适配",
+      "pairs": ["Principal", "PrincipalHolder", "RequirePermission"],
+      "status": "done",
+      "note": "权限判定已抽为 PermissionEvaluator 端口，local / foundation 双实现由 FoundationMode 互斥装配；认证链路与两套同名类均未改动；真实中台快照适配器已于 F4 接线"
+    },
+    {
+      "capability": "授权快照接入",
+      "pairs": ["AuthorizationSnapshotSource", "AuthorizationSnapshotClient"],
+      "status": "done",
+      "note": "foundation-starter-client 提供只读快照客户端，tioka-server 装配层适配为框架端口；接入模式不再启动期拒绝，任何快照异常均 fail-closed"
+    },
+    {
+      "capability": "权限码映射",
+      "pairs": ["RolePermissionExpander", "AuthzSnapshot"],
+      "status": "done",
+      "note": "permission-code-mapping-v1.json 显式登记全部权限点；通配不提升、未知码忽略、超管需显式授权，由 verify-permission-code-mapping.mjs 守门"
+    },
+    {
+      "capability": "Workspace 与组织树映射",
+      "pairs": ["WorkspaceAwareDO", "ScopeLineHandler", "DataScopeFilterProvider"],
+      "status": "pending",
+      "note": "仅 Tioka 保留 Workspace；派生应用走组织树 + 数据范围"
+    },
+    {
+      "capability": "双模式键同源",
+      "pairs": ["tioka.foundation.mode", "foundation.client.mode"],
+      "status": "done",
+      "note": "application.yml 同源派生，FoundationModeConfigConsistencyTest 守门"
+    }
+  ],
+  "integrationContract": {
+    "platformId": "urn:foundation:contract:permission-code-mapping:v1",
+    "platformSchema": "tioka-foundation/docs/contracts/permission-code-mapping-v1.schema.json",
+    "applicationInstance": "tioka-framework/src/main/resources/contracts/permission-code-mapping-v1.json",
+    "fieldNaming": "applicationPermissionCodes",
+    "bannedLegacyField": "tiokaPermissionCodes",
+    "platformGuard": "tioka-foundation/foundation-starter-client/src/main/java/com/foundation/starter/client/config/FoundationIntegrationAutoConfiguration.java",
+    "selfCheck": "tioka-foundation/foundation-starter-client/src/main/java/com/foundation/starter/client/integration/FoundationIntegrationSelfCheck.java",
+    "selfCheckReport": "tioka-foundation/foundation-starter-client/src/main/java/com/foundation/starter/client/integration/IntegrationSelfCheckReport.java",
+    "invalidationHook": "tioka-foundation/foundation-starter-client/src/main/java/com/foundation/starter/client/integration/SnapshotInvalidationHook.java",
+    "secondAppExample": "tioka-foundation/foundation-it-example/pom.xml",
+    "onboardingTest": "tioka-foundation/foundation-it-example/src/test/java/com/foundation/example/onboarding/SecondAppOnboardingTest.java",
+    "guardScripts": [
+      "scripts/verify-permission-code-mapping.mjs",
+      "tioka-foundation/scripts/verify-app-integration-contract.mjs"
+    ],
+    "selfCheckItems": 6,
+    "note": "P0 接入平面：规则与自检包归平台，应用只提供实例；第二接入方骨架不得依赖第一个业务应用。"
+  },
+  "runtimePlane": {
+    "phase": "P1",
+    "goal": "中台退出请求热路径；N 个派生应用一致 fail-closed；事件与契约缺口由平台统一收敛",
+    "platformAssets": {
+      "snapshotView": "tioka-foundation/foundation-starter-client/src/main/java/com/foundation/starter/client/authz/AuthorizationSnapshot.java",
+      "versionedCache": "tioka-foundation/foundation-starter-client/src/main/java/com/foundation/starter/client/authz/AuthorizationSnapshotCache.java",
+      "cachingClient": "tioka-foundation/foundation-starter-client/src/main/java/com/foundation/starter/client/authz/CachingAuthorizationSnapshotClient.java",
+      "remoteClient": "tioka-foundation/foundation-starter-client/src/main/java/com/foundation/starter/client/authz/HttpAuthorizationSnapshotClient.java",
+      "invalidationListener": "tioka-foundation/foundation-starter-client/src/main/java/com/foundation/starter/client/authz/AuthorizationSnapshotInvalidationListener.java",
+      "eventContract": "tioka-foundation/foundation-starter-mq/src/main/resources/contracts/event-schemas-v1.json",
+      "deliveryAwareConsumer": "tioka-foundation/foundation-starter-mq/src/main/java/com/foundation/starter/mq/consumer/DeliveryAwareIdempotentConsumer.java"
+    },
+    "cacheTtlProperty": "foundation.client.authz.cache-ttl",
+    "invalidationEvent": "fdn.authz.changed",
+    "policies": [
+      "命中未过期快照零回源",
+      "缓存过期且回源失败一律返回 null 并删除陈旧条目，不提供过期放行开关",
+      "回源版本回退或身份串号一律拒绝",
+      "fdn.authz.changed 按 appCode 与 personId 精确失效，非法事件不静默吞"
+    ],
+    "contractDebts": {
+      "mqDeliveryId": "MybatisOutbox 把 outbox 行主键写入 payload 保留字段 deliveryId；MQ 与 Webhook 共用同一幂等键",
+      "webhookReplay": "WebhookEventSink 在已签名 body 内新增可选 sentAt；Node SDK assertReplayWindow 做时间窗校验；不新增头、不改签名串",
+      "degradeAsync": "DegradeContext 增加 capture/restore/wrap/call，DegradeHeaderFilter 绑定共享快照"
+    },
+    "guardScripts": [
+      "scripts/verify-capability-ownership.mjs",
+      "scripts/verify-permission-code-mapping.mjs",
+      "tioka-foundation/scripts/verify-app-integration-contract.mjs"
+    ],
+    "note": "Tioka 侧零改动：适配层仍只依赖 AuthorizationSnapshotClient 端口，缓存由平台自动装配；local 模式零装配。"
+  },
+  "workspace": {
+    "adr": "ADR-029 第 60 条",
+    "javaFiles": 486,
+    "javaMatchedLines": 2308,
+    "javaOccurrences": 2966,
+    "migrationsWithWorkspaceId": 36,
+    "migrationsTotal": 84,
+    "propagation": "forbidden-for-derived-apps",
+    "decision": "Tioka 保留现状；tioka-ai 等派生应用不引入；彻底统一需另立 ADR 并做数据迁移"
+  }
+}

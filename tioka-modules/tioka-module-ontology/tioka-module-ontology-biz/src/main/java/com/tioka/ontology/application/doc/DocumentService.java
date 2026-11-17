@@ -1,6 +1,6 @@
 package com.tioka.ontology.application.doc;
 
-import com.tioka.framework.id.Ids;
+import com.foundation.common.id.Ids;
 import com.tioka.framework.messaging.DomainEvent;
 import com.tioka.framework.messaging.EventPublisher;
 import com.tioka.infra.api.ObjectStorageApi;

@@ -75,6 +75,12 @@ public class PersistenceProperties {
             // GOV-12 / V150：配置版本框架（无 workspace_id）
             "cfg_draft",
             "cfg_version",
+            // cfg_change：V150 同批建表，无 workspace_id 列。曾遗漏登记，被 deny-by-default
+            // 注入 WHERE workspace_id 致 BadSqlGrammarException（CI run 43918687240 实证）。
+            // 它无 @TableName DO 类（走纯 XML mapper），故 ArchUnit 的 exempt 守门扫不到，需在此显式登记。
+            "cfg_change",
+            // AST-07 / V237：Prompt 模板身份表（作用域 scope + scope_ref 表达，无 workspace_id）
+            "prm_template",
             // FND-08 / V141：代用户令牌保管（用户个人凭证，无 workspace_id）
             "sys_user_credential",
             // TRU-09 / V203：自治等级（等级 per Agent×类别，Agent 全局唯一，无 workspace_id）
@@ -101,7 +107,14 @@ public class PersistenceProperties {
             "eval_feedback",
             // EVO-02 / V176：评测用例与评测结果（随 dataset_id / run_id 归属，ADR-031 设计原文无 workspace_id）
             "eval_case",
-            "eval_result"
+            "eval_result",
+            // OBS-08 / V229：时间线重建游标（平台级投影进度，无 workspace_id）
+            "timeline_projection_cursor",
+            // SCH-06 / V177：模型结构化输出能力记录（模型级全局配置，PK model_ref，无 workspace_id）
+            "model_structured_capability",
+            // GOV-13 / V155：告警规则与告警事件（系统级监控对象，无 workspace_id；ADR-041 §5.3）
+            "ops_alert_rule",
+            "ops_alert_event"
     ));
 
     public List<String> getWorkspaceScopeExemptTables() {

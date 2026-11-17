@@ -125,6 +125,22 @@
 ]]>
     </update>
 
+    <select id="listByRange" resultType="RuntimeApprovalDO">
+        <![CDATA[
+            SELECT id, workspace_id AS workspaceId, subject_type AS subjectType, subject_id AS subjectId,
+                   item_id AS itemId, kind, tool_name AS toolName, args_json AS argsJson, card_json AS cardJson,
+                   policy, assignee_json AS assigneeJson, status, decided_by AS decidedBy,
+                   decided_at AS decidedAt, answer_json AS answerJson, expires_at AS expiresAt,
+                   request_id AS requestId, subject,
+                   requested_by AS requestedBy, title, risk, agent_id AS agentId,
+                   create_at AS createAt, update_at AS updateAt, create_by AS createBy, update_by AS updateBy
+              FROM runtime_approval
+             WHERE create_at >= #{from} AND create_at <= #{to}
+             ORDER BY create_at ASC, id ASC
+            
+]]>
+    </select>
+
     <select id="findWaitingWithoutPending" resultType="com.tioka.runtime.infrastructure.persistence.WaitingTurnRow">
         <![CDATA[
             SELECT t.id, t.thread_id AS threadId
@@ -133,6 +149,9 @@
                AND NOT EXISTS (
                      SELECT 1 FROM runtime_approval a
                       WHERE a.subject_type = 'turn' AND a.subject_id = t.id AND a.status = 'PENDING')
+               AND NOT EXISTS (
+                     SELECT 1 FROM runtime_human_task h
+                      WHERE h.subject_type = 'turn' AND h.subject_id = t.id AND h.status = 'PENDING')
              LIMIT 50
             
 ]]>

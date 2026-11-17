@@ -1,6 +1,6 @@
 package com.tioka.knowledge.application;
 
-import com.tioka.framework.id.Ids;
+import com.foundation.common.id.Ids;
 
 import com.tioka.knowledge.api.WikiApi;
 import com.tioka.knowledge.infrastructure.KnowledgeRepository;

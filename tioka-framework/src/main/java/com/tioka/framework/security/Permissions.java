@@ -45,6 +45,10 @@ public final class Permissions {
     public static final String QUOTA_ADMIN = "quota:admin";
 
     public static final String AUDIT_READ = "audit:read";
+    /** 审计全局读取（跨空间）：ADR-072 §6 权限点细分（OBS-09）。 */
+    public static final String AUDIT_READ_ALL = "audit:read:all";
+    /** 审计导出：ADR-072 §6 权限点细分（OBS-09）；导出本身写审计。 */
+    public static final String AUDIT_EXPORT = "audit:export";
     public static final String WORKSPACE_MANAGE = "workspace:manage";
     public static final String TENANT_ADMIN = "tenant:admin";
     /** 策略引擎管理：导入 / 模式切换 / 停用（GOV-07 / M3-05 §1.4）。 */
@@ -52,6 +56,16 @@ public final class Permissions {
 
     /** 密封集逐条内容读取（C-18 EVO-07 / ADR-068 L42/L47：仅评测负责人与业务专家）。 */
     public static final String EVAL_SEALED_READ = "eval:sealed:read";
+
+    /** 时间线条目内容读取（OBS-08 / ADR-075 §4）：持有时可读 CONFIDENTIAL 及以上的条目。 */
+    public static final String TRAJECTORY_READ_CONTENT = "trajectory:read:content";
+
+    /** 查看运行状态与告警（GOV-13 / ADR-041 §8）。 */
+    public static final String OPS_MONITOR = "ops:monitor";
+    /** 管理告警规则（GOV-13 / ADR-041 §8）。 */
+    public static final String OPS_ALERT_ADMIN = "ops:alert:admin";
+    /** 查看供给侧统计（供应商、binding 维度的成本；ADR-041 §8）。 */
+    public static final String STATS_READ = "stats:read";
 
     /** 目录中的全部具体权限点（不含 {@link #ALL}）。 */
     public static final String[] ALL_CONCRETE = {
@@ -64,8 +78,9 @@ public final class Permissions {
             ORCH_READ, ORCH_WRITE, ORCH_OPERATE,
             MODEL_READ, MODEL_ADMIN,
             QUOTA_READ, QUOTA_ADMIN,
-            AUDIT_READ, WORKSPACE_MANAGE, TENANT_ADMIN, GOV_POLICY_ADMIN,
-            EVAL_SEALED_READ
+            AUDIT_READ, AUDIT_READ_ALL, AUDIT_EXPORT, WORKSPACE_MANAGE, TENANT_ADMIN, GOV_POLICY_ADMIN,
+            EVAL_SEALED_READ, TRAJECTORY_READ_CONTENT,
+            OPS_MONITOR, OPS_ALERT_ADMIN, STATS_READ
     };
 
     private Permissions() {}

@@ -9,6 +9,8 @@ import com.tioka.runtime.api.approval.ToolRisk;
 import com.tioka.runtime.api.kernel.ApprovalStatus;
 import com.tioka.runtime.api.kernel.ApprovalSubjectType;
 import com.tioka.runtime.api.kernel.RuntimeApi;
+import com.tioka.runtime.kernel.approval.HumanTaskSubmitService;
+import com.tioka.system.api.audit.Audited;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.*;
 
@@ -24,10 +26,13 @@ import java.util.Map;
 public class ApprovalController {
     private final RuntimeApi runtime;
     private final ApprovalQueryApi approvalQuery;
+    private final HumanTaskSubmitService humanTasks;
 
-    public ApprovalController(RuntimeApi runtime, ApprovalQueryApi approvalQuery) {
+    public ApprovalController(RuntimeApi runtime, ApprovalQueryApi approvalQuery,
+                              HumanTaskSubmitService humanTasks) {
         this.runtime = runtime;
         this.approvalQuery = approvalQuery;
+        this.humanTasks = humanTasks;
     }
 
     @GetMapping
@@ -73,6 +78,19 @@ public class ApprovalController {
                 ? (Map<String, Object>) m : null;
         String comment = body.get("comment") == null ? null : String.valueOf(body.get("comment"));
         runtime.decideApproval(id, new RuntimeApi.ApprovalDecision(approved, answer, comment));
+        return ApiResponse.ok(null);
+    }
+
+    /** SCH-09 / ADR-066 §7.4：提交人工补录数据；原 Turn 续跑，经第 3〜8 步校验后写 data item。 */
+    @PostMapping("/human-tasks/{id}/submit")
+    // 人工补录答题内容可能含敏感数据，故只审计资源 id，不用 include 落 body 摘要。
+    @Audited(action = "runtime.human_task.submit", resourceType = "human_task", resourceIdArg = "#id")
+    public ApiResponse<Void> submitHumanTask(@PathVariable String id,
+                                             @RequestBody Map<String, Object> body) {
+        @SuppressWarnings("unchecked")
+        Map<String, Object> answer = body.get("answer") instanceof Map<?, ?> m
+                ? (Map<String, Object>) m : body;
+        humanTasks.submit(id, answer);
         return ApiResponse.ok(null);
     }
 }

@@ -11,12 +11,21 @@ jobs:
     env:
       JAVA_TOOL_OPTIONS: -Duser.timezone=UTC
     steps:
+      # Foundation 是 ADR-051 的独立仓库，经 submodule 钉版引入；根 pom 以
+      # foundation-parent 为父（relativePath 为空，只从仓库解析），故必须先 install 到 m2。
       - uses: actions/checkout@v4
+        with:
+          submodules: true
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
           cache: maven
+      # Foundation 自身的测试由其仓库 CI（build/gate/node-sdk/compatibility）覆盖，
+      # 此处只产出构件供主仓库解析，不重复执行测试。
+      - name: Install Foundation (submodule) into local m2
+        working-directory: tioka-foundation
+        run: mvn -B -q install -DskipTests
       - name: Verify (unit + IT)
         run: mvn -B verify
 
@@ -28,11 +37,16 @@ jobs:
       MAVEN_OPTS: -Xmx1g
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: true
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
           cache: maven
+      - name: Install Foundation (submodule) into local m2
+        working-directory: tioka-foundation
+        run: mvn -B -q install -DskipTests
       - name: Pre-pull Keycloak image
         run: docker pull quay.io/keycloak/keycloak:24.0
       - name: Pre-pull RocketMQ image
@@ -50,6 +64,7 @@ jobs:
       run:
         working-directory: tioka-ui
     steps:
+      # 前端不需要 Foundation 构件，故不取 submodule，省去无谓 clone
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:

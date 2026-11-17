@@ -2,14 +2,19 @@ package com.tioka.model.application.gateway;
 
 import com.tioka.framework.context.RequestContext;
 import com.tioka.framework.context.RequestContextHolder;
-import com.tioka.framework.id.Ids;
+import com.foundation.common.id.Ids;
+import com.tioka.governance.api.timeline.TimelineProjector;
+import com.tioka.governance.api.timeline.TimelineSourceEvent;
 import com.tioka.model.api.gateway.ModelCallContext;
+import com.tioka.model.application.timeline.ModelUsageTimelineProjection;
 import com.tioka.model.infrastructure.ModelUsageRepository;
 import com.tioka.model.infrastructure.persistence.ModelUsageDO;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.SpanContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.SmartLifecycle;
 import org.springframework.stereotype.Component;
 
@@ -31,13 +36,21 @@ public class UsageRecorder implements SmartLifecycle {
     private static final long FLUSH_INTERVAL_MS = 1_000L;
 
     private final ModelUsageRepository usages;
+    private final ObjectProvider<TimelineProjector> timelineProjector;
     private final LinkedBlockingQueue<ModelUsageDO> queue = new LinkedBlockingQueue<>();
     private final AtomicBoolean running = new AtomicBoolean(false);
     private final ReentrantLock flushLock = new ReentrantLock();
     private Thread worker;
 
+    /** 离线单测 / 时间线关闭：投影器缺席时逐行跳过。 */
     public UsageRecorder(ModelUsageRepository usages) {
+        this(usages, null);
+    }
+
+    @Autowired
+    public UsageRecorder(ModelUsageRepository usages, ObjectProvider<TimelineProjector> timelineProjector) {
         this.usages = usages;
+        this.timelineProjector = timelineProjector;
     }
 
     /** @param cmd.status SUCCESS / ERROR / FAILOVER */
@@ -111,9 +124,30 @@ public class UsageRecorder implements SmartLifecycle {
                     log.error("model_usage 批量写入失败 size={}", batch.size(), e);
                     throw e;
                 }
+                // OBS-08：用量落库即逐行投影 MODEL 条目（不再仅依赖按时间段重建）
+                project(batch);
             }
         } finally {
             flushLock.unlock();
+        }
+    }
+
+    /**
+     * OBS-08（ADR-075 §2）：用量落库后逐行投影 {@code MODEL} 条目——与
+     * {@code ModelUsageTimelineRebuildSource} 共用映射（同 {@code sourceEventId}，幂等）。
+     *
+     * <p>投影器缺席（时间线关闭 / 离线单测）时跳过；投影失败由投影器自身静默降级。
+     */
+    private void project(List<ModelUsageDO> batch) {
+        TimelineProjector projector = timelineProjector == null ? null : timelineProjector.getIfAvailable();
+        if (projector == null) {
+            return;
+        }
+        for (ModelUsageDO row : batch) {
+            TimelineSourceEvent event = ModelUsageTimelineProjection.toSourceEvent(row);
+            if (event != null) {
+                projector.project(event);
+            }
         }
     }
 

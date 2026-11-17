@@ -3,7 +3,7 @@ package com.tioka.knowledge.application;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tioka.framework.error.BizException;
 import com.tioka.framework.error.ErrorCode;
-import com.tioka.framework.id.Ids;
+import com.foundation.common.id.Ids;
 import com.tioka.framework.messaging.DomainEvent;
 import com.tioka.framework.messaging.EventPublisher;
 import com.tioka.framework.security.Principal;

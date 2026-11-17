@@ -4,7 +4,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tioka.framework.context.RequestContext;
 import com.tioka.framework.context.RequestContextHolder;
-import com.tioka.framework.id.Ids;
+import com.foundation.common.id.Ids;
 import com.tioka.framework.messaging.DomainEvent;
 import com.tioka.framework.messaging.EventPublisher;
 import com.tioka.orchestration.api.engine.AssignCommand;
@@ -17,6 +17,9 @@ import com.tioka.orchestration.infrastructure.OrchEngineRepository;
 import com.tioka.orchestration.infrastructure.persistence.OrchMandateDO;
 import com.tioka.orchestration.infrastructure.persistence.OrchRunDO;
 import com.tioka.orchestration.infrastructure.persistence.OrchWorkItemDO;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 
@@ -32,14 +35,20 @@ import java.util.Map;
 @Service
 public class OrchAssignService {
 
+    private static final Logger log = LoggerFactory.getLogger(OrchAssignService.class);
+
     private final OrchEngineRepository repo;
     private final EventPublisher events;
     private final ObjectMapper mapper;
+    /** OBS-06（ADR-075 §3）：编排 Run 开始时写运行清单；端口缺失（离线 / 单测）时跳过。 */
+    private final ObjectProvider<com.tioka.governance.api.manifest.RunManifestWriter> runManifests;
 
-    public OrchAssignService(OrchEngineRepository repo, EventPublisher events, ObjectMapper mapper) {
+    public OrchAssignService(OrchEngineRepository repo, EventPublisher events, ObjectMapper mapper,
+                            ObjectProvider<com.tioka.governance.api.manifest.RunManifestWriter> runManifests) {
         this.repo = repo;
         this.events = events;
         this.mapper = mapper;
+        this.runManifests = runManifests;
     }
 
     public AssignResult assign(AssignCommand cmd, String workspaceId, String followupWorkItemId) {
@@ -173,7 +182,27 @@ public class OrchAssignService {
         run.setCreateAt(now);
         run.setUpdateAt(now);
         repo.insertRun(run);
+        writeRunManifest(cmd, runId, workspaceId, correlation.requestId());
         return runId;
+    }
+
+    /**
+     * OBS-06（ADR-075 §3）：编排 Run 开始时写运行清单（Agent 版本、规则版本、授予等快照），
+     * 供统一时间线展开与同类运行差异对比。清单写入失败只记日志不阻断 Run（观测面）。
+     */
+    private void writeRunManifest(AssignCommand cmd, String runId, String workspaceId, String requestId) {
+        var writer = runManifests.getIfAvailable();
+        if (writer == null) {
+            return;
+        }
+        try {
+            writer.write(new com.tioka.governance.api.manifest.RunManifestWriteRequest(
+                    "ORCH_RUN", runId, requestId, workspaceId,
+                    blankToNull(cmd.agentVersionId()), null, null,
+                    cmd.ruleVersionId() == null ? Map.of() : Map.of("ruleVersionId", cmd.ruleVersionId())));
+        } catch (RuntimeException e) {
+            log.warn("run_manifest 写入失败 runId={}: {}", runId, e.toString());
+        }
     }
 
     private static String blankToNull(String value) {

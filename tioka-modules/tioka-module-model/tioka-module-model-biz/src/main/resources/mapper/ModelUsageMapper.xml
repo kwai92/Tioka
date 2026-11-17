@@ -175,4 +175,25 @@
 ]]>
     </select>
 
+    <!-- MH-09：provider 供给侧预算窗口聚合（月窗，from = 月初） -->
+    <select id="sumTokensByProvider" resultType="java.lang.Long">
+        <![CDATA[
+            SELECT COALESCE(SUM(prompt_tokens), 0) + COALESCE(SUM(completion_tokens), 0)
+            FROM model_usage
+            WHERE provider_id = #{providerId}
+              AND create_at >= #{from}
+
+]]>
+    </select>
+
+    <select id="sumCostByProvider" resultType="java.lang.Long">
+        <![CDATA[
+            SELECT COALESCE(SUM(cost_micros), 0)
+            FROM model_usage
+            WHERE provider_id = #{providerId}
+              AND create_at >= #{from}
+
+]]>
+    </select>
+
 </mapper>

@@ -5,7 +5,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tioka.framework.context.RequestContext;
 import com.tioka.framework.context.RequestContextHolder;
-import com.tioka.framework.id.Ids;
+import com.foundation.common.id.Ids;
 import com.tioka.framework.messaging.DomainEvent;
 import com.tioka.framework.messaging.EventEnvelope;
 import com.tioka.framework.messaging.EventPublisher;

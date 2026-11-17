@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tioka.governance.infrastructure.mapper.TimelineEntryMapper">
+
+    <!-- OBS-08 / ADR-075 §2：create_at / create_by 走列默认值（now() / 'system'）。 -->
+    <sql id="entryCols">
+        e.id, e.occurred_at AS occurredAt, e.seq, e.request_id AS requestId,
+        e.parent_request_id AS parentRequestId, e.category, e.title, e.summary, e.actor, e.outcome,
+        e.source_type AS sourceType, e.source_id AS sourceId, e.trace_id AS traceId,
+        e.workspace_id AS workspaceId, e.data_label AS dataLabel, e.source_event_id AS sourceEventId
+    </sql>
+
+    <sql id="entryFilters">
+        <if test="q.from != null">
+            <![CDATA[ AND e.occurred_at >= #{q.from}::timestamptz ]]>
+        </if>
+        <if test="q.to != null">
+            <![CDATA[ AND e.occurred_at <= #{q.to}::timestamptz ]]>
+        </if>
+        <if test="q.cursorTs != null and q.cursorId != null">
+            <![CDATA[ AND (e.occurred_at > #{q.cursorTs}::timestamptz
+                          OR (e.occurred_at = #{q.cursorTs}::timestamptz AND e.id > #{q.cursorId})) ]]>
+        </if>
+        <if test="q.categories != null and q.categories.size() > 0">
+            AND e.category IN
+            <foreach collection="q.categories" item="c" open="(" separator="," close=")">#{c}</foreach>
+        </if>
+        <!-- 数据标签不在此过滤：条目始终可见，超限时只抹正文（ADR-075 §4 / FE-00 §7.10），
+             由 DefaultTimelineQuery 按调用者 clearance 决定 summary 是否返回。 -->
+        <if test="q.workspaceId != null">
+            AND (e.workspace_id IS NULL OR e.workspace_id = #{q.workspaceId})
+        </if>
+    </sql>
+
+    <insert id="insertEntry">
+        <![CDATA[
+            INSERT INTO timeline_entry
+              (id, occurred_at, seq, request_id, parent_request_id, category, title, summary, actor, outcome,
+               source_type, source_id, trace_id, workspace_id, data_label, source_event_id)
+            VALUES
+              (#{id}, #{occurredAt}, #{seq}, #{requestId}, #{parentRequestId}, #{category}, #{title}, #{summary},
+               #{actor}, #{outcome}, #{sourceType}, #{sourceId}, #{traceId}, #{workspaceId}, #{dataLabel},
+               #{sourceEventId})
+            ON CONFLICT (source_event_id) DO NOTHING
+        ]]>
+    </insert>
+
+    <insert id="insertSubject">
+        <![CDATA[
+            INSERT INTO timeline_entry_subject (entry_id, subject_type, subject_id, workspace_id)
+            VALUES (#{entryId}, #{subjectType}, #{subjectId}, #{workspaceId})
+        ]]>
+    </insert>
+
+    <select id="findIdBySourceEvent" resultType="java.lang.String">
+        <![CDATA[
+            SELECT id FROM timeline_entry WHERE source_event_id = #{sourceEventId} LIMIT 1
+        ]]>
+    </select>
+
+    <select id="pageByRequest" resultType="com.tioka.governance.infrastructure.persistence.TimelineEntryDO">
+        <![CDATA[
+            SELECT ]]><include refid="entryCols"/><![CDATA[
+              FROM timeline_entry e
+             WHERE e.request_id = #{requestId}
+        ]]>
+        <include refid="entryFilters"/>
+        <![CDATA[
+             ORDER BY e.occurred_at ASC, e.id ASC
+             LIMIT #{q.limit}
+        ]]>
+    </select>
+
+    <select id="pageBySubject" resultType="com.tioka.governance.infrastructure.persistence.TimelineEntryDO">
+        <![CDATA[
+            SELECT ]]><include refid="entryCols"/><![CDATA[
+              FROM timeline_entry e
+              JOIN timeline_entry_subject s ON s.entry_id = e.id
+             WHERE s.subject_type = #{subjectType} AND s.subject_id = #{subjectId}
+        ]]>
+        <include refid="entryFilters"/>
+        <![CDATA[
+             ORDER BY e.occurred_at ASC, e.id ASC
+             LIMIT #{q.limit}
+        ]]>
+    </select>
+
+    <select id="listSubjects"
+            resultType="com.tioka.governance.infrastructure.persistence.TimelineEntrySubjectDO">
+        <![CDATA[
+            SELECT entry_id AS entryId, subject_type AS subjectType, subject_id AS subjectId,
+                   workspace_id AS workspaceId
+              FROM timeline_entry_subject
+             WHERE entry_id IN
+        ]]>
+        <foreach collection="entryIds" item="eid" open="(" separator="," close=")">#{eid}</foreach>
+    </select>
+
+    <delete id="deleteBySourceRange">
+        <![CDATA[
+            DELETE FROM timeline_entry
+             WHERE source_type = #{sourceType}
+               AND occurred_at >= #{from}::timestamptz
+               AND occurred_at <= #{to}::timestamptz
+        ]]>
+    </delete>
+
+    <select id="findCursor"
+            resultType="com.tioka.governance.infrastructure.persistence.TimelineProjectionCursorDO">
+        <![CDATA[
+            SELECT source_type AS sourceType, cursor_ts AS cursorTs, cursor_id AS cursorId,
+                   last_event_id AS lastEventId, updated_at AS updatedAt
+              FROM timeline_projection_cursor
+             WHERE source_type = #{sourceType}
+        ]]>
+    </select>
+
+    <insert id="upsertCursor">
+        <![CDATA[
+            INSERT INTO timeline_projection_cursor (source_type, cursor_ts, cursor_id, last_event_id, updated_at)
+            VALUES (#{sourceType}, #{cursorTs}, #{cursorId}, #{lastEventId}, now())
+            ON CONFLICT (source_type) DO UPDATE
+              SET cursor_ts = EXCLUDED.cursor_ts,
+                  cursor_id = EXCLUDED.cursor_id,
+                  last_event_id = EXCLUDED.last_event_id,
+                  updated_at = now()
+        ]]>
+    </insert>
+
+</mapper>

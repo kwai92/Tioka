@@ -3,7 +3,7 @@ package com.tioka.model.infrastructure.persistence;
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
-import com.tioka.framework.persistence.AppendOnlyDO;
+import com.foundation.starter.data.AppendOnlyDO;
 
 /**
  * MH-07 胜任度记录（V214 {@code model_competence}；ADR-024：Turn 结束打 0–1 分，M3 只记录不参与决策）。

@@ -11,6 +11,30 @@
     <artifactId>tioka-framework</artifactId>
     <name>tioka-framework</name>
     <dependencies>
+        <!-- F-02 BAS-26 第 1 步：Tioka 开始依赖 Foundation 工程底座。
+             版本由 tioka-dependencies 导入的 foundation-dependencies BOM 管理；
+             CoreAutoConfiguration 仅绑定 foundation.* 配置属性，不接管 Jackson/异常处理。 -->
+        <dependency>
+            <groupId>com.foundation</groupId>
+            <artifactId>foundation-starter-core</artifactId>
+        </dependency>
+        <!-- F-02 BAS-26 第 1 步（core 子步骤 1a）：主键生成统一到 Foundation 公共域。
+             全仓 Ids.newId 调用方已改引 com.foundation.common.id.Ids，Tioka 本地副本删除。
+             显式声明而非依赖 starter-core 的传递，便于 dependency:analyze 与后续升级。 -->
+        <dependency>
+            <groupId>com.foundation</groupId>
+            <artifactId>foundation-common-api</artifactId>
+        </dependency>
+        <!-- F-02 BAS-26 第 2 步（data）：persistence 的 4 个通用 DO 基类合流到 starter-data。
+             空间过滤（ScopeLineHandler / ScopedTables / WorkspaceAwareDO / WorkspaceScoped）、
+             TiokaMetaObjectHandler 与 MybatisPlusConfiguration 等 Tioka 特有部分仍留在本地。
+             注意：starter 的自动装配默认激活（foundation.data.enabled 缺省 true），会尝试注册
+             MetaObjectHandler / MybatisPlusInterceptor，与 Tioka 本地实现并存；故 application.yml
+             显式置 foundation.data.enabled=false，只取用其 POJO 基类，待该能力真正迁移时再打开。 -->
+        <dependency>
+            <groupId>com.foundation</groupId>
+            <artifactId>foundation-starter-data</artifactId>
+        </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter</artifactId>

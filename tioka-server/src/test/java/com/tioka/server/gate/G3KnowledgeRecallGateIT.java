@@ -5,7 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tioka.eval.api.EvalApi;
 import com.tioka.eval.application.DatasetService;
 import com.tioka.eval.application.KnowledgeRecallEvalService;
-import com.tioka.framework.id.Ids;
+import com.foundation.common.id.Ids;
 import com.tioka.framework.security.Principal;
 import com.tioka.framework.security.PrincipalHolder;
 import com.tioka.framework.security.PrincipalType;

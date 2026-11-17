@@ -1,0 +1,5 @@
+# 与 Foundation 仓库保持一致：脚本在 Windows 检出后仍保持 LF，
+# 避免 Linux / CI 下 shebang 行带 CR 导致解释器错误（见 Foundation 5124542 的同类修复）。
+# 只约束脚本，不触碰既有 Java / SQL / 文档文件的行尾，避免产生无关 diff。
+*.mjs text eol=lf
+*.sh text eol=lf

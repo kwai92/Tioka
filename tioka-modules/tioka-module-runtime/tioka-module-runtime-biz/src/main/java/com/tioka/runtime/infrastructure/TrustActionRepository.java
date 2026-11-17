@@ -5,7 +5,10 @@ import com.tioka.runtime.application.trust.TrustActionStore;
 import com.tioka.runtime.infrastructure.persistence.TrustActionDO;
 import org.springframework.stereotype.Repository;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
+import java.util.List;
 
 /**
  * trust_action 仓储（V144 / TRU-05）。application 经本类访问，禁止直持 Mapper。
@@ -78,5 +81,11 @@ public class TrustActionRepository implements TrustActionStore {
     /** 熔断计数查询：1h 窗口内同 Agent 被撤销次数（V202 口径由调用方判定）。 */
     public int countCompensatedInWindow(String agentId, LocalDateTime fromUtc, LocalDateTime toUtc) {
         return mapper.countCompensatedInWindow(agentId, fromUtc, toUtc);
+    }
+
+    /** OBS-08 时间线重建：按最后状态时间读回区间内的变更动作（升序）。 */
+    public List<TrustActionDO> listByRange(Instant from, Instant to) {
+        return mapper.listByRange(LocalDateTime.ofInstant(from, ZoneOffset.UTC),
+                LocalDateTime.ofInstant(to, ZoneOffset.UTC));
     }
 }

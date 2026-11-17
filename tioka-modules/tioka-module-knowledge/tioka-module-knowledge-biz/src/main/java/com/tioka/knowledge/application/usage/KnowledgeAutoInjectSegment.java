@@ -5,6 +5,7 @@ import com.tioka.knowledge.application.KnowledgeService;
 import com.tioka.runtime.api.context.ContextRenderContext;
 import com.tioka.runtime.api.context.ContextSegmentProvider;
 import com.tioka.runtime.api.context.ContextZone;
+import com.tioka.runtime.api.context.TrustLevel;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -54,6 +55,13 @@ public class KnowledgeAutoInjectSegment implements ContextSegmentProvider {
 
     @Override
     public double budgetShare() { return 0.25d; }
+
+    /**
+     * GRD-00 / ADR-065 §2.1：知识片段按「未标注审核的知识库」处理为 {@code EXTERNAL}
+     * （缺省未审核），由组装器以每 Turn 随机边界包裹并标明来源，并把本 Turn 置为 TAINTED。
+     */
+    @Override
+    public TrustLevel trust() { return TrustLevel.EXTERNAL; }
 
     @Override
     public String render(ContextRenderContext context) {

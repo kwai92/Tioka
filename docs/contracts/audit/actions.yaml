@@ -56,6 +56,30 @@ actions:
     retentionClass: BIZ
     siemSeverity: LOW
     module: tioka-module-runtime
+  - action: alert.rule.create
+    category: CONFIG
+    resourceType: alert_rule
+    retentionClass: BIZ
+    siemSeverity: MEDIUM
+    module: tioka-module-governance
+  - action: alert.rule.update
+    category: CONFIG
+    resourceType: alert_rule
+    retentionClass: BIZ
+    siemSeverity: MEDIUM
+    module: tioka-module-governance
+  - action: alert.rule.delete
+    category: CONFIG
+    resourceType: alert_rule
+    retentionClass: BIZ
+    siemSeverity: MEDIUM
+    module: tioka-module-governance
+  - action: alert.rule.toggle
+    category: CONFIG
+    resourceType: alert_rule
+    retentionClass: BIZ
+    siemSeverity: LOW
+    module: tioka-module-governance
   - action: api_key.create
     category: SECURITY
     resourceType: api_key
@@ -326,6 +350,24 @@ actions:
     retentionClass: BIZ
     siemSeverity: LOW
     module: tioka-module-model
+  - action: model.prompt.create
+    category: CONFIG
+    resourceType: prm_template
+    retentionClass: BIZ
+    siemSeverity: LOW
+    module: tioka-module-model
+  - action: model.prompt.save_draft
+    category: CONFIG
+    resourceType: prm_template
+    retentionClass: BIZ
+    siemSeverity: LOW
+    module: tioka-module-model
+  - action: model.prompt.test_run
+    category: CONFIG
+    resourceType: prm_template
+    retentionClass: BIZ
+    siemSeverity: LOW
+    module: tioka-module-model
   - action: model.provider.create
     category: CONFIG
     resourceType: model_provider
@@ -470,6 +512,12 @@ actions:
     retentionClass: BIZ
     siemSeverity: LOW
     module: tioka-module-system
+  - action: runtime.human_task.submit
+    category: EXECUTION
+    resourceType: human_task
+    retentionClass: BIZ
+    siemSeverity: LOW
+    module: tioka-module-runtime
   - action: runtime.thread.create
     category: CONFIG
     resourceType: thread
@@ -512,6 +560,24 @@ actions:
     retentionClass: BIZ
     siemSeverity: LOW
     module: tioka-module-skill
+  - action: timeline.evidence.export
+    category: DATA
+    resourceType: evidence_pack
+    retentionClass: BIZ
+    siemSeverity: MEDIUM
+    module: tioka-module-system
+  - action: timeline.rebuild
+    category: ADMIN
+    resourceType: timeline
+    retentionClass: SEC
+    siemSeverity: MEDIUM
+    module: tioka-module-governance
+  - action: trajectory.content.read
+    category: DATA
+    resourceType: turn
+    retentionClass: BIZ
+    siemSeverity: MEDIUM
+    module: tioka-module-runtime
   - action: upload.confirm
     category: CONFIG
     resourceType: upload

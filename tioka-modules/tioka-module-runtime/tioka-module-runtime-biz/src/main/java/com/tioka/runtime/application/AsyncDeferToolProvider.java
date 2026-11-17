@@ -1,6 +1,6 @@
 package com.tioka.runtime.application;
 
-import com.tioka.framework.id.Ids;
+import com.foundation.common.id.Ids;
 import com.tioka.framework.messaging.DomainEvent;
 import com.tioka.framework.messaging.EventPublisher;
 import com.tioka.runtime.api.mq.RuntimeMqTopics;

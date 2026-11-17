@@ -116,6 +116,21 @@ class M3ArchitectureTest {
             .because("执行/业务模块不得直接依赖 cfg_* 持久化（ADR-041 §2 / MH-08）");
 
     /**
+     * SCH-07（ADR-066 §1.3）：data item 的 `content_json` 只能由 runtime / ontology 解析，
+     * 消费方经 `DataItemReader` 取类型化对象。此处以 runtime_item 持久化类型为守卫对象。
+     */
+    @ArchTest
+    static final ArchRule dataItemOnlyViaReader = noClasses()
+            .that().resideOutsideOfPackages(
+                    "com.tioka.runtime..",
+                    "com.tioka.ontology..",
+                    "com.tioka.server..")
+            .should().dependOnClassesThat().haveFullyQualifiedName(
+                    "com.tioka.runtime.infrastructure.persistence.RuntimeItemDO")
+            .allowEmptyShould(true)
+            .because("data item 只能经 DataItemReader 读取（ADR-066 §1.3 / SCH-07）");
+
+    /**
      * MH-08（ADR-041 §2）：cfg_version 不可更新——CfgVersionMapper 不得声明 update/delete 方法。
      */
     @ArchTest

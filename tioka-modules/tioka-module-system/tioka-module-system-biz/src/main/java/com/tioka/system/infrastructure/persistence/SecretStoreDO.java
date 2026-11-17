@@ -1,7 +1,7 @@
 package com.tioka.system.infrastructure.persistence;
 
 import com.baomidou.mybatisplus.annotation.TableName;
-import com.tioka.framework.persistence.BaseDO;
+import com.foundation.starter.data.BaseDO;
 
 @TableName("secret_store")
 public class SecretStoreDO extends BaseDO {

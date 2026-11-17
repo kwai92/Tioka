@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tioka.runtime.infrastructure.mapper.RuntimeHumanTaskMapper">
+
+    <insert id="insert">
+        <![CDATA[
+            INSERT INTO runtime_human_task (
+              id, workspace_id, subject_type, subject_id, thread_id, turn_id, item_id, kind,
+              schema_ref, candidate_json, pending_pointers, assignee_json, status, expires_at,
+              create_at, update_at, create_by, update_by
+            ) VALUES (
+              #{id}, #{workspaceId}, #{subjectType}, #{subjectId}, #{threadId}, #{turnId}, #{itemId},
+              #{kind}, #{schemaRef}, #{candidateJson}, #{pendingPointers}, #{assigneeJson},
+              #{status}, #{expiresAt},
+              now(), now(), COALESCE(#{createBy}, 'system'), COALESCE(#{updateBy}, 'system')
+            )
+            
+]]>
+    </insert>
+
+    <select id="findById" resultType="RuntimeHumanTaskDO">
+        <![CDATA[
+            SELECT id, workspace_id AS workspaceId, subject_type AS subjectType, subject_id AS subjectId,
+                   thread_id AS threadId, turn_id AS turnId, item_id AS itemId, kind,
+                   schema_ref AS schemaRef, candidate_json AS candidateJson,
+                   pending_pointers AS pendingPointers, assignee_json AS assigneeJson,
+                   status, decided_by AS decidedBy, decided_at AS decidedAt,
+                   answer_json AS answerJson, expires_at AS expiresAt,
+                   create_at AS createAt, update_at AS updateAt, create_by AS createBy, update_by AS updateBy
+              FROM runtime_human_task WHERE id = #{id}
+            
+]]>
+    </select>
+
+    <select id="findForUpdate" resultType="RuntimeHumanTaskDO">
+        <![CDATA[
+            SELECT id, workspace_id AS workspaceId, subject_type AS subjectType, subject_id AS subjectId,
+                   thread_id AS threadId, turn_id AS turnId, item_id AS itemId, kind,
+                   schema_ref AS schemaRef, candidate_json AS candidateJson,
+                   pending_pointers AS pendingPointers, assignee_json AS assigneeJson,
+                   status, decided_by AS decidedBy, decided_at AS decidedAt,
+                   answer_json AS answerJson, expires_at AS expiresAt,
+                   create_at AS createAt, update_at AS updateAt, create_by AS createBy, update_by AS updateBy
+              FROM runtime_human_task WHERE id = #{id} FOR UPDATE
+            
+]]>
+    </select>
+
+    <select id="countPending">
+        <![CDATA[
+            SELECT COUNT(*) FROM runtime_human_task
+             WHERE subject_type = #{subjectType} AND subject_id = #{subjectId} AND status = 'PENDING'
+            
+]]>
+    </select>
+
+    <select id="listBySubject" resultType="RuntimeHumanTaskDO">
+        <![CDATA[
+            SELECT id, workspace_id AS workspaceId, subject_type AS subjectType, subject_id AS subjectId,
+                   thread_id AS threadId, turn_id AS turnId, item_id AS itemId, kind,
+                   schema_ref AS schemaRef, candidate_json AS candidateJson,
+                   pending_pointers AS pendingPointers, assignee_json AS assigneeJson,
+                   status, decided_by AS decidedBy, decided_at AS decidedAt,
+                   answer_json AS answerJson, expires_at AS expiresAt,
+                   create_at AS createAt, update_at AS updateAt, create_by AS createBy, update_by AS updateBy
+              FROM runtime_human_task
+             WHERE subject_type = #{subjectType} AND subject_id = #{subjectId}
+             ORDER BY create_at ASC, id ASC
+            
+]]>
+    </select>
+
+    <select id="findLatestSubmitted" resultType="RuntimeHumanTaskDO">
+        <![CDATA[
+            SELECT id, workspace_id AS workspaceId, subject_type AS subjectType, subject_id AS subjectId,
+                   thread_id AS threadId, turn_id AS turnId, item_id AS itemId, kind,
+                   schema_ref AS schemaRef, candidate_json AS candidateJson,
+                   pending_pointers AS pendingPointers, assignee_json AS assigneeJson,
+                   status, decided_by AS decidedBy, decided_at AS decidedAt,
+                   answer_json AS answerJson, expires_at AS expiresAt,
+                   create_at AS createAt, update_at AS updateAt, create_by AS createBy, update_by AS updateBy
+              FROM runtime_human_task
+             WHERE subject_type = #{subjectType} AND subject_id = #{subjectId} AND status = 'SUBMITTED'
+             ORDER BY decided_at DESC, id DESC
+             LIMIT 1
+            
+]]>
+    </select>
+
+    <update id="submit">
+        <![CDATA[
+            UPDATE runtime_human_task
+               SET status = 'SUBMITTED',
+                   decided_by = #{decidedBy},
+                   decided_at = now(),
+                   answer_json = #{answerJson},
+                   update_at = now(),
+                   update_by = COALESCE(#{updateBy}, 'system')
+             WHERE id = #{id} AND status = 'PENDING'
+            
+]]>
+    </update>
+
+    <select id="expireDue" resultType="String">
+        <![CDATA[
+            UPDATE runtime_human_task
+               SET status = 'EXPIRED',
+                   decided_by = COALESCE(#{decidedBy}, 'system'),
+                   decided_at = now(),
+                   update_at = now(),
+                   update_by = 'system'
+             WHERE status = 'PENDING' AND expires_at < #{now}
+         RETURNING id
+            
+]]>
+    </select>
+
+    <update id="cancelPendingForSubject">
+        <![CDATA[
+            UPDATE runtime_human_task
+               SET status = 'CANCELLED',
+                   decided_by = #{decidedBy},
+                   decided_at = now(),
+                   update_at = now(),
+                   update_by = 'system'
+             WHERE subject_type = #{subjectType}
+               AND subject_id = #{subjectId}
+               AND status = 'PENDING'
+            
+]]>
+    </update>
+
+</mapper>

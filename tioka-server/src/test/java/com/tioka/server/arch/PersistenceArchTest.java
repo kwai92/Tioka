@@ -1,10 +1,10 @@
 package com.tioka.server.arch;
 
 import com.baomidou.mybatisplus.annotation.TableName;
-import com.tioka.framework.persistence.AppendOnlyDO;
-import com.tioka.framework.persistence.BaseDO;
-import com.tioka.framework.persistence.ImmutableSnapshotDO;
-import com.tioka.framework.persistence.MutableRecordDO;
+import com.foundation.starter.data.AppendOnlyDO;
+import com.foundation.starter.data.BaseDO;
+import com.foundation.starter.data.ImmutableSnapshotDO;
+import com.foundation.starter.data.MutableRecordDO;
 import com.tioka.framework.persistence.PersistenceProperties;
 import com.tioka.framework.persistence.TechnicalRecordDO;
 import com.tioka.framework.persistence.WorkspaceAwareDO;

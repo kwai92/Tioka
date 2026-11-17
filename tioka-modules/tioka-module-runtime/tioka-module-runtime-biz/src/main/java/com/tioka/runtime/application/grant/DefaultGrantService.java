@@ -3,7 +3,7 @@ package com.tioka.runtime.application.grant;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tioka.framework.error.BizException;
 import com.tioka.framework.error.ErrorCode;
-import com.tioka.framework.id.Ids;
+import com.foundation.common.id.Ids;
 import com.tioka.framework.security.Principal;
 import com.tioka.runtime.api.grant.Budget;
 import com.tioka.runtime.api.grant.ChainHop;

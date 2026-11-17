@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tioka.model.infrastructure.mapper.ModelStructuredCapabilityMapper">
+
+    <!-- JSONB 列一律经 ::jsonb 显式转型（String → jsonb），与 OntStateMapper 同范式 -->
+    <insert id="upsert">
+        <![CDATA[
+            INSERT INTO model_structured_capability
+                (model_ref, version, modes, keywords, limits, thinking_compat,
+                 multimodal_downgrade, prompt_keyword, max_tokens_advice, stability,
+                 refusal_signal, truncation_signal, verified_at, conformance,
+                 create_by, update_by)
+            VALUES
+                (#{row.modelRef}, #{row.version},
+                 #{row.modes,jdbcType=VARCHAR}::jsonb, #{row.keywords,jdbcType=VARCHAR}::jsonb,
+                 #{row.limits,jdbcType=VARCHAR}::jsonb, #{row.thinkingCompat,jdbcType=VARCHAR}::jsonb,
+                 #{row.multimodalDowngrade}, #{row.promptKeyword},
+                 #{row.maxTokensAdvice}, #{row.stability},
+                 #{row.refusalSignal}, #{row.truncationSignal}, #{row.verifiedAt}, #{row.conformance},
+                 'system', 'system')
+            ON CONFLICT (model_ref) DO UPDATE SET
+                version              = EXCLUDED.version,
+                modes                = EXCLUDED.modes,
+                keywords             = EXCLUDED.keywords,
+                limits               = EXCLUDED.limits,
+                thinking_compat      = EXCLUDED.thinking_compat,
+                multimodal_downgrade = EXCLUDED.multimodal_downgrade,
+                prompt_keyword       = EXCLUDED.prompt_keyword,
+                max_tokens_advice    = EXCLUDED.max_tokens_advice,
+                stability            = EXCLUDED.stability,
+                refusal_signal       = EXCLUDED.refusal_signal,
+                truncation_signal    = EXCLUDED.truncation_signal,
+                verified_at          = EXCLUDED.verified_at,
+                conformance          = EXCLUDED.conformance,
+                update_at            = now(),
+                update_by            = 'system'
+            
+]]>
+    </insert>
+
+</mapper>

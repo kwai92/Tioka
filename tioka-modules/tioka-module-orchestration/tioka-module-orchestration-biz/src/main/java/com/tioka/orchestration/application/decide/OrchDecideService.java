@@ -2,7 +2,7 @@ package com.tioka.orchestration.application.decide;
 
 import com.tioka.framework.error.BizException;
 import com.tioka.framework.error.ErrorCode;
-import com.tioka.framework.id.Ids;
+import com.foundation.common.id.Ids;
 import com.tioka.framework.security.Principal;
 import com.tioka.agent.api.AgentSnapshotApi;
 import com.tioka.orchestration.api.engine.AcceptMode;

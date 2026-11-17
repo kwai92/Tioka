@@ -330,6 +330,31 @@
             "string",
             "null"
           ]
+        },
+        "allowRelaxedSchema": {
+          "type": "boolean",
+          "default": false
+        },
+        "fallback": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "REPAIR",
+              "SWITCH_MODE",
+              "SWITCH_MODEL",
+              "DECOMPOSE",
+              "FALLBACK_VALUE",
+              "HUMAN",
+              "FAIL"
+            ]
+          },
+          "default": [
+            "REPAIR",
+            "SWITCH_MODE",
+            "SWITCH_MODEL",
+            "HUMAN"
+          ]
         }
       }
     },

@@ -2,7 +2,7 @@ package com.tioka.server.runtime;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.tioka.framework.id.Ids;
+import com.foundation.common.id.Ids;
 import com.tioka.server.support.IntegrationTestSupport;
 import com.tioka.server.support.TestFixtures;
 import org.junit.jupiter.api.Tag;
@@ -121,6 +121,39 @@ class TrajectoryQueryIT {
     }
 
     @Test
+    void contentGatedByLabelAndPermission() throws Exception {
+        TestFixtures.Actor admin = fixtures.newActor("workspace_admin");
+        TestFixtures.Actor member = fixtures.newLimitedUser(admin, "member");
+        Seed seed = seedThreadTurn(admin, "chat", 1);
+        jdbc.update("UPDATE runtime_thread SET owner_id = ? WHERE id = ?",
+                member.userId(), seed.threadId);
+        insertItemLabeled(seed.threadId, seed.turnId, 1, 1, "tool_result", "tool",
+                "{\"ok\":true,\"output\":\"payment-42\"}", false, "CONFIDENTIAL");
+
+        // 无 trajectory:read:content：条目保留，正文抹除，不写审计（FE-00 §7.10）
+        MvcResult asMember = mockMvc.perform(member.auth(
+                        get("/api/runtime/turns/{id}/trajectory", seed.turnId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(0))
+                .andReturn();
+        JsonNode gated = objectMapper.readTree(asMember.getResponse().getContentAsString())
+                .path("data").path("steps").get(0).path("items").get(0).path("content");
+        assertTrue(gated.path("redacted").asBoolean(false), "无权限时正文须抹除");
+        assertFalse(gated.has("output"), "无权限时不应回正文");
+        assertEquals(0, countContentReadAudits(seed.turnId));
+
+        // 持权（平台管理员）：正文可见并写 DATA 审计（ADR-072 §6）
+        MvcResult asAdmin = mockMvc.perform(admin.auth(
+                        get("/api/runtime/turns/{id}/trajectory", seed.turnId)))
+                .andExpect(status().isOk())
+                .andReturn();
+        JsonNode open = objectMapper.readTree(asAdmin.getResponse().getContentAsString())
+                .path("data").path("steps").get(0).path("items").get(0).path("content");
+        assertEquals("payment-42", open.path("output").asText());
+        assertEquals(1, countContentReadAudits(seed.turnId));
+    }
+
+    @Test
     void turnsPage() throws Exception {
         TestFixtures.Actor actor = fixtures.newActor("workspace_admin");
         Seed a = seedThreadTurn(actor, "chat", 1);
@@ -170,13 +203,28 @@ class TrajectoryQueryIT {
 
     private void insertItem(String threadId, String turnId, long seq, int step,
                             String type, String role, String contentJson, boolean discarded) {
+        insertItemLabeled(threadId, turnId, seq, step, type, role, contentJson, discarded, null);
+    }
+
+    private void insertItemLabeled(String threadId, String turnId, long seq, int step,
+                                   String type, String role, String contentJson, boolean discarded,
+                                   String dataLabel) {
         jdbc.update("""
                 INSERT INTO runtime_item(
-                  thread_id, seq, id, turn_id, step, type, role, content_json, discarded, create_at, create_by)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, now(), 'system')
-                """, threadId, seq, Ids.newId("itm"), turnId, step, type, role, contentJson, discarded);
+                  thread_id, seq, id, turn_id, step, type, role, content_json, data_label,
+                  discarded, create_at, create_by)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, now(), 'system')
+                """, threadId, seq, Ids.newId("itm"), turnId, step, type, role, contentJson,
+                dataLabel, discarded);
         jdbc.update("UPDATE runtime_thread SET last_item_seq = GREATEST(last_item_seq, ?) WHERE id = ?",
                 seq, threadId);
+    }
+
+    private int countContentReadAudits(String turnId) {
+        Integer n = jdbc.queryForObject(
+                "SELECT count(*) FROM audit_event WHERE action = 'trajectory.content.read' AND resource_id = ?",
+                Integer.class, turnId);
+        return n == null ? 0 : n;
     }
 
     private void insertUsage(TestFixtures.Actor actor, String threadId, String turnId, int step,

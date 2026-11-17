@@ -43,6 +43,7 @@ import io.opentelemetry.api.trace.TraceState;
 import io.opentelemetry.context.Scope;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
@@ -62,6 +63,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 @Component
 public class TurnRunner {
     private static final Logger log = LoggerFactory.getLogger(TurnRunner.class);
+    /** OBS-09 / ADR-073 §1：审计 turn_id 的 MDC key，镜像 system-biz AuditRequestContext.MDC_TURN。 */
+    private static final String MDC_TURN_ID = "turnId";
 
     private final TurnRepository turns;
     private final RuntimeThreadRepository threads;
@@ -141,6 +144,12 @@ public class TurnRunner {
         Span span = builder.startSpan();
         RequestContext previous = RequestContextHolder.getCorrelation();
         boolean restored = false;
+        // OBS-09 / ADR-073 §1：本 Turn 内产生的审计事件落 turn_id。
+        // MDC key 镜像 system-biz AuditRequestContext.MDC_TURN（与 OutboxEventPublisher 镜像 MDC_TRACE 同法）。
+        String priorTurnMdc = MDC.get(MDC_TURN_ID);
+        if (turnId != null && !turnId.isBlank()) {
+            MDC.put(MDC_TURN_ID, turnId);
+        }
         try {
             if (peek != null && peek.getRequestId() != null && !peek.getRequestId().isBlank()) {
                 RequestContextHolder.setCorrelation(
@@ -154,6 +163,11 @@ public class TurnRunner {
             span.recordException(e);
             throw e;
         } finally {
+            if (priorTurnMdc == null) {
+                MDC.remove(MDC_TURN_ID);
+            } else {
+                MDC.put(MDC_TURN_ID, priorTurnMdc);
+            }
             if (restored) {
                 RequestContextHolder.setCorrelation(previous);
             }

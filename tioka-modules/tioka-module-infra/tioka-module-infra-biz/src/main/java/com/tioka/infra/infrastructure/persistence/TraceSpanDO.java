@@ -3,7 +3,7 @@ package com.tioka.infra.infrastructure.persistence;
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
-import com.tioka.framework.persistence.AppendOnlyDO;
+import com.foundation.starter.data.AppendOnlyDO;
 
 @TableName("trace_span")
 public class TraceSpanDO extends AppendOnlyDO {

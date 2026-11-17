@@ -79,6 +79,8 @@ public class CfgStore {
                     projections.updateAlias(objectId, versionId, versionNo);
             case "MODEL_ROUTING_PLAN", "model_routing_plan" ->
                     projections.updateRoutingPlan(objectId, versionId, versionNo);
+            case "PRM_TEMPLATE", "prm_template" ->
+                    projections.updatePromptTemplate(objectId, versionId, versionNo);
             default -> {
                 // 通用类型仅走 Redis 指针；MH-08 再接投影表
             }

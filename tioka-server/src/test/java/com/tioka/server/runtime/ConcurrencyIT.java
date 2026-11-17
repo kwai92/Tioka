@@ -1,6 +1,6 @@
 package com.tioka.server.runtime;
 
-import com.tioka.framework.id.Ids;
+import com.foundation.common.id.Ids;
 import com.tioka.runtime.kernel.infrastructure.redis.ThreadLock;
 import com.tioka.server.support.IntegrationTestSupport;
 import org.junit.jupiter.api.Tag;

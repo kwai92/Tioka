@@ -2,7 +2,7 @@ package com.tioka.model.infrastructure.persistence;
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
-import com.tioka.framework.persistence.BaseDO;
+import com.foundation.starter.data.BaseDO;
 @TableName("decision_binding")
 public class DecisionBindingDO extends BaseDO {
     @TableId(type = IdType.INPUT)

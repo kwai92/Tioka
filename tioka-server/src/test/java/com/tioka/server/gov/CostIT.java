@@ -2,7 +2,7 @@ package com.tioka.server.gov;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.tioka.framework.id.Ids;
+import com.foundation.common.id.Ids;
 import com.tioka.model.infrastructure.ModelUsageRepository;
 import com.tioka.model.infrastructure.persistence.ModelUsageDO;
 import com.tioka.server.support.IntegrationTestSupport;

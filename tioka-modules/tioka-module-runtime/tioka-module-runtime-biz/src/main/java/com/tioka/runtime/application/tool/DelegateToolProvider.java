@@ -3,7 +3,7 @@ package com.tioka.runtime.application.tool;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tioka.agent.api.AgentSnapshotApi;
-import com.tioka.framework.id.Ids;
+import com.foundation.common.id.Ids;
 import com.tioka.runtime.api.grant.Budget;
 import com.tioka.runtime.api.grant.DelegationGrant;
 import com.tioka.runtime.api.grant.GrantAgentView;

@@ -5,6 +5,10 @@ import com.tioka.eval.infrastructure.mapper.EvalFeedbackMapper;
 import com.tioka.eval.infrastructure.persistence.EvalFeedbackDO;
 import org.springframework.stereotype.Repository;
 
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
@@ -40,5 +44,14 @@ public class EvalFeedbackRepository {
         return mapper.selectOne(Wrappers.<EvalFeedbackDO>lambdaQuery()
                 .eq(EvalFeedbackDO::getTurnId, turnId)
                 .eq(EvalFeedbackDO::getUserId, userId));
+    }
+
+    /** OBS-08 时间线重建：按时间段读回反馈（升序）。 */
+    public List<EvalFeedbackDO> listByRange(Instant from, Instant to) {
+        return mapper.selectList(Wrappers.<EvalFeedbackDO>lambdaQuery()
+                .ge(EvalFeedbackDO::getCreateAt, LocalDateTime.ofInstant(from, ZoneOffset.UTC))
+                .le(EvalFeedbackDO::getCreateAt, LocalDateTime.ofInstant(to, ZoneOffset.UTC))
+                .orderByAsc(EvalFeedbackDO::getCreateAt)
+                .orderByAsc(EvalFeedbackDO::getId));
     }
 }

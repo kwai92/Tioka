@@ -1,6 +1,6 @@
 package com.tioka.mcp.application;
 
-import com.tioka.framework.id.Ids;
+import com.foundation.common.id.Ids;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -9,8 +9,10 @@ import com.tioka.framework.error.ErrorCode;
 import com.tioka.mcp.api.McpToolCallApi;
 import com.tioka.mcp.domain.McpStore;
 import com.tioka.mcp.domain.McpStore.*;
+import com.tioka.system.api.obs.ExtInteractionRecorder;
 import com.tioka.system.api.spi.EgressClient;
 import com.tioka.system.api.spi.SecretStore;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -27,16 +29,20 @@ public class McpAdminService implements McpToolCallApi {
     private final ObjectMapper mapper;
     private final EgressClient egress;
     private final boolean mockDiscovery;
+    /** OBS-07：外部交互台账可选注入（MCP 远端调用每回一条 {@code mcp}；本地 stdio/mock 不记）。 */
+    private final ObjectProvider<ExtInteractionRecorder> ledger;
 
     public McpAdminService(SecretStore secretStore, McpStore store,
                            EgressClient egress,
                            @Value("${tioka.mcp.mock:true}") boolean mockDiscovery,
-                                  ObjectMapper mapper) {
+                                  ObjectMapper mapper,
+                           ObjectProvider<ExtInteractionRecorder> ledger) {
         this.mapper = mapper;
         this.secretStore = secretStore;
         this.store = store;
         this.egress = egress;
         this.mockDiscovery = mockDiscovery;
+        this.ledger = ledger;
     }
 
     public McpServer register(String name, String baseUrl, String bearerToken) {
@@ -248,10 +254,50 @@ public class McpAdminService implements McpToolCallApi {
             String token = secretStore.get(parts[0], parts[1]);
             if (token != null) b.header("Authorization", "Bearer " + token);
         }
-        HttpResponse<String> resp = egress.send(b.build());
-        String raw = resp.body() == null ? "" : resp.body();
-        String json = extractJsonRpc(raw);
-        return mapper.readTree(json);
+        long startNanos = System.nanoTime();
+        try {
+            HttpResponse<String> resp = egress.send(b.build());
+            recordLedger(server, method, true, startNanos);
+            String raw = resp.body() == null ? "" : resp.body();
+            String json = extractJsonRpc(raw);
+            return mapper.readTree(json);
+        } catch (Exception e) {
+            recordLedger(server, method, false, startNanos);
+            throw e;
+        }
+    }
+
+    /**
+     * OBS-07 / ADR-074 §2：MCP 远端调用写一条 OUT {@code mcp} 台账行（本地 stdio / mock 不走本路径）。
+     * 台账失败只吞异常，不阻断调用。
+     */
+    private void recordLedger(McpServer server, String method, boolean ok, long startNanos) {
+        if (ledger == null) {
+            return;
+        }
+        ExtInteractionRecorder recorder = ledger.getIfAvailable();
+        if (recorder == null) {
+            return;
+        }
+        try {
+            long latencyMs = (System.nanoTime() - startNanos) / 1_000_000;
+            Map<String, String> attrs = new java.util.LinkedHashMap<>();
+            attrs.put("mcp_server_id", server.id());
+            recorder.record(new ExtInteractionRecorder.ExtInteractionRecord(
+                    ExtInteractionRecorder.Direction.OUT,
+                    "mcp",
+                    server.id(),
+                    server.baseUrl(),
+                    "mcp." + method,
+                    ok ? ExtInteractionRecorder.Status.OK : ExtInteractionRecorder.Status.ERROR,
+                    null,
+                    null,
+                    null,
+                    latencyMs,
+                    attrs));
+        } catch (RuntimeException ignored) {
+            // 台账不能影响 MCP 调用主流程
+        }
     }
 
     /** 兼容 application/json 与 SSE data: 行。 */

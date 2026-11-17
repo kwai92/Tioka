@@ -60,6 +60,18 @@ public class EvidenceBinder {
                 "quote 不是 unit norm_text 的子串"));
     }
 
+    /**
+     * 存在性检查（{@code x-tioka-ref: doc.unit / doc.clause} 用）：unit 存在且可见。
+     * 与 {@link #check} 的可见性口径一致（visibleDocIds 为 null 视为不可见）。
+     */
+    public boolean exists(String unitId, List<String> visibleDocIds) {
+        Optional<DocumentRepository.UnitRow> unit = repository.findUnit(unitId);
+        if (unit.isEmpty()) {
+            return false;
+        }
+        return visibleDocIds != null && visibleDocIds.contains(unit.get().docId);
+    }
+
     /** 同一 tableId 同一 row 的全部单元格 normText 按 col 升序拼接（无分隔）。 */
     private String sameRowConcat(DocumentRepository.UnitRow origin) {
         ParsedTableRef ref = origin.tableRef;

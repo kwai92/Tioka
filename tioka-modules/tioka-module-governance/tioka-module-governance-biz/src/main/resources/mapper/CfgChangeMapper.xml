@@ -11,4 +11,16 @@
                     #{actorId}, #{reason}, #{traceId})
         ]]>
     </insert>
+
+    <!-- OBS-08 时间线重建：按时间段读回配置变更（ADR-075 §2 灰色背景条目） -->
+    <select id="listByRange" resultType="com.tioka.governance.infrastructure.persistence.CfgChangeDO">
+        <![CDATA[
+            SELECT id, object_type AS objectType, target_key AS targetKey,
+                   before_json AS beforeJson, after_json AS afterJson,
+                   actor_id AS actorId, reason, created_at AS createdAt, trace_id AS traceId
+              FROM cfg_change
+             WHERE created_at >= #{from} AND created_at <= #{to}
+             ORDER BY created_at, id
+        ]]>
+    </select>
 </mapper>

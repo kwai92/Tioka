@@ -99,7 +99,7 @@ class TrajectoryExportIT {
         trajectories.byTurn.put(turnId, a);
         trajectories.byThread.put(threadId, List.of(
                 new TrajectoryApi.TurnSummary(turnId, 1, TurnStatus.COMPLETED, "chat", 2,
-                        100, 50, 3000L, T0, T1)));
+                        100, 50, 3000L, T0, T1, "CLEAN")));
     }
 
     private static Principal principalWith(Set<String> permissions) {

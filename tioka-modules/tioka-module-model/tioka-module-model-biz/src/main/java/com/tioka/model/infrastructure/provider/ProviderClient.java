@@ -317,6 +317,8 @@ public class ProviderClient {
         int promptTokens = 0;
         int completionTokens = 0;
         String finishReason = null;
+        // SCH-07：流式拒答以增量 delta.refusal 下发
+        boolean refused = false;
 
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(body, StandardCharsets.UTF_8))) {
             String line;
@@ -332,6 +334,11 @@ public class ProviderClient {
                     finishReason = choice.path("finish_reason").asText(finishReason);
                 }
                 JsonNode delta = choice.path("delta");
+                JsonNode refusalNode = delta.path("refusal");
+                if (!refusalNode.isMissingNode() && !refusalNode.isNull()
+                        && !refusalNode.asText("").isBlank()) {
+                    refused = true;
+                }
                 if (delta.hasNonNull("content")) {
                     String piece = delta.path("content").asText("");
                     if (!piece.isEmpty()) {
@@ -377,7 +384,8 @@ public class ProviderClient {
                 ));
             }
         }
-        return new CompletionResult(content.toString(), calls, promptTokens, completionTokens, finishReason);
+        return new CompletionResult(content.toString(), calls, promptTokens, completionTokens, finishReason,
+                refused);
     }
 
     private String resolveApiKey(String apiKeyRef) {
@@ -398,6 +406,9 @@ public class ProviderClient {
         JsonNode message = choice.path("message");
         String content = message.path("content").asText("");
         String finishReason = choice.path("finish_reason").asText(null);
+        // SCH-07：OpenAI 兼容拒答把拒答文本放在 message.refusal（finish_reason=stop）
+        String refusal = message.path("refusal").asText(null);
+        boolean refused = refusal != null && !refusal.isBlank();
         List<ToolCall> calls = new ArrayList<>();
         JsonNode toolCalls = message.path("tool_calls");
         if (toolCalls.isArray()) {
@@ -412,7 +423,7 @@ public class ProviderClient {
         return new CompletionResult(content, calls,
                 root.path("usage").path("prompt_tokens").asInt(0),
                 root.path("usage").path("completion_tokens").asInt(0),
-                finishReason);
+                finishReason, refused);
     }
 
     private static float[] hashEmbed(String text, int dim) {
@@ -452,8 +463,19 @@ public class ProviderClient {
 
     public record ToolCall(String id, String name, String argumentsJson) {}
 
+    /**
+     * @param refused SCH-07（ADR-066 §5 第 1 步）：供应商拒答信号（{@code message.refusal} 非空；
+     *                流式增量 {@code delta.refusal}）。拒答不按格式错误修复，直接判 REFUSED 结局。
+     */
     public record CompletionResult(String content, List<ToolCall> toolCalls,
-                                   int promptTokens, int completionTokens, String finishReason) {}
+                                   int promptTokens, int completionTokens, String finishReason,
+                                   boolean refused) {
+        /** 兼容 5 参口径（未携带拒答信号）。 */
+        public CompletionResult(String content, List<ToolCall> toolCalls,
+                                int promptTokens, int completionTokens, String finishReason) {
+            this(content, toolCalls, promptTokens, completionTokens, finishReason, false);
+        }
+    }
 
     /** MH-04：rerank 单条结果——{@code index} 为文档下标，{@code score} 为相关度。 */
     public record RerankHit(int index, double score) {}

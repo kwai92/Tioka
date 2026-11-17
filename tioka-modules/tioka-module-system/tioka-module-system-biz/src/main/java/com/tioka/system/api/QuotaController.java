@@ -43,7 +43,11 @@ public class QuotaController {
         if (body != null && body.containsKey("limit") && body.get("limit") != null) {
             limit = Long.parseLong(String.valueOf(body.get("limit")));
         }
-        quotaService.putLimit(scopeType, scopeId, metric, limit);
+        Integer warnRatio = null;
+        if (body != null && body.containsKey("warnRatio") && body.get("warnRatio") != null) {
+            warnRatio = Integer.parseInt(String.valueOf(body.get("warnRatio")));
+        }
+        quotaService.putLimit(scopeType, scopeId, metric, limit, warnRatio);
         return ApiResponse.ok(Map.of("ok", true));
     }
 }

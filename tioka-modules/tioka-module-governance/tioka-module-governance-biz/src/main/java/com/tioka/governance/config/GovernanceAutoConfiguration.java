@@ -1,6 +1,7 @@
 package com.tioka.governance.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.tioka.governance.api.config.ConfigSpecValidator;
 import com.tioka.governance.api.config.ConfigVersionApi;
 import com.tioka.governance.application.config.ConfigCurrentPointerStore;
 import com.tioka.governance.application.config.ConfigProjectionCache;
@@ -101,8 +102,9 @@ public class GovernanceAutoConfiguration {
             ConfigCurrentPointerStore pointers,
             ConfigVersionRefreshBus bus,
             ObjectMapper objectMapper,
-            ObjectProvider<AuditApi> auditApi) {
+            ObjectProvider<AuditApi> auditApi,
+            ObjectProvider<ConfigSpecValidator> specValidators) {
         return new DefaultConfigVersionService(
-                store, normalizer, cache, pointers, bus, objectMapper, auditApi);
+                store, normalizer, cache, pointers, bus, objectMapper, auditApi, "system", specValidators);
     }
 }

@@ -95,6 +95,13 @@ public final class AgentLoop {
     }
 
     public LoopResult run(LoopContext ctx) {
+        // SCH-09 §7.4：人工补录续跑——命中已提交任务则以补录结果收口（不再调用模型）
+        if (outputStage != null) {
+            LoopResult resumed = outputStage.resumePending(ctx, ctx.startStep());
+            if (resumed != null) {
+                return resumed;
+            }
+        }
         List<Map<String, Object>> tools = toolPort.describe(ctx);
         Deque<String> recentCalls = new ArrayDeque<>();
         int promptTokens = 0;
@@ -123,6 +130,8 @@ public final class AgentLoop {
                     List<Map<String, Object>> messages = contextBuilder.build(turnItems,
                             ContextRenderContext.of(ctx.turnId(), ctx.threadId(), ctx.workspaceId(),
                                     ctx.agentVersionId(), turnQuery));
+                    // GRD-00：本轮上下文中出现 EXTERNAL 段即置污点，并写入 runtime_turn（只写一次）。
+                    recordTurnTaint(ctx);
                     TurnCallScope.open(ctx, sink, step);
                     LoopPorts.ModelPort.Result r;
                     try {
@@ -324,6 +333,29 @@ public final class AgentLoop {
             return mapper.writeValueAsString(m);
         } catch (Exception e) {
             return "{}";
+        }
+    }
+
+    /**
+     * GRD-00 / ADR-065 §3：本轮上下文中出现 EXTERNAL 段时把 Turn 置为 TAINTED 并写入
+     * {@code runtime_turn.taint/taint_sources}；同一 Turn 只写一次（置位后本 Turn 内不撤销）。
+     */
+    private void recordTurnTaint(LoopContext ctx) {
+        String turnId = ctx.turnId();
+        if (!"TAINTED".equals(contextBuilder.turnTaint(turnId))) {
+            return;
+        }
+        if (!contextBuilder.markTaintReported(turnId)) {
+            return;
+        }
+        turns.saveTaint(turnId, "TAINTED", writeJsonValue(contextBuilder.turnTaintSources(turnId)));
+    }
+
+    private String writeJsonValue(Object value) {
+        try {
+            return mapper.writeValueAsString(value);
+        } catch (Exception e) {
+            return "[]";
         }
     }
 }

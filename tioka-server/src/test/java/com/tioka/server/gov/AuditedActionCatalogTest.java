@@ -35,13 +35,15 @@ class AuditedActionCatalogTest {
     private static Path repoRoot;
     private static final Pattern ANNOTATION = Pattern.compile("@Audited\\s*\\(([^)]*)\\)", Pattern.DOTALL);
     private static final Pattern ACTION = Pattern.compile("action\\s*=\\s*\"([^\"]+)\"");
-    /** 代码内（非注解）固定动作名写入点：拒绝类与审计自查询。 */
+    /** 代码内（非注解）固定动作名写入点：拒绝类、审计自查询、轨迹正文查看与证据包导出。 */
     private static final Map<String, String> DIRECT_ACTIONS = Map.of(
             "permission.denied", "tioka-module-system",
             "http.access_denied", "tioka-module-system",
             "egress.denied", "tioka-module-system",
             "audit.query", "tioka-module-system",
-            "audit.export", "tioka-module-system");
+            "audit.export", "tioka-module-system",
+            "timeline.evidence.export", "tioka-module-system",
+            "trajectory.content.read", "tioka-module-runtime");
 
     @BeforeAll
     static void resolveRepoRoot() {

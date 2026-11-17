@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tioka.system.infrastructure.mapper.EvidencePackMapper">
+
+    <!-- OBS-12：按范围取证据包登记（可选限定空间），按导出时间倒序；deleted 需显式过滤（旁路 ScopeLine）。 -->
+    <select id="listByScope" resultType="com.tioka.system.infrastructure.persistence.EvidencePackDO">
+        <![CDATA[
+            SELECT id, scope_type AS scopeType, scope_ref AS scopeRef, workspace_id AS workspaceId,
+                   exported_by AS exportedBy, exported_at AS exportedAt, clearance,
+                   include_confidential AS includeConfidential, omitted_sections AS omittedSections,
+                   file_count AS fileCount, row_count AS rowCount, package_hash AS packageHash,
+                   signature_alg AS signatureAlg, key_id AS keyId, signature,
+                   create_at AS createAt, update_at AS updateAt, create_by AS createBy,
+                   update_by AS updateBy, deleted
+              FROM evidence_pack
+             WHERE scope_type = #{scopeType} AND scope_ref = #{scopeRef} AND deleted = false
+        ]]>
+        <if test="workspaceId != null and workspaceId != ''">
+            <![CDATA[ AND workspace_id = #{workspaceId} ]]>
+        </if>
+        <![CDATA[
+             ORDER BY exported_at DESC, id DESC
+             LIMIT #{limit}
+        ]]>
+    </select>
+
+</mapper>

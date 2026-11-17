@@ -10,6 +10,9 @@ public interface ModelEntitiesRepository {
     Optional<ModelProviderDO> getProvider(String id);
     List<ModelProviderDO> providers();
 
+    /** MH-10（V236）：只更新供应商运行健康状态列，避免整行覆盖。 */
+    void updateProviderHealth(String providerId, String health);
+
     /** MH-08：别名（原 logical model，V151 重命名 model_logical → model_alias）。 */
     void putAlias(ModelAliasDO row);
     boolean hasAlias(String id);
@@ -41,4 +44,11 @@ public interface ModelEntitiesRepository {
     void recordFailover(String threadId, String turnId, String bindingId, String reason);
 
     List<ModelTurnFreezeDO> listFreezes(String threadId);
+
+    /** AST-07（V237）：Prompt 模板身份行（内容在 cfg_*，本表只存身份与作用域）。 */
+    void putPromptTemplate(PromptTemplateDO row);
+    Optional<PromptTemplateDO> getPromptTemplate(String id);
+    List<PromptTemplateDO> promptTemplates();
+    /** 按稳定名称查询（sys.* 内置模板解析入口）。 */
+    Optional<PromptTemplateDO> findPromptTemplateByName(String name);
 }

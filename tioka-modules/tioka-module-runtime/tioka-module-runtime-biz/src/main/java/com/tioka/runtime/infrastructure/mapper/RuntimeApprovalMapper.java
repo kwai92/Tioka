@@ -37,4 +37,8 @@ public interface RuntimeApprovalMapper {
                                 @Param("decidedBy") String decidedBy);
 
         List<WaitingTurnRow> findWaitingWithoutPending();
+
+        /** OBS-08 时间线重建：按时间段读回审批（升序，ADR-075 §2）。 */
+        List<RuntimeApprovalDO> listByRange(@Param("from") LocalDateTime from,
+                                        @Param("to") LocalDateTime to);
 }

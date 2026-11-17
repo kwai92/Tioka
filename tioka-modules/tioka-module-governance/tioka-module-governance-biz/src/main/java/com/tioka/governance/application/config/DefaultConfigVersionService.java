@@ -4,7 +4,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tioka.framework.error.BizException;
 import com.tioka.framework.error.ErrorCode;
-import com.tioka.framework.id.Ids;
+import com.foundation.common.id.Ids;
+import com.tioka.governance.api.config.ConfigSpecValidator;
 import com.tioka.governance.api.config.ConfigVersionApi;
 import com.tioka.governance.infrastructure.config.CfgStore;
 import com.tioka.governance.infrastructure.persistence.CfgDraftDO;
@@ -38,6 +39,8 @@ public class DefaultConfigVersionService implements ConfigVersionApi {
     private final ConfigVersionRefreshBus bus;
     private final ObjectMapper objectMapper;
     private final ObjectProvider<AuditApi> auditApi;
+    /** AST-07：类型专属校验器（ADR-041 §2）；未注册时为 null，行为与既有基线校验一致。 */
+    private final ObjectProvider<ConfigSpecValidator> specValidators;
     private final String actorId;
 
     public DefaultConfigVersionService(
@@ -48,7 +51,7 @@ public class DefaultConfigVersionService implements ConfigVersionApi {
             ConfigVersionRefreshBus bus,
             ObjectMapper objectMapper,
             ObjectProvider<AuditApi> auditApi) {
-        this(store, normalizer, cache, pointers, bus, objectMapper, auditApi, "system");
+        this(store, normalizer, cache, pointers, bus, objectMapper, auditApi, "system", null);
     }
 
     public DefaultConfigVersionService(
@@ -60,6 +63,19 @@ public class DefaultConfigVersionService implements ConfigVersionApi {
             ObjectMapper objectMapper,
             ObjectProvider<AuditApi> auditApi,
             String actorId) {
+        this(store, normalizer, cache, pointers, bus, objectMapper, auditApi, actorId, null);
+    }
+
+    public DefaultConfigVersionService(
+            CfgStore store,
+            ConfigSpecNormalizer normalizer,
+            ConfigProjectionCache cache,
+            ConfigCurrentPointerStore pointers,
+            ConfigVersionRefreshBus bus,
+            ObjectMapper objectMapper,
+            ObjectProvider<AuditApi> auditApi,
+            String actorId,
+            ObjectProvider<ConfigSpecValidator> specValidators) {
         this.store = store;
         this.normalizer = normalizer;
         this.cache = cache;
@@ -68,6 +84,7 @@ public class DefaultConfigVersionService implements ConfigVersionApi {
         this.objectMapper = objectMapper;
         this.auditApi = auditApi;
         this.actorId = actorId == null ? "system" : actorId;
+        this.specValidators = specValidators;
     }
 
     @Override
@@ -126,7 +143,17 @@ public class DefaultConfigVersionService implements ConfigVersionApi {
         if (!spec.isObject() && !spec.isArray()) {
             issues.add(new ValidationIssue("SPEC_TYPE", "ERROR", "spec 必须是对象或数组", "/"));
         }
-        // 类型专属检查由 MH-08 / AST-07 注册；框架只做基线
+        // 类型专属检查由 MH-08 / AST-07 通过 ConfigSpecValidator 注册；框架只做基线
+        if (specValidators != null) {
+            for (ConfigSpecValidator validator : specValidators) {
+                if (validator.supports(r.objectType())) {
+                    List<ValidationIssue> extra = validator.validate(r.objectType(), r.objectId(), spec);
+                    if (extra != null) {
+                        issues.addAll(extra);
+                    }
+                }
+            }
+        }
         boolean ok = issues.stream().noneMatch(i -> "ERROR".equals(i.severity()));
         return new ValidationReport(ok, List.copyOf(issues));
     }

@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.NullNode;
 import com.networknt.schema.JsonSchema;
 import com.networknt.schema.JsonSchemaFactory;
+import com.networknt.schema.JsonNodePath;
 import com.networknt.schema.SpecVersion;
 import com.networknt.schema.ValidationMessage;
 import com.tioka.ontology.api.schema.SchemaError;
@@ -29,11 +30,23 @@ public class OutputValidator {
         List<SchemaError> errors = new ArrayList<>();
         for (ValidationMessage message : messages) {
             errors.add(new SchemaError(
-                    message.getInstanceLocation() == null ? "" : message.getInstanceLocation().toString(),
+                    instancePointer(message),
                     "SCHEMA_VIOLATION",
                     message.getMessage()));
         }
         return errors;
+    }
+
+    /**
+     * networknt 的实例位置（JsonPath 形态，如 {@code $.conclusion}）→ JSON Pointer（如 {@code /conclusion}，
+     * ADR-066 §1.2）。平台其余错误来源（证据、引用、规则）均使用 JSON Pointer，这里归一以保持口径一致。
+     */
+    private static String instancePointer(ValidationMessage message) {
+        JsonNodePath loc = message.getInstanceLocation();
+        if (loc == null) {
+            return "";
+        }
+        return loc.getPathType().convertToJsonPointer(loc.toString());
     }
 
     /** x-tioka-path 字段取值（payload 中该字段值）。 */

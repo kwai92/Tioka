@@ -58,6 +58,8 @@ class AuditCoverageIT {
             new WhitelistEntry("/api/system/auth/oidc/{idp}/callback", WhitelistKind.PUBLIC_AUTH, "OIDC 回调写 auth.oidc.*"),
             new WhitelistEntry("/api/knowledge/bases/{id}/search", WhitelistKind.READ_ONLY_POST, "知识库检索只读"),
             new WhitelistEntry("/api/model/router/failover", WhitelistKind.READ_ONLY_POST, "路由 failover 探测只读"),
+            // AST-07：Prompt 渲染只做模板变量替换，不落库不调模型；POST 仅因需传渲染变量体
+            new WhitelistEntry("/api/model/prompt-templates/{id}/render", WhitelistKind.READ_ONLY_POST, "Prompt 渲染只读，无模型调用"),
             new WhitelistEntry("/api/ops/interpreter", WhitelistKind.NOT_IMPLEMENTED, "运维解释器未实现"),
             new WhitelistEntry("/api/ops/jobs", WhitelistKind.NOT_IMPLEMENTED, "运维任务桩未实现"),
             new WhitelistEntry("/api/ops/chat/{id}/fork", WhitelistKind.NOT_IMPLEMENTED, "会话 fork 未实现"),

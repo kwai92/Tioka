@@ -20,6 +20,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -141,6 +142,44 @@ class StructuredRequestBuilderTest {
         StructuredConstraintRequest req = builder.build(profile, authoritativeSchema, true);
 
         assertEquals(StructuredOutputMode.JSON_OBJECT, req.selectedMode());
+    }
+
+    /** ADR-066 §2：同（Schema、能力版本、方式）在一个 Turn 内与跨 Turn 都得到相同方言文本与哈希。 */
+    @Test
+    void dialectHashIsStableAcrossCallsAndInstances() {
+        ModelProfile profile = profileWith(Set.of(StructuredOutputMode.STRICT_SCHEMA),
+                Set.of("type", "properties", "required", "additionalProperties", "description"));
+
+        StructuredConstraintRequest first = builder.build(profile, authoritativeSchema, false);
+        StructuredConstraintRequest second = builder.build(profile, authoritativeSchema, false);
+        assertEquals(first.dialectHash(), second.dialectHash());
+        assertEquals(first.dialectSchema(), second.dialectSchema());
+
+        // 另一编译实例（模拟跨 Turn）：同输入须产出同一方言文本与哈希
+        StructuredRequestBuilder other = new StructuredRequestBuilder(mapper);
+        StructuredConstraintRequest third = other.build(profile, authoritativeSchema, false);
+        assertEquals(first.dialectHash(), third.dialectHash());
+        assertEquals(first.dialectSchema(), third.dialectSchema());
+    }
+
+    /** ADR-066 §2/§3：方言超出模型能力上限时试编译失败，运行期编译抛异常。 */
+    @Test
+    void tryCompileReportsLimitFailure() {
+        ModelProfile profile = new ModelProfile("demo", new StructuredOutputCapability(
+                Set.of(StructuredOutputMode.STRICT_SCHEMA),
+                Set.of("type", "properties", "required", "additionalProperties", "description"),
+                new StructuredOutputCapability.Limits(1, null, null, null, null),
+                Map.of(), false, false,
+                StructuredOutputCapability.MaxTokensAdvice.UNSET,
+                StructuredOutputCapability.Stability.GA,
+                null, null, null, null));
+
+        StructuredRequestBuilder.CompileOutcome outcome = builder.tryCompile(profile, authoritativeSchema, false);
+
+        assertFalse(outcome.compiled());
+        assertEquals("DIALECT_TOO_DEEP", outcome.reasonCode());
+        assertThrows(StructuredRequestBuilder.DialectCompileException.class,
+                () -> builder.build(profile, authoritativeSchema, false));
     }
 
     private static ModelProfile profileWith(Set<StructuredOutputMode> modes, Set<String> keywords) {

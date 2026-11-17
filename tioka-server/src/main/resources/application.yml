@@ -48,6 +48,11 @@ management:
       enabled: false
 
 tioka:
+  # F-02 BAS-26 / F-11 BAS-20：local=私有化单 Tioka（默认，不连中台）| foundation=接入中台
+  # 授权快照链路已接线（foundation-starter-client + 应用装配层适配器），见 36 号规划 §19；
+  # 离职联动等其余 BAS-20 能力仍待接，切换到 foundation 前须配齐 FOUNDATION_URL 与服务账号凭据
+  foundation:
+    mode: ${TIOKA_FOUNDATION_MODE:local}
   env:
     name: local
   home: ${TIOKA_HOME:${user.home}/.tioka}
@@ -126,6 +131,10 @@ tioka:
     bridge:
       enabled: false
       channels: noop
+  # GOV-13：告警规则与通知（默认开启；紧急开关 tioka.alerts.enabled=false）
+  alerts:
+    enabled: true
+    evaluate-interval-ms: 30000
 
   # —— M2 配置键（PK-00c；实现包只追加自己的子键）——
   messaging:
@@ -168,6 +177,37 @@ tioka:
     # OTEL_TRACES_SAMPLER=parentbased_traceidratio
     # OTEL_TRACES_SAMPLER_ARG=1.0
     # OTEL_TRACES_EXPORTER / OTEL_METRICS_EXPORTER / OTEL_RESOURCE_ATTRIBUTES
+
+# Foundation 底座 starter 契约（com.foundation:foundation-starter-core，F-02 BAS-26）。
+# 前缀属于底座/中台，Tioka 自身配置仍走 tioka.*；mode=foundation 时必须显式设置
+# FOUNDATION_URL，否则 FoundationModeGuard 启动即拒绝（不接受默认 localhost）。
+foundation:
+  enabled: true
+  app-code: tioka
+  base-url: ${FOUNDATION_URL:http://localhost:8080}
+  # 服务账号凭据（client_credentials）：接入模式下由 foundation-starter-client 换取 access token，
+  # 出站带 Authorization 才能通过中台快照端点的应用编码校验。未配置时令牌提供者返回空，
+  # 中台端点会拒绝请求，权限判定保持 fail-closed（不会静默回落到本地权限集）。
+  service-account:
+    client-id: ${FOUNDATION_CLIENT_ID:}
+    client-secret: ${FOUNDATION_CLIENT_SECRET:}
+    token-uri: ${FOUNDATION_TOKEN_URI:}
+  # F-02 BAS-26 / ADP-08：与上面的 tioka.foundation.mode 由同一环境变量派生。
+  # 底座 starter 未显式配置时按 FOUNDATION（连中台）判定，不同步会出现「应用以为单飞、
+  # starter 仍连中台」；同源派生后两侧恒一致。self-managed 目前未被 Tioka 侧支持，
+  # 若注入该值会在启动期显式失败，而不是静默按 local 运行。
+  client:
+    mode: ${TIOKA_FOUNDATION_MODE:local}
+  # 权限判定按模式分叉：local 用应用自建权限；foundation 用中台授权快照经权限码映射后判定。
+  # 接入模式由 FoundationAuthzConfiguration 注册 AuthorizationSnapshotSource（F4 已接线）；
+  # 若 starter-client 未激活（两个 mode 键不同步或依赖缺失）则启动期拒绝，
+  # 不允许「配置写着接入中台、运行时却静默按本地权限跑」的半接线状态。
+  # F-02 BAS-26 逐能力开关（ADP-05）：starter 缺省 enabled=true，仅加依赖即会自动装配。
+  # data 本批只取用其 4 个 DO 基类（纯 POJO），空间过滤与审计填充仍由 Tioka 本地实现负责；
+  # 自动装配若激活会额外注册 MetaObjectHandler / MybatisPlusInterceptor，故显式关闭。
+  # 后续第 3〜9 步按能力逐个迁移时再单独打开，并同步处理 bean 冲突。
+  data:
+    enabled: false
 
 # RocketMQ 客户端：producer.group 常驻；name-server 仅环境/闸门注入时才真正建 Producer/Template。
 # （RocketMQAutoConfiguration 要求 name-server + producer.group 齐备才创建 DefaultMQProducer。）

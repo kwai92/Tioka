@@ -37,6 +37,8 @@ public enum ErrorCode {
     NO_ELIGIBLE_MODEL(42210, 422, "当前对话数据标签下没有获准的模型"),
     /** CTX-01：四区段注入超出有效预算，不静默截断，HTTP 422。 */
     CONTEXT_OVERFLOW(42211, 422, "上下文超出有效预算"),
+    /** AST-07（ADR-041 §4）：Prompt 模板渲染失败（缺必填变量 / 模板结构损坏），HTTP 422。 */
+    PROMPT_RENDER_ERROR(42212, 422, "Prompt 渲染失败"),
     /** Agent 已停用，HTTP 423。 */
     AGENT_DISABLED(42300, 423, "Agent 已停用"),
     /** Agent 负责人已失效，授权书暂停（TRU-03 / ADR-032），HTTP 423。 */
@@ -82,7 +84,7 @@ public enum ErrorCode {
                     GRANT_NOT_NARROWER, GRANT_INACTIVE, DATA_LABEL_EXCEEDED,
                     POLICY_DENIED, POLICY_EVAL_FAILED, QUOTA_EXCEEDED,
                     MODEL_BUDGET_EXHAUSTED, RATE_LIMITED, CONTEXT_OVERFLOW, NO_ELIGIBLE_MODEL,
-                    AGENT_PUBLISH_INVALID -> true;
+                    PROMPT_RENDER_ERROR, AGENT_PUBLISH_INVALID -> true;
             default -> false;
         };
     }

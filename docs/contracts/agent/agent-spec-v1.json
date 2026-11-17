@@ -72,7 +72,8 @@
           "enum": ["DIRECT", "REASON_THEN_FORMAT"],
           "default": "DIRECT"
         },
-        "formatModelAlias": { "type": ["string", "null"] }
+        "formatModelAlias": { "type": ["string", "null"] },
+        "allowRelaxedSchema": { "type": "boolean", "default": false }
       }
     },
     "Profile": {

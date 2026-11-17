@@ -2,7 +2,7 @@ package com.tioka.orchestration.receipt;
 
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.tioka.framework.id.Ids;
+import com.foundation.common.id.Ids;
 import com.tioka.orchestration.infrastructure.mapper.OrchRuleVersionMapper;
 import com.tioka.orchestration.infrastructure.mapper.OrchRunMapper;
 import com.tioka.orchestration.infrastructure.persistence.OrchFactDO;

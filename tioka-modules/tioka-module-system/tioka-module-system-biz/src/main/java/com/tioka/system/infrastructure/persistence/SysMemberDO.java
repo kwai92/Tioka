@@ -1,7 +1,7 @@
 package com.tioka.system.infrastructure.persistence;
 
 import com.baomidou.mybatisplus.annotation.TableName;
-import com.tioka.framework.persistence.BaseDO;
+import com.foundation.starter.data.BaseDO;
 
 /**
  * 空间成员。表列为 TIMESTAMPTZ，列表查询走 {@code SysMemberMapper#listByUserId} 不映射时间列。

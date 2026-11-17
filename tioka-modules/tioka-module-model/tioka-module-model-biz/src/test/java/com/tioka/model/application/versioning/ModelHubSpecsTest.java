@@ -66,6 +66,8 @@ class ModelHubSpecsTest {
         assertTrue(ModelHubSpecs.isSupportedType(ModelHubSpecs.OT_BINDING));
         assertTrue(ModelHubSpecs.isSupportedType(ModelHubSpecs.OT_ALIAS));
         assertTrue(ModelHubSpecs.isSupportedType(ModelHubSpecs.OT_ROUTING_PLAN));
-        assertFalse(ModelHubSpecs.isSupportedType("prm_template"));
+        // AST-07：Prompt 模板并入版本化对象（objectType = prm_template）
+        assertTrue(ModelHubSpecs.isSupportedType(ModelHubSpecs.OT_PROMPT_TEMPLATE));
+        assertFalse(ModelHubSpecs.isSupportedType("unknown_type"));
     }
 }

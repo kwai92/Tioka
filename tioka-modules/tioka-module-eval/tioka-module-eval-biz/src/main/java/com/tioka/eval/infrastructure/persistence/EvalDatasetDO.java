@@ -3,7 +3,7 @@ package com.tioka.eval.infrastructure.persistence;
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
-import com.tioka.framework.persistence.BaseDO;
+import com.foundation.starter.data.BaseDO;
 
 /**
  * EVO-02 / V176：评测数据集（ADR-031）。版本化；schema_json 为字段 Schema 自定义

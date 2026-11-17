@@ -28,6 +28,13 @@
         <!-- Boot 3.2 自带 1.19.x，连不上 GitHub 运行器的 Docker 29（最低 API 1.44）；1.21.4 起兼容 -->
         <testcontainers.version>1.21.4</testcontainers.version>
         <revision>0.1.0-SNAPSHOT</revision>
+        <!-- F-02 BAS-26：Foundation 底座构件版本（独立仓库 com.foundation，可独立升级）。
+             须与根 pom.xml 中 <parent>foundation-parent</parent> 的版本保持同步（当前双源，
+             BAS-26 收尾清理版本清单时统一退化），见 architecture/module-dependencies.md §7.5。
+             单轨版本（2026-11-16 收敛）：Foundation main 唯一版本轨为 0.2.0-SNAPSHOT，
+             两处版本源必须同值，否则 parent 与 BOM 会指向不同坐标，
+             见 Foundation docs/version-tracks.md。 -->
+        <foundation.version>0.2.0-SNAPSHOT</foundation.version>
     </properties>
 
     <dependencyManagement>
@@ -44,6 +51,16 @@
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-dependencies</artifactId>
                 <version>${spring-boot.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <!-- F-02 BAS-26：导入 Foundation BOM，统一 com.foundation:* starter 版本。
+                 置于 spring-boot-dependencies 之后，Tioka 侧已声明的版本优先；
+                 Foundation 与 Tioka 当前同为 Boot 3.2.12 / Testcontainers 1.21.4。 -->
+            <dependency>
+                <groupId>com.foundation</groupId>
+                <artifactId>foundation-dependencies</artifactId>
+                <version>${foundation.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>

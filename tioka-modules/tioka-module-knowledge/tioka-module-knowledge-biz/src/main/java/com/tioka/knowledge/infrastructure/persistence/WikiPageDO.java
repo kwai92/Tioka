@@ -3,7 +3,7 @@ package com.tioka.knowledge.infrastructure.persistence;
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
-import com.tioka.framework.persistence.BaseDO;
+import com.foundation.starter.data.BaseDO;
 
 /** WikiPage 持久化（47-GL §1.7）；物理表暂 {@code kb_wiki}。 */
 @TableName("kb_wiki")

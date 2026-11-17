@@ -1,6 +1,6 @@
 package com.tioka.model.application;
 
-import com.tioka.framework.id.Ids;
+import com.foundation.common.id.Ids;
 
 import com.tioka.model.domain.DecisionBinding;
 import com.tioka.model.domain.ModelEntities;

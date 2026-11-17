@@ -6,6 +6,9 @@ import com.tioka.system.infrastructure.mapper.AuthUserMapper;
 import com.tioka.system.infrastructure.persistence.AuthUserDO;
 import org.springframework.stereotype.Repository;
 
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 
 @Repository
@@ -59,6 +62,17 @@ public class AuthUserRepositoryImpl implements AuthUserRepository {
     public long countSearch(String q) {
         Long n = mapper.selectCount(searchWrapper(q));
         return n == null ? 0L : n;
+    }
+
+    /** OBS-12 时间线重建：按 {@code update_at} 时间段读回用户（升序）。{@code auth_user} 无 workspace_id，
+     * 属 ScopeLine 旁路表，异步重建无 Principal 亦不受行级过滤影响。 */
+    @Override
+    public List<AuthUserDO> listByRange(Instant from, Instant to) {
+        return mapper.selectList(Wrappers.<AuthUserDO>lambdaQuery()
+                .ge(AuthUserDO::getUpdateAt, LocalDateTime.ofInstant(from, ZoneOffset.UTC))
+                .le(AuthUserDO::getUpdateAt, LocalDateTime.ofInstant(to, ZoneOffset.UTC))
+                .orderByAsc(AuthUserDO::getUpdateAt)
+                .orderByAsc(AuthUserDO::getId));
     }
 
     private static LambdaQueryWrapper<AuthUserDO> searchWrapper(String q) {

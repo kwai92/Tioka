@@ -2,7 +2,7 @@ package com.tioka.server.model;
 
 import com.tioka.framework.error.BizException;
 import com.tioka.framework.error.ErrorCode;
-import com.tioka.framework.id.Ids;
+import com.foundation.common.id.Ids;
 import com.tioka.model.application.gateway.ModelRateLimiter;
 import com.tioka.server.gate.support.DualInstance;
 import org.junit.jupiter.api.Tag;

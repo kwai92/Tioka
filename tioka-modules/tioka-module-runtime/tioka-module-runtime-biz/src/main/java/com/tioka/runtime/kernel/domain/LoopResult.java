@@ -38,4 +38,14 @@ public record LoopResult(TurnStatus status, int promptTokens, int completionToke
     public static LoopResult waitingChild(int promptTokens, int completionTokens) {
         return new LoopResult(TurnStatus.WAITING_CHILD, promptTokens, completionTokens, null, null);
     }
+
+    /**
+     * SCH-09 §7.4：结构化产出失败转人工补录（结局 {@code HUMAN_PENDING}）；TurnRunner
+     * 复用 {@link TurnStatus#WAITING_APPROVAL} 语义挂起、不写终态，待补录后续跑。
+     * {@code errorCode} 承载 {@code human_pending}，{@code errorMessage} 承载任务 ID（挂起态不落终态列）。
+     */
+    public static LoopResult awaitingHuman(String taskId, int promptTokens, int completionTokens) {
+        return new LoopResult(TurnStatus.WAITING_APPROVAL, promptTokens, completionTokens,
+                "human_pending", taskId);
+    }
 }

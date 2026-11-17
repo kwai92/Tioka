@@ -1,12 +1,14 @@
 package com.tioka.system.application.obs;
 
-import com.tioka.framework.id.Ids;
+import com.foundation.common.id.Ids;
+import com.tioka.governance.api.timeline.TimelineProjector;
 import com.tioka.system.api.obs.ExtInteractionRecorder;
 import com.tioka.system.application.audit.AuditRequestContext;
 import com.tioka.system.infrastructure.ExtInteractionRepository;
 import com.tioka.system.infrastructure.persistence.ExtInteractionWriteRow;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
@@ -22,6 +24,7 @@ import java.util.Map;
  *       {@link AuditRequestContext}（MDC）兜底，保证与审计、traceId 贯通（ADR-073）同源。</li>
  *   <li>保留类别（ADR-074 §1）：带 {@code subject} 的行 BIZ，其余 SEC。</li>
  *   <li>超过固定列的 attrs 余量整体落 {@code attrs_json}。</li>
+ *   <li>OBS-08：落库即经 {@link TimelineProjector} 投影到统一时间线（ADR-075 §2）。</li>
  *   <li>台账失败只记日志不阻断主流程——台账是观测面，不能让业务写入因它失败。</li>
  * </ul>
  */
@@ -39,18 +42,34 @@ public class DefaultExtInteractionRecorder implements ExtInteractionRecorder {
     };
 
     private final ExtInteractionRepository repository;
+    private final ObjectProvider<TimelineProjector> timelineProjector;
 
-    public DefaultExtInteractionRecorder(ExtInteractionRepository repository) {
+    public DefaultExtInteractionRecorder(ExtInteractionRepository repository,
+                                         ObjectProvider<TimelineProjector> timelineProjector) {
         this.repository = repository;
+        this.timelineProjector = timelineProjector;
     }
 
     @Override
     public void record(ExtInteractionRecord record) {
         try {
-            repository.insert(toRow(record));
+            ExtInteractionWriteRow row = toRow(record);
+            repository.insert(row);
+            project(row);
         } catch (RuntimeException e) {
             log.warn("ext interaction ledger write failed kind={} operation={}: {}",
                     record.kind(), record.operation(), e.toString());
+        }
+    }
+
+    /**
+     * OBS-08：台账落库即投影到统一时间线（ADR-075 §2「写入即投影」）。
+     * 投影器缺席（离线单测 / 时间线关闭）时跳过；投影失败由投影器自身静默降级。
+     */
+    private void project(ExtInteractionWriteRow row) {
+        TimelineProjector projector = timelineProjector.getIfAvailable();
+        if (projector != null) {
+            projector.project(ExtInteractionTimelineProjection.toSourceEvent(row));
         }
     }
 

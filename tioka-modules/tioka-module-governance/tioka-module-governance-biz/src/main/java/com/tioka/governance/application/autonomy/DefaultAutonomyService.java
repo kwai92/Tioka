@@ -1,7 +1,7 @@
 package com.tioka.governance.application.autonomy;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.tioka.framework.id.Ids;
+import com.foundation.common.id.Ids;
 import com.tioka.framework.error.BizException;
 import com.tioka.framework.error.ErrorCode;
 import com.tioka.governance.api.autonomy.AutonomyApi;

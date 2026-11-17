@@ -23,6 +23,25 @@ public interface ContextSegmentProvider {
     }
 
     /**
+     * GRD-00 / ADR-065 §2.1：本段内容的信任级别。
+     *
+     * <p>缺省 {@link TrustLevel#INTERNAL}（带来源标注，不加边界），保证既有段提供者行为不变；
+     * 上传文档、OCR、未审核知识库、MCP / 网页结果等须显式声明 {@link TrustLevel#EXTERNAL}，
+     * 由组装器做每 Turn 随机的边界包裹并置本 Turn 污点。
+     */
+    default TrustLevel trust() {
+        return TrustLevel.INTERNAL;
+    }
+
+    /**
+     * GRD-00 / ADR-065 §2.2：{@link TrustLevel#EXTERNAL} 段在边界标记中携带的来源引用
+     * （如文档单元 ID、工具调用 ID、MCP 名称）。缺省无引用。
+     */
+    default String sourceRef() {
+        return null;
+    }
+
+    /**
      * CTX-01：渲染本段的实际文本。默认返回空串，保证既有仅注册元数据的段提供者行为不变。
      *
      * <p>渲染可能触发检索 / 读库，实现方须自行做异常兜底（返回空串而不是抛出），

@@ -3,6 +3,7 @@ package com.tioka.runtime.kernel.query;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tioka.framework.error.BizException;
 import com.tioka.framework.error.ErrorCode;
+import com.tioka.framework.label.DataLabel;
 import com.tioka.framework.security.Permissions;
 import com.tioka.framework.security.Principal;
 import com.tioka.framework.security.PrincipalHolder;
@@ -19,6 +20,14 @@ import com.tioka.runtime.infrastructure.persistence.RuntimeTurnDO;
 import com.tioka.runtime.config.ObservabilityProperties;
 import com.tioka.runtime.kernel.infrastructure.ItemRepository;
 import com.tioka.runtime.kernel.infrastructure.TurnRepository;
+import com.tioka.system.api.audit.AuditApi;
+import com.tioka.system.api.audit.AuditDegradedSink;
+import com.tioka.system.api.audit.AuditEvent;
+import com.tioka.system.api.audit.AuditOutcome;
+import com.tioka.system.api.authz.SystemRoles;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
@@ -27,14 +36,24 @@ import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.TreeMap;
 
 /**
  * HCI-07b：轨迹按步查询（含作废 item 与按步用量）。
+ *
+ * <p>轨迹正文门控（ADR-072 §6 / ADR-074 / FE-00 §7.10）：条目本体不因标签而隐藏，但
+ * {@code runtime_item.data_label} 序高于调用者 {@code clearance} 时抹除正文（只留结构）；
+ * 调用者持 {@code trajectory:read:content} 或为平台级管理员时 {@code clearance = SECRET}，
+ * 否则上限为 {@code INTERNAL}。实际读到受门控正文时写一条分类 {@code DATA} 的审计。
  */
 @Service
 public class TrajectoryQueryService implements TrajectoryApi, ThreadLabelApi {
+
+    private static final Logger log = LoggerFactory.getLogger(TrajectoryQueryService.class);
+    /** 轨迹正文查看审计动作（ADR-072 §6；登记于 docs/contracts/audit/actions.yaml）。 */
+    static final String ACTION_READ_CONTENT = "trajectory.content.read";
 
     private final TurnRepository turns;
     private final ItemRepository items;
@@ -43,6 +62,8 @@ public class TrajectoryQueryService implements TrajectoryApi, ThreadLabelApi {
     private final PrincipalHolder principals;
     private final ObjectMapper mapper;
     private final ObservabilityProperties observability;
+    private final ObjectProvider<AuditApi> auditApi;
+    private final ObjectProvider<AuditDegradedSink> degradedSink;
 
     public TrajectoryQueryService(TurnRepository turns,
                                   ItemRepository items,
@@ -50,7 +71,9 @@ public class TrajectoryQueryService implements TrajectoryApi, ThreadLabelApi {
                                   CostQueryApi costs,
                                   PrincipalHolder principals,
                                   ObjectMapper mapper,
-                                  ObservabilityProperties observability) {
+                                  ObservabilityProperties observability,
+                                  ObjectProvider<AuditApi> auditApi,
+                                  ObjectProvider<AuditDegradedSink> degradedSink) {
         this.turns = turns;
         this.items = items;
         this.threads = threads;
@@ -58,6 +81,8 @@ public class TrajectoryQueryService implements TrajectoryApi, ThreadLabelApi {
         this.principals = principals;
         this.mapper = mapper;
         this.observability = observability;
+        this.auditApi = auditApi;
+        this.degradedSink = degradedSink;
     }
 
     @Override
@@ -67,10 +92,20 @@ public class TrajectoryQueryService implements TrajectoryApi, ThreadLabelApi {
         requireThreadVisible(t.getThreadId());
         guardOrchRead(t.getOrigin());
 
+        DataLabel clearance = clearance(principals.current());
+        int itemCount = 0;
+        boolean gatedContentRevealed = false;
         Map<Integer, List<RuntimeApi.ItemView>> byStep = new TreeMap<>();
         for (RuntimeItemDO item : items.listByTurn(turnId)) {
+            itemCount++;
+            DataLabel own = parseLabel(item.getDataLabel());
+            boolean gated = own != null && own.ordinal() > DataLabel.INTERNAL.ordinal();
+            boolean redacted = gated && !own.atMost(clearance);
+            if (gated && !redacted) {
+                gatedContentRevealed = true;
+            }
             int step = item.getStep() == null ? 0 : item.getStep();
-            byStep.computeIfAbsent(step, k -> new ArrayList<>()).add(toItemView(item));
+            byStep.computeIfAbsent(step, k -> new ArrayList<>()).add(toItemView(item, redacted));
         }
 
         Map<Integer, CostQueryApi.UsageEntry> usageByStep = new LinkedHashMap<>();
@@ -96,6 +131,9 @@ public class TrajectoryQueryService implements TrajectoryApi, ThreadLabelApi {
                     u == null ? null : u.costMicros(),
                     failover));
         }
+        if (gatedContentRevealed) {
+            auditContentView(t, itemCount);
+        }
         return new Trajectory(toTurnView(t), steps, observability.buildTraceUrl(t.getTraceparent()));
     }
 
@@ -120,7 +158,8 @@ public class TrajectoryQueryService implements TrajectoryApi, ThreadLabelApi {
                     t.getCompletionTokens(),
                     cost,
                     toInstant(t.getStartedAt()),
-                    toInstant(t.getEndedAt())));
+                    toInstant(t.getEndedAt()),
+                    t.getTaint() == null || t.getTaint().isBlank() ? "CLEAN" : t.getTaint()));
         }
         return out;
     }
@@ -171,15 +210,21 @@ public class TrajectoryQueryService implements TrajectoryApi, ThreadLabelApi {
                 toInstant(t.getCreateAt()), toInstant(t.getStartedAt()), toInstant(t.getEndedAt()));
     }
 
-    private RuntimeApi.ItemView toItemView(RuntimeItemDO item) {
+    /** 轨迹正文查看门控：{@code redacted} 为真时仅回结构占位，不回正文。 */
+    private RuntimeApi.ItemView toItemView(RuntimeItemDO item, boolean redacted) {
         Map<String, Object> content;
-        try {
-            @SuppressWarnings("unchecked")
-            Map<String, Object> c = mapper.readValue(
-                    item.getContentJson() == null ? "{}" : item.getContentJson(), Map.class);
-            content = new LinkedHashMap<>(c);
-        } catch (Exception e) {
+        if (redacted) {
             content = new LinkedHashMap<>();
+            content.put("redacted", true);
+        } else {
+            try {
+                @SuppressWarnings("unchecked")
+                Map<String, Object> c = mapper.readValue(
+                        item.getContentJson() == null ? "{}" : item.getContentJson(), Map.class);
+                content = new LinkedHashMap<>(c);
+            } catch (Exception e) {
+                content = new LinkedHashMap<>();
+            }
         }
         if (Boolean.TRUE.equals(item.getDiscarded())) {
             content.put("discarded", true);
@@ -192,6 +237,72 @@ public class TrajectoryQueryService implements TrajectoryApi, ThreadLabelApi {
                 item.getRole(), content,
                 item.getCreateAt() == null ? Instant.EPOCH
                         : item.getCreateAt().atZone(ZoneOffset.UTC).toInstant());
+    }
+
+    /**
+     * 调用者的正文可见上限（对齐 {@code TimelineController}）：平台级管理员或持
+     * {@code trajectory:read:content} → {@code SECRET}，否则 {@code INTERNAL}。
+     */
+    private static DataLabel clearance(Principal p) {
+        if (p == null) {
+            return DataLabel.INTERNAL;
+        }
+        boolean platform = p.hasPermission(Permissions.TENANT_ADMIN)
+                || p.hasPermission(Permissions.ALL)
+                || p.roles().contains(SystemRoles.SYSTEM_ADMIN);
+        return platform || p.hasPermission(Permissions.TRAJECTORY_READ_CONTENT)
+                ? DataLabel.SECRET : DataLabel.INTERNAL;
+    }
+
+    private static DataLabel parseLabel(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return null;
+        }
+        for (DataLabel l : DataLabel.values()) {
+            if (l.name().equalsIgnoreCase(raw.trim())) {
+                return l;
+            }
+        }
+        return null;
+    }
+
+    /** 实际读到受门控正文（{@code INTERNAL} 以上条目）时写一条分类 {@code DATA} 的审计。 */
+    private void auditContentView(RuntimeTurnDO turn, int itemCount) {
+        AuditApi api = auditApi.getIfAvailable();
+        if (api == null) {
+            return;
+        }
+        Principal p = principals.current();
+        Map<String, Object> details = new LinkedHashMap<>();
+        details.put("threadId", turn.getThreadId());
+        details.put("turnId", turn.getId());
+        details.put("itemCount", itemCount);
+        details.put("permission", Permissions.TRAJECTORY_READ_CONTENT);
+        AuditEvent.Builder b = AuditEvent.builder()
+                .ts(Instant.now())
+                .action(ACTION_READ_CONTENT)
+                .resourceType("turn")
+                .resourceId(turn.getId())
+                .outcome(AuditOutcome.SUCCESS)
+                .turnId(turn.getId())
+                .service(observability.getServiceName())
+                .details(details);
+        if (p != null) {
+            b.workspaceId(p.workspaceId())
+                    .actorType(p.type().name().toLowerCase(Locale.ROOT))
+                    .actorId(p.userId());
+        }
+        AuditEvent event = b.build();
+        try {
+            api.record(event);
+        } catch (RuntimeException e) {
+            AuditDegradedSink sink = degradedSink.getIfAvailable();
+            if (sink != null) {
+                sink.append(event);
+            } else {
+                log.error("轨迹正文查看审计写入失败且无降级 sink：{}", e.toString());
+            }
+        }
     }
 
     private static CostQueryApi.UsageEntry mergeUsage(CostQueryApi.UsageEntry a, CostQueryApi.UsageEntry b) {

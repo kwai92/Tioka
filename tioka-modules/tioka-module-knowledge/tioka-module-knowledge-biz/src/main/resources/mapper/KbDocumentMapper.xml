@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tioka.knowledge.infrastructure.mapper.KbDocumentMapper">
+
+    <!--
+      C-20：驼峰列别名一律加双引号，避免 PostgreSQL 折叠为小写后与字段失配。
+      左连 kb_base 补齐 workspace_id：kb_document 为 workspace 旁路表，条目空间须从所属知识库带出。
+    -->
+    <select id="listByRange" resultType="com.tioka.knowledge.infrastructure.persistence.KbDocumentTimelineDO">
+        <![CDATA[
+            SELECT d.id, d.kb_id AS "kbId", d.title, d.status, d.data_label AS "dataLabel",
+                   d.error_message AS "errorMessage", d.parse_status AS "parseStatus",
+                   d.active_version AS "activeVersion",
+                   b.workspace_id AS "workspaceId",
+                   COALESCE(d.update_at, d.create_at) AS "occurredAt"
+              FROM kb_document d
+              LEFT JOIN kb_base b ON b.id = d.kb_id
+             WHERE d.deleted = FALSE
+               AND COALESCE(d.update_at, d.create_at) >= #{from}
+               AND COALESCE(d.update_at, d.create_at) <= #{to}
+             ORDER BY COALESCE(d.update_at, d.create_at), d.id
+        ]]>
+    </select>
+
+</mapper>

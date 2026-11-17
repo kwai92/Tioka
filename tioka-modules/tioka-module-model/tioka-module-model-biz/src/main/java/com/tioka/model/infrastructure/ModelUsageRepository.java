@@ -7,6 +7,8 @@ import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Map;
 
@@ -43,6 +45,15 @@ public class ModelUsageRepository {
         return mapper.selectList(Wrappers.<ModelUsageDO>lambdaQuery()
                 .eq(ModelUsageDO::getTurnId, turnId)
                 .orderByAsc(ModelUsageDO::getStep)
+                .orderByAsc(ModelUsageDO::getCreateAt)
+                .orderByAsc(ModelUsageDO::getId));
+    }
+
+    /** OBS-08 时间线重建：按时间段读回模型用量（升序）。 */
+    public List<ModelUsageDO> listByRange(Instant from, Instant to) {
+        return mapper.selectList(Wrappers.<ModelUsageDO>lambdaQuery()
+                .ge(ModelUsageDO::getCreateAt, LocalDateTime.ofInstant(from, ZoneOffset.UTC))
+                .le(ModelUsageDO::getCreateAt, LocalDateTime.ofInstant(to, ZoneOffset.UTC))
                 .orderByAsc(ModelUsageDO::getCreateAt)
                 .orderByAsc(ModelUsageDO::getId));
     }
@@ -89,6 +100,16 @@ public class ModelUsageRepository {
     /** P2-L5（GAP-L5-1）：binding 自 {@code from}（月窗起点）以来的成本合计（微美分）。 */
     public Long sumCostByBinding(String bindingId, Instant from) {
         return mapper.sumCostByBinding(bindingId, from);
+    }
+
+    /** MH-09：供应商自 {@code from}（月窗起点）以来的 token 消耗合计。 */
+    public Long sumTokensByProvider(String providerId, Instant from) {
+        return mapper.sumTokensByProvider(providerId, from);
+    }
+
+    /** MH-09：供应商自 {@code from}（月窗起点）以来的成本合计（微美分）。 */
+    public Long sumCostByProvider(String providerId, Instant from) {
+        return mapper.sumCostByProvider(providerId, from);
     }
 }
 
