@@ -75,10 +75,15 @@ Workspace 不是多租户残留，而是 **ADR-029 第 60 条**定案的现任�
 | 项 | 数值 |
 | --- | --- |
 | 含 workspace 的 Java 文件 | 486 |
-| Java 中 workspace 匹配行数 | 2308 |
-| Java 中 workspace 字面出现次数 | 2966 |
+| Java 中 workspace 匹配行数 | 2310 |
+| Java 中 workspace 字面出现次数 | 2968 |
 | 含 `workspace_id` 的迁移 / 迁移总数 | 36 / 84 |
 | 核心机制 | `ScopeLineHandler` 行级 deny-by-default；`WorkspaceAwareDO` 基类；`PersistenceProperties` 旁路表白名单 |
+
+> 数值口径：守门对**全文**做 `/workspace/gi` 匹配，**不剥离注释**（与同脚本 `@Autowired` 检测的
+> 剥离口径不同，属历史设计）。故上表含注释中的 `workspace_id` 字样——2026-11-17 由
+> `PersistenceProperties` 旁路表登记说明 +2（`cfg_change` 漏登记修复）而更新，**无新增业务字段**。
+> 若将来要改成「剥离注释」口径，三处数字会同时变为 434 / 2108 / 2753，须一并同步本表与 JSON 清单。
 
 它混了四种本该分开的职责：① 数据可见范围（可由 Foundation 组织树 + `DataScopeFilterProvider` 承接）；
 ② 资产与内容分组（空间级记忆、提示词库、知识库、配额、评测集，目前无替代概念）；
