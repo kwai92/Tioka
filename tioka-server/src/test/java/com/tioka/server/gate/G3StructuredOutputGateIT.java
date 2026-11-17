@@ -30,7 +30,6 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -132,7 +131,12 @@ class G3StructuredOutputGateIT {
                 if ("VALID".equals(outcome)) {
                     assertDelivered(ctx, item);
                 } else {
-                    assertNull(item.payload(), "失败不得交付部分对象：" + item.reasonCode());
+                    // payload 为缺失或 JSON null 均表示「未交付部分对象」。
+                    // item.payload() 返回 content.path("payload")，是 Jackson 的 MissingNode/NullNode，
+                    // 与 Java null 不等，故不能用 assertNull（否则 NullNode 会被误判为「交付了对象」）。
+                    JsonNode failedPayload = item.payload();
+                    assertTrue(failedPayload.isMissingNode() || failedPayload.isNull(),
+                            "失败不得交付部分对象：" + item.reasonCode() + "，实测 payload=" + failedPayload);
                     assertNotNull(item.reasonCode(), "失败必须带原因码");
                 }
             }
