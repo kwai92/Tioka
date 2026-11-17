@@ -31,6 +31,7 @@ import com.tioka.model.api.gateway.ModelGateway;
 import com.tioka.model.api.gateway.ModelPurpose;
 import com.tioka.model.api.versioning.ModelHubSpecs;
 import com.tioka.model.application.ModelAdminService;
+import com.tioka.model.application.gateway.UsageRecorder;
 import com.tioka.model.application.prompt.PromptTemplateService;
 import com.tioka.model.application.versioning.ModelConfigVersionService;
 import com.tioka.model.domain.ModelEntities;
@@ -160,6 +161,9 @@ class G3ConfigVersionGateIT {
                     "第 2 版指向故障目标时调用必须失败（错误率上升）");
             assertTrue(Set.of(ErrorCode.MODEL_UNAVAILABLE, ErrorCode.MODEL_ERROR).contains(ex.getErrorCode()),
                     () -> "故障版本调用须以模型类错误收口，实测=" + ex.getErrorCode() + " / " + ex.getMessage());
+            // UsageRecorder 异步批量写 model_usage（MH-05：每 1 秒或满 200 条），
+            // 查询前须 flush，否则台账尚未落库（先例见 G1EndToEndGateIT）。
+            ctxA.getBean(UsageRecorder.class).flush();
             System.out.println("[g3 步骤1] 故障版本错误码=" + ex.getErrorCode()
                     + "，用量台账非成功记录数=" + failedUsageCount(jdbc, failTurn));
             assertTrue(failedUsageCount(jdbc, failTurn) > 0,
@@ -179,7 +183,8 @@ class G3ConfigVersionGateIT {
             assertEquals(healthyBinding, recovered.bindingId(),
                     "回滚后须回到第 1 版的平铺选模路径（primary binding）");
 
-            // 用量按版本分片（MH-08：plan_version_no，V222 列）
+            // 用量按版本分片（MH-08：plan_version_no，V222 列）；查询前 flush 异步台账
+            ctxA.getBean(UsageRecorder.class).flush();
             assertEquals(List.of(2), usageVersions(jdbc, failTurn), "第 2 版调用须记 plan_version_no=2");
             assertEquals(List.of(1), usageVersions(jdbc, okTurn), "第 1 版调用须记 plan_version_no=1");
             System.out.println("[g3 步骤2] 用量版本分片可查：V2=" + usageVersions(jdbc, failTurn)
@@ -216,6 +221,8 @@ class G3ConfigVersionGateIT {
             assertEquals(fallback.bindingId(), freeze.get("binding_id"), "冻结 binding 须切到备用");
             assertEquals("budget-exhausted", freeze.get("reason"), "须留下「因预算跳过」的接力原因");
             assertEquals(1, ((Number) freeze.get("failover_count")).intValue(), "须恰好一次预算接力");
+            // 预算接力的 FAILOVER/SUCCESS 台账同样异步写入，查询前 flush
+            ctxA.getBean(UsageRecorder.class).flush();
             Set<String> statuses = Set.copyOf(jdbc.queryForList(
                     "SELECT status FROM model_usage WHERE turn_id = ?", String.class, budgetTurn));
             assertTrue(statuses.contains("FAILOVER") && statuses.contains("SUCCESS"),
