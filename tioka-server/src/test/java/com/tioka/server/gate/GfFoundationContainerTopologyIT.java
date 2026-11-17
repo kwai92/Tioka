@@ -148,9 +148,12 @@ class GfFoundationContainerTopologyIT {
             // 2) 依赖连通性 —— 精确到 db 与 redis 两个组件，而**不看**聚合 status。
             //    原因：common 域的 KeycloakHealthIndicator 在 ping 失败时返回 down()，而本 spike
             //    刻意不起 Keycloak（minimal 不装配需 Keycloak 的域，且启动期无强校验），
-            //    故聚合 /actuator/health 必然 DOWN。若断言聚合 UP 会得到与拓扑无关的假失败。
-            String aggregate = get(server, "/actuator/health");
-            System.out.println("[gf-topology] /actuator/health = " + truncate(aggregate));
+            //    故聚合 /actuator/health 必然 DOWN 且 HTTP 状态码为 503（CI 实证）。
+            //    若断言聚合 UP 或要求 200，会得到与拓扑无关的假失败——必须取 body 做组件级断言。
+            HttpResponse<String> health = send(server, "/actuator/health");
+            String aggregate = health.body();
+            System.out.println("[gf-topology] /actuator/health HTTP " + health.statusCode()
+                    + " = " + truncate(aggregate));
             assertComponentUp(aggregate, "db", server);
             assertComponentUp(aggregate, "redis", server);
 
@@ -184,27 +187,36 @@ class GfFoundationContainerTopologyIT {
         }
     }
 
-    private static void assertThatLivenessIsUp(GenericContainer<?> server) throws Exception {
-        String body = get(server, "/actuator/health/liveness");
-        System.out.println("[gf-topology] /actuator/health/liveness = " + truncate(body));
-        if (!body.contains("\"status\":\"UP\"")) {
-            throw new AssertionError("liveness 未 UP，实际响应=" + truncate(body));
-        }
-    }
-
-    private static String get(GenericContainer<?> server, String path) throws IOException, InterruptedException {
+    /**
+     * 发请求并返回原始响应，**不校验状态码**。
+     *
+     * <p>为什么不在这里统一要求 200：聚合 {@code /actuator/health} 在有组件 DOWN 时返回 **503**，
+     * 但 body 仍带完整 components 明细，正是本用例要断言的内容。若在此处一律 throw，
+     * 就拿不到 body、无法做组件级断言（首版即因此假失败：CI 实测 503 + db/redis 均 UP）。
+     * 需要校验状态码的调用方自行断言，如 {@link #assertThatLivenessIsUp}。
+     */
+    private static HttpResponse<String> send(GenericContainer<?> server, String path)
+            throws IOException, InterruptedException {
         URI uri = URI.create(String.format("http://%s:%d%s",
                 server.getHost(), server.getMappedPort(SERVER_PORT), path));
         HttpClient client = HttpClient.newBuilder()
                 .connectTimeout(Duration.ofSeconds(10))
                 .build();
-        HttpResponse<String> resp = client.send(
+        return client.send(
                 HttpRequest.newBuilder(uri).timeout(Duration.ofSeconds(20)).GET().build(),
                 HttpResponse.BodyHandlers.ofString());
-        if (resp.statusCode() != 200) {
-            throw new AssertionError("GET " + path + " 返回 " + resp.statusCode() + "：" + truncate(resp.body()));
+    }
+
+    private static void assertThatLivenessIsUp(GenericContainer<?> server) throws Exception {
+        HttpResponse<String> resp = send(server, "/actuator/health/liveness");
+        String body = resp.body();
+        System.out.println("[gf-topology] /actuator/health/liveness HTTP " + resp.statusCode()
+                + " = " + truncate(body));
+        // liveness 只含应用自身状态，不受 db/redis/keycloak 影响，故必须是 200 + UP
+        if (resp.statusCode() != 200 || !body.contains("\"status\":\"UP\"")) {
+            throw new AssertionError("liveness 未 UP，HTTP " + resp.statusCode() + " 响应=" + truncate(body)
+                    + "；容器日志尾部=" + truncate(logTail(server)));
         }
-        return resp.body();
     }
 
     private static String truncate(String s) {
