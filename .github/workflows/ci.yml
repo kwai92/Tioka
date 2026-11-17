@@ -6,6 +6,36 @@ on:
   pull_request:
 
 jobs:
+  guard:
+    runs-on: ubuntu-latest
+    # 静态守门：能力归属 / 权限码映射 / 平台接入契约 / 兼容矩阵。
+    # 纯源码与文档比对，不需要 JDK、Maven、Docker，秒级完成，故单列 job 最先给信号。
+    #
+    # 存在理由（2026-11-17 事故）：这四个脚本此前**没有任何自动执行入口**——不在本文件
+    # 任一 job、不在 git hook、不在 npm script，红绿全靠人记得手跑；结果 PR #85 带着
+    # capability-ownership 的 2 failed 合进 main（Workspace 渗透度计数漂移）。
+    # 一个没人看的门禁等于没有门禁，故入 CI 成为绕不过的强制清点。
+    #
+    # 纪律：断言变更必须在提交信息写明理由，不得为图省事放宽阈值或加豁免名单。
+    steps:
+      - uses: actions/checkout@v4
+        # 必须取 submodule：verify-capability-ownership.mjs 会 walk tioka-foundation 比对
+        # 冻结类路径；未检出时它只打 WARN 并**跳过**这批断言，CI 守门会比本地弱（假绿）。
+        with:
+          submodules: true
+      - uses: actions/setup-node@v4
+        with:
+          # 与 tioka-foundation 自身 CI 同版，避免两仓 node 版本漂移
+          node-version: '22'
+      - name: 能力归属清单与重复概念冻结
+        run: node scripts/verify-capability-ownership.mjs
+      - name: 权限码映射契约与双实现一致
+        run: node scripts/verify-permission-code-mapping.mjs
+      - name: 平台接入契约（平台定义 / 应用实例 / 实现三者一致）
+        run: node tioka-foundation/scripts/verify-app-integration-contract.mjs
+      - name: 兼容矩阵契约
+        run: node tioka-foundation/scripts/verify-compatibility-matrix.mjs
+
   backend:
     runs-on: ubuntu-latest
     env:
