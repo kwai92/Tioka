@@ -75,6 +75,10 @@ public class PersistenceProperties {
             // GOV-12 / V150：配置版本框架（无 workspace_id）
             "cfg_draft",
             "cfg_version",
+            // cfg_change：V150 同批建表，无 workspace_id 列。曾遗漏登记，被 deny-by-default
+            // 注入 WHERE workspace_id 致 BadSqlGrammarException（CI run 43918687240 实证）。
+            // 它无 @TableName DO 类（走纯 XML mapper），故 ArchUnit 的 exempt 守门扫不到，需在此显式登记。
+            "cfg_change",
             // AST-07 / V237：Prompt 模板身份表（作用域 scope + scope_ref 表达，无 workspace_id）
             "prm_template",
             // FND-08 / V141：代用户令牌保管（用户个人凭证，无 workspace_id）

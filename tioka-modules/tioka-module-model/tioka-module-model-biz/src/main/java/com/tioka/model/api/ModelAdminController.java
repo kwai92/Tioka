@@ -186,13 +186,20 @@ public class ModelAdminController {
 
     /** AST-07：保存草稿（复用 GOV-12；发布/回滚走 /configs/prm_template/{id}/*）。 */
     @PostMapping("/prompt-templates/{id}/draft")
+    @Audited(action = "model.prompt.save_draft", resourceType = "prm_template", resourceIdArg = "#id")
     public ApiResponse<PromptTemplateView> savePromptDraft(@PathVariable String id,
                                                            @RequestBody SavePromptDraftRequest req) {
         prompts.saveDraft(id, req.spec(), req.expectedRevision());
         return ApiResponse.ok(prompts.get(id));
     }
 
-    /** AST-07：渲染（无模型调用）。 */
+    /**
+     * AST-07：渲染（无模型调用）。
+     *
+     * <p>语义只读：{@code prompts.render} 只做模板变量替换，不落库、不触发外部调用。
+     * POST 仅因需传渲染变量体，故按 ADR-072 §5 的 {@code READ_ONLY_POST} 类登记白名单
+     * （见 AuditCoverageIT），不需要审计写入。
+     */
     @PostMapping("/prompt-templates/{id}/render")
     public ApiResponse<RenderResultView> renderPrompt(@PathVariable String id,
                                                       @RequestBody(required = false) RenderPromptRequest req) {

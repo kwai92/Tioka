@@ -12,6 +12,7 @@ import com.tioka.governance.api.timeline.TimelineCategory;
 import com.tioka.governance.api.timeline.TimelineEntryView;
 import com.tioka.governance.api.timeline.TimelinePageSpec;
 import com.tioka.governance.api.timeline.TimelineQuery;
+import com.tioka.system.api.audit.Audited;
 import com.tioka.system.api.authz.SystemRoles;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -87,6 +88,7 @@ public class TimelineController {
     /** 按时间段重建投影（ADR-075 §2）；运维动作，限平台级管理员。 */
     @RequirePermission(Permissions.AUDIT_READ)
     @PostMapping("/rebuild")
+    @Audited(action = "timeline.rebuild", resourceType = "timeline", include = {"from", "to"})
     public ApiResponse<Integer> rebuild(
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant from,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant to) {

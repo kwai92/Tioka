@@ -356,6 +356,12 @@ actions:
     retentionClass: BIZ
     siemSeverity: LOW
     module: tioka-module-model
+  - action: model.prompt.save_draft
+    category: CONFIG
+    resourceType: prm_template
+    retentionClass: BIZ
+    siemSeverity: LOW
+    module: tioka-module-model
   - action: model.prompt.test_run
     category: CONFIG
     resourceType: prm_template
@@ -506,6 +512,12 @@ actions:
     retentionClass: BIZ
     siemSeverity: LOW
     module: tioka-module-system
+  - action: runtime.human_task.submit
+    category: EXECUTION
+    resourceType: human_task
+    retentionClass: BIZ
+    siemSeverity: LOW
+    module: tioka-module-runtime
   - action: runtime.thread.create
     category: CONFIG
     resourceType: thread
@@ -554,6 +566,12 @@ actions:
     retentionClass: BIZ
     siemSeverity: MEDIUM
     module: tioka-module-system
+  - action: timeline.rebuild
+    category: ADMIN
+    resourceType: timeline
+    retentionClass: SEC
+    siemSeverity: MEDIUM
+    module: tioka-module-governance
   - action: trajectory.content.read
     category: DATA
     resourceType: turn

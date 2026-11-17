@@ -10,6 +10,7 @@ import com.tioka.runtime.api.kernel.ApprovalStatus;
 import com.tioka.runtime.api.kernel.ApprovalSubjectType;
 import com.tioka.runtime.api.kernel.RuntimeApi;
 import com.tioka.runtime.kernel.approval.HumanTaskSubmitService;
+import com.tioka.system.api.audit.Audited;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.*;
 
@@ -82,6 +83,8 @@ public class ApprovalController {
 
     /** SCH-09 / ADR-066 §7.4：提交人工补录数据；原 Turn 续跑，经第 3〜8 步校验后写 data item。 */
     @PostMapping("/human-tasks/{id}/submit")
+    // 人工补录答题内容可能含敏感数据，故只审计资源 id，不用 include 落 body 摘要。
+    @Audited(action = "runtime.human_task.submit", resourceType = "human_task", resourceIdArg = "#id")
     public ApiResponse<Void> submitHumanTask(@PathVariable String id,
                                              @RequestBody Map<String, Object> body) {
         @SuppressWarnings("unchecked")
