@@ -1,12 +1,14 @@
 package com.tioka.orchestration.application;
 
 import com.tioka.framework.error.BizException;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
 import java.util.concurrent.AbstractExecutorService;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.FutureTask;
 import java.util.concurrent.TimeUnit;
@@ -18,7 +20,30 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class CelRuleConditionTest {
 
-    private final CelRuleCondition cel = new CelRuleCondition();
+    /**
+     * 求值超时在生产是 50ms 的 DoS 预算（{@code CelRuleCondition.EVAL_TIMEOUT_MS}），
+     * 但本类的用例断言的是**语义**（body 禁访、attrs 匹配），不是时延。
+     *
+     * <p>用生产 50ms 会让首次求值的冷启动（线程池创建 + CEL 运行时类加载）在**高负载构建下**
+     * 被击穿：实证为 `mvn -fae test` 全量跑时 `simpleAttrMatch` 报「CEL 求值超时 50ms」而 RC=1，
+     * 单模块跑 1.0s 通过、CI backend 0.363s 通过。一个随机变红的门禁等于没有门禁，
+     * 故此处显式放宽到 5s；超时语义本身由 {@link #evalTimeoutRaisesCelEvalException} 用
+     * 独立挂起线程池 + 10ms 精确覆盖，放宽本处不减少任何覆盖面。
+     */
+    private static final long EVAL_TIMEOUT_FOR_TESTS_MS = 5_000L;
+
+    private static final ExecutorService EVAL_POOL = Executors.newCachedThreadPool(r -> {
+        Thread t = new Thread(r, "orch-cel-eval-test");
+        t.setDaemon(true);
+        return t;
+    });
+
+    private final CelRuleCondition cel = new CelRuleCondition(EVAL_POOL, EVAL_TIMEOUT_FOR_TESTS_MS);
+
+    @AfterAll
+    static void shutdownPool() {
+        EVAL_POOL.shutdownNow();
+    }
 
     @Test
     void bodyAccessRejectedAtCompile() {
