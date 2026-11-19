@@ -278,11 +278,20 @@ class GfFoundationContainerTopologyIT {
     }
 
     /**
-     * 定位 `foundation-server` 的可执行 jar。
+     * 定位 `foundation-server` 的**可执行** jar。
      *
      * <p>优先取 {@code -Dfoundation.server.jar}；否则在候选目录下找最新的
-     * {@code foundation-server-*.jar}（排除 repackage 留下的 {@code *.jar.original}）。
-     * surefire 的工作目录是被测模块（{@code tioka-server}），故子仓在其上一级。
+     * {@code foundation-server-*-exec.jar}。
+     *
+     * <p><b>必须匹配 {@code -exec} 后缀</b>：子仓的 repackage 配了 {@code classifier=exec}
+     * （否则主 artifact 被换成 fat jar，会使其 failsafe 找不到 {@code @SpringBootApplication}
+     * 而全部 IT 失败），故 target 下同时存在两个 jar：
+     * <ul>
+     *   <li>{@code foundation-server-<v>.jar} —— 普通 jar，**不可** {@code java -jar}；</li>
+     *   <li>{@code foundation-server-<v>-exec.jar} —— fat jar，容器内启动用。</li>
+     * </ul>
+     * 只按「最新修改时间」挑会命中前者而让容器起不来，故此处显式要求 exec 后缀。
+     * surefire/failsafe 的工作目录是被测模块（{@code tioka-server}），故子仓在其上一级。
      */
     private static Path findServerJar() {
         String override = System.getProperty("foundation.server.jar");
@@ -305,8 +314,7 @@ class GfFoundationContainerTopologyIT {
                         .filter(p -> {
                             String n = p.getFileName().toString();
                             return n.startsWith("foundation-server-")
-                                    && n.endsWith(".jar")
-                                    && !n.endsWith(".original");
+                                    && n.endsWith("-exec.jar");
                         })
                         // 可能有多个版本残留，取最新修改的那个
                         .max(Comparator.comparingLong(p -> p.toFile().lastModified()));
