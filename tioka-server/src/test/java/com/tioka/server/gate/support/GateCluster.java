@@ -286,6 +286,10 @@ public final class GateCluster implements AutoCloseable {
         m.put("tioka.runtime.release-on-shutdown", true);
         m.put("tioka.runtime.dispatcher-enabled", true);
         m.put("tioka.runtime.queued-sweeper-enabled", true);
+        // 闸门**依赖**定时回收（上面把间隔加速到 1s 就是为了观察 crash 后的自动接管），
+        // 故显式置 true。IntegrationTestSupport 会把本开关关掉（那里的 IT 自己显式调 reap()），
+        // 两边语义必须成对出现，否则将来改默认值会让闸门静默失去自动回收。
+        m.put("tioka.runtime.lease-reaper-enabled", true);
         m.put("spring.flyway.placeholders.embeddingDim", "32");
         m.put("tioka.knowledge.embedding-dim", 32);
         m.put("tioka.knowledge.reindex-enabled", false);

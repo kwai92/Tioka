@@ -22,6 +22,13 @@ public final class IntegrationTestSupport {
         // 与 GateCluster / DualInstance 共享 Testcontainers Redis 时，禁止本上下文抢 rt:turns
         registry.add("tioka.runtime.dispatcher-enabled", () -> "false");
         registry.add("tioka.runtime.queued-sweeper-enabled", () -> "false");
+        // 同理关掉 LeaseReaper 的**定时**回收：本类支撑的 IT（如 RecoveryIT / LeaseReaperIT）自己
+        // plantRunning 后显式调 reaper.reap() 再断言终态，若后台调度器每 10s 同时在跑，会与测试线程
+        // 争抢同一行——调度器抢先置 INTERRUPTED 后测试的 markInterrupted 返回 0 而跳过，测试遂读到
+        // 尚未推进到 QUEUED 的中间态（偶发 expected: <QUEUED> but was: <INTERRUPTED>）。
+        // 只关定时触发，LeaseReaper bean 仍装配，reap() 可继续显式调用；GateCluster 系闸门依赖定时回收，
+        // 不走本方法，故不受影响。
+        registry.add("tioka.runtime.lease-reaper-enabled", () -> "false");
         // KNW-01：IT 用 32 维，与 ProviderClient mock / LlmStub 默认一致
         registry.add("spring.flyway.placeholders.embeddingDim", () -> "32");
         registry.add("tioka.knowledge.embedding-dim", () -> "32");
