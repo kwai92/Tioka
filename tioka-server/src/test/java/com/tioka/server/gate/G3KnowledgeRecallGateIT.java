@@ -259,9 +259,15 @@ class G3KnowledgeRecallGateIT {
             assertTrue(idle.frozenTailText(handle.turnId()).isEmpty(),
                     "未执行该 Turn 的实例不得有冻结段");
 
-            // B1：注入必须是「真的检索结果」，空注入 / 无答案话术都不能蒙混过关
-            assertTrue(frozenText.contains("[knowledge.auto_inject]"),
-                    "D 区须为真实的知识自动注入段: " + frozenText);
+            // B1：注入必须是「真的检索结果」，空注入 / 无答案话术都不能蒙混过关。
+            // 注意 knowledge.auto_inject 段是 TrustLevel.EXTERNAL（KnowledgeAutoInjectSegment.trust()，
+            // 依 ADR-065 §2.1 / GRD-00「未审核知识库按外部数据处理」），故 ContextBuilder.renderProvider
+            // 对它走「裸段名 + [[tioka:external source=… nonce=…]] 信任边界」分支，**不是** INTERNAL 段的
+            // [段名] 形式。断言必须匹配 EXTERNAL 边界格式（与离线单测 ContextAssemblyTest 的 doc.unit 段同口径），
+            // 否则对一个 EXTERNAL 段恒找不到 [knowledge.auto_inject] 而必然失败——此为 C-22 引入该断言时
+            // 与该段 trust 级别同批写错格式，长期表现为 G3KnowledgeRecallGateIT 稳定红。
+            assertTrue(frozenText.contains("[[tioka:external source=knowledge.auto_inject"),
+                    "D 区须为真实的知识自动注入段（EXTERNAL 段带信任边界）: " + frozenText);
             assertTrue(frozenText.contains("以下知识片段可用于回答"),
                     "D 区须含真实检索结果: " + frozenText);
             assertTrue(frozenText.contains("cit_"),
