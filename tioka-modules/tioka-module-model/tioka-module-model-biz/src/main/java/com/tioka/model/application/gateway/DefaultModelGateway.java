@@ -623,7 +623,10 @@ public class DefaultModelGateway implements ModelGateway {
                 cooldown.recordFailure(sel.bindingId());
             }
             accountError(ctx, sel, forced, elapsedMs(t0), errorClassOf(e), errorMessageOf(e));
-            throw new BizException(ErrorCode.DEPENDENCY, "嵌入调用失败: " + e.getMessage());
+            // 用 errorMessageOf(e)（message 为 null 时回退异常类名）而非裸 e.getMessage()：
+            // 底层适配器（如 ProviderClient）抛的异常 message 可能为 null（NPE 等），裸拼接会得到
+            // 「嵌入调用失败: null」而丢失确切异常类型，令 gate/CI 失败无从归因（与 ocr 分支同款处理）。
+            throw new BizException(ErrorCode.DEPENDENCY, "嵌入调用失败: " + errorMessageOf(e));
         }
     }
 
@@ -680,7 +683,8 @@ public class DefaultModelGateway implements ModelGateway {
                 cooldown.recordFailure(sel.bindingId());
             }
             accountError(ctx, sel, forced, elapsedMs(t0), errorClassOf(e), errorMessageOf(e));
-            throw new BizException(ErrorCode.DEPENDENCY, "rerank 调用失败: " + e.getMessage());
+            // 同 embed：保留确切异常类型，避免「rerank 调用失败: null」丢失可诊断信息
+            throw new BizException(ErrorCode.DEPENDENCY, "rerank 调用失败: " + errorMessageOf(e));
         }
     }
 
