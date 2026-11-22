@@ -27,6 +27,20 @@ public class KernelProperties {
     /** 是否启用 QueuedSweeper（与 dispatcher 同理，普通 IT 关闭以免污染共享 Redis）。 */
     private boolean queuedSweeperEnabled = true;
     /**
+     * 是否启用 {@code LeaseReaper} 的**定时**回收（与 dispatcher / queuedSweeper 同理）。
+     *
+     * <p>普通 {@code @SpringBootTest} IT 关闭：这些 IT 自己 {@code plantRunning} + 手动调
+     * {@code reap()} 后立刻断言终态，若后台调度器同时在跑，会与测试线程争抢同一行——
+     * 调度器抢先把行置 {@code INTERRUPTED} 后，测试线程的 {@code markInterrupted} 返回 0
+     * 而跳过，测试遂读到调度器尚未推进到 {@code QUEUED} 的中间态（表现为
+     * {@code expected: <QUEUED> but was: <INTERRUPTED>} 的偶发失败）。
+     *
+     * <p>注意本开关只关**定时触发**，不关 {@code reap()} 能力：{@code LeaseReaper} bean 仍装配，
+     * 测试与闸门可继续显式调用 {@code reap()} 驱动恢复语义。GateCluster 系闸门依赖定时回收，
+     * 故不走 {@code IntegrationTestSupport}，需自行保持 true（默认即 true）。
+     */
+    private boolean leaseReaperEnabled = true;
+    /**
      * 崩溃续跑上限：{@code recover_count >= maxRecover} 时标 FAILED(LEASE_LOST)。
      * 配置键 {@code tioka.runtime.max-recover}，默认 2（即最多续跑 2 次，第 3 次中断放弃）。
      */
@@ -72,6 +86,10 @@ public class KernelProperties {
     public boolean isQueuedSweeperEnabled() { return queuedSweeperEnabled; }
     public void setQueuedSweeperEnabled(boolean queuedSweeperEnabled) {
         this.queuedSweeperEnabled = queuedSweeperEnabled;
+    }
+    public boolean isLeaseReaperEnabled() { return leaseReaperEnabled; }
+    public void setLeaseReaperEnabled(boolean leaseReaperEnabled) {
+        this.leaseReaperEnabled = leaseReaperEnabled;
     }
     public int getMaxRecover() { return maxRecover; }
     public void setMaxRecover(int maxRecover) { this.maxRecover = maxRecover; }

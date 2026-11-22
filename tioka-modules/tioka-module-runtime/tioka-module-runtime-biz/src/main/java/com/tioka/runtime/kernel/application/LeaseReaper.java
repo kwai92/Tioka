@@ -67,7 +67,23 @@ public class LeaseReaper {
         this.principals = principals;
     }
 
+    /**
+     * 定时入口：仅当 {@code tioka.runtime.lease-reaper-enabled=true}（默认）时执行回收。
+     *
+     * <p>刻意与 {@link #reap()} 分离而不是把注解直接标在 {@code reap()} 上：开关要关的是
+     * **后台定时触发**，不是回收能力本身。普通 IT 需要自己 {@code plantRunning} 后显式调
+     * {@code reap()} 再断言终态，若后台调度器同时在跑就会与测试线程争抢同一行，导致偶发读到
+     * 中间态（见 {@code KernelProperties#leaseReaperEnabled}）。分离后 IT 关掉定时仍可调 {@code reap()}。
+     */
     @Scheduled(fixedDelayString = "${tioka.runtime.lease-reaper-interval-ms:10000}")
+    public void reapOnSchedule() {
+        if (!props.isLeaseReaperEnabled()) {
+            return;
+        }
+        reap();
+    }
+
+    /** 回收已过期的 RUNNING 租约；可由定时任务或调用方（测试 / 闸门）显式驱动。 */
     public void reap() {
         List<String> expired = turns.findExpired(Instant.now(), 50);
         for (String turnId : expired) {
