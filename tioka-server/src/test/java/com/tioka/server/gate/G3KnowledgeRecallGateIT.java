@@ -50,8 +50,9 @@ import static org.junit.jupiter.api.Assertions.*;
  * 检索并回传引用号 → 无权限用户检索不到受限文档 → rerank 绑定与配额记账 →
  * KNW-14 模式与 CTX-01 的 D 区按 Turn 冻结。
  *
- * <p>环境口径：CI 无本地中文小模型，用 GateCluster 的确定性 dim=32 嵌入桩与
- * 应用层中文 bigram 分词承载同一纪律；偏离逐条登记在设计说明 M3-C22。
+ * <p>环境口径：CI 无本地中文小模型，嵌入用 ProviderClient 的确定性本地 mock（dim=32 hashEmbed，
+ * 与原 GateCluster HTTP 嵌入桩产出逐字节相同），rerank 走应用层中文 bigram 分词的确定性 mock，
+ * chat 仍走 GateCluster 的 LLM 桩承载 {@code kb.search} 剧本；同一纪律，偏离逐条登记在设计说明 M3-C22。
  */
 @Tag("gate")
 class G3KnowledgeRecallGateIT {
@@ -79,7 +80,7 @@ class G3KnowledgeRecallGateIT {
 
             Fixture f = principals.runAs(GateSeed.user(admin.userId(), ws), () -> {
                 try {
-                    return seed(a, ws, mapper, cluster.llm().baseUrl());
+                    return seed(a, ws, mapper);
                 } catch (Exception e) {
                     throw new IllegalStateException(e);
                 }
@@ -317,15 +318,21 @@ class G3KnowledgeRecallGateIT {
                            Map<String, String> docIds) {}
 
     private static Fixture seed(ConfigurableApplicationContext ctx, String ws,
-                                ObjectMapper mapper, String llmBaseUrl) throws Exception {
+                                ObjectMapper mapper) throws Exception {
         KnowledgeService knowledge = ctx.getBean(KnowledgeService.class);
         ModelAdminService models = ctx.getBean(ModelAdminService.class);
         DatasetService datasets = ctx.getBean(DatasetService.class);
         JdbcTemplate jdbc = ctx.getBean(JdbcTemplate.class);
 
         String tag = Ids.newId("g3kb");
+        // embedding 走 ProviderClient 的确定性 mock（本地 hashEmbed，dim=32），而非 HTTP 桩 llmBaseUrl。
+        // 两者产出的向量逐字节相同（ProviderClient.hashEmbed 与 LlmStubServer.hashEmbed 算法一致：
+        // v[floorMod(bytes[i]+i, dim)] += 1.0f 后 L2 归一化），故切换不改变任何召回结果与断言。
+        // 换 mock 是为消除 turn 运行时高并发下 HTTP 连接偶发被拒（ConnectException）导致整个 turn FAILED：
+        // 本闸门验收的是知识召回链路（检索→向量→rerank→ACL→引用），不是「HTTP embed 客户端能否连上测试桩」，
+        // 用 mock 承载 embedding 是等价且更稳的选择（与该测试 rerank 早已用 mock://openai 一致）。
         var provider = models.createProvider(
-                new CreateProviderRequest(tag + "-emb", llmBaseUrl, "k"));
+                new CreateProviderRequest(tag + "-emb", "mock://openai", "k"));
         String lm = models.createLogicalModel(new CreateLogicalModelRequest(tag + "-m", "embed"));
         String embedding = models.createModelBinding(new CreateModelBindingRequest(
                 lm, provider.id(), "text-embedding", "embedding", 32));
