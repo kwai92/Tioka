@@ -293,6 +293,16 @@ public final class GateCluster implements AutoCloseable {
         m.put("spring.flyway.placeholders.embeddingDim", "32");
         m.put("tioka.knowledge.embedding-dim", 32);
         m.put("tioka.knowledge.reindex-enabled", false);
+        // 关掉 OrchTimerPoller 的定时扫描，理由与上面 reindex-enabled=false 同构（闸门不依赖它），
+        // 但**动机更强**：本类不走 IntegrationTestSupport.register()，故那边的统一关闭覆盖不到这里。
+        // 而 spring.datasource.url 用的正是 TestContainers.PG（static final，同一 JVM 内所有 IT
+        // 共享一个 PG），且有 17 个用本类的 IT 是 @Tag("it")、与 OrchTimerIT 同在 backend job 运行。
+        // 这些上下文的 poller 若保持默认 true，会每 5s 以 SYSTEM principal 扫全表 orch_timer
+        // （claimDue 不按空间隔离 + FOR UPDATE SKIP LOCKED），与 OrchTimerIT 自己的 pollOnce()
+        // 争抢行锁，导致后者被 SKIP LOCKED 跳过、next_fire_at 未推进
+        // （2026-11-25 实测 OrchTimerIT.misfirePolicies:186 偶发 false）。
+        // 闸门用例不建 orch_timer 行、也不断言定时器自动触发，故关掉无副作用。
+        m.put("tioka.orch.timer-poll-enabled", false);
         // ENG-04d：双实例指标端点供 PrometheusScrapeSupport / MH-10 / FLW-14
         m.put("management.endpoints.web.exposure.include", "health,info,metrics,prometheus");
         m.put("management.endpoint.metrics.enabled", true);

@@ -50,7 +50,11 @@ class OrchTimerIT {
     static void containers(DynamicPropertyRegistry registry) {
         IntegrationTestSupport.register(registry);
         registry.add("tioka.messaging.mode", () -> "in-memory");
-        registry.add("tioka.orch.timer-poll-enabled", () -> "false");
+        // tioka.orch.timer-poll-enabled=false 已收敛到 IntegrationTestSupport.register()（2026-11-25），
+        // 不再于本类重复声明——避免同一配置键两处并存的语义分裂。收敛原因：本类关掉自己上下文的
+        // OrchTimerPoller **不足以自保**，因为 TestContainers.PG 是 static final（同 JVM 内所有 IT
+        // 共享一个 PG）且 Spring 会缓存并保持其它上下文活跃，那些上下文的 poller 仍在每 5s 扫同一张
+        // orch_timer 表，与下面的 pollOnce() 争抢 FOR UPDATE SKIP LOCKED 的行锁。必须在公共基座统一关掉。
     }
 
     @Autowired TestFixtures fixtures;
