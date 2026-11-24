@@ -269,8 +269,8 @@
   "workspace": {
     "adr": "ADR-029 第 60 条",
     "javaFiles": 487,
-    "javaMatchedLines": 2322,
-    "javaOccurrences": 2980,
+    "javaMatchedLines": 2323,
+    "javaOccurrences": 2981,
     "migrationsWithWorkspaceId": 36,
     "migrationsTotal": 84,
     "propagation": "forbidden-for-derived-apps",

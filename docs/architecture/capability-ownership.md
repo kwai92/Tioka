@@ -75,8 +75,8 @@ Workspace 不是多租户残留，而是 **ADR-029 第 60 条**定案的现任�
 | 项 | 数值 |
 | --- | --- |
 | 含 workspace 的 Java 文件 | 487 |
-| Java 中 workspace 匹配行数 | 2322 |
-| Java 中 workspace 字面出现次数 | 2980 |
+| Java 中 workspace 匹配行数 | 2323 |
+| Java 中 workspace 字面出现次数 | 2981 |
 | 含 `workspace_id` 的迁移 / 迁移总数 | 36 / 84 |
 | 核心机制 | `ScopeLineHandler` 行级 deny-by-default；`WorkspaceAwareDO` 基类；`PersistenceProperties` 旁路表白名单 |
 
@@ -86,6 +86,11 @@ Workspace 不是多租户残留，而是 **ADR-029 第 60 条**定案的现任�
 > `GfTiokaFoundationModeAuthzIT`（foundation 模式授权链路闸门，含 `workspace_admin` 角色名与
 > `workspaceId` 请求字段，与既有 IT 同惯例）+1 文件 / +12 行 / +12 次。**均无新增业务字段**。
 > 若将来要改成「剥离注释」口径，三处数字会同时变化，须一并同步本表与 JSON 清单。
+>
+> 2026-11-24 再 +1 行 / +1 次：`G3TimelineGateIT` 新增 `withCursor(...)` 辅助方法，用于按
+> `TimelinePageSpec` 的游标分页遍历时间线（修该闸门 ④-a / ④-b 偶发红，见工作日志）。该方法须
+> **原样保留** spec 的其余条件，故读取 `base.workspaceId()`。这不是新增业务字段，而是既有
+> 分页契约字段在测试辅助方法里的透传；若 Workspace 日后被废止，此处需随之调整，故计入渗透度是恰当的。
 
 它混了四种本该分开的职责：① 数据可见范围（可由 Foundation 组织树 + `DataScopeFilterProvider` 承接）；
 ② 资产与内容分组（空间级记忆、提示词库、知识库、配额、评测集，目前无替代概念）；
