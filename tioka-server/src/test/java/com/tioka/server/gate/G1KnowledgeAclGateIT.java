@@ -44,7 +44,8 @@ import static org.junit.jupiter.api.Assertions.*;
 /**
  * 闸门 G1：KNW-01、KNW-02。用例说明见 docs/architecture/construction/M1-04、M1-03。
  *
- * <p>运行环境：DualInstance + Testcontainers（PostgreSQL、Redis）+ LLM 桩（含 /embeddings）。
+ * <p>运行环境：DualInstance + Testcontainers（PostgreSQL、Redis）+ LLM 桩（承载 chat 与 kb.search 剧本）。
+ * <p>embedding 不走 HTTP 桩，而由 {@code mock://openai} 本地确定性生成，见 {@link #seedEmbeddingBinding}。
  */
 @Tag("gate")
 class G1KnowledgeAclGateIT {
@@ -67,7 +68,7 @@ class G1KnowledgeAclGateIT {
             Member member = createMember(ctx, adminBundle);
 
             String[] kbIds = principals.runAs(GateSeed.user(adminBundle.userId(), adminBundle.workspaceId()), () -> {
-                String embed = seedEmbeddingBinding(models, di.llm().baseUrl());
+                String embed = seedEmbeddingBinding(models);
                 var allowed = knowledge.createBase(adminBundle.workspaceId(), "g1-kb-allow", embed);
                 var denied = knowledge.createBase(adminBundle.workspaceId(), "g1-kb-deny", embed);
                 jdbc.update("UPDATE kb_base SET visibility = 'PRIVATE' WHERE id IN (?, ?)",
@@ -125,7 +126,7 @@ class G1KnowledgeAclGateIT {
 
             GateSeed.Bundle admin = GateSeed.seedPublishedAgent(ctx, di.llm().baseUrl());
             principals.runAs(GateSeed.user(admin.userId(), admin.workspaceId()), () -> {
-                String embed = seedEmbeddingBinding(models, di.llm().baseUrl());
+                String embed = seedEmbeddingBinding(models);
                 var kb = knowledge.createBase(admin.workspaceId(), "g1-embed-kb", embed);
                 knowledge.ingest(kb.id(), "d", "g1-embed-ingest-token", "upload");
                 knowledge.retrieve(List.of(kb.id()), "g1-embed-ingest-token", 3);
@@ -183,9 +184,26 @@ class G1KnowledgeAclGateIT {
         });
     }
 
-    private static String seedEmbeddingBinding(ModelAdminService models, String llmBaseUrl) {
+    /**
+     * embedding 绑定走 ProviderClient 的确定性 mock（本地 hashEmbed，dim=32），不走 HTTP 桩。
+     *
+     * <p>与 {@code G3KnowledgeRecallGateIT} 同款处置：两桩产出的向量逐字节相同
+     * （{@code ProviderClient.hashEmbed} 与 {@code LlmStubServer.hashEmbed} 算法一致——
+     * {@code v[Math.floorMod(bytes[i] + i, dim)] += 1.0f} 后 L2 归一化；前者用 {@code v.length}、
+     * 后者用 {@code dim}，而 {@code v = new float[dim]} 故两者相等），dim 均由本方法传入的 32 决定，
+     * 故切换不改变任何召回结果与断言。
+     *
+     * <p>换 mock 是为消除 turn 运行时高并发下 HTTP 连接偶发被拒（ConnectException）导致整个 turn FAILED：
+     * 本闸门验收的是知识库 ACL 隔离与 EMBEDDING 记账，不是「HTTP embed 客户端能否连上测试桩」，
+     * 用 mock 承载 embedding 是等价且更稳的选择（chat 仍走 {@code di.llm().baseUrl()} 承载 kb.search 剧本，
+     * 保留其验收价值）。EMBEDDING 记账不受影响：{@code DefaultModelGateway.embed} 在
+     * {@code provider.embed(...)} 返回后无条件 {@code account(...)}，与 mock/HTTP 分支无关，
+     * 故 {@link #embeddingGoesThroughGateway()} 的断言仍然成立
+     * （既有先例：{@code KnowledgeEmbeddingIT} 同样用 {@code mock://openai} 并断言记账 SUCCESS）。
+     */
+    private static String seedEmbeddingBinding(ModelAdminService models) {
         String id = Ids.newId("emb");
-        var provider = models.createProvider(new CreateProviderRequest(id + "-p", llmBaseUrl, "k"));
+        var provider = models.createProvider(new CreateProviderRequest(id + "-p", "mock://openai", "k"));
         String lm = models.createLogicalModel(new CreateLogicalModelRequest(id + "-m", "embed"));
         return models.createModelBinding(new CreateModelBindingRequest(lm, provider.id(), "text-embedding", "embedding", 32));
     }
