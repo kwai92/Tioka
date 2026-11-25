@@ -204,6 +204,50 @@
 | D7 | 是否会出现「一份 Foundation 服务给多个客户/多套环境」 | 若会，`deploymentId` 必须在 F3 落地并升级为部署一等公民；若确定单客户单实例，可降级为配置清理 | ADP-07 的范围 |
 | D8 | 第二个真实接入方是谁 | 建议选一个与 Tioka 形态差异最大的 B 类系统作为 GA 验收样例，避免「两个 Java 全量系统」验证不出适配性 | GA 总完成标准第 ③ 条 |
 
+> **编号歧义提示**：本节 D1〜D8 是**待负责人决策项**；第 1.3 节的 D1〜D9 是**欠账与缺口清单**（D1 Tioka 零接入、D2 `foundation-ui` 空壳、D3 无版本化契约、D4 事件单通道、D5 能力不可裁剪、D6 技术栈强绑定、D7 降级路径缺失、D8 独立仓不自包含、D9 接口占位）。两套编号**同名不同义**，引用时必须写明「§1.3 D5」或「§9 D5」，不可只写「D5」。
+
+### 9.1 拍板结论（2026-11-25 负责人确认）
+
+以下结论**均以当前代码实测为依据**（子仓 pin `8558993f`），不复述第 1.3 节的基线描述——该节是 11-15 基线，已被 §11〜§15 多批交付大面积推翻。
+
+| # | 结论 | 依据 / 落点 |
+| --- | --- | --- |
+| D1 | **已被事实回答，无需再拍**：F3 契约组先行已完成 | §11〜§15 五批已落地 ADP-01〜09、11、12（唯 ADP-10 前端包未做，依赖 F1 前端入库）；F2（37 人天）未开始 |
+| D2 | **已按建议落地**：服务端锁栈，适配性放接入侧 | `docs/contracts/compatibility-matrix-v1.json` 的 `server.lockedStack`（PostgreSQL / Redis / RocketMQ / Keycloak / MinIO）与 `notAdapted` 5 条；仍需按 ADR-030 走变更流程确认 |
+| D3 | **已按建议冻结**：服务端锁 3.2.12 + JDK 17 | 同上契约文件 `status: frozen-v1`，由 `scripts/verify-compatibility-matrix.mjs` 与 CI 矩阵共同守门（当前 RC=0） |
+| D4 | **拍板：身份与授权类不允许 fail-open** | 代码已按此默认（`DegradePolicy` 对 authz 恒 `FAIL_CLOSED`）。落地改点：`FoundationAuthzProperties.isStaleAllowed()` 固定为 `false`（或移除 `stale` 选项）。**在该改点落地前，生产不得启用 `stale`** |
+| D5 | **本批未拍，仍待决**（需与 D6 同时定） | 建议仍是「统一收进 `foundation-ui` 发 npm 包」。实测 `foundation-ui` 只有 `.gitkeep` 且**不在根 pom 的 24 个 module 中**；`tioka-ui` 有真实前端（127 文件 / 2985 行）但**零消费** Foundation 的 48 个 Controller |
+| D6 | **本批未拍，仍待决**（需负责人给真实地址与凭据注入方式） | 与 D5、ADP-12、N4 发版流水线是同一个结：不授权仓库则「客户只要 Foundation」无可复现构件路径 |
+| D7 | **已按「若会」方向落地，无需再拍** | `DeploymentNamespaceEnvironmentPostProcessor` + 其单测 + `deploy/compose.yml` + `KeyPrefixNamespaceTest`（§13 第三批 ADP-07） |
+| D8 | **拍板：暂缓** | 直接后果：`GfBizMigrationGateIT` 与 `GfFoundationE2EIT` 两条闸门**按判据「消费方先行」不得开工**——二者验收口径都依赖「合同业务系统」，而该系统全仓不存在（grep 无命中） |
+
+**本批同时拍板的另三项**（原不在 §9 表内，登记于此以免另开真相源）：
+
+| 事项 | 结论 | 说明 |
+| --- | --- | --- |
+| N9 病毒扫描 | **不做** | `NoopVirusScanHook` 维持默认装配，`scan()` 返回 `SKIPPED` 且不阻断上传下载（`FileService:68-70` 调完 `scan()` 即 `storage.put()`，无阻断分支）。这是**已知且接受的**状态，不再是「待补缺口」 |
+| N4 发版流水线 | **先不管** | 与硬边界「不 deploy 到任何 Maven 仓库」直接冲突。现状：`${env.FOUNDATION_REPO_URL}` 全仓无注入点、`.github/workflows/` 下只有 `ci.yml`，故 `mvn deploy` 在 CI 上完全不可达。**遗留文档不一致**：`docs/delivery/README.md:46` 声称该变量用于「发版 job」，而该 job 不存在——若长期不解决，应改文档而非留悬空承诺 |
+| `foundation-ui` | **独立处理** | 与 D5/D6 解耦推进；在 D5 拍板前不动，避免归属返工 |
+| N8 凭据加密 | **已做**（Foundation sync 侧） | 子仓 PR #10 / 主仓 PR #105：新增 `CredentialResolver` SPI 与 `ParamCredentialResolver`，复用既有 `ParamApi.secretValue` + `AesGcmParamCipher`（不造第三套 cipher）。**遗留边界**：Tioka 自己的 `tioka.feishu.app-secret`（`tioka-server/src/main/resources/application.yml:163`，走明文环境变量）是另一条链路，改它触及硬边界「不动 Tioka 业务行为」，**未动、需单独授权** |
+
+### 9.2 拍板后解锁的工作与仍被堵的工作
+
+**已解锁**（不需再拍板）：
+
+1. **补 GF 闸门**：F-00 §6.1 要求 12 条，实测只有 4 条在清单内，缺 8 条。其中 5 条可动（`GfSnapshotEventGateIT` 已于 2026-11-25 提交、`GfAccountLifecycleGateIT` 与 `GfSsoGateIT` 需 Keycloak、`GfOffboardingGateIT` 与 `GfSyncGateIT` 只能做部分形态）；`GfTiokaModeGateIT` 被 BAS-20 堵；`GfBizMigrationGateIT` 与 `GfFoundationE2EIT` 因 D8 暂缓而不得开工。
+   **这是 F2 的硬前置**：§3 表明确写 F2 的前置条件是「GF 通过」。
+2. **D4 落地**：把 `isStaleAllowed()` 固定为 `false`，使「身份授权类不允许 fail-open」从约定变成代码级硬约束（同时消解 `degradation.md §2.1` 记录的「两个决策出口并存」欠账）。
+3. **回写 F-00 §1 / §3.2**（§10 已要求的动作）：「BAS-FE-01/02/10/11 已在 M4 完成」的记录与实际仓库不符——实测这些工作落在 **`tioka-ui`** 而非 `foundation-ui`，后者仍只有 `.gitkeep`。
+
+**仍被堵**（需负责人给输入）：
+
+- **BAS-20**：全仓无 Tioka→中台用户供给机制，foundation 模式拿 Tioka `userId` 当 `personId` 查中台快照必全拒 → `GfTiokaModeGateIT` 完整形态无法开工，补齐要改用户体系。
+- **D5 + D6**：前端归属与仓库地址未定 → ADP-10（8 FE 人天）与企业级就绪度第 ⑦ 维无法推进。
+- **R4-07**：知识库嵌入绑定完整性（建库即拒 / ingest 入口拒）**暂缓**。风险仍在：`kb_base.embedding_binding_id` 可空，无绑定时 `embed(null,…)` 落到三级兜底即「用 chat 模型做 embedding」，现靠维度校验兜住。
+- **starter-mq 是否应生产依赖 starter-data**（S15 §5.2）**暂缓**：`OutboxDO` 依赖后者 TIMESTAMPTZ 桥接，现仅 test scope。
+
+> **本节是拍板结论的权威记录**。后续若再有拍板，追加为 §9.3 而**不改写**本节，以便保留决策时点与依据。
+
 ---
 
 ## 10. 需回写的文档
