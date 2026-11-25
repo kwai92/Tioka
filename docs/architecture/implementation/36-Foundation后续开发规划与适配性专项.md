@@ -234,8 +234,9 @@
 
 **已解锁**（不需再拍板）：
 
-1. **补 GF 闸门**：F-00 §6.1 要求 12 条，实测只有 4 条在清单内，缺 8 条。其中 5 条可动（`GfSnapshotEventGateIT` 已于 2026-11-25 提交、`GfAccountLifecycleGateIT` 与 `GfSsoGateIT` 需 Keycloak、`GfOffboardingGateIT` 与 `GfSyncGateIT` 只能做部分形态）；`GfTiokaModeGateIT` 被 BAS-20 堵；`GfBizMigrationGateIT` 与 `GfFoundationE2EIT` 因 D8 暂缓而不得开工。
+1. **补 GF 闸门**：F-00 §6.1 要求 12 条，实测只有 4 条在清单内，缺 8 条。**截至 2026-11-25 已补 2 条**（`GfSnapshotEventGateIT`、`GfAccountLifecycleGateIT`，均 CI gate job 实测通过），剩 6 条：`GfSsoGateIT` 需 Keycloak 且**须先核实「应用登记→自动开通 OIDC」的触发点是否真存在**（已知 `KeycloakOidcClientAdmin.upsert/regenerateSecret/delete` 与 `AppClientController` 的 `rotate-secret` 存在，但自动开通的接线点未核实）；`GfOffboardingGateIT` 与 `GfSyncGateIT` **只能做部分形态**（前者「记忆清理触发」不属 Foundation，后者「飞书测试租户同步正确」需外部真实租户），未覆盖点须在 javadoc 如实标注、**禁用 `@Disabled` 掩盖**；`GfTiokaModeGateIT` 被 BAS-20 堵；`GfBizMigrationGateIT` 与 `GfFoundationE2EIT` 因 D8 暂缓而不得开工。
    **这是 F2 的硬前置**：§3 表明确写 F2 的前置条件是「GF 通过」。
+   **补闸门的价值已实证**：`GfAccountLifecycleGateIT` 在 CI 上暴露了账号域的**真实装配缺陷**（见 §23）——该缺陷此前从未被任何测试发现，因为全仓从无 IT 端到端调过 `/api/accounts`。
 2. **D4 落地**：把 `isStaleAllowed()` 固定为 `false`，使「身份授权类不允许 fail-open」从约定变成代码级硬约束（同时消解 `degradation.md §2.1` 记录的「两个决策出口并存」欠账）。
 3. **回写 F-00 §1 / §3.2**（§10 已要求的动作）：「BAS-FE-01/02/10/11 已在 M4 完成」的记录与实际仓库不符——实测这些工作落在 **`tioka-ui`** 而非 `foundation-ui`，后者仍只有 `.gitkeep`。
 
@@ -954,3 +955,94 @@ Cedar 依赖（ArchUnit `cedarOnlyInGovernance` 要求只有 `PolicyEvaluator` �
 还原后两者均恢复 `118 passed / 0 failed`。其中命名守门首版因 Windows 路径分隔符
 （`\` vs `/`）退化为空集合恒真，经反向验证暴露并修复，详见 §22.5。
 
+
+---
+
+## 23. 账号域装配顺序缺陷（2026-11-25，由 GF 闸门暴露并修复）
+
+补 `GfAccountLifecycleGateIT`（子仓 PR #12）时，CI 首轮报
+`UnsatisfiedDependencyException: No qualifying bean of type 'com.foundation.account.api.AccountApi'`。
+排查确认这是**真实的生产装配缺陷**，不是测试写错。
+
+### 23.1 根因
+
+`AccountAutoConfiguration` 的 `@ConditionalOnBean` 要求 5 个 bean，其中
+**`StringRedisTemplate` 由 Spring Boot 的 `RedisAutoConfiguration` 提供**（Foundation 自己不提供），
+但它的 `@AutoConfigureAfter` 只列了 `FoundationDataAutoConfiguration` 与 `CommonAutoConfiguration`，
+**没有列 `RedisAutoConfiguration`**。而 `@ConditionalOnBean` 是**顺序敏感**的：
+
+> 若账号域先于 `RedisAutoConfiguration` 被评估 → `StringRedisTemplate` 尚未注册 → 条件不满足 →
+> **整个账号域静默不装配**（开通 / 停用 / 每日对账 / 离职联动 / 应急启用全都没有 bean），
+> 且失败形态是「No qualifying bean of type AccountApi」，**完全指不到真因**。
+
+**唯一性核实**（避免误判为普遍问题）：全仓只有 `AccountAutoConfiguration` 在 `@ConditionalOnBean`
+里要求 Spring Boot 提供的 bean。对比 `NotifyAutoConfiguration` 要的是 `PersonApi` / `GrantApi`
+（Foundation 自己的 bean，已被其 `@AutoConfigureAfter` 覆盖），故**只有账号域有此暴露**。
+
+### 23.2 为何此前从未被发现（这条比缺陷本身更值得记住）
+
+- gate job 里**只有本闸门**把账号域拉进 Spring 上下文并注入 `AccountApi`；
+- `GfSmokeIT` 只注入组件扫描的 `KeycloakAdminClient`，不依赖账号域装配；
+- 全仓**从未有 IT 端到端调过 `/api/accounts`**（实测 `api/accounts` 只在 `AccountCreateCmd`
+  与 `AccountApplicationService` 自身命中，无测试引用）；
+- 账号域的单元测试全用内存 stub，不启动 Spring 上下文，故装配顺序问题对它们完全不可见。
+
+→ **账号域的装配从未被任何测试验证过**。这是「闸门覆盖」与「单测覆盖」的本质差别：
+单测验算法，闸门验装配与真实中间件往返。缺陷能潜伏至今，正因为缺一层覆盖，而非覆盖不足。
+
+### 23.3 修法与边界
+
+`@AutoConfigureAfter` 补 `"org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration"`
+（Spring Boot 3.2.12 类名，与兼容矩阵锁定基线一致）。
+
+- **最小改动 +1 行注解**，不改行为语义；
+- **不动 `@ConditionalOnBean` 门槛**——该门槛本身是正确的：账号域确实需要 Redis 做
+  对账单实例锁（`AccountReconcileLock` 基于 `SET NX EX`）与应急启用存储（`EmergencyEnableStore`）；
+- 不改对外契约与接口签名，故**不涉及 ADR-030 变更流程**；
+- 影响面：让账号域在 Redis 已装配的正常部署下**稳定装配**（此前依赖自动配置评估顺序，属未定义行为）。
+
+### 23.4 顺带确认的一项：`USERNAME_MISMATCH` 是防御分支，不是缺陷
+
+闸门初版试图用 `keycloak.setUsername(...)` 人为制造登录名漂移，实测必然失败：
+`HTTP 400 error-user-attribute-read-only`。按「测试里会出问题 ≠ 生产里是缺陷」核实后确认**不可达**：
+
+- **Keycloak 侧**：测试 realm（`deploy/init/foundation-realm.json`）没有 `editUsernameAllowed`，
+  缺省 `false`（username 只读）→ 任何人都改不了 username；
+- **Foundation 侧**：`fdn_account.login_name` 的 DDL 注释是「全局唯一，**不回收**」，
+  `Account` domain 只有 `withStatus` 与 `withKeycloakUserId`、**没有 `withLoginName`**，
+  `AccountApplicationService` 也无改名入口。
+
+两侧都不可变 ⇒ 该漂移无法产生。故 `AccountReconcileJob.applyFix` 的 `USERNAME_MISMATCH` 分支是
+为「万一 realm 开了 `editUsernameAllowed`」准备的**防御分支**。用「人为制造真实环境不可能出现的
+状态」去测它，只会得到仅在测试里成立的断言，故闸门改为只造两类**真实可达**的漂移
+（`ENABLED_MISMATCH`、`REQUIRED_ACTIONS_MISMATCH`），该分支的算法仍由
+`ReconcileDiffTest.detectsEnabledAndUsernameAndRequiredActionsDrift` 覆盖。
+
+> **若将来生产 realm 开启 `editUsernameAllowed`**，`setUsername` 才会真正被调用，届时应补一条闸门覆盖
+> 该分支的端到端行为。当前不开启是合理的安全默认。
+
+### 23.5 验证
+
+子仓 PR #12 合并（`e6e2c080`），CI **9 个 check 全绿**。gate job 日志实测（不只看 job 绿）：
+
+| 闸门 | Tests run |
+| --- | --- |
+| `GfSmokeIT` | 3 |
+| `GfOrgImportGateIT` | 3 |
+| `GfPermissionGateIT` | 12 |
+| `GfDataScopeGateIT` | 5 |
+| `GfSnapshotEventGateIT` | 7 |
+| **`GfAccountLifecycleGateIT`** | **5（本批新增）** |
+
+`BUILD SUCCESS`，6 条闸门合计 35 个用例全绿。四个守门全绿
+（能力归属 122 / 权限码映射 69 / 平台接入契约 70 passed 0 failed，兼容矩阵 RC=0）。
+
+### 23.6 本轮沉淀的两条可复用判据
+
+1. **在测试里用 `Ids.newId` 派生唯一业务标识时，必须取完整 ULID 或其后段随机位，绝不能取前缀子串**——
+   单调 ULID 的前 10 字符是毫秒时间戳，紧密循环内会重复（本批实证：`substring(4,14)` 使同一毫秒内
+   两个登录名完全相同，撞 `uk_account_login_name`，且报错栈落在 `createPersonal`、
+   消息含「Keycloak 调用失败」，**形态上像容器不可达，实为造数不唯一**）。
+2. **`@ConditionalOnBean` 引用第三方（Spring Boot）提供的 bean 时，必须同步声明
+   `@AutoConfigureAfter` 该自动配置类**，否则装配结果取决于评估顺序（未定义行为），
+   且失败形态是「bean 不存在」而非「顺序错了」，极难定位。
