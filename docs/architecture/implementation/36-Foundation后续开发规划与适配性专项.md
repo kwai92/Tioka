@@ -234,7 +234,8 @@
 
 **已解锁**（不需再拍板）：
 
-1. **补 GF 闸门**：F-00 §6.1 要求 12 条，实测只有 4 条在清单内，缺 8 条。**截至 2026-11-25 已补 2 条**（`GfSnapshotEventGateIT`、`GfAccountLifecycleGateIT`，均 CI gate job 实测通过），剩 6 条：`GfSsoGateIT` 需 Keycloak 且**须先核实「应用登记→自动开通 OIDC」的触发点是否真存在**（已知 `KeycloakOidcClientAdmin.upsert/regenerateSecret/delete` 与 `AppClientController` 的 `rotate-secret` 存在，但自动开通的接线点未核实）；`GfOffboardingGateIT` 与 `GfSyncGateIT` **只能做部分形态**（前者「记忆清理触发」不属 Foundation，后者「飞书测试租户同步正确」需外部真实租户），未覆盖点须在 javadoc 如实标注、**禁用 `@Disabled` 掩盖**；`GfTiokaModeGateIT` 被 BAS-20 堵；`GfBizMigrationGateIT` 与 `GfFoundationE2EIT` 因 D8 暂缓而不得开工。
+1. **补 GF 闸门**：F-00 §6.1 要求 12 条，实测只有 4 条在清单内，缺 8 条。**截至 2026-11-25 已补 3 条**（`GfSnapshotEventGateIT`、`GfAccountLifecycleGateIT`、`GfSsoGateIT`，均 CI gate job 实测通过、核到 `Tests run` 计数），剩 5 条：`GfOffboardingGateIT` 与 `GfSyncGateIT` **只能做部分形态**（前者「记忆清理触发」不属 Foundation，后者「飞书测试租户同步正确」需外部真实租户），未覆盖点须在 javadoc 如实标注、**禁用 `@Disabled` 掩盖**；`GfTiokaModeGateIT` 被 BAS-20 堵；`GfBizMigrationGateIT` 与 `GfFoundationE2EIT` 因 D8 暂缓而不得开工。
+   （原记「`GfSsoGateIT` 须先核实自动开通 OIDC 触发点是否存在」——已核实：`AppRegistrar.register` 同事务内 `keycloak.upsert` 开通，接线完整，见 §24。）
    **这是 F2 的硬前置**：§3 表明确写 F2 的前置条件是「GF 通过」。
    **补闸门的价值已实证**：`GfAccountLifecycleGateIT` 在 CI 上暴露了账号域的**真实装配缺陷**（见 §23）——该缺陷此前从未被任何测试发现，因为全仓从无 IT 端到端调过 `/api/accounts`。
 2. **D4 落地**：把 `isStaleAllowed()` 固定为 `false`，使「身份授权类不允许 fail-open」从约定变成代码级硬约束（同时消解 `degradation.md §2.1` 记录的「两个决策出口并存」欠账）。
