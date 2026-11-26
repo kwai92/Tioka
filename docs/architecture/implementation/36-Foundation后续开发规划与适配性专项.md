@@ -234,8 +234,8 @@
 
 **已解锁**（不需再拍板）：
 
-1. **补 GF 闸门**：F-00 §6.1 要求 12 条，实测只有 4 条在清单内，缺 8 条。**截至 2026-11-25 已补 4 条**（`GfSnapshotEventGateIT`、`GfAccountLifecycleGateIT`、`GfSsoGateIT`、`GfOffboardingGateIT`，均 CI gate job 实测通过、核到 `Tests run` 计数，gate 累计 42 用例全绿），剩 4 条：`GfSyncGateIT` **只能做部分形态**（「飞书测试租户同步正确」需外部真实租户，可验 `DeleteProtectionPolicy` 与超阈值暂停），未覆盖点须在 javadoc 如实标注、**禁用 `@Disabled` 掩盖**；`GfTiokaModeGateIT` 被 BAS-20 堵；`GfBizMigrationGateIT` 与 `GfFoundationE2EIT` 因 D8 暂缓而不得开工。
-   （原记「`GfSsoGateIT` 须先核实自动开通 OIDC 触发点是否存在」——已核实：`AppRegistrar.register` 同事务内 `keycloak.upsert` 开通，接线完整，见 §24。`GfOffboardingGateIT` 同为部分形态：口径里的「两边会话失效」需 Tioka 与合同业务系统为接入方、「记忆清理触发」属 MEM-01，二者均在本闸门边界外，已由 `TiokaOffboardingIT` 与 `GfFoundationE2EIT` 承担，见 §32。）
+1. **补 GF 闸门**：F-00 §6.1 要求 12 条，实测只有 4 条在清单内，缺 8 条。**截至 2026-11-26 已补 5 条**（`GfSnapshotEventGateIT`、`GfAccountLifecycleGateIT`、`GfSsoGateIT`、`GfOffboardingGateIT`、`GfSyncGateIT`，均 CI gate job 实测通过、核到 `Tests run` 计数，**gate 累计 9 类 46 用例全绿**），剩 3 条：`GfTiokaModeGateIT` 被 BAS-20 堵；`GfBizMigrationGateIT` 与 `GfFoundationE2EIT` 因 D8 暂缓而不得开工（且 `GfFoundationE2EIT` 还需合同业务系统这一外部接入方，全仓无命中）。
+   （原记「`GfSsoGateIT` 须先核实自动开通 OIDC 触发点是否存在」——已核实：`AppRegistrar.register` 同事务内 `keycloak.upsert` 开通，接线完整，见 §24。`GfOffboardingGateIT` 与 `GfSyncGateIT` 同为**部分形态**：前者口径里的「两边会话失效」需 Tioka 与合同业务系统为接入方、「记忆清理触发」属 MEM-01；后者「飞书测试租户同步正确」需外部真实租户（字段映射正确性已由 `FeishuFieldMappingTest`/`DiffPreviewTest` 覆盖）。二者的未覆盖点均在 javadoc 如实标注、**未用 `@Disabled` 掩盖**，见 §32/§35。）
    （原记「`GfSsoGateIT` 须先核实自动开通 OIDC 触发点是否存在」——已核实：`AppRegistrar.register` 同事务内 `keycloak.upsert` 开通，接线完整，见 §24。）
    **这是 F2 的硬前置**：§3 表明确写 F2 的前置条件是「GF 通过」。
    **补闸门的价值已实证**：`GfAccountLifecycleGateIT` 在 CI 上暴露了账号域的**真实装配缺陷**（见 §23）——该缺陷此前从未被任何测试发现，因为全仓从无 IT 端到端调过 `/api/accounts`。
@@ -1048,3 +1048,92 @@ Cedar 依赖（ArchUnit `cedarOnlyInGovernance` 要求只有 `PolicyEvaluator` �
 2. **`@ConditionalOnBean` 引用第三方（Spring Boot）提供的 bean 时，必须同步声明
    `@AutoConfigureAfter` 该自动配置类**，否则装配结果取决于评估顺序（未定义行为），
    且失败形态是「bean 不存在」而非「顺序错了」，极难定位。
+
+---
+
+## 35. 同步域两个缺陷与一次「假绿」（2026-11-26，由 GfSyncGateIT 暴露）
+
+补 `GfSyncGateIT`（子仓 PR #15）过程中经三轮 CI 迭代暴露 **1 个真实生产缺陷 + 1 次测试假绿**。
+两者都属「单测永远测不到、只有真库+真 MyBatis 映射才暴露」的类型。
+
+### 35.1 真实生产缺陷：`Map.copyOf` 拒绝 null 值 → 删除保护路径永久 FAILED
+
+`LandedRecord` 构造器原用 `Map.copyOf(fields)`，而 **`Map.copyOf` 对 null 值抛 NPE**。
+`MybatisMasterDataPort.personFields` 会把 `fdn_person` 的可空列
+（`mobile_cipher`/`email_cipher`/`mobile_hash`/`email_hash`）原样放入 fields——
+**「人员没有手机号或邮箱」是完全正常的业务态**。于是同步引擎读取本地人员
+（`existingPersons` 与 `DiffPreviewService.preview` 都调 `listBySource`）时抛 NPE，
+且该异常被 `SyncEngine.execute` 的 catch 吞成任务 `FAILED`（`failed()` **不打异常栈**、
+errorCode 只记 `INTERNAL`），后果：
+
+> **生产中任何含空手机/邮箱的在职人员被同步时，删除保护暂停路径永远 FAILED、删除保护形同虚设。**
+
+**为何单测测不到**：sync 域单测用 `InMemoryMasterDataPort`，测试数据的字段都非空，从不走
+「可空 DB 列 → `personFields` → `Map.copyOf`」这条真实链路。
+
+**修法**：改用 `Collections.unmodifiableMap(new LinkedHashMap<>(fields))`——仍不可变、仍防御性复制，
+但容忍 null 值且**保持键集完整**（不跳过 null 键），使 `DiffPreviewService.changedFields` 的
+「本地无该键 vs 本地该键为 null」语义不变。javadoc 写明「刻意不用 `Map.copyOf`」及原因防回退。
+另补离线单测 `LandedRecordTest`（3 用例）使回归在**无 Docker 机器上也能自动判定**（判据③），
+并已**反向验证**：临时改回 `Map.copyOf` → 测试确实报 NPE 失败，证明非恒绿弱断言。
+
+> **可复用判据**：`Map.copyOf` / `List.copyOf` / `Set.copyOf` **拒绝 null 元素**，是 JDK 静默陷阱。
+> 凡 record 构造器对入参集合用 `*.copyOf` 而数据源含可空 DB 列，都是潜在 NPE 点。
+> 排查「异常被吞成 FAILED/INTERNAL 且无栈」时，优先怀疑 `*.copyOf(null)` 与 `requireNonNull`。
+> **同源隐患已登记未改**：`ExternalRecord.fields` 同样用 `Map.copyOf`，其数据源是外部适配器
+> （feishu/ldap）拉取的字段，是否含 null 取决于适配器实现——未核实前不动（判据⑤）。
+
+### 35.2 一次假绿：断言无法区分「所测机制」与「无关机制」
+
+`IdempotentUpserter.land` 开头有越界守卫：`!source.authority() && objectType != EXTERNAL_IDENTITY`
+→ **跳过主数据落地**并记 WARN「非权威来源越界」（javadoc：非权威来源只写 `fdn_external_identity`）。
+闸门初版把来源设为 `authority=false`，于是停用项被静默跳过、person 永不 DISABLED、**且不抛异常**
+（任务照样 SUCCEEDED）。这导致：
+
+- 「confirm 后应补落停用」必然失败（实际停用数 0）；
+- 更严重的是**「暂停时人员仍 ACTIVE」也成立**——但成立的原因是越界守卫跳过了落地，
+  **不是删除保护扣住了停用**。闸门会给出「删除保护生效」的**错误结论**。
+
+删除保护本就是为**权威来源**（有权改主数据者）设计的防线，故本闸门必须用权威来源才测到真语义。
+修法两处：① `seedSource` 改 `authority=true`，**DB 与 record 两处都要改**
+（`SyncEngine` 读的是传入 record 的 `source.authority()`，不回查数据库）；
+② 加日志证据断言把两种机制区分开——必须有含「停用差异超阈值」的 WARN（证明是删除保护），
+且必须**没有**含「非权威来源越界」的 WARN（排除守卫路径）。
+
+> **可复用判据（本批新增，比 §22 三条更细）**：**一条断言若能被「与所测语义无关的机制」满足，它就是假绿。**
+> 写「X 没发生」类断言时，必须同时钉住「是因为所测机制才没发生」的**正向证据**
+> （日志、状态字段、中间产物），否则任何上游短路都会让它通过。
+> 这与 §22.4 推论「设计意图 ≠ 实现意图」同源：**断言通过 ≠ 所测语义成立**。
+
+### 35.3 排查手法：分层前置自证把「笼统失败」变成「精确失败」
+
+`SyncEngine.execute` 对 `land` 抛的任何 `RuntimeException` 都 catch 并返回
+`SyncOutcome(failed_task, empty_diff, false)`，**且不打异常栈**——首轮 CI 只报出笼统的
+「`pause` 应为 true 却是 false」，无从定位。加**四层前置自证**后一轮即定位：
+① 假适配器是否被 `AdapterRegistry` 装载 → ② person 是否以正确 source 落库 →
+③ 任务是否 FAILED（并顺带查出 `fdn.sync.failed` 事件里的 errorCode）→ ④ diff 是否产生 DISABLE。
+这四层已固化为永久回归防护（非临时脚手架），并在 javadoc 写明分工。
+
+> 另注：③ 之所以有效，是因为 `execute` 虽吞栈但**会把 errorCode 落 outbox**
+> （`fdn.sync.failed`），故失败信息里带上该 payload 即可让「被吞的异常」仍可定位。
+> **凡生产代码吞异常，测试就该去找它留下的旁证（outbox / 状态字段 / 日志表），而不是要求它打栈。**
+
+### 35.4 验证
+
+子仓 PR #15 合并（`7327359b`），CI **9 个 check 全绿**。gate job 日志实测（不只看 job 绿）：
+
+| 闸门 | Tests run |
+| --- | --- |
+| `GfSmokeIT` | 3 |
+| `GfOrgImportGateIT` | 3 |
+| `GfPermissionGateIT` | 12 |
+| `GfDataScopeGateIT` | 5 |
+| `GfSnapshotEventGateIT` | 7 |
+| `GfAccountLifecycleGateIT` | 5 |
+| `GfSsoGateIT` | 3 |
+| `GfOffboardingGateIT` | 4 |
+| **`GfSyncGateIT`** | **4（本批新增）** |
+
+`BUILD SUCCESS`，**9 类闸门合计 46 用例全绿**。四个守门全绿
+（能力归属 122 / 权限码映射 69 / 平台接入契约 70 passed 0 failed，兼容矩阵 RC=0）。
+sync 域离线单测 35 个全绿（含新增 `LandedRecordTest` 3 个）。
